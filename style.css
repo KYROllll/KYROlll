@@ -95,7 +95,7 @@ button {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 10px 16px 10px;
+  padding: 0 16px 24px;
   border-bottom: 1px solid #222;
   position: relative;
   background: var(--black);
@@ -112,7 +112,7 @@ button {
 .header__nav-row {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
   justify-content: center;
 }
@@ -139,22 +139,29 @@ button {
   color: var(--white);
 }
 
+.catalog-label,
 .wallet-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  min-width: 168px;
+  min-height: 40px;
   background: var(--black);
   color: var(--white);
   border: 1px solid #444444;
   padding: 8px 16px;
   font-size: 11px;
   font-weight: 800;
+  line-height: 1.4;
   letter-spacing: 0.12em;
+  text-align: center;
+  text-decoration: none;
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
+.catalog-label:hover,
 .wallet-btn:hover {
   background: #222222;
   border-color: #ffffff;
@@ -223,11 +230,25 @@ button {
 .signature-section {
   width: 100%;
   background: var(--black);
-  padding: 8px 16px;
+  padding: 38px 16px 24px;
   text-align: center;
   box-sizing: border-box;
   overflow: hidden;
 }
+
+.brand-eyebrow { font-size: 9px; letter-spacing: .3em; color: var(--gray); }
+.brand-wordmark {
+  position: relative;
+  display: inline-block;
+  margin: 8px 0;
+  font-size: clamp(64px, 12vw, 116px);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -.075em;
+  text-transform: none;
+}
+.brand-wordmark__star { position: absolute; top: 8px; right: -28px; font-size: 24px; }
+.brand-tagline { font-family: Georgia, "Times New Roman", serif; font-size: 18px; font-style: italic; text-transform: none; letter-spacing: -.02em; }
 
 .signature-video {
   display: block;
@@ -1500,7 +1521,7 @@ button {
 
 @media (max-width: 600px) {
   .header {
-    padding: 36px 16px 32px;
+    padding: 0 16px 24px;
   }
   .grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));

@@ -1827,7 +1827,7 @@ async function disconnectWalletSession() {
   }
 
   const btnText = $("wallet-btn-text");
-  if (btnText) btnText.textContent = "CONNECT WALLET (KEN)";
+  if (btnText) btnText.textContent = "CONNECT WALLET";
   const walletBtnEl = $("wallet-btn");
   if (walletBtnEl) walletBtnEl.classList.remove("wallet-btn--holder");
   rebuildCatalog();
