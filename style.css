@@ -325,15 +325,35 @@ button {
 .brand-eyebrow { font-size: 9px; letter-spacing: .3em; color: var(--gray); }
 .brand-wordmark {
   position: relative;
+  isolation: isolate;
   display: inline-block;
   margin: 8px 0;
+  color: #000;
   font-size: clamp(64px, 12vw, 116px);
-  font-weight: 500;
+  font-weight: 800;
   line-height: 1;
   letter-spacing: -.075em;
   text-transform: none;
+  white-space: nowrap;
 }
-.brand-wordmark__star { position: absolute; top: 8px; right: -28px; font-size: 24px; }
+.brand-wordmark__layer {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  color: rgba(255, 255, 255, .65);
+  -webkit-text-stroke: 1px rgba(255, 255, 255, .9);
+  /* Shift the complete duplicate, including its identically positioned star. */
+  transform: translate(-.16em, -.16em);
+  pointer-events: none;
+  user-select: none;
+}
+.brand-wordmark__star {
+  position: absolute;
+  top: 8px;
+  right: -28px;
+  font-size: 24px;
+  color: inherit;
+}
 .brand-tagline { font-family: Georgia, "Times New Roman", serif; font-size: 18px; font-style: italic; text-transform: none; letter-spacing: -.02em; }
 
 @media (prefers-reduced-motion: reduce) {
