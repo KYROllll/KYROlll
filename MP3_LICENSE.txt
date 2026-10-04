@@ -1,11 +1,13 @@
 # License Agreement for Beat Store Products
 
-## Standard Non-Exclusive Lease
+## MP3 Non-Exclusive Lease
 
-This license grants the purchaser a **standard non-exclusive lease** for commercial and streaming use of the beats included in this store. The lease applies to:
+This license grants the purchaser an **MP3 non-exclusive lease** for commercial and streaming use of the beats included in this store. The lease applies to:
 
 - **Commercial Use**: Public performance, licensing, distribution, and any other commercial exploitation of the beats.
 - **Streaming Services**: Inclusion in YouTube, Spotify, Apple Music, Amazon Music, and other streaming platforms.
+
+The purchased audio deliverable for this tier is an untagged MP3 file. A WAV file is not included.
 
 ## Mandatory Credit
 

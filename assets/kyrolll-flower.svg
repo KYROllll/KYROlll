@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" fill="none">
+  <title>KYROlll — silver flower</title>
+  <defs>
+    <linearGradient id="rim" x1="40" y1="20" x2="265" y2="310" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff"/><stop offset=".2" stop-color="#83868b"/><stop offset=".36" stop-color="#f6f7f8"/><stop offset=".52" stop-color="#54575d"/><stop offset=".7" stop-color="#e7e8eb"/><stop offset="1" stop-color="#74777d"/>
+    </linearGradient>
+    <linearGradient id="face" x1="65" y1="25" x2="260" y2="295" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#d4d6d9"/><stop offset=".3" stop-color="#fafbfc"/><stop offset=".51" stop-color="#9da0a5"/><stop offset=".7" stop-color="#e3e5e8"/><stop offset="1" stop-color="#868a90"/>
+    </linearGradient>
+    <linearGradient id="petal" x1="141" y1="56" x2="177" y2="154" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff"/><stop offset=".32" stop-color="#c4c7cc"/><stop offset=".5" stop-color="#72767e"/><stop offset=".65" stop-color="#eff1f4"/><stop offset="1" stop-color="#a0a4aa"/>
+    </linearGradient>
+    <radialGradient id="center" cx=".3" cy=".22" r=".85">
+      <stop stop-color="#fff"/><stop offset=".35" stop-color="#e8eaed"/><stop offset=".7" stop-color="#8b8f96"/><stop offset="1" stop-color="#444951"/>
+    </radialGradient>
+    <path id="p" d="M160 145C147 133 132 107 135 82C137 64 149 53 160 53C174 53 185 68 185 85C185 109 172 134 160 145Z"/>
+  </defs>
+  <circle cx="160" cy="160" r="157" fill="url(#rim)" stroke="#70747a" stroke-width="2"/>
+  <circle cx="160" cy="160" r="148" fill="url(#face)" stroke="#fff" stroke-opacity=".7"/>
+  <circle cx="160" cy="160" r="138" stroke="#656970" stroke-opacity=".45"/>
+  <circle cx="160" cy="160" r="135" stroke="#fff" stroke-opacity=".8"/>
+  <g fill="#555a62" transform="translate(0 3)" stroke="#555a62" stroke-width="3">
+    <use href="#p"/><use href="#p" transform="rotate(45 160 160)"/><use href="#p" transform="rotate(90 160 160)"/><use href="#p" transform="rotate(135 160 160)"/><use href="#p" transform="rotate(180 160 160)"/><use href="#p" transform="rotate(225 160 160)"/><use href="#p" transform="rotate(270 160 160)"/><use href="#p" transform="rotate(315 160 160)"/>
+  </g>
+  <g fill="url(#petal)" stroke="#f5f6f8" stroke-width="1.5">
+    <use href="#p"/><use href="#p" transform="rotate(45 160 160)"/><use href="#p" transform="rotate(90 160 160)"/><use href="#p" transform="rotate(135 160 160)"/><use href="#p" transform="rotate(180 160 160)"/><use href="#p" transform="rotate(225 160 160)"/><use href="#p" transform="rotate(270 160 160)"/><use href="#p" transform="rotate(315 160 160)"/>
+  </g>
+  <circle cx="160" cy="162" r="27" fill="#60656d"/>
+  <circle cx="160" cy="159" r="26" fill="url(#center)" stroke="#f6f7f9" stroke-width="1.5"/>
+  <path d="M151 151L147 160L152 168M170 151L161 160L167 168" stroke="#656a72" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M58 103A119 119 0 0 1 130 43M189 277A120 120 0 0 0 268 215" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".8"/>
+</svg>

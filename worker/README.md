@@ -23,26 +23,33 @@ npx wrangler kv namespace create ORDERS     # paste the id into wrangler.toml
 npx wrangler secret put NOWPAYMENTS_API_KEY
 npx wrangler secret put NOWPAYMENTS_IPN_SECRET
 npx wrangler secret put RESEND_API_KEY
-npx wrangler secret put RESEND_FROM         # "KEN CARTER <noreply@your-verified-domain>"
-npx wrangler secret put BEAT_LINKS          # paste JSON from step below
-# Optional: BEAT_DROPS overrides the catalog schedule (see below).
-npx wrangler secret put BEAT_DROPS          # JSON (beatId → ISO drop time) — OPTIONAL
+npx wrangler secret put RESEND_FROM         # "KYROlll <noreply@your-verified-domain>"
+npx wrangler secret put BEAT_CATALOG       # JSON metadata for the new releases
+npx wrangler secret put BEAT_LINKS          # MP3 + WAV URLs from step below
 
 npm run deploy
 ```
 
-Beat releases are **fully automated — no manual cron, URL ping, or push needed**.
-The drop schedule comes from the `releaseAt` timers in `BEAT_CATALOG`
-(`worker/src/index.js`, kept in sync with `script.js`). The `scheduled` cron
-(wrangler.toml `[triggers]`, every 15 min) wakes the worker, and each due beat's
-subscribers are emailed exactly once (KV keys `notify-sent:<beatId>` and
-`notify-sent:<beatId>:<email>` dedupe both per-beat and per-user, so re-fires are
-idempotent). The optional `BEAT_DROPS` secret overrides/extends that schedule
-(beatId → ISO timestamp) when you want to reschedule a drop without redeploying.
+The catalog starts empty. Add new releases to `CATALOG` in `script.js` (each
+entry needs `id`, `title`, `name`, `img`, `bpm`, `key`, and `leases`; use
+`left: leases` for the initial stock), register matching IDs and titles in
+`BEAT_CATALOG`, and upload their files to `BEAT_LINKS`. Without a matching
+Worker catalog entry or purchased-format link, checkout is rejected.
+
+### In-browser audio previews
+
+Add `preview: "assets/previews/new-beat.mp3"` (or a direct hosted `.mp3`/`.wav`
+snippet URL) to a storefront catalog entry. This public snippet is separate
+from the full purchase files configured in `BEAT_LINKS`. Serve remote previews
+over HTTPS with the appropriate audio content type and byte-range support for
+seeking. The preview loads on the first play click, and starting another beat
+pauses the previous one. A keyboard-accessible seek bar shows elapsed/total
+time. Keep `youtube` for the subtle fallback link; entries without `preview`
+show an availability note instead of a broken player.
 
 ## Send emails with Resend (free tier)
 
-All worker mail (`/api/notify-beat`, `/api/notify-drop`, `/api/notify-closure`,
+All worker mail (`/api/notify-beat`, `/api/notify-drop`,
 and the order confirmation after a `finished` IPN) is sent via the
 [Resend API](https://resend.com) — the free plan is 3,000 emails/month and
 delivers straight to the customer (no auto-reply feature to configure). Setup:
@@ -53,7 +60,7 @@ delivers straight to the customer (no auto-reply feature to configure). Setup:
 3. Deploy the two secrets:
    ```bash
    npx wrangler secret put RESEND_API_KEY         # re_… from the dashboard
-   npx wrangler secret put RESEND_FROM            # "KEN CARTER <noreply@your-domain>"
+    npx wrangler secret put RESEND_FROM            # "KYROlll <noreply@your-domain>"
    ```
    The sender domain must be the verified one. (The placeholder
    `onboarding@resend.dev` provided by Resend only delivers to the account
@@ -72,15 +79,28 @@ are deployed with `npx wrangler secret list`.
 - `POST /api/notify-drop` — `{ beatId, beatName }`. Emails all subscribers of
   that beat that it's now live. Sends at most once per beat **and per email**
   (`notify-sent:<beatId>` / `notify-sent:<beatId>:<email>` KV keys). The
-  `scheduled` cron calls this automatically for every due catalog drop.
+  This endpoint can be called when announcing a new catalog addition.
 
 ## BEAT_LINKS value (paste when prompted — keep out of git)
 
+Upload separate untagged MP3 and WAV files for every beat before opening
+checkout. Configure `BEAT_LINKS` with both formats; the Worker rejects carts
+whose purchased format has no URL, so buyers are never charged for a missing
+file. Exclusive orders use the WAV link. Existing string values remain valid
+for WAV/exclusive purchases, but do **not** supply an MP3 file. Alternatively,
+set `MP3_LINKS` as a JSON object of beat IDs to MP3 URLs alongside legacy
+string `BEAT_LINKS` values.
+
 ```json
-{"beat1":"https://drive.google.com/uc?export=download&id=1TIk-Yn1JRcUcNrazPb2MQj1-Aj-nYA7I","beat2":"https://drive.google.com/uc?export=download&id=1gfei4yTBXG0RSJ9lb2MeKnbxeZ6WPmok","beat3":"https://drive.google.com/uc?export=download&id=1BWZZkNSX6ckWC1CUuyQzsV9w1Vb1Rzfb","beat4":"https://drive.google.com/uc?export=download&id=1pfygraPifGckX5X-ZzIf6lZVftSVrc31","beat5":"https://drive.google.com/uc?export=download&id=1RMQh5uFfhgUzYt7r0DkaExl_kveYu_-0","beat6":"https://drive.google.com/uc?export=download&id=128f5lN8Xb5XeZ8AUe40cEhDNQy768Utj","beat7":"https://drive.google.com/uc?export=download&id=1lCqpxI0GHVInSpLS23LZbJVpXNovRNUL"}
+{"new-beat-id":{"mp3":"https://files.example/new-beat.mp3","wav":"https://files.example/new-beat.wav"}}
 ```
 
-Keys must match the `id` fields in script.js (`beat1` … `beat7`).
+The delivery email contains format-specific download links plus PDF and TXT
+license attachments; payment status also exposes the appropriate file link.
+
+Keys must match the `id` fields in `script.js` and `BEAT_CATALOG`. For example,
+set `BEAT_CATALOG` to `{"new-beat-id":{"title":"BEAT 01","name":"New Beat"}}`.
+Configure a URL for each format you intend to sell.
 
 ## Finish line
 

@@ -12,6 +12,9 @@ const MIME_TYPES = {
   ".js": "text/javascript",
   ".json": "application/json",
   ".png": "image/png",
+  ".gif": "image/gif",
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".svg": "image/svg+xml",
@@ -48,5 +51,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`KEN CARTER store preview server running at http://localhost:${PORT}`);
+  console.log(`KYROlll store preview server running at http://localhost:${PORT}`);
 });

@@ -1,5 +1,5 @@
 /**
- * KEN CARTER — checkout enforcement Worker
+ * KYROlll — checkout enforcement Worker
  * ────────────────────────────────────────────────────────────────────────
  * All NOWPayments traffic + download-link custody lives HERE, never in the
  * site's public JavaScript.
@@ -14,35 +14,25 @@
  *   GET  /api/status?order_id=…   live payment status (+ links ONLY if released)
  *   POST /api/ipn                 NOWPayments webhook — HMAC-SHA512 verified;
  *                                 releases links + emails them on 'finished'
- *   POST /api/notify-beat         per-beat "notify me when it drops" signup
- *   POST /api/notify-drop         email a beat's subscribers that it is now live
- *   POST /api/release             secure broadcast — new beat release to all subscribers
- *                                 (requires Authorization: Bearer <DISPATCH_SECRET>)
- *   GET  /api/release?secret=…     same trigger via query param (manual/instant only)
- *   scheduled                     cron → notifyDueDrops() automates beat releases
- *                                 straight from BEAT_CATALOG.releaseAt timers; no
- *                                 manual cron/URL upkeep (see wrangler.toml [triggers])
  *
  * Secrets (wrangler secret put …):
  *   NOWPAYMENTS_API_KEY     payments API key
  *   NOWPAYMENTS_IPN_SECRET  IPN signing secret (dashboard → IPN settings)
  *   RESEND_API_KEY          transaction email API key (free tier: 3k/mo)
- *   RESEND_FROM             verified sender, e.g. "KEN CARTER <noreply@…>"
+ *   RESEND_FROM             verified sender, e.g. "KYROlll <noreply@…>"
  *   DISPATCH_SECRET         shared secret for /api/release (optional — a hardcoded
  *                           fallback "kencarter-release-2026!" is also accepted)
- *   BEAT_LINKS              JSON: { "beat1": "https://drive…", … }
- *   BEAT_DROPS              JSON: { "beatId": "ISO drop time", … } — OPTIONAL.
- *                           Overrides/reschedules the BEAT_CATALOG releaseAt
- *                           timers that otherwise drive the automated drops.
+ *   BEAT_CATALOG            JSON: { "new-id": { "title": "BEAT 01", "name": "…" }, … }
+ *   BEAT_LINKS              JSON: { "new-id": { "mp3": "https://…", "wav": "https://…" }, … }
+ *                           Legacy string entries remain WAV-only.
  *
  * Bindings: KV namespace "ORDERS" (see wrangler.toml).
  */
 
+import { brandedEmailHtml, LOGO_URL, SITE_URL } from "./brand-email.js";
+
 const NP_API = "https://api.nowpayments.io/v1";
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
-
-const LOGO_URL = "https://www.kencarter.abrdns.com/assets/logo.jpg";
-const SITE_URL = "https://www.kencarter.abrdns.com";
 
 const KEN_MINT = "HEFkC6WQo3jTv39B6JhYQJ3ZW8xKxRELaWdnirdSpump";
 const MERCHANT_SOL_ADDRESS = "U8rFsuwmY5bXftVwmJt43VYApgFE6MbEhZbUcXwamnS";
@@ -114,42 +104,48 @@ function beatLinks(env) {
   }
 }
 
-// ── Beat catalog (mirrors script.js) ───────────────────────────────────
-// Kept in sync with the storefront definition so release / notify emails
-// include real titles, BPM, key, and YouTube previews, and so
-// the automated drop schedule (releaseAt) needs NO manual cron or secret.
-const BEAT_CATALOG = {
-  // ── Season 01 ──
-  beat1: { title: "BEAT 01", name: "CH$\u00a3$$",        bpm: 140, key: "E MIN",  tag: "SEASON 01", youtube: "https://youtu.be/EtIy63bCyEc" },
-  beat2: { title: "BEAT 02", name: "AnGeLL",             bpm: 75,  key: "G# MIN", tag: "SEASON 01", youtube: "https://youtu.be/Y4CY1Qb4e4s" },
-  beat3: { title: "BEAT 03", name: "DIAMONS IN THE BAG", bpm: 130, key: "A# MIN", tag: "SEASON 01", youtube: "https://youtu.be/orkevqUH0bM" },
-  beat4: { title: "BEAT 04", name: "$$$",                bpm: 140, key: "G MIN",  tag: "SEASON 01", youtube: "https://youtu.be/bRudvWoy7RY" },
-  beat5: { title: "BEAT 05", name: "HIGH VIEW",          bpm: 168, key: "C MIN",  tag: "SEASON 01", youtube: "https://youtu.be/12qPZNM2fe0" },
-  beat6: { title: "BEAT 06", name: "PROTOCOL",           bpm: 135, key: "G# MIN", tag: "SEASON 01", youtube: "https://youtu.be/xk_SSDX4vZE" },
-  beat7: { title: "BEAT 07", name: "LAST SEAT",          bpm: 140, key: "G# MIN", tag: "SEASON 01", releaseAt: "2026-08-23T17:00:00Z", youtube: "https://youtu.be/p7vyAIsWKQw" },
-  // ── Season 02 ──
-  "s2-beat1": { title: "BEAT 01", name: "ART",           bpm: 126, key: "C# MIN", tag: "SEASON 02", releaseAt: "2026-09-01T17:00:00Z", youtube: "https://youtu.be/LeARirM_bl0" },
-  "s2-beat2": { title: "BEAT 02", name: "Take the CROW", bpm: 130, key: "D# MIN", tag: "SEASON 02", releaseAt: "2026-09-05T17:00:00Z", youtube: "https://youtu.be/ZptaYX0g8uU" },
-  "s2-beat3": { title: "BEAT 03", name: "Late Night",     bpm: 138, key: "E MIN",  tag: "SEASON 02", releaseAt: "2026-09-09T17:00:00Z", youtube: "https://youtu.be/EpV_G80aKQU" },
-  "s2-beat4": { title: "BEAT 04", name: "Antinous",       bpm: 130, key: "F MIN",  tag: "SEASON 02", releaseAt: "2026-09-13T17:00:00Z", youtube: "https://youtu.be/PD4qibTpR_s" },
-  "s2-beat5": { title: "BEAT 05", name: "4 AM",           bpm: 166, key: "F# MIN", tag: "SEASON 02", releaseAt: "2026-09-17T17:00:00Z", youtube: "https://youtu.be/alA-itPRkt4" },
-  "s2-beat6": { title: "BEAT 06", name: "White",          bpm: 119, key: "B MIN",  tag: "SEASON 02", releaseAt: "2026-09-21T17:00:00Z", youtube: "https://youtu.be/nl2M-EaCrrk" },
-  "s2-beat7": { title: "BEAT 07", name: "Rewind",         bpm: 132, key: "G MIN",  tag: "SEASON 02", releaseAt: "2026-09-25T17:00:00Z", youtube: "https://youtu.be/WZLsWpzFJAs" }
-};
+const TIER_PRICES = { mp3: 9.95, wav: 14.95, exclusive: 299.95 };
 
-function lookupBeat(beatId) {
-  return BEAT_CATALOG[beatId] || null;
+// Links are held only in Worker configuration. Never substitute a WAV link for
+// a missing MP3 (or vice versa); a pending row makes missing uploads visible.
+function orderLinks(env, items) {
+  const map = beatLinks(env);
+  let mp3 = {};
+  try { mp3 = JSON.parse(env.MP3_LINKS || "{}"); } catch {}
+  return items.map(({ id, title, tier, isExclusive }) => {
+    const kind = tier || (isExclusive ? "exclusive" : "wav");
+    const files = map[id];
+    const url = kind === "mp3" ? (typeof files === "object" && files?.mp3) || mp3[id]
+      : (typeof files === "string" ? files : files?.wav || files?.exclusive);
+    return { id, title, tier: kind, url: url || null, isExclusive: kind === "exclusive" };
+  });
+}
+
+// No legacy beats are on sale. Configure new releases in BEAT_CATALOG with
+// IDs/titles matching script.js; checkout rejects all IDs until then.
+function beatCatalog(env) {
+  try {
+    const catalog = JSON.parse(env.BEAT_CATALOG || "{}");
+    return catalog && !Array.isArray(catalog) && typeof catalog === "object" ? catalog : {};
+  } catch {
+    return {};
+  }
+}
+
+function lookupBeat(beatId, env) {
+  const catalog = beatCatalog(env);
+  return Object.hasOwn(catalog, beatId) ? catalog[beatId] : null;
 }
 
 // Resolve a beatId to its display label + catalog details for emails.
-//   "Late Night — BEAT 03 | SEASON 02"
+//   "Late Night — BEAT 10"
 // Falls back to the formatted id when the beat is not in the catalog, so
 // unknown/upcoming beats still produce a sensible personalization.
-function describeBeat(bId) {
+function describeBeat(bId, env) {
   const label = formatBeatId(bId);
-  const entry = lookupBeat(bId) || {};
+  const entry = lookupBeat(bId, env) || {};
   const name = entry.name || label;
-  const title = entry.title && entry.tag ? `${entry.title} | ${entry.tag}` : label;
+  const title = entry.title || label;
   return {
     label,
     name,
@@ -164,7 +160,7 @@ function describeBeat(bId) {
 // Inline anchor for a row value inside notificationHtml (values are raw HTML).
 function linkHtml(href, text) {
   return href
-    ? `<a href="${esc(href)}" target="_blank" rel="noopener" style="color:#f2f2f2;font-weight:600;text-decoration:underline;">${esc(text)} →</a>`
+    ? `<a href="${esc(href)}" target="_blank" rel="noopener" style="color:#1c1b18;font-weight:600;text-decoration:underline;">${esc(text)} →</a>`
     : "<span style=\"color:#555555;\">—</span>";
 }
 
@@ -298,19 +294,12 @@ export async function verifyIpnSignature(ipnSecret, rawBody, signature) {
   return false;
 }
 
-// Parse a beat ID like "s2-beat3" or "beat5" into a clean display label.
-//   "s2-beat3"  → "BEAT 03 | SEASON 02"
-//   "beat5"     → "BEAT 05 | SEASON 01"
-//   anything else → uppercased as-is (fallback)
 function formatBeatId(raw) {
   const s = String(raw || "").trim();
-  // Season-prefixed: s<season>-beat<number>
   let m = s.match(/^s(\d+)-beat(\d+)$/i);
-  if (m) return `BEAT ${m[2].padStart(2, "0")} | SEASON ${m[1].padStart(2, "0")}`;
-  // Bare: beat<number> (season 01)
+  if (m) return `BEAT ${String(Number(m[2]) + 7).padStart(2, "0")}`;
   m = s.match(/^beat(\d+)$/i);
-  if (m) return `BEAT ${m[1].padStart(2, "0")} | SEASON 01`;
-  // Fallback: return uppercased original
+  if (m) return `BEAT ${m[1].padStart(2, "0")}`;
   return s.toUpperCase() || "NEW BEAT";
 }
 
@@ -346,60 +335,28 @@ function base64Encode(str) {
   return btoa(bin);
 }
 
-// Shared dark/monochrome HTML template for notification emails
-// (beat-drop signup, beat-drop live, season-closure). Fully inline-styled
+// Shared luxury beige HTML template for notification emails
+// (beat signup and availability announcements). Fully inline-styled
 // for maximum email-client compatibility; `text` fallback is set by callers.
 function notificationHtml({ eyebrow, title, subtitle, rows, cta }) {
   const details = rows
     .map(
       ([label, value]) =>
         `<tr>` +
-        `<td style="padding:10px 0;font-size:10px;line-height:1.4;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;color:#6b6b6b;border-bottom:1px solid #191919;vertical-align:top;">${esc(label)}</td>` +
-        `<td style="padding:10px 0;font-size:12px;line-height:1.5;color:#f2f2f2;text-align:right;font-weight:600;border-bottom:1px solid #191919;vertical-align:top;">${value}</td>` +
+        `<td style="padding:10px 0;font-size:10px;line-height:1.4;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;color:#71695e;border-bottom:1px solid #d5cec2;vertical-align:top;">${esc(label)}</td>` +
+        `<td style="padding:10px 0;font-size:12px;line-height:1.5;color:#1c1b18;text-align:right;font-weight:600;border-bottom:1px solid #d5cec2;vertical-align:top;">${value}</td>` +
         `</tr>`
     )
     .join("");
   const ctaHtml = cta
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" style="padding-top:22px;">
-         <a href="${esc(cta.url)}" target="_blank" rel="noopener" style="display:inline-block;padding:13px 36px;background-color:#f5f5f5;color:#000000;font-size:11px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;text-decoration:none;">${esc(cta.label)} →</a>
+         <a href="${esc(cta.url)}" target="_blank" rel="noopener" style="display:inline-block;padding:13px 36px;background-color:#1c1b18;color:#f4f1ea;font-size:11px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;text-decoration:none;">${esc(cta.label)} →</a>
        </td></tr></table>`
     : "";
-  return (
-    `<!DOCTYPE html><html lang="en">` +
-    `<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">` +
-    `<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark">` +
-    `<title>${esc(title)} — KEN CARTER</title></head>` +
-    `<body style="margin:0;padding:0;background-color:#000000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#ffffff;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">` +
-    `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${esc(title)} — KEN CARTER&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;</div>` +
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#000000" style="background-color:#000000;border-collapse:collapse;">` +
-    `<tr><td align="center" style="padding:28px 12px;">` +
-    `<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;margin:0 auto;border:1px solid #222222;border-collapse:collapse;">` +
-    // header — logo
-    `<tr><td align="center" style="padding:36px 20px 24px;border-bottom:1px solid #1a1a1a;">` +
-    `<a href="${SITE_URL}" target="_blank" rel="noopener" style="text-decoration:none;">` +
-    `<img src="${LOGO_URL}" alt="KEN CARTER" width="170" style="display:block;width:170px;max-width:170px;height:auto;border:0;outline:none;text-decoration:none;" />` +
-    `</a></td></tr>` +
-    // title block
-    `<tr><td align="center" style="padding:30px 24px 0;">` +
-    `<div style="font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#7a7a7a;margin-bottom:10px;">${esc(eyebrow)}</div>` +
-    `<h1 style="font-size:17px;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin:0;color:#ffffff;line-height:1.4;">${esc(title)}</h1>` +
-    `<p style="font-size:11px;color:#777777;letter-spacing:1px;text-transform:uppercase;margin:8px 0 0;">${subtitle ? esc(subtitle) : "KEN CARTER"}</p>` +
-    `</td></tr>` +
-    // details box
-    `<tr><td style="padding:26px 26px 34px;">` +
-    `<div style="background-color:#0b0b0b;border:1px solid #2a2a2a;padding:20px 22px;">` +
-    `<div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#8a8a8a;border-bottom:1px solid #222222;padding-bottom:10px;">NOTIFICATION DETAILS</div>` +
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">${details}</table>` +
-    `${ctaHtml}` +
-    `</div></td></tr>` +
-    // footer
-    `<tr><td align="center" style="padding:26px 20px;border-top:1px solid #1a1a1a;background-color:#050505;">` +
-    `<p style="font-size:10px;color:#555555;margin:0 0 8px;letter-spacing:1px;">KEN CARTER — ALL RIGHTS RESERVED</p>` +
-    `<p style="font-size:10px;color:#434343;margin:0;"><a href="${SITE_URL}" target="_blank" rel="noopener" style="color:#666666;text-decoration:none;">kencarter.abrdns.com</a></p>` +
-    `</td></tr>` +
-    `</table></td></tr></table>` +
-    `</body></html>`
-  );
+  return brandedEmailHtml({
+    eyebrow, title, subtitle,
+    content: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${details}</table>${ctaHtml}`
+  });
 }
 
 // Full legal text for the standard non-exclusive lease. This constant is the
@@ -418,7 +375,7 @@ This license grants the purchaser a **standard non-exclusive lease** for commerc
 
 All deliverables must include the following mandatory credit:
 
-**"Prod. by Ken Carter"**
+**"Prod. by KYROlll"**
 
 This credit must appear prominently on all digital copies, downloads, and promotional materials associated with the purchased beats.
 
@@ -426,7 +383,7 @@ This credit must appear prominently on all digital copies, downloads, and promot
 
 ### Creator Retention
 
-**Ken Carter** (the creator) retains **all ownership, copyright, and master rights** to the beats, recordings, and related intellectual property. No transfer of ownership or master rights occurs upon purchase. The purchaser receives only a limited, non-exclusive license to use the beats under the terms specified above.
+**KYROlll** (the creator) retains **all ownership, copyright, and master rights** to the beats, recordings, and related intellectual property. No transfer of ownership or master rights occurs upon purchase. The purchaser receives only a limited, non-exclusive license to use the beats under the terms specified above.
 
 ### Licensor Responsibilities
 
@@ -447,11 +404,15 @@ Either party may terminate this license by providing written notice. Upon termin
 
 ## Governing Law
 
-This agreement is governed by the laws of the jurisdiction in which Ken Carter resides, without regard to conflict of law principles.
+This agreement is governed by the laws of the jurisdiction in which KYROlll resides, without regard to conflict of law principles.
 
 ---
 
 *This license is intended for personal and commercial use only. Unauthorized reproduction, modification, or redistribution of the beats beyond the scope of this license is strictly prohibited.*`;
+
+const MP3_LICENSE_TEXT = LICENSE_TEXT.replace("## Standard Non-Exclusive Lease", "## MP3 Non-Exclusive Lease")
+  .replace("This license grants the purchaser a **standard non-exclusive lease**", "This license grants the purchaser an **MP3 non-exclusive lease**")
+  .replace("## Mandatory Credit", "The purchased audio deliverable for this tier is an untagged MP3 file. A WAV file is not included.\n\n## Mandatory Credit");
 
 // Full legal text for the Exclusive Master Rights transfer. This constant is
 // the worker's email-embedded copy and MUST match the physical deliverable at
@@ -462,19 +423,19 @@ const EXCLUSIVE_LICENSE_TEXT = `# EXCLUSIVE MASTER RIGHTS LICENSE AGREEMENT
 
 This Exclusive Master Rights License Agreement ("Agreement") is entered into between:
 
-**LICENSOR**: Ken Carter ("Producer")
+**LICENSOR**: KYROlll ("Producer")
 **LICENSEE**: The purchaser identified by email in the delivery records ("Buyer")
 
 ## EXCLUSIVE RIGHTS GRANTED
 
-Upon full payment of the exclusive license fee, Ken Carter hereby irrevocably grants to the Buyer the following exclusive rights:
+Upon full payment of the exclusive license fee, KYROlll hereby irrevocably grants to the Buyer the following exclusive rights:
 
 ### 1. Full Master Rights Transfer
 The Producer transfers **ALL ownership, copyright, and master rights** for the purchased beat(s) to the Buyer. The Buyer shall own the exclusive master recording and all associated intellectual property rights.
 
 ### 2. Exclusive Ownership
 - The beat shall be **permanently removed from sale** and will never be sold, licensed, or distributed to any other party.
-- Ken Carter retains only a **producer credit** ("Prod. by Ken Carter") in the metadata, which must remain intact.
+- KYROlll retains only a **producer credit** ("Prod. by KYROlll") in the metadata, which must remain intact.
 
 ### 3. Commercial Exploitation Rights
 The Buyer receives unlimited commercial rights including:
@@ -489,7 +450,7 @@ The Buyer receives unlimited commercial rights including:
 | Right | Transferred to Buyer |
 |-------|---------------------|
 | Master Recording Copyright | YES — Exclusive |
-| Beat/Composition Copyright | NO — Retained by Ken Carter |
+| Beat/Composition Copyright | NO — Retained by KYROlll |
 | Mechanical Rights | YES — Exclusive |
 | Sync Rights | YES — Exclusive |
 | Performance Rights | YES — Exclusive |
@@ -498,34 +459,34 @@ The Buyer receives unlimited commercial rights including:
 
 ### 5. Producer Credit Preservation
 The Buyer agrees to maintain the following credit on all releases:
-**"Prod. by Ken Carter"**
+**"Prod. by KYROlll"**
 
 This credit must appear in the production credits/metadata of any release incorporating this beat.
 
 ### 6. Prohibited Actions by Producer
-Ken Carter agrees and warrants that:
+KYROlll agrees and warrants that:
 - The beat will be **immediately marked as exclusive_sold** upon delivery confirmation
 - The beat will **never be resold, re-licensed, or made available** to any other party
 - No stems, tracks, or component files will be sold to other buyers
-- The beat will be **permanently retired** from the Ken Carter catalog
+- The beat will be **permanently retired** from the KYROlll catalog
 
 ### 7. Buyer's Obligations
 The Buyer agrees to:
-- Maintain the producer credit ("Prod. by Ken Carter") in all distributions
+- Maintain the producer credit ("Prod. by KYROlll") in all distributions
 - Use the beat in compliance with all applicable laws
 - Provide accurate contact information for delivery purposes
 
 ### 8. Delivery Confirmation
 Upon successful payment verification and delivery:
 - The Buyer will receive: **WAV files (untagged) + Exclusive_License.txt**
-- The beat will be **permanently removed** from the Ken Carter beat store
+- The beat will be **permanently removed** from the KYROlll beat store
 - The Buyer assumes **full ownership** of the master recording
 
 ### 9. Termination
 This Agreement is binding and irrevocable once payment is confirmed. No refunds are provided for exclusive purchases after delivery confirmation.
 
 ## GOVERNING LAW
-This Agreement is governed by the laws of the jurisdiction in which Ken Carter resides, without regard to conflict of law principles.
+This Agreement is governed by the laws of the jurisdiction in which KYROlll resides, without regard to conflict of law principles.
 
 ---
 
@@ -533,11 +494,11 @@ This Agreement is governed by the laws of the jurisdiction in which Ken Carter r
 
 By downloading and using this beat, the Buyer acknowledges and agrees to all terms stated herein.
 
-*Ken Carter — Producer — All Rights Reserved*`;
+*KYROlll — Producer — All Rights Reserved*`;
 
 // ── Styled license PDFs (hand-rolled — zero dependencies) ────────────────
 // Workers can't bundle a PDF library, so this emitter builds valid A4 PDFs
-// directly: a clean double border, the Ken Carter logo (fetched JPEG, with a
+// directly: a clean double border, the KYROlll logo (fetched JPEG, with a
 // typographic fallback when the logo isn't reachable), the license title, a
 // metadata block (licensee email, exact order date, purchased beats, amount
 // paid), the full license terms with automatic pagination + page numbers, and
@@ -628,7 +589,7 @@ function pdfParagraphs(src) {
     line = line.replace(/^#{2,3}\s+/, "").replace(/^\*\*/, "").replace(/\*\*$/, "").replace(/\*$/, "").trim();
     if (!line) continue;
     const bold =
-      /\bProd\. by Ken Carter\b/.test(line) ||
+      /\bProd\. by KYROlll\b/.test(line) ||
       (line.length <= 60 && line.toUpperCase() === line && /\s/.test(line));
     out.push({ text: line, bold });
   }
@@ -706,7 +667,7 @@ function renderLicensePdf({ title, subtitle, licensee, orderDate, beatsText, tot
   y -= 8;
   text(String(title).toUpperCase(), PDF_M, y, { f: 2, size: 12, gray: INK_MAIN });
   y -= 16;
-  text(String(subtitle).toUpperCase(), PDF_M, y, { f: 3, size: 6.8, gray: INK_SOFT });
+  text(String(subtitle), PDF_M, y, { f: 3, size: 6.8, gray: INK_SOFT });
   y -= 12;
   hairline(y);
   y -= 16;
@@ -869,9 +830,9 @@ async function buildLicensePdf({ kind, beats, licensee, orderDate, totalText }) 
   const isExclusive = kind === "exclusive";
   const title = isExclusive
     ? "EXCLUSIVE MASTER RIGHTS LICENSE AGREEMENT"
-    : "STANDARD NON-EXCLUSIVE LEASE LICENSE AGREEMENT";
-  const subtitle = "KEN CARTER — " + (isExclusive ? "FULL RIGHTS TRANSFER — PURCHASED BEAT(S)" : "COMMERCIAL & STREAMING USE — PURCHASED BEAT(S)");
-  const terms = pdfParagraphs(isExclusive ? EXCLUSIVE_LICENSE_TEXT : LICENSE_TEXT);
+    : kind === "mp3" ? "MP3 NON-EXCLUSIVE LEASE LICENSE AGREEMENT" : "STANDARD WAV NON-EXCLUSIVE LEASE LICENSE AGREEMENT";
+  const subtitle = "KYROlll — " + (isExclusive ? "FULL RIGHTS TRANSFER — PURCHASED BEAT(S)" : "COMMERCIAL & STREAMING USE — PURCHASED BEAT(S)");
+  const terms = pdfParagraphs(isExclusive ? EXCLUSIVE_LICENSE_TEXT : kind === "mp3" ? MP3_LICENSE_TEXT : LICENSE_TEXT);
 
   const logoBytes = await cachedLogoBytes();
   const dims = logoBytes && jpegDims(logoBytes);
@@ -887,7 +848,7 @@ async function buildLicensePdf({ kind, beats, licensee, orderDate, totalText }) 
     beatsText: String(beats || ""),
     totalText: String(totalText || ""),
     terms,
-    footerText: "KEN CARTER — ALL RIGHTS RESERVED",
+    footerText: "KYROlll — ALL RIGHTS RESERVED",
     logo
   });
   return bytesToBase64(assembleLicensePdf(pages, logo));
@@ -906,10 +867,15 @@ function beatAnchor(beatId) {
 
 // Default sender under the store's own (verified) domain, so delivery mail is
 // SPF/DKIM/DMARC-authenticated. Env RESEND_FROM overrides when provided.
-const DEFAULT_RESEND_FROM = "KEN CARTER <noreply@kencarter.abrdns.com>";
-const resendFrom = (env) => env.RESEND_FROM || DEFAULT_RESEND_FROM;
+const DEFAULT_RESEND_FROM = "KYROlll <noreply@kencarter.abrdns.com>";
+// Keep the verified mailbox from configuration while updating its display name.
+const resendFrom = (env) => {
+  const configured = env.RESEND_FROM || DEFAULT_RESEND_FROM;
+  const mailbox = configured.match(/<([^>]+)>/);
+  return `KYROlll <${mailbox ? mailbox[1] : configured.trim()}>`;
+};
 
-// Builds the full branded delivery email for a released order: dark logo shell,
+// Builds the full branded delivery email for a released order: beige/dark shell,
 // a clean receipt box (verified amount, beats, free beats, order date — NO
 // internal order/payment IDs), per-beat download rows (tier badge + url + a
 // VIEW link that deep-links to the exact beat on the store), license-attachment
@@ -918,112 +884,94 @@ const resendFrom = (env) => env.RESEND_FROM || DEFAULT_RESEND_FROM;
 async function buildDeliveryMessage(rec, links, payment, orderId) {
   const dateLabel = orderDateLabel(rec.updated || Date.now());
   const hasExclusive = rec.items.some((i) => i.isExclusive);
-  const hasLease = rec.items.some((i) => !i.isExclusive);
+  const hasMp3 = rec.items.some((i) => i.tier === "mp3");
+  const hasWav = rec.items.some((i) => i.tier === "wav" || (!i.tier && !i.isExclusive));
   const total = money(rec.total);
   const beats = (rec.labeled || []).join(", ");
-  const beatsPdf = (rec.labeled || []).join("\n") || "—";
 
   const row = (label, value, last = false) =>
-    `<tr><td style="padding:10px 0;font-size:10px;line-height:1.4;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;color:#6b6b6b;${last ? "" : "border-bottom:1px solid #191919;"}vertical-align:top;">${esc(label)}</td>` +
-    `<td style="padding:10px 0;font-size:12px;line-height:1.5;color:#f2f2f2;text-align:right;font-weight:600;${last ? "" : "border-bottom:1px solid #191919;"}vertical-align:top;">${value}</td></tr>`;
+    `<tr><td style="padding:10px 12px 10px 0;font-size:10px;line-height:1.4;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;color:#71695e;${last ? "" : "border-bottom:1px solid #d5cec2;"}vertical-align:top;">${esc(label)}</td>` +
+    `<td style="padding:10px 0;font-size:12px;line-height:1.5;color:#1c1b18;text-align:right;font-weight:600;${last ? "" : "border-bottom:1px solid #d5cec2;"}vertical-align:top;">${value}</td></tr>`;
 
   const rows =
-    row("PAID — VERIFIED BY NOWPAYMENTS IPN", `<span style="font-weight:800;color:#ffffff;">${total}</span>`) +
+    row("PAYMENT VERIFIED", `<span style="font-weight:800;color:#1c1b18;">${total}</span>`) +
     row("BEATS", esc(beats)) +
     row("ORDER DATE", esc(dateLabel), true);
 
   const files = links
     .map((l) => {
       const badge = l.isExclusive
-        ? `<span style="display:inline-block;font-size:9px;letter-spacing:1.5px;font-weight:800;color:#000000;background-color:#ffffff;padding:2px 7px;border-radius:2px;margin-left:8px;vertical-align:middle;">EXCLUSIVE MASTER RIGHTS</span>`
-        : `<span style="display:inline-block;font-size:9px;letter-spacing:1.5px;font-weight:800;color:#ffffff;border:1px solid #444444;padding:2px 7px;border-radius:2px;margin-left:8px;vertical-align:middle;">LEASE</span>`;
+        ? `<span style="display:inline-block;font-size:9px;letter-spacing:1px;font-weight:700;color:#f4f1ea;background-color:#1c1b18;padding:3px 7px;margin:4px 0 4px 8px;vertical-align:middle;">EXCLUSIVE MASTER RIGHTS</span>`
+        : `<span style="display:inline-block;font-size:9px;letter-spacing:1px;font-weight:700;color:#71695e;border:1px solid #d5cec2;padding:3px 7px;margin:4px 0 4px 8px;vertical-align:middle;">${l.tier === "mp3" ? "MP3" : "WAV"} LEASE</span>`;
       const cta = l.url
-        ? `<a href="${esc(l.url)}" target="_blank" rel="noopener" style="display:inline-block;background:#ffffff;color:#000000;padding:10px 20px;font-size:11px;font-weight:800;text-decoration:none;letter-spacing:1.5px;margin-top:8px;">↓ DOWNLOAD ${esc(l.title)} — WAV</a>`
-        : `<span style="color:#777777;font-weight:700;">↻ DELIVERY PENDING — URL COMING</span>`;
+        ? `<a href="${esc(l.url)}" target="_blank" rel="noopener" style="display:inline-block;background-color:#1c1b18;color:#f4f1ea;padding:12px 20px;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:1px;margin-top:8px;">↓ DOWNLOAD ${esc(l.title)} — ${l.tier === "mp3" ? "MP3" : "WAV"}</a>`
+        : `<span style="color:#71695e;font-weight:700;">↻ DELIVERY PENDING — URL COMING</span>`;
       const view = `${SITE_URL}/#${beatAnchor(l.id)}`;
       return (
-        `<div style="margin:0 0 16px;padding:14px;background:#0d0d0d;border:1px solid #262626;">` +
-        `<p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#ffffff;">${esc(l.title)} ${badge}</p>` +
+        `<div style="margin:0 0 16px;padding:18px;background-color:#faf8f3;border:1px solid #d5cec2;">` +
+        `<p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#1c1b18;">${esc(l.title)} ${badge}</p>` +
         `<div>${cta}</div>` +
-        `<div style="margin-top:8px;"><a href="${esc(view)}" target="_blank" rel="noopener" style="font-size:10px;color:#888888;text-decoration:underline;letter-spacing:0.5px;">VIEW ${esc(l.title)} IN STORE →</a></div>` +
+        `<div style="margin-top:12px;"><a href="${esc(view)}" target="_blank" rel="noopener" style="font-size:10px;color:#71695e;text-decoration:underline;letter-spacing:0.5px;">VIEW ${esc(l.title)} IN STORE →</a></div>` +
         `</div>`
       );
     })
     .join("");
 
   const licenseChips = [];
-  if (hasLease) licenseChips.push("OFFICIAL LEASE LICENSE CONTRACT");
+  if (hasMp3) licenseChips.push("MP3 LEASE LICENSE CONTRACT");
+  if (hasWav) licenseChips.push("STANDARD WAV LEASE LICENSE CONTRACT");
   if (hasExclusive) licenseChips.push("EXCLUSIVE MASTER RIGHTS LICENSE");
   const licenseNote =
     licenseChips.length
-      ? `<div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#888888;margin:18px 0 10px;">LICENSE ATTACHMENTS</div>` +
+      ? `<div style="font-size:10px;font-weight:700;letter-spacing:2px;color:#71695e;margin:24px 0 10px;">LICENSE ATTACHMENTS</div>` +
         licenseChips
-          .map((c) => `<p style="margin:0 0 6px;font-size:11px;color:#ffffff;">▸ ${c} <span style="color:#555555;">— PDF</span></p>`)
+          .map((c) => `<p style="margin:0 0 6px;font-size:11px;color:#1c1b18;">▸ ${c} <span style="color:#71695e;">— PDF + TXT</span></p>`)
           .join("") +
-        `<p style="margin:10px 0 0;font-size:12px;color:#888888;">Your official ${licenseChips.length === 1 ? "license contract is" : "license contracts are"} attached to this email as a styled PDF. Keep it — it is your proof of purchase.</p>`
+        `<p style="margin:10px 0 0;font-size:12px;color:#71695e;">Your official ${licenseChips.length === 1 ? "license contract is" : "license contracts are"} attached as PDF and text files. Keep them as proof of purchase.</p>`
       : "";
 
-  const html =
-    `<!DOCTYPE html><html lang="en">` +
-    `<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">` +
-    `<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark">` +
-    `<title>PAYMENT FINISHED — ${total} — KEN CARTER</title></head>` +
-    `<body style="margin:0;padding:0;background-color:#000000;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#ffffff;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">` +
-    `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">PAYMENT FINISHED — ${total} — KEN CARTER&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;</div>` +
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#000000" style="background-color:#000000;border-collapse:collapse;">` +
-    `<tr><td align="center" style="padding:28px 12px;">` +
-    `<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;margin:0 auto;border:1px solid #222222;border-collapse:collapse;">` +
-    `<tr><td align="center" style="padding:36px 20px 24px;border-bottom:1px solid #1a1a1a;">` +
-    `<a href="${SITE_URL}" target="_blank" rel="noopener" style="text-decoration:none;">` +
-    `<img src="${LOGO_URL}" alt="KEN CARTER" width="170" style="display:block;width:170px;max-width:170px;height:auto;border:0;outline:none;text-decoration:none;" />` +
-    `</a></td></tr>` +
-    `<tr><td align="center" style="padding:30px 24px 0;">` +
-    `<div style="font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#7a7a7a;margin-bottom:10px;">KEN CARTER</div>` +
-    `<h1 style="font-size:17px;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin:0;color:#ffffff;line-height:1.4;">PAYMENT FINISHED</h1>` +
-    `<p style="font-size:11px;color:#777777;letter-spacing:1px;text-transform:uppercase;margin:8px 0 0;">ORDER CONFIRMATION — LINKS RELEASED</p>` +
-    `</td></tr>` +
-    `<tr><td style="padding:26px 26px 34px;">` +
-    `<div style="background-color:#0b0b0b;border:1px solid #2a2a2a;padding:20px 22px;">` +
-    `<div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#8a8a8a;border-bottom:1px solid #222222;padding-bottom:10px;">PAYMENT DETAILS</div>` +
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">${rows}</table>` +
-    `</div>` +
-    `<div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#888888;margin:22px 0 10px;">YOUR FILES — INSTANT DOWNLOAD</div>${files}` +
-    `${licenseNote}` +
-    `<p style="margin:16px 0 0;font-size:12px;color:#888888;">Follow the instructions inside each license attachment before using a beat in a release.</p>` +
-    `</td></tr>` +
-    `<tr><td align="center" style="padding:26px 20px;border-top:1px solid #1a1a1a;background-color:#050505;">` +
-    `<p style="font-size:10px;color:#555555;margin:0 0 8px;letter-spacing:1px;">KEN CARTER — ALL RIGHTS RESERVED</p>` +
-    `<p style="font-size:10px;color:#434343;margin:0;"><a href="${SITE_URL}" target="_blank" rel="noopener" style="color:#666666;text-decoration:none;">kencarter.abrdns.com</a></p>` +
-    `</td></tr>` +
-    `</table></td></tr></table>` +
-    `</body></html>`;
+  const html = brandedEmailHtml({
+    title: "Your sound starts here.",
+    eyebrow: "KYROlll / ORDER CONFIRMED",
+    subtitle: `Payment verified · ${total} · Your beats and licenses are ready.`,
+    content: `<p style="margin:0 0 22px;">Thank you for choosing KYROlll. Your next creation starts with these files.</p>` +
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table>` +
+      `<h2 style="font-size:10px;font-weight:700;letter-spacing:2px;color:#71695e;margin:26px 0 14px;">YOUR FILES — INSTANT DOWNLOAD</h2>${files}${licenseNote}` +
+      `<p style="margin:16px 0 0;font-size:12px;color:#71695e;">Follow the instructions inside each license attachment before using a beat in a release.</p>`
+  });
 
   const filesText = links
-    .map((l) => `${l.title}${l.isExclusive ? " [EXCLUSIVE MASTER RIGHTS]" : " [LEASE]"}: ${l.url || "DELIVERY PENDING — URL COMING"}\n  View: ${SITE_URL}/#${beatAnchor(l.id)}`)
+    .map((l) => `${l.title} [${String(l.tier || "wav").toUpperCase()} LEASE]: ${l.url || "DELIVERY PENDING — URL COMING"}\n  View: ${SITE_URL}/#${beatAnchor(l.id)}`)
     .join("\n");
 
   const text =
-    `PAYMENT FINISHED — ORDER CONFIRMATION\n` +
+    `KYROlll — PAYMENT FINISHED — ORDER CONFIRMATION\n` +
     `Total: ${total}\n` +
     `Beats: ${beats}\n` +
     `Order date: ${dateLabel}\n\n` +
     `YOUR FILES — INSTANT DOWNLOAD\n${filesText}\n\n` +
-    `License${licenseChips.length === 1 ? "" : "s"} included as PDF attachments: ${licenseChips.join(", ") || "—"}`;
+    `License${licenseChips.length === 1 ? "" : "s"} included as PDF and TXT attachments: ${licenseChips.join(", ") || "—"}`;
 
-  const subject = `PAYMENT FINISHED — ${total} — ${beats} — LINKS RELEASED`;
+  const subject = `KYROlll — Your beats are ready — ${total} — ${beats}`;
 
   const attachments = [];
-  if (hasLease) {
+  if (hasMp3) {
+    attachments.push({ filename: "MP3_LICENSE.pdf", content: await buildLicensePdf({ kind: "mp3", beats: rec.items.filter((i) => i.tier === "mp3").map((i) => i.title).join("\n"), licensee: rec.email, orderDate: dateLabel, totalText: total }) });
+    attachments.push({ filename: "MP3_LICENSE.txt", content: base64Encode(MP3_LICENSE_TEXT) });
+  }
+  if (hasWav) {
     attachments.push({
       filename: "LICENSE.pdf",
-      content: await buildLicensePdf({ kind: "lease", beats: beatsPdf, licensee: rec.email, orderDate: dateLabel, totalText: total })
+      content: await buildLicensePdf({ kind: "wav", beats: rec.items.filter((i) => i.tier === "wav" || (!i.tier && !i.isExclusive)).map((i) => i.title).join("\n"), licensee: rec.email, orderDate: dateLabel, totalText: total })
     });
+    attachments.push({ filename: "LICENSE.txt", content: base64Encode(LICENSE_TEXT) });
   }
   if (hasExclusive) {
     attachments.push({
       filename: "EXCLUSIVE_LICENSE.pdf",
-      content: await buildLicensePdf({ kind: "exclusive", beats: beatsPdf, licensee: rec.email, orderDate: dateLabel, totalText: total })
+      content: await buildLicensePdf({ kind: "exclusive", beats: rec.items.filter((i) => i.isExclusive).map((i) => i.title).join("\n"), licensee: rec.email, orderDate: dateLabel, totalText: total })
     });
+    attachments.push({ filename: "EXCLUSIVE_LICENSE.txt", content: base64Encode(EXCLUSIVE_LICENSE_TEXT) });
   }
 
   return { subject, html, text, attachments };
@@ -1080,15 +1028,15 @@ async function sendEmail(env, { to, subject, html, text = "", attachments = [] }
   const body = {
     from,
     to,
-    subject,
+    subject: subject.startsWith("KYROlll") ? subject : `KYROlll — ${subject}`,
     reply_to: from,
     headers: {
       "List-Unsubscribe": "<mailto:support@kencarter.abrdns.com>",
-      "X-Entity-Ref-ID": "ken-carter-order-" + Date.now()
+      "X-Entity-Ref-ID": "kyrolll-order-" + Date.now()
     }
   };
   if (html) body.html = html;
-  if (text) body.text = text;
+  if (text) body.text = text.startsWith("KYROlll") ? text : `KYROlll\n\n${text}`;
   if (Array.isArray(attachments) && attachments.length) body.attachments = attachments;
   const res = await fetch(RESEND_ENDPOINT, {
     method: "POST",
@@ -1181,25 +1129,35 @@ async function triggerKenCashback(env, rec, orderId) {
 
 async function handleCheckout(request, env) {
   const body = await request.json().catch(() => null);
-  const { order_id, email, coinSym, total, labeled, subtotal, discount, items, exclusivePicks, walletAddress } = body || {};
+  const { order_id, email, coinSym, total, items, freePicks = [], walletAddress } = body || {};
+  const catalog = beatCatalog(env);
 
   if (!email || !EMAIL_RE.test(email)) return json(env, { error: "INVALID EMAIL" }, 400);
   const payCurrency = COIN_CODES[coinSym];
   if (!payCurrency) return json(env, { error: "UNSUPPORTED COIN" }, 400);
-  if (!Array.isArray(items) || !items.length || !items.every((i) => i && i.id)) {
+  if (!Array.isArray(items) || !items.length || !items.every((i) => i && Object.hasOwn(catalog, i.id) && typeof catalog[i.id]?.title === "string" && catalog[i.id].title && ["mp3", "wav", "exclusive", "lease"].includes(i.type)) || new Set(items.map((i) => i.id)).size !== items.length) {
     return json(env, { error: "EMPTY CART" }, 400);
   }
-  if (!(total > 0)) return json(env, { error: "INVALID TOTAL" }, 400);
-
-  // Calculate exclusive vs basic pricing. A beat is exclusive when either the
-  // client's explicit exclusivePicks list or the item.type marker agrees.
-  const basicPrice = 14.95;
-  const exclusivePrice = 299.95;
-  const isExPick = (item) =>
-    (Array.isArray(exclusivePicks) && exclusivePicks.includes(item.id)) ||
-    item.type === "exclusive";
-  const basicItems = items.filter((item) => !isExPick(item));
-  const exclusiveItems = items.filter((item) => isExPick(item));
+  const allItems = items.map((item) => ({ id: item.id, title: catalog[item.id].title, tier: item.type === "lease" ? "wav" : item.type, isExclusive: item.type === "exclusive" }));
+  if (orderLinks(env, allItems).some((link) => !link.url)) return json(env, { error: "A PURCHASED FILE IS NOT YET AVAILABLE — PLEASE TRY LATER" }, 503);
+  const basicItems = allItems.filter((item) => !item.isExclusive);
+  const exclusiveItems = allItems.filter((item) => item.isExclusive);
+  for (const item of allItems) {
+    if (await isBeatExclusiveSold(env, item.id)) return json(env, { error: "BEAT SOLD EXCLUSIVELY" }, 409);
+  }
+  if (!Array.isArray(freePicks) || new Set(freePicks).size !== freePicks.length || freePicks.length > Math.floor(basicItems.length / 3) || freePicks.some((id) => !basicItems.some((i) => i.id === id))) {
+    return json(env, { error: "INVALID FREE PICKS" }, 400);
+  }
+  const subtotalCents = allItems.reduce((sum, i) => sum + Math.round(TIER_PRICES[i.tier] * 100), 0);
+  const discountCents = basicItems.filter((i) => freePicks.includes(i.id)).reduce((sum, i) => sum + Math.round(TIER_PRICES[i.tier] * 100), 0);
+  // A KEN discount requires independently verified holdings, not a client flag.
+  let kenDiscount = false;
+  if (coinSym === "KEN" && walletAddress) {
+    const verification = await handleVerifyKen({ json: async () => ({ walletAddress }) }, env);
+    kenDiscount = (await verification.json()).holder === true;
+  }
+  const finalTotal = Math.round((subtotalCents - discountCents) * (kenDiscount ? 0.85 : 1)) / 100;
+  if (Math.abs(Number(total) - finalTotal) > 0.01 || finalTotal <= 0) return json(env, { error: "INVALID TOTAL" }, 400);
 
   // Reuse the caller's order id when switching coins mid-checkout.
   const id = order_id && /^KC-[A-Z0-9-]{3,32}$/.test(order_id)
@@ -1210,34 +1168,22 @@ async function handleCheckout(request, env) {
   // exclusive beat that is already sold or reserved by another live checkout.
   await assertExclusivesAvailable(env, id, exclusiveItems);
 
-  // The client computes the final total (including any verified KEN holder
-  // discount). Trust that value instead of re-deriving a discount here, so
-  // non-holders are never discounted.
-  const finalTotal = total;
-
   const payment = await np(env, "/payment", "POST", {
     price_amount: finalTotal,
     price_currency: "usd",
     pay_currency: payCurrency,
     order_id: id,
-    order_description: ("KEN CARTER SEASON 01 - " + (labeled || []).join(", ")).slice(0, 1024),
+    order_description: ("KYROlll - " + allItems.map((i) => `${i.title} ${i.tier.toUpperCase()}`).join(", ")).slice(0, 1024),
     ipn_callback_url: env.IPN_CALLBACK_URL || new URL(request.url).origin + "/api/ipn"
   });
-
-  // Store items with exclusive flags
-  const allItems = [...basicItems, ...exclusiveItems].map(({ id: beatId, title }) => ({
-    id: beatId,
-    title,
-    isExclusive: exclusiveItems.some((ei) => ei.id === beatId)
-  }));
 
   await saveOrder(env, id, {
     email,
     coin: payCurrency,
     total: finalTotal,
-    labeled: labeled || [],
-    subtotal: subtotal ?? finalTotal,
-    discount: discount ?? 0,
+    labeled: allItems.map((i) => `${i.title} ${i.tier.toUpperCase()} LEASE`),
+    subtotal: subtotalCents / 100,
+    discount: discountCents / 100,
     items: allItems,
     walletAddress: walletAddress || null,
     payment_id: String(payment.payment_id),
@@ -1253,35 +1199,6 @@ async function handleCheckout(request, env) {
     pay_amount: payment.pay_amount,
     pay_currency: payment.pay_currency
   });
-}
-
-async function handleNotifyClosure(request, env) {
-  const body = await request.json().catch(() => null);
-  const { season, email } = body && typeof body === "object" ? body : {};
-  if (!email || !EMAIL_RE.test(email)) return json(env, { error: "INVALID EMAIL" }, 400);
-
-  try {
-    const label = season === "S02" ? "02" : season;
-    const ts = new Date().toUTCString();
-    await sendEmail(env, {
-      to: email,
-      subject: `SEASON ${label} HAS CLOSED — CATALOG ARCHIVED`,
-      text: `SEASON ${label} HAS CLOSED — CATALOG ARCHIVED\nStatus: SEASON CLOSED & ARCHIVED\nDate: ${ts}`,
-      html: notificationHtml({
-        eyebrow: "KEN CARTER",
-        title: `SEASON ${label} HAS CLOSED`,
-        subtitle: "CATALOG ARCHIVED",
-        rows: [
-          ["Status", "SEASON CLOSED &amp; ARCHIVED"],
-          ["Date", ts]
-        ]
-      })
-    });
-    return json(env, { ok: true });
-  } catch (err) {
-    console.error("Season-closure email failed:", err.message);
-    return json(env, { error: "EMAIL FAILED" }, 502);
-  }
 }
 
 // Per-beat "notify me when it drops" signups. Stores the email (deduped) under
@@ -1313,7 +1230,7 @@ async function handleNotifyBeat(request, env) {
     if (!emails.some((e) => String(e).toLowerCase() === lower)) {
       emails.push(email);
       added = true;
-      // Persist for ~3 months (covers the whole season's drop window).
+      // Persist signups for ~3 months.
       await env.ORDERS.put(notifyKey(beatId), JSON.stringify(emails), { expirationTtl: 60 * 60 * 24 * 90 });
     }
 
@@ -1491,7 +1408,7 @@ async function handleReleaseBeat(request, env) {
   const ts = new Date().toUTCString();
   // Resolve real catalog details for the reported beat id (fallbacks when
   // __ALL__ or unknown), used for the API response.
-  const mainInfo = describeBeat(beatId || "__ALL__");
+  const mainInfo = describeBeat(beatId || "__ALL__", env);
   let sent = 0;
   let skipped = 0;
   const errors = [];
@@ -1499,7 +1416,7 @@ async function handleReleaseBeat(request, env) {
   for (const [bId, emails] of Object.entries(subscriberMap)) {
     // Fetch the real beat details (name, BPM, key, preview links) so every
     // email is personalized instead of using generic fallback text.
-    const info = describeBeat(bId);
+    const info = describeBeat(bId, env);
     // Honor an explicit name for the requested beat; catalog otherwise.
     const name =
       bId === beatId && beatName !== formatBeatId(beatId)
@@ -1609,7 +1526,7 @@ async function handleNotifyDrop(request, env) {
   // Resolve the real catalog details so the email is personalized. A caller
 // may override the name, but never with a raw beatId (which is just the
 // scheduler's/URL's stand-in and would clobber the lookup).
-  const info = describeBeat(beatId);
+  const info = describeBeat(beatId, env);
   const requestedName =
     body && typeof body.beatName === "string" ? body.beatName.trim() : "";
   const name =
@@ -1673,7 +1590,7 @@ async function handleNotifyDrop(request, env) {
 // IPN fulfillment, without a page reload.
 async function handleCatalog(env) {
   const sold = [];
-  for (const beatId of Object.keys(BEAT_CATALOG)) {
+  for (const beatId of Object.keys(beatCatalog(env))) {
     if (await isBeatExclusiveSold(env, beatId)) sold.push(beatId);
   }
   return json(env, { sold });
@@ -1704,57 +1621,9 @@ async function handleResend(request, env) {
   const rec = JSON.parse(raw);
   if (!rec.released) return json(env, { error: "ORDER NOT RELEASED", order_id: orderId }, 409);
 
-  const map = beatLinks(env);
-  const links = rec.items.map(({ id: beatId, title, isExclusive }) => ({
-    id: beatId,
-    title,
-    url: map[beatId] || null,
-    isExclusive: isExclusive || false
-  }));
+  const links = orderLinks(env, rec.items);
   const delivery = await deliverOrderEmail(env, rec, links, { payment_id: rec.payment_id }, orderId);
   return json(env, { ok: true, order_id: orderId, delivery });
-}
-
-// The automated drop schedule is driven by the BEAT_CATALOG releaseAt
-// timers — no manual cron, URL ping, or secret upkeep required. The optional
-// BEAT_DROPS secret still works as an override/extension (beatId → ISO) to
-// reschedule a beat without redeploying (e.g. pushing a drop later).
-// Returns { beatId: ISO timestamp, … }.
-function scheduledDrops(env) {
-  const drops = {};
-  for (const [beatId, entry] of Object.entries(BEAT_CATALOG)) {
-    if (entry.releaseAt) drops[beatId] = entry.releaseAt;
-  }
-  try {
-    Object.assign(drops, JSON.parse(env.BEAT_DROPS || "{}"));
-  } catch {
-    // Malformed override: fall back to the catalog schedule.
-  }
-  return drops;
-}
-
-// Fired by the cron trigger: notify each beat's subscribers the moment its
-// scheduled release time passes. KV flags (beat-level + per-email) guarantee
-// every user is told about a release exactly once, no matter how often the
-// cron fires or which region handles the run.
-async function notifyDueDrops(env) {
-  if (!env.ORDERS || typeof env.ORDERS.get !== "function") {
-    console.error("Scheduled drop skipped: ORDERS KV binding not configured");
-    return;
-  }
-  const now = Date.now();
-  const drops = scheduledDrops(env);
-  for (const [beatId, iso] of Object.entries(drops)) {
-    const when = Date.parse(iso);
-    if (!when || now < when) continue;
-    const sent = (await env.ORDERS.get(notifiedKey(beatId))) === "1";
-    if (sent) continue;
-    try {
-      await handleNotifyDrop({ json: async () => ({ beatId }) }, env);
-    } catch (err) {
-      console.error("Scheduled drop notify failed:", beatId, err.message);
-    }
-  }
 }
 
 async function handleStatus(url, env) {
@@ -1765,19 +1634,11 @@ async function handleStatus(url, env) {
 
   // Links exist on this response ONLY after the IPN handler marked released.
   if (rec.released) {
-    const map = beatLinks(env);
-    // Carry each beat's id + exclusive flag alongside its link, so the response
-    // is always correctly paired. Missing BEAT_LINKS URLs surface as url:null
-    // (delivery pending) instead of silently dropping the file.
-    const links = rec.items.map(({ id: beatId, title, isExclusive }) => ({
-      id: beatId,
-      title,
-      url: map[beatId] || null,
-      isExclusive: isExclusive || false
-    }));
+    const links = orderLinks(env, rec.items);
 
     const licenses = [];
-    if (rec.items.some((i) => !i.isExclusive)) licenses.push({ tier: "lease", filename: "LICENSE.pdf" });
+    if (rec.items.some((i) => i.tier === "mp3")) licenses.push({ tier: "mp3", filename: "MP3_LICENSE.txt" });
+    if (rec.items.some((i) => i.tier === "wav" || (!i.tier && !i.isExclusive))) licenses.push({ tier: "wav", filename: "LICENSE.pdf" });
     if (rec.items.some((i) => i.isExclusive)) { licenses.push({ tier: "exclusive", filename: "EXCLUSIVE_LICENSE.pdf" }); }
 
     return json(env, {
@@ -1853,15 +1714,7 @@ async function handleIpn(request, env, ctx) {
       console.error("Exclusive post-release bookkeeping failed:", err.message);
     }
 
-    const map = beatLinks(env);
-    // Missing BEAT_LINKS entries stay as url:null rows so the buyer sees a
-    // pending download row rather than a silently dropped file.
-    const links = rec.items.map(({ id: beatId, title, isExclusive }) => ({
-      id: beatId,
-      title,
-      url: map[beatId] || null,
-      isExclusive: isExclusive || false
-    }));
+    const links = orderLinks(env, rec.items);
     // ctx.waitUntil keeps delivery alive after this response returns
     ctx.waitUntil(deliverOrderEmail(env, rec, links, payload, id));
     if (rec.walletAddress) {
@@ -1886,7 +1739,6 @@ export default {
     try {
       if (request.method === "POST" && url.pathname === "/api/checkout") return await handleCheckout(request, env);
       if (request.method === "POST" && url.pathname === "/api/verify-ken") return await handleVerifyKen(request, env);
-      if (request.method === "POST" && url.pathname === "/api/notify-closure") return await handleNotifyClosure(request, env);
       if (request.method === "POST" && url.pathname === "/api/notify-beat") return await handleNotifyBeat(request, env);
       if (request.method === "POST" && url.pathname === "/api/notify-drop") return await handleNotifyDrop(request, env);
       if ((request.method === "POST" || request.method === "GET") && url.pathname === "/api/release") return await handleReleaseBeat(request, env);
@@ -1908,10 +1760,5 @@ export default {
       const status = err.status >= 400 && err.status < 600 ? err.status : 500;
       return json(env, { error: err.message || "SERVER ERROR" }, status);
     }
-  },
-
-  // Cron: fire beat-drop notifications once their scheduled time passes.
-  async scheduled(event, env, ctx) {
-    ctx.waitUntil(notifyDueDrops(env).catch((err) => console.error("SCHEDULED NOTIFY ERROR:", err)));
   }
 };

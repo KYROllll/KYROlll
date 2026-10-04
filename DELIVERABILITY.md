@@ -1,4 +1,4 @@
-# Email Deliverability — KEN CARTER Store
+# Email Deliverability — KYROlll Store
 
 All transaction email is sent through **Resend** from the store's own domain
 (`kencarter.abrdns.com`), so SPF / DKIM / DMARC authenticate the sender instead
@@ -9,11 +9,23 @@ of routing through a bare cloud worker domain.
 The worker defaults its `From` address to:
 
 ```
-KEN CARTER <noreply@kencarter.abrdns.com>
+KYROlll <noreply@kencarter.abrdns.com>
 ```
 
-`RESEND_FROM` is optional and, when set, overrides that default. No worker
-re-deploy or DNS change is needed to use the default.
+`RESEND_FROM` is optional and, when set, overrides the mailbox. The display
+name is always `KYROlll`, including when an older display name is configured.
+
+## Branded templates and artwork
+
+Receipts and notification emails share `worker/src/brand-email.js` for the
+beige/dark layout. `email-template.html` is the standalone reference preview.
+The live receipt content and tier-specific attachments are built in
+`buildDeliveryMessage` in `worker/src/index.js`.
+
+After editing the brand SVGs, run `npm run build:brand` from the project root
+to regenerate the email-compatible JPEG flower and PNG doodle accents.
+Deploy the storefront assets and Worker together; emails load the artwork
+from the public `/assets/` URLs on the store domain.
 
 ## DNS records (already live)
 

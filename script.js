@@ -5,236 +5,27 @@ const WORKER_URL = window.location.hostname === "localhost" || window.location.h
   ? "http://localhost:8787"
   : "https://kencarter-checkout.kencarter-store.workers.dev";
 
+const MP3_PRICE = 9.95;
 const PRICE = 14.95;
 const EXCLUSIVE_PRICE = 299.95;
 const LOW_STOCK_AT = 3;
 
 const LEASES_PER_BEAT = 10;
 
-const BEATS = [
-  { id: "beat1", title: "BEAT 01", name: "CH\u00a3$$",          img: "assets/beat1.jpg?v=2", bpm: 140, key: "E MIN",  tag: "SEASON 01", leases: LEASES_PER_BEAT, youtube: "https://youtu.be/EtIy63bCyEc" },
-  { id: "beat2", title: "BEAT 02", name: "AnGeLL",             img: "assets/beat2.jpg?v=2", bpm: 75,  key: "G# MIN", tag: "SEASON 01", leases: LEASES_PER_BEAT, youtube: "https://youtu.be/Y4CY1Qb4e4s" },
-  { id: "beat3", title: "BEAT 03", name: "DIAMONS IN THE BAG", img: "assets/beat3.jpg?v=2", bpm: 130, key: "A# MIN", tag: "SEASON 01", leases: LEASES_PER_BEAT, youtube: "https://youtu.be/orkevqUH0bM" },
-  { id: "beat4", title: "BEAT 04", name: "$$$",                img: "assets/beat4.jpg?v=2", bpm: 140, key: "G MIN",  tag: "SEASON 01", leases: LEASES_PER_BEAT, youtube: "https://youtu.be/bRudvWoy7RY" },
-  { id: "beat5", title: "BEAT 05", name: "HIGH VIEW",          img: "assets/beat5.jpg?v=2", bpm: 168, key: "C MIN",  tag: "SEASON 01", leases: LEASES_PER_BEAT, youtube: "https://youtu.be/12qPZNM2fe0" },
-  { id: "beat6", title: "BEAT 06", name: "PROTOCOL",           img: "assets/beat6.jpg?v=2", bpm: 135, key: "G# MIN", tag: "SEASON 01", leases: LEASES_PER_BEAT, youtube: "https://youtu.be/xk_SSDX4vZE" },
-  { id: "beat7", title: "BEAT 07", name: "LAST SEAT",          img: "assets/beat7.jpg?v=2", bpm: 140, key: "G# MIN", tag: "SEASON 01", releaseAt: "2026-08-23T17:00:00Z", leases: LEASES_PER_BEAT, youtube: "https://youtu.be/p7vyAIsWKQw" }
-].map((b) => ({ ...b, left: b.left ?? b.leases }));
-
-const SEASON2_BEATS = [
-  { id: "s2-beat1", title: "BEAT 01", name: "ART",                  img: "assets/s2-beat1.png", bpm: 126, key: "C# MIN", tag: "SEASON 02", releaseAt: "2026-09-01T17:00:00Z", leases: LEASES_PER_BEAT, drive: "https://drive.google.com/file/d/1zovFkuAsJJ68fIP7hzn8x9PWHecWy8It/view?usp=share_link", youtube: "https://youtu.be/LeARirM_bl0" },
-  { id: "s2-beat2", title: "BEAT 02", name: "Take the CROW",       img: "assets/s2-beat2.png", bpm: 130, key: "D# MIN", tag: "SEASON 02", releaseAt: "2026-09-05T17:00:00Z", leases: LEASES_PER_BEAT, drive: "https://drive.google.com/file/d/1am79D70Miq3_XeVme7Hlc5NlVh5I0v9a/view?usp=share_link", youtube: "https://youtu.be/ZptaYX0g8uU" },
-  { id: "s2-beat3", title: "BEAT 03", name: "Late Night",           img: "assets/s2-beat3.png", bpm: 138, key: "E MIN",  tag: "SEASON 02", releaseAt: "2026-09-09T17:00:00Z", leases: LEASES_PER_BEAT, drive: "https://drive.google.com/file/d/1RK8s9G-RgIbVYXkKqWoP05h9uxNZM_Xp/view?usp=share_link", youtube: "https://youtu.be/EpV_G80aKQU" },
-  { id: "s2-beat4", title: "BEAT 04", name: "Antinous",             img: "assets/s2-beat4.png", bpm: 130, key: "F MIN",  tag: "SEASON 02", releaseAt: "2026-09-13T17:00:00Z", leases: LEASES_PER_BEAT, drive: "https://drive.google.com/file/d/1Lhy1DvxSo3wOiHRbsj_2wVF1EKzPsNbS/view?usp=share_link", youtube: "https://youtu.be/PD4qibTpR_s" },
-  { id: "s2-beat5", title: "BEAT 05", name: "4 AM",                 img: "assets/s2-beat5.png", bpm: 166, key: "F# MIN", tag: "SEASON 02", releaseAt: "2026-09-17T17:00:00Z", leases: LEASES_PER_BEAT, drive: "https://drive.google.com/file/d/1xGzuj_3YdWKsrM5XYopRBAhxCCIGle3A/view?usp=share_link", youtube: "https://youtu.be/alA-itPRkt4" },
-  { id: "s2-beat6", title: "BEAT 06", name: "White",                img: "assets/s2-beat6.png", bpm: 119, key: "B MIN",  tag: "SEASON 02", releaseAt: "2026-09-21T17:00:00Z", leases: LEASES_PER_BEAT, drive: "https://drive.google.com/file/d/14MsnfvOpanbMSjAtbSVB3m3qA8VaR6Ro/view?usp=share_link", youtube: "https://youtu.be/nl2M-EaCrrk" },
-  { id: "s2-beat7", title: "BEAT 07", name: "Rewind",               img: "assets/s2-beat7.png", bpm: 132, key: "G MIN",  tag: "SEASON 02", releaseAt: "2026-09-25T17:00:00Z", leases: LEASES_PER_BEAT, drive: "https://drive.google.com/file/d/1sbJakmKZIwhd5iDud8X_5BtRLNoVdnQc/view?usp=share_link", youtube: "https://youtu.be/WZLsWpzFJAs" }
-].map((b) => ({ ...b, left: b.left ?? b.leases }));
-
-let CATALOG = BEATS;
-let selectedSeason = null;
-
-function catalogFor(season) {
-  if (season === "S01") return BEATS;
-  if (season === "S02") return SEASON2_BEATS;
-  return [];
-}
-
-// A season is only viewable once it is no longer "upcoming" (i.e. it has
-// launched, or it is an ended archive). Upcoming seasons stay hidden/locked.
-function isSeasonViewable(s, now = Date.now()) {
-  return seasonState(s, now) !== "upcoming";
-}
-
-function defaultSeason() {
-  const viewable = SEASONS.filter((s) => isSeasonViewable(s));
-  return viewable.length ? viewable[viewable.length - 1].id : null;
-}
-
-const S01_CLOSE_AT = "2026-08-29T20:00:00Z";
-const S02_OPEN_AT  = "2026-09-01T17:00:00Z";
-const S02_FINAL_DROP_AT = "2026-09-25T20:00:00Z";
-const S02_CLOSE_AT = "2026-09-30T20:00:00Z";
-const DAY_MS       = 24 * 60 * 60 * 1000;
-
-// Season registry for announced seasons (Season 1 and Season 2).
-const SEASONS = [
-  { id: "S01", label: "SEASON 1", closeAt: S01_CLOSE_AT, runStart: "2026-08-01T00:00:00Z", runEnd: "2026-08-31T23:59:59Z" },
-  { id: "S02", label: "SEASON 2", launchAt: S02_OPEN_AT, closeAt: S02_CLOSE_AT, runStart: "2026-09-01T17:00:00Z", runEnd: "2026-09-30T20:00:00Z" }
-];
-
-function seasonLaunchAt(s) {
-  return s.launchAt ? Date.parse(s.launchAt) : null;
-}
-
-function seasonState(s, now = Date.now()) {
-  if (s.closed) return "ended";
-  if (s.closeAt && now >= Date.parse(s.closeAt)) return "ended";
-  const la = seasonLaunchAt(s);
-  if (la == null) return "live";
-  return now >= la ? "live" : "upcoming";
-}
-
-function seasonBadge(s) {
-  const state = seasonState(s);
-  if (state === "live") return "ACTIVE";
-  if (state === "ended") return "ENDED";
-  const d = new Date(seasonLaunchAt(s));
-  return `UPCOMING \u00b7 ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
-}
-
-function seasonDateRange(s) {
-  const pad = (n) => String(n).padStart(2, "0");
-  const fmt = (ts) => {
-    const d = new Date(ts);
-    return `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}`;
-  };
-  const start = fmt(s.runStart || s.launchAt || s.closeAt);
-  const end = fmt(s.runEnd || s.closeAt || s.launchAt);
-  return `${start} \u2014 ${end}`;
-}
-
-const TICKER_TEXT = "KEN CARTER \u2014 SEASON 02 IS LIVE NOW \u2014 STRICTLY LIMITED LEASES \u2014 ALL BEATS $14.95 \u2014 PICK 2, GET 1 FREE \u2014 ";
-
-let storeTimer     = null;
-
-function s02UnlockedCount(now = Date.now()) {
-  if (!CATALOG.length) return 0;
-  const openDay = Math.floor(Date.parse(S02_OPEN_AT) / DAY_MS);
-  const today = Math.floor(now / DAY_MS);
-  return Math.max(1, Math.min(CATALOG.length, today - openDay + 1));
-}
-
+// Add new releases here with id, title, name, img, bpm, key, leases, left,
+// optional public preview (MP3/WAV snippet URL), and optional youtube.
+// Register matching IDs/titles in the Worker's BEAT_CATALOG and configure
+// BEAT_LINKS before opening checkout. Newest entries render first.
+const CATALOG = [];
+const TICKER_TEXT = "KYROlll \u2014 NEWEST BEATS \u2014 MP3 LEASE $9.95 \u2014 STANDARD WAV LEASE $14.95 \u2014 EXCLUSIVE LEASE $299.95 \u2014 PICK 2 LEASES, GET 1 FREE \u2014 ";
 const money = (n) => "$" + n.toFixed(2);
-
-function storePhase(now = Date.now()) {
-  const t = typeof now === "number" ? now : Date.now();
-  if (t < Date.parse(S01_CLOSE_AT)) return "S01";
-  if (t < Date.parse(S02_OPEN_AT)) return "GAP";
-  if (t < Date.parse(S02_CLOSE_AT)) return "S02";
-  return "POST";
-}
-
-function setKicker(text) {
-  const k = document.querySelector(".season__kicker");
-  if (k) k.textContent = text;
-}
-
-function tickSeason(now = Date.now()) {
-  const timerEl = $("season-timer");
-  if (!timerEl) return;
-  const statusEl = $("season-status");
-  const s1 = SEASONS.find(s => s.id === "S01");
-  const s2 = SEASONS.find(s => s.id === "S02");
-
-  if (s1 && seasonState(s1, now) === "live") {
-    setKicker("SEASON 01 CLOSES IN");
-    if (statusEl) statusEl.textContent = "SEASON 01 LOCKS WHEN TIMER EXPIRES OR LEASES SELL OUT.";
-    const remaining = Date.parse(S01_CLOSE_AT) - now;
-    timerEl.textContent = remaining <= 0 ? "EXPIRED" : formatRemaining(remaining);
-    return;
-  }
-
-  if (now < Date.parse(S02_OPEN_AT)) {
-    setKicker("SEASON 01 HAS CLOSED");
-    if (statusEl) statusEl.textContent = "SEASON 02 OPENS SEP 1, 2026 \u00b7 17:00 UTC.";
-    const remaining = Date.parse(S02_OPEN_AT) - now;
-    timerEl.textContent = remaining <= 0 ? "OPENING\u2026" : formatRemaining(remaining);
-    return;
-  }
-
-  if (s2 && seasonState(s2, now) === "live") {
-    const afterFinalDrop = now >= Date.parse(S02_FINAL_DROP_AT);
-    if (afterFinalDrop) {
-      setKicker("SEASON 02 CLOSES IN");
-      if (statusEl) statusEl.textContent = "SEASON 02 LOCKS WHEN TIMER EXPIRES OR LEASES SELL OUT.";
-      const remaining = Date.parse(S02_CLOSE_AT) - now;
-      timerEl.textContent = remaining <= 0 ? "EXPIRED" : formatRemaining(remaining);
-    } else {
-      setKicker("SEASON 02 IS LIVE");
-      if (statusEl) statusEl.textContent = "SEASON 02 IS LIVE \u2014 NEW BEAT DROPS WEEKLY. AVAILABLE NOW.";
-      timerEl.textContent = "LIVE NOW";
-    }
-    return;
-  }
-
-  setKicker("SEASON 02 HAS CLOSED");
-  if (statusEl) statusEl.textContent = "SEASON 02 IS NOW ARCHIVED \u00b7 VIEW ONLY.";
-  timerEl.textContent = "EXPIRED";
-}
-
-function tickS02(now = Date.now()) {
-  const el = $("s02-timer");
-  const banner = document.querySelector(".drop-banner");
-  if (!el) return;
-  const kicker = $("s02-kicker");
-
-  const showBanner = () => {
-    if (banner) banner.style.display = "";
-  };
-
-  if (now < Date.parse(S02_OPEN_AT)) {
-    showBanner();
-    if (kicker) kicker.textContent = "SEASON 02 \u2014 NEXT DROP IN";
-    const remaining = Date.parse(S02_OPEN_AT) - now;
-    el.textContent = remaining <= 0 ? "OPENING\u2026" : formatRemaining(remaining);
-    return;
-  }
-
-  if (now < Date.parse(S02_FINAL_DROP_AT)) {
-    showBanner();
-    if (kicker) kicker.textContent = "SEASON 02 \u2014 FINAL DROP IN";
-    const remaining = Date.parse(S02_FINAL_DROP_AT) - now;
-    el.textContent = remaining <= 0 ? "FINAL DROP READY" : formatRemaining(remaining);
-    return;
-  }
-
-  if (now < Date.parse(S02_CLOSE_AT)) {
-    showBanner();
-    if (kicker) kicker.textContent = "SEASON 02 \u2014 CLOSES IN";
-    const remaining = Date.parse(S02_CLOSE_AT) - now;
-    el.textContent = remaining <= 0 ? "EXPIRED" : formatRemaining(remaining);
-    return;
-  }
-
-  if (banner) banner.style.display = "none";
-  if (kicker) kicker.textContent = "SEASON 02 HAS CLOSED";
-  el.textContent = "ARCHIVED";
-}
-
-function tickBeatCountdowns() {
-  let changed = false;
-  CATALOG.forEach((beat) => {
-    if (!beat.releaseAt) return;
-    const timerEl = $("countdown-" + beat.id);
-    if (!timerEl) return;
-    const rem = releaseDate(beat).getTime() - Date.now();
-    if (rem <= 0) {
-      changed = true;
-    } else {
-      timerEl.textContent = formatRemaining(rem);
-    }
-  });
-  if (changed) {
-    buildGrid();
-    render();
-  }
-}
-
-const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-
-const releaseDate = (b) => (b.releaseAt ? new Date(b.releaseAt) : null);
-const isReleased = (b) => {
-  if (isKenHolder && b.tag === "SEASON 02") return true;
-  return !b.releaseAt || Date.now() >= releaseDate(b).getTime();
-};
 // Exclusive-sold beats are retired from the catalog entirely (master rights
 // transferred). Tracked client-side from the worker's /api/catalog endpoint.
 const EXCLUSIVE_SOLD = new Set();
 const isExclusiveSold = (b) => EXCLUSIVE_SOLD.has(b.id);
 const isSoldOut = (b) => isExclusiveSold(b) || b.soldOut || b.left <= 0;
 
-const byNewest = (a, b) => BEATS.indexOf(b) - BEATS.indexOf(a);
+const byNewest = (a, b) => CATALOG.indexOf(b) - CATALOG.indexOf(a);
 function renderOrder(list) {
   return [
     ...list.filter((b) => !isSoldOut(b)).sort(byNewest),
@@ -243,22 +34,7 @@ function renderOrder(list) {
 }
 const pad = (n) => String(n).padStart(2, "0");
 
-function dropLabel(d) {
-  const h24 = d.getHours();
-  const h12 = h24 % 12 || 12;
-  return `${MONTHS[d.getMonth()]} ${d.getDate()} \u2014 ${h12}:${pad(d.getMinutes())} ${h24 >= 12 ? "PM" : "AM"}`;
-}
-
-function formatRemaining(ms) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const days = Math.floor(s / 86400);
-  const h = pad(Math.floor((s % 86400) / 3600));
-  const m = pad(Math.floor((s % 3600) / 60));
-  const sec = pad(s % 60);
-  return (days > 0 ? days + "D " : "") + `${h}:${m}:${sec}`;
-}
-
-const selected = new Set();
+const selected = new Map(); // beat ID → mp3 or wav
 const freePicks = new Set();
 const exclusiveSelected = new Set();
 
@@ -284,6 +60,8 @@ function toggleFreePick(id) {
 const $ = (id) => document.getElementById(id);
 
 const grid = $("grid");
+const previewPlayer = new BeatPreviewPlayer(grid);
+window.addEventListener("pagehide", () => previewPlayer.stop());
 const cartbar = $("cartbar");
 const drawer = $("drawer");
 const backdrop = $("backdrop");
@@ -369,7 +147,7 @@ let lastBtcUsd = null;
 
 function renderBtc(usd) {
   lastBtcUsd = usd;
-  const label = `\u2248 ${(PRICE / usd).toFixed(6)} BTC`;
+  const label = `\u2248 ${(MP3_PRICE / usd).toFixed(6)} BTC`;
   document.querySelectorAll(".btc-price").forEach((el) => (el.textContent = label));
 }
 
@@ -516,7 +294,9 @@ function startBtc() {
 }
 
 function buildTicker() {
-  const line = TICKER_TEXT.repeat(6);
+  // Two equal-width copies; each is longer than the maximum storefront width.
+  // Translating half the track lands exactly on the start of the second copy.
+  const line = TICKER_TEXT.repeat(3);
   document.querySelectorAll(".ticker__track span").forEach((s) => (s.textContent = line));
 }
 
@@ -525,9 +305,7 @@ function beatNum(beat) {
 }
 
 function specLine(beat) {
-  return beat.bpm
-    ? `${beat.bpm} BPM // ${beat.key}`
-    : "FULL DETAILS DROP WITH THE BEAT";
+  return `${beat.bpm} BPM // ${beat.key}`;
 }
 
 function stockLine(beat) {
@@ -554,106 +332,56 @@ function youtubeHTML(beat, show) {
   return `<a href="${beat.youtube}" target="_blank" rel="noopener noreferrer" class="card__youtube-link" aria-label="Watch on YouTube" title="Watch on YouTube" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></a>`;
 }
 
-function cardInner(beat, opts = {}, index = 0) {
-  const { locked = false, archive = false } = opts;
+function previewHTML(beat) {
+  if (isExclusiveSold(beat)) return "";
+  const attr = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+  if (!beat.preview) return beat.youtube
+    ? `<a class="beat-preview__unavailable" href="${attr(beat.youtube)}" target="_blank" rel="noopener noreferrer">PREVIEW ON YOUTUBE ↗</a>`
+    : '<p class="beat-preview__unavailable">PREVIEW COMING SOON</p>';
+  const title = attr(`${beat.title} — ${beat.name}`);
+  return `<div class="beat-preview" data-title="${title}" data-state="idle">
+    <audio class="beat-preview__audio" src="${attr(beat.preview)}" preload="none"></audio>
+    <button type="button" class="beat-preview__toggle" aria-label="Play preview: ${title}" aria-pressed="false">
+      <svg class="beat-preview__play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+      <svg class="beat-preview__pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
+    </button>
+    <div class="beat-preview__details">
+      <input class="beat-preview__seek" type="range" min="0" max="100" step="0.1" value="0" disabled aria-label="Seek preview: ${title}">
+      <span class="beat-preview__time">0:00 / --:--</span>
+    </div>
+    <span class="beat-preview__status" role="status">AUDIO PREVIEW</span>
+  </div>`;
+}
 
-  // ARCHIVE — Season 1 view-only (simplified: name + BPM/key only, no stock/price)
-  if (archive) {
-    return `
-      <div class="card__media">
-        <img src="${beat.img}" alt="${beat.title}" decoding="async" loading="lazy">
-        <span class="card__num">${pad(index + 1)} OF ${pad(CATALOG.length)}</span>
-        <span class="card__tag card__tag--ended">ENDED \u00b7 ARCHIVE</span>
-      </div>
-      <div class="card__info">
-        <div class="card__meta">
-          <div class="card__name">
-            <span>${beat.title}${beat.name ? ` <span class="card__name-alt">\u2014 ${beat.name}</span>` : ""}</span>
-            ${youtubeHTML(beat, true)}
-          </div>
-          <div class="card__specs">${specLine(beat)}</div>
-        </div>
-        <button class="card__btn card__btn--ended" disabled>VIEW ONLY</button>
-      </div>`;
-  }
-
-  // LOCKED — Season 2 unreleased (blur cover + countdown + redacted details)
-  if (locked) {
-    const unlockDay = releaseDate(beat);
-    const label = unlockDay
-      ? `${MONTHS[unlockDay.getUTCMonth()]} ${unlockDay.getUTCDate()}`
-      : "";
-    let savedEmail = "";
-    try {
-      savedEmail = localStorage.getItem("kencarter_beat_alert_" + beat.id) || "";
-    } catch (err) {}
-    const subscribed = !!savedEmail;
-    const notifyForm = subscribed
-      ? `<div class="beat-alert-subscribed-wrap">
-           <button type="button" class="beat-alert-subscribed-btn" disabled>NOTIFICATIONS ON</button>
-           <span class="beat-alert-email">${savedEmail}</span>
-         </div>`
-      : `<form class="beat-alert-form" data-beat-id="${beat.id}" data-beat-name="${beat.name || beat.title}" data-beat-release="${beat.releaseAt || ""}">
-           <input type="email" class="beat-alert-input" placeholder="YOU@EMAIL.COM" required>
-           <button type="submit" class="beat-alert-btn">GET NOTIFIED</button>
-         </form>`;
-    return `
-      <div class="card__media">
-        <img src="${beat.img}" alt="LOCKED" decoding="async" loading="lazy">
-        <span class="card__num">${pad(index + 1)} OF ${pad(CATALOG.length)}</span>
-        <span class="card__tag card__tag--soon">DROPS SOON</span>
-        <div class="card__countdown">
-          <span class="card__countdown-timer" id="countdown-${beat.id}">${formatRemaining(releaseDate(beat) - Date.now())}</span>
-        </div>
-      </div>
-      <div class="card__info">
-        <div class="card__meta">
-          <div class="card__name"><span class="redact-bar" style="width:72%"></span></div>
-          <div class="card__specs"><span class="redact-bar redact-bar--thin" style="width:48%"></span></div>
-          <div class="card__price">${money(PRICE)}</div>
-          <div class="btc-price"></div>
-        </div>
-        <div class="card__actions">
-          ${notifyForm}
-          <button class="card__btn" disabled>SOON</button>
-        </div>
-      </div>`;
-  }
-
-  const released = isReleased(beat);
+function cardInner(beat) {
   const sold = isSoldOut(beat);
   const exclusiveGone = isExclusiveSold(beat);
   const mediaTag = exclusiveGone
     ? `<span class="card__tag card__tag--sold">SOLD OUT (EXCLUSIVE)</span>`
     : sold
       ? `<span class="card__tag card__tag--sold">SOLD OUT</span>`
-      : released
-        ? beat.tag
-          ? `<span class="card__tag">${beat.tag}</span>`
-          : ""
-        : `<div class="card__countdown">
-             <span class="card__countdown-timer" id="countdown-${beat.id}">${formatRemaining(releaseDate(beat) - Date.now())}</span>
-           </div>`;
+      : "";
 
-  const isLeaseOn = selected.has(beat.id);
+  const lease = selected.get(beat.id);
   const isExclusiveOn = exclusiveSelected.has(beat.id);
 
   const action = exclusiveGone
     ? `<button class="card__btn card__btn--sold" disabled>SOLD OUT (EXCLUSIVE)</button>`
     : sold
     ? `<button class="card__btn card__btn--sold" disabled>SOLD OUT</button>`
-    : released
-      ? `<div class="card__actions">
-           <button class="card__btn card__btn--lease${isLeaseOn ? " card__btn--active" : ""}" data-id="${beat.id}" data-type="lease" aria-pressed="${isLeaseOn}">
-             LEASE ($${PRICE.toFixed(2)})${isLeaseOn ? ' <span class="card__btn-check">&check;</span>' : ""}
+    : `<div class="card__actions">
+           <button class="card__btn card__btn--mp3${lease === "mp3" ? " card__btn--active" : ""}" data-id="${beat.id}" data-type="mp3" aria-pressed="${lease === "mp3"}">
+             MP3 LEASE (${money(MP3_PRICE)})${lease === "mp3" ? ' <span class="card__btn-check">&check;</span>' : ""}
+           </button>
+           <button class="card__btn card__btn--wav${lease === "wav" ? " card__btn--active" : ""}" data-id="${beat.id}" data-type="wav" aria-pressed="${lease === "wav"}">
+             STANDARD WAV LEASE (${money(PRICE)})${lease === "wav" ? ' <span class="card__btn-check">&check;</span>' : ""}
            </button>
            ${beat.left > 0 ? `
              <button class="card__btn card__btn--exclusive${isExclusiveOn ? " card__btn--active" : ""}" data-id="${beat.id}" data-type="exclusive" aria-pressed="${isExclusiveOn}">
-               EXCLUSIVE ($${EXCLUSIVE_PRICE.toFixed(2)})${isExclusiveOn ? ' <span class="card__btn-check">&check;</span>' : ""}
+                EXCLUSIVE LEASE ($${EXCLUSIVE_PRICE.toFixed(2)})${isExclusiveOn ? ' <span class="card__btn-check">&check;</span>' : ""}
              </button>
            ` : ""}
-         </div>`
-      : `<button class="card__btn" disabled>SOON</button>`;
+          </div>`;
 
   return `
     <div class="card__media">
@@ -667,68 +395,44 @@ function cardInner(beat, opts = {}, index = 0) {
           <a class="card__title-link" href="#${beatAnchorOf(beat)}" onclick="event.stopPropagation()">
             <span>${beat.title} <span class="card__name-alt">\u2014 ${beat.name}</span></span>
           </a>
-          ${youtubeHTML(beat, released)}
+          ${youtubeHTML(beat, true)}
         </div>
         <div class="card__specs">${specLine(beat)}</div>
-        <div class="card__price">${money(PRICE)}</div>
-        <div class="btc-price"></div>
+        <div class="card__price">FROM ${money(MP3_PRICE)}</div>
         ${stockHTML(beat)}
       </div>
+      ${previewHTML(beat)}
       ${action}
     </div>`;
 }
 
 function buildGrid() {
+  previewPlayer.stop();
   grid.innerHTML = "";
   const list = renderOrder(CATALOG);
 
   if (!list.length) {
     const panel = document.createElement("article");
     panel.className = "grid-closed";
-    const s = SEASONS.find((x) => x.id === selectedSeason);
-    let title = "STORE CLOSED";
-    let sub = "NEXT DROP TO BE ANNOUNCED.";
-    if (s && !isSeasonViewable(s)) {
-      title = `${s.label} \u2014 COMING SOON`;
-      sub = `UNLOCKS WHEN ITS LAUNCH TIMER EXPIRES.`;
-    } else if (selectedSeason === "S01") {
-      title = "SEASON 01 HAS ENDED";
-      sub = "SEASON 01 IS NOW ARCHIVED \u00b7 VIEW ONLY.";
-    }
-    panel.innerHTML =
-      `<div class="grid-closed__box"><div class="grid-closed__title">${title}</div><p>${sub}</p></div>`;
+    panel.innerHTML = '<div class="grid-closed__box"><div class="grid-closed__title">NO BEATS AVAILABLE</div><p>CHECK BACK FOR NEW BEATS.</p></div>';
     grid.appendChild(panel);
     return;
   }
 
-  const s01 = SEASONS.find((x) => x.id === "S01");
-  const s01Ended = s01 && seasonState(s01) === "ended";
-  const archive = selectedSeason === "S01" && s01Ended;
-
-  list.forEach((beat, i) => {
-    const locked = !archive && !isReleased(beat);
+  list.forEach((beat) => {
     const card = document.createElement("article");
     const isSel = selected.has(beat.id) || exclusiveSelected.has(beat.id);
     card.className =
       "card" +
-      (isReleased(beat) ? "" : " card--locked") +
-      (isSoldOut(beat) ? " card--sold" : "") +
-      (locked ? " card--censored" : "") +
-      (archive ? " card--archive" : "") +
-      (isSel ? " card--selected" : "");
+       (isSoldOut(beat) ? " card--sold" : "") +
+       (isSel ? " card--selected" : "");
     card.id = "card-" + beat.id;
-    card.innerHTML = cardInner(beat, { locked, archive }, i);
+    card.innerHTML = cardInner(beat);
     grid.appendChild(card);
   });
 }
 
 const padAnchor = (n) => String(n).padStart(2, "0");
-
-function seasonOfBeat(id) {
-  if (SEASON2_BEATS.some((b) => b.id === id)) return "S02";
-  if (BEATS.some((b) => b.id === id)) return "S01";
-  return null;
-}
 
 function beatAnchorOf(beat) {
   const m = /^(s2-)?beat(\d+)$/.exec(beat.id);
@@ -740,45 +444,23 @@ function beatFromAnchor(anchor) {
   const clean = String(anchor || "").replace(/^#/, "");
   const m = /^(s2-)?beat-(\d+)$/.exec(clean);
   if (m) {
-    const season = m[1] ? "S02" : "S01";
     const beatId = `${m[1] ? "s2-" : ""}beat${Number(m[2])}`;
-    return { season, beatId, exists: catalogFor(season).some((b) => b.id === beatId) };
+    return beatId;
   }
   const lm = /^(?:card-)?(s2-)?beat(\d+)$/.exec(clean);
   if (lm) {
-    const season = lm[1] ? "S02" : "S01";
     const beatId = `${lm[1] ? "s2-" : ""}beat${lm[2]}`;
-    return { season, beatId, exists: catalogFor(season).some((b) => b.id === beatId) };
+    return beatId;
   }
   return null;
 }
 
-// Opens a season's catalog directly, bypassing setSeason's ended/upcoming
-// gates, so store links into the S01 archive (view-only) still scroll.
-function openSeasonDirect(seasonId) {
-  const s = SEASONS.find((x) => x.id === seasonId);
-  if (!s) return;
-  if (seasonId !== selectedSeason) {
-    selected.clear();
-    exclusiveSelected.clear();
-    freePicks.clear();
-  }
-  selectedSeason = seasonId;
-  updateBrandSeasonLabel();
-  rebuildCatalog();
-  tickSeason();
-}
-
-// Scrolls to a beat and flashes its card. Mirrors the worker's email VIEW
-// links (SITE_URL + "/#" + beatAnchor). Upcoming seasons are ignored.
+// Scrolls to a beat and flashes its card. Legacy anchors remain valid.
 function gotoBeatHash(anchor) {
-  const target = beatFromAnchor(anchor);
-  if (!target || !target.exists) return;
-  const s = SEASONS.find((x) => x.id === target.season);
-  if (!s || !isSeasonViewable(s)) return;
-  openSeasonDirect(target.season);
+  const beatId = beatFromAnchor(anchor);
+  if (!CATALOG.some((b) => b.id === beatId)) return;
   requestAnimationFrame(() => {
-    const card = $("card-" + target.beatId);
+    const card = $("card-" + beatId);
     if (!card) return;
     card.scrollIntoView({ behavior: "smooth", block: "center" });
     card.classList.remove("card--flash");
@@ -794,12 +476,7 @@ function handleDeepHash() {
 
 function toggle(id, type) {
   const beat = CATALOG.find((b) => b.id === id);
-  if (!beat || !isReleased(beat)) return;
-  const s = SEASONS.find((x) => x.id === selectedSeason);
-  if (s && seasonState(s) === "ended") {
-    alert("This season has ended. Catalog is view-only.");
-    return;
-  }
+  if (!beat) return;
 
   if (isExclusiveSold(beat)) {
     alert("This beat has been sold exclusively \u2014 master rights transferred. No longer available.");
@@ -821,12 +498,13 @@ function toggle(id, type) {
     } else {
       exclusiveSelected.add(id);
       selected.delete(id);
+      freePicks.delete(id);
     }
   } else {
-    if (selected.has(id)) {
+    if (selected.get(id) === type) {
       selected.delete(id);
     } else {
-      selected.add(id);
+      selected.set(id, type);
       exclusiveSelected.delete(id);
     }
   }
@@ -837,9 +515,9 @@ function totals() {
   const basicCount = selected.size;
   const exclusiveCount = exclusiveSelected.size;
   const n = basicCount + exclusiveCount;
-  const subtotal = basicCount * PRICE + exclusiveCount * EXCLUSIVE_PRICE;
+  const subtotal = [...selected.values()].reduce((sum, tier) => sum + (tier === "mp3" ? MP3_PRICE : PRICE), 0) + exclusiveCount * EXCLUSIVE_PRICE;
   const freeCount = [...freePicks].filter((id) => selected.has(id)).length;
-  const discount = freeCount * PRICE;
+  const discount = [...freePicks].reduce((sum, id) => sum + (selected.get(id) === "mp3" ? MP3_PRICE : PRICE), 0);
   let total = Math.max(0, subtotal - discount);
   if (payAssetSym === "KEN" && isKenHolder) {
     total = Math.max(0, total * 0.85); // only when wallet holds KEN
@@ -848,6 +526,7 @@ function totals() {
 }
 
 function render() {
+  normalizeFreePicks();
   const { n, subtotal, discount, total } = totals();
 
   updatePaygridLocks();
@@ -863,21 +542,21 @@ function render() {
   }
 
   CATALOG.forEach((b) => {
-    if (!isReleased(b) || isSoldOut(b)) return;
+    if (isSoldOut(b)) return;
     const card = $("card-" + b.id);
     if (!card) return;
-    const isLeaseOn = selected.has(b.id);
+    const lease = selected.get(b.id);
     const isExclusiveOn = exclusiveSelected.has(b.id);
 
-    card.classList.toggle("card--selected", isLeaseOn || isExclusiveOn);
+    card.classList.toggle("card--selected", !!lease || isExclusiveOn);
 
-    const leaseBtn = card.querySelector(".card__btn--lease");
-    if (leaseBtn) {
-      leaseBtn.classList.toggle("card__btn--active", isLeaseOn);
-      leaseBtn.setAttribute("aria-pressed", isLeaseOn ? "true" : "false");
-      leaseBtn.innerHTML = isLeaseOn
-        ? `LEASE ($${PRICE.toFixed(2)}) <span class="card__btn-check">&check;</span>`
-        : `LEASE ($${PRICE.toFixed(2)})`;
+    for (const [tier, label, price] of [["mp3", "MP3 LEASE", MP3_PRICE], ["wav", "STANDARD WAV LEASE", PRICE]]) {
+      const btn = card.querySelector(".card__btn--" + tier);
+      if (!btn) continue;
+      const on = lease === tier;
+      btn.classList.toggle("card__btn--active", on);
+      btn.setAttribute("aria-pressed", String(on));
+      btn.innerHTML = `${label} (${money(price)})${on ? ' <span class="card__btn-check">&check;</span>' : ""}`;
     }
 
     const exclusiveBtn = card.querySelector(".card__btn--exclusive");
@@ -885,8 +564,8 @@ function render() {
       exclusiveBtn.classList.toggle("card__btn--active", isExclusiveOn);
       exclusiveBtn.setAttribute("aria-pressed", isExclusiveOn ? "true" : "false");
       exclusiveBtn.innerHTML = isExclusiveOn
-        ? `EXCLUSIVE ($${EXCLUSIVE_PRICE.toFixed(2)}) <span class="card__btn-check">&check;</span>`
-        : `EXCLUSIVE ($${EXCLUSIVE_PRICE.toFixed(2)})`;
+        ? `EXCLUSIVE LEASE ($${EXCLUSIVE_PRICE.toFixed(2)}) <span class="card__btn-check">&check;</span>`
+        : `EXCLUSIVE LEASE ($${EXCLUSIVE_PRICE.toFixed(2)})`;
     }
   });
 
@@ -900,12 +579,11 @@ function render() {
   $("t-discount").textContent = "\u2212" + money(discount);
   $("t-total-usd").textContent = money(total);
 
-  normalizeFreePicks();
   const hint = $("free-hint");
   const cap = freeCap();
   const missing = cap - freePicks.size;
   const moreAvailable = CATALOG.some(
-    (b) => isReleased(b) && !isSoldOut(b) && !selected.has(b.id) && !exclusiveSelected.has(b.id)
+    (b) => !isSoldOut(b) && !selected.has(b.id) && !exclusiveSelected.has(b.id)
   );
   if (n === 0) {
     hint.hidden = true;
@@ -931,12 +609,14 @@ function render() {
     const picked = freePicks.has(b.id);
     const li = document.createElement("li");
     if (picked) li.className = "cart-item--free";
+    const tier = selected.get(b.id);
+    const price = tier === "mp3" ? MP3_PRICE : PRICE;
     li.innerHTML = `
       <img src="${b.img}" alt="">
-      <span class="cart-items__name">${b.title} <span class="cart-items__name-alt">\u2014 ${b.name} (LEASE)</span><span class="cart-items__specs">${specLine(b)} \u2014 ${stockLine(b)}</span></span>
-      <span class="cart-items__price${picked ? " cart-items__price--free" : ""}">${picked ? "FREE" : money(PRICE)}</span>
+      <span class="cart-items__name">${b.title} <span class="cart-items__name-alt">\u2014 ${b.name} (${tier.toUpperCase()} LEASE)</span><span class="cart-items__specs">${specLine(b)} \u2014 ${stockLine(b)}</span></span>
+      <span class="cart-items__price${picked ? " cart-items__price--free" : ""}">${picked ? "FREE" : money(price)}</span>
       ${picked ? `<button class="cart-items__free" data-free="${b.id}">REMOVE FREE</button>` : cap > freePicks.size ? `<button class="cart-items__free" data-free="${b.id}">MAKE FREE</button>` : ""}
-      <button class="cart-items__remove" data-id="${b.id}" data-type="lease">REMOVE</button>`;
+      <button class="cart-items__remove" data-id="${b.id}" data-type="${tier}">REMOVE</button>`;
     list.appendChild(li);
   });
 
@@ -979,95 +659,11 @@ function updateCashbackNotice() {
   }
 }
 
-const seasonDrawer = $("season-drawer");
-const seasonClose = $("season-close");
-
-function openSeasonDrawer() {
-  if (!seasonDrawer) return;
-  renderSeasonDrawerList();
-  seasonDrawer.classList.add("drawer--open");
-  seasonDrawer.setAttribute("aria-hidden", "false");
-  backdrop.hidden = false;
-  document.body.style.overflow = "hidden";
-}
-
-function closeSeasonDrawer() {
-  if (!seasonDrawer) return;
-  seasonDrawer.classList.remove("drawer--open");
-  seasonDrawer.setAttribute("aria-hidden", "true");
-  if (drawer.getAttribute("aria-hidden") === "true" && seasonDrawer.getAttribute("aria-hidden") === "true") {
-    backdrop.hidden = true;
-    document.body.style.overflow = "";
-  }
-}
-
 function closeDrawer() {
   drawer.classList.remove("drawer--open");
   drawer.setAttribute("aria-hidden", "true");
-  if (drawer.getAttribute("aria-hidden") === "true" && (!seasonDrawer || seasonDrawer.getAttribute("aria-hidden") === "true")) {
-    backdrop.hidden = true;
-    document.body.style.overflow = "";
-  }
-}
-
-function renderSeasonDrawerList() {
-  const container = $("season-drawer-list");
-  if (!container) return;
-  container.innerHTML = "";
-
-  SEASONS.slice().reverse().forEach((s) => {
-    const state = seasonState(s);
-    const viewable = isSeasonViewable(s);
-    const active = s.id === selectedSeason;
-    const ended = state === "ended";
-
-    const itemEl = document.createElement("div");
-    itemEl.className = "season-drawer-card" + (active ? " season-drawer-card--active" : "") + (ended ? " season-drawer-card--ended" : "");
-
-    let statusText = "LIVE";
-    if (ended) statusText = "ENDED (ARCHIVE)";
-    else if (state === "upcoming") statusText = `UPCOMING \u00b7 ${seasonBadge(s)}`;
-
-    const isUpcoming = state === "upcoming";
-    let savedEmail = "";
-    try {
-      savedEmail = localStorage.getItem("kencarter_alert_" + s.id) || "";
-    } catch (err) {}
-    const isSubscribed = !!savedEmail;
-
-    const LOCK_SVG = '<svg class="season-drawer-card__lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
-    const dates = ended ? seasonDateRange(s) : "";
-
-    itemEl.innerHTML = `
-      <div class="season-drawer-card__header">
-        <span class="season-drawer-card__title">${s.label}</span>
-        <span class="season-drawer-card__badge season-drawer-card__badge--${state}">${statusText}</span>
-      </div>
-      ${ended ? `<div class="season-drawer-card__lock-row">${LOCK_SVG}<span class="season-drawer-card__dates">${dates}</span></div>` : ""}
-      <p class="season-drawer-card__desc">
-        ${s.id === "S01" ? "Season 01 \u2014 7 Limited Leases ($14.95 each, pick 2 get 1 free). Active until countdown expires." : "Season 02 \u2014 7 Exclusive Beats premiering September 1, 2026."}
-      </p>
-      ${isUpcoming ? (
-        isSubscribed ? `
-          <div class="season-alert-subscribed-wrap">
-            <button class="season-alert-subscribed-btn" disabled>SUBSCRIBED</button>
-            <span class="season-alert-email">${savedEmail}</span>
-          </div>
-        ` : `
-          <form class="season-alert-form" data-season-id="${s.id}">
-            <input type="email" class="season-alert-input" placeholder="YOUR@EMAIL.COM" required>
-            <button type="submit" class="season-alert-btn">NOTIFY ME</button>
-          </form>
-        `
-      ) : ""}
-      <div class="season-drawer-card__actions">
-        ${ended ? "" : `<button class="btn btn--solid season-drawer-card__btn" data-season="${s.id}" ${!viewable ? "disabled" : ""}>
-          ${active ? "CURRENTLY VIEWING" : viewable ? "VIEW SEASON" : "LOCKED / SOON"}
-        </button>`}
-      </div>
-    `;
-    container.appendChild(itemEl);
-  });
+  backdrop.hidden = true;
+  document.body.style.overflow = "";
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1080,6 +676,7 @@ function submitOrder(e) {
   const emailInput = $("email");
   const errorEl = $("form-error");
   const email = emailInput.value.trim();
+  normalizeFreePicks();
   const { n, subtotal, discount, total } = totals();
 
   errorEl.hidden = true;
@@ -1104,7 +701,7 @@ function submitOrder(e) {
   }
 
   if (!CATALOG.length) {
-    errorEl.textContent = "THE STORE IS CURRENTLY CLOSED \u2014 NEXT DROP TO BE ANNOUNCED.";
+    errorEl.textContent = "NO BEATS AVAILABLE.";
     errorEl.hidden = false;
     return;
   }
@@ -1113,12 +710,12 @@ function submitOrder(e) {
   const exclusiveChosen = CATALOG.filter((b) => exclusiveSelected.has(b.id));
 
   const items = [
-    ...chosen.map((b) => ({ id: b.id, title: b.title, type: "lease" })),
+    ...chosen.map((b) => ({ id: b.id, title: b.title, type: selected.get(b.id) })),
     ...exclusiveChosen.map((b) => ({ id: b.id, title: b.title, type: "exclusive" }))
   ];
 
   const labeled = [
-    ...chosen.map((b) => `${b.title} LEASE`),
+    ...chosen.map((b) => `${b.title} ${selected.get(b.id).toUpperCase()} LEASE`),
     ...exclusiveChosen.map((b) => `${b.title} EXCLUSIVE`)
   ];
 
@@ -1130,6 +727,7 @@ function submitOrder(e) {
     discount,
     total,
     items,
+    freePicks: [...freePicks],
     exclusivePicks: exclusiveChosen.map((b) => b.id),
     exclusiveTitles: exclusiveChosen.map((b) => b.title),
     walletAddress: connectedWalletAddress || null
@@ -1319,6 +917,7 @@ async function startNpPayment(sym) {
         subtotal: payScreenOrder.subtotal,
         discount: payScreenOrder.discount,
         items: payScreenOrder.items,
+        freePicks: payScreenOrder.freePicks,
         exclusivePicks: payScreenOrder.exclusivePicks || [],
         walletAddress: payScreenOrder.walletAddress || null
       })
@@ -1444,12 +1043,12 @@ function revealDownloads(s) {
       a.href = it.url;
       a.target = "_blank";
       a.rel = "noopener";
-      a.textContent = `DOWNLOAD ${it.title}`;
+      a.textContent = `DOWNLOAD ${it.title} — ${String(it.tier || "wav").toUpperCase()}`;
       list.appendChild(a);
     } else {
       const pending = document.createElement("div");
       pending.className = "payscreen__dl payscreen__dl--pending";
-      pending.textContent = `DOWNLOAD ${it.title} \u2014 DELIVERY PENDING \u00b7 URL COMING`;
+      pending.textContent = `DOWNLOAD ${it.title} — ${String(it.tier || "wav").toUpperCase()} DELIVERY PENDING`;
       list.appendChild(pending);
     }
     if (it.isExclusive && it.id) EXCLUSIVE_SOLD.add(it.id);
@@ -1461,12 +1060,24 @@ function revealDownloads(s) {
       a.href = "EXCLUSIVE_LICENSE.pdf";
       a.download = "EXCLUSIVE_LICENSE.pdf";
       a.textContent = "DOWNLOAD EXCLUSIVE LICENSE";
+    } else if (lic.tier === "mp3") {
+      a.href = "MP3_LICENSE.txt";
+      a.download = "MP3_LICENSE.txt";
+      a.textContent = "DOWNLOAD MP3 LICENSE";
     } else {
       a.href = "LICENSE.pdf";
       a.download = "LICENSE.pdf";
-      a.textContent = "DOWNLOAD LICENSE";
+      a.textContent = "DOWNLOAD LEASE LICENSE";
     }
     list.appendChild(a);
+    if (lic.tier !== "mp3") {
+      const text = document.createElement("a");
+      text.className = "payscreen__dl";
+      text.href = lic.tier === "exclusive" ? "EXCLUSIVE_LICENSE.txt" : "LICENSE.txt";
+      text.download = text.href;
+      text.textContent = `DOWNLOAD ${lic.tier === "exclusive" ? "EXCLUSIVE" : "WAV"} LICENSE TEXT`;
+      list.appendChild(text);
+    }
   });
   if ((links && links.length) || (licenses && licenses.length)) {
     $("payscreen-downloads-wrap").hidden = false;
@@ -1487,7 +1098,11 @@ async function refreshExclusiveStatus() {
     let changed = false;
     sold.forEach((id) => { if (!EXCLUSIVE_SOLD.has(id)) { EXCLUSIVE_SOLD.add(id); changed = true; } });
     EXCLUSIVE_SOLD.forEach((id) => { if (!sold.has(id)) { EXCLUSIVE_SOLD.delete(id); changed = true; } });
-    if (changed) render();
+    if (changed) {
+      sold.forEach((id) => { selected.delete(id); exclusiveSelected.delete(id); freePicks.delete(id); });
+      buildGrid();
+      render();
+    }
   } catch {}
   exclusiveRefreshTimer = setTimeout(refreshExclusiveStatus, 60000);
 }
@@ -1544,93 +1159,16 @@ function resetDrawer() {
   });
   $("paygrid").classList.remove("invalid");
   closeDrawer();
-  closeSeasonDrawer();
 }
 
-let currentPhase = null;
-
 function rebuildCatalog() {
-  CATALOG = catalogFor(selectedSeason);
   buildGrid();
   render();
 }
 
-function updateBrandSeasonLabel() {
-  const lbl = $("brand-season-label");
-  if (!lbl) return;
-  const s = SEASONS.find((x) => x.id === selectedSeason);
-  lbl.textContent = s ? s.label : "SEASON 01";
-}
-
-function setSeason(season) {
-  const s = SEASONS.find((x) => x.id === season);
-  if (!s) return;
-  // Ended seasons are permanently locked — no access.
-  if (seasonState(s) === "ended") return;
-  // Upcoming seasons remain locked/hidden until their launch — no access.
-  if (!isSeasonViewable(s)) return;
-  if (season !== selectedSeason) {
-    selected.clear();
-    exclusiveSelected.clear();
-    freePicks.clear();
-  }
-  selectedSeason = season;
-  updateBrandSeasonLabel();
-  rebuildCatalog();
-}
-
-function applyPhase(force = false) {
-  const p = storePhase();
-  if (!force && p === currentPhase) return;
-  const leavingS01 = currentPhase === "S01" && p !== "S01";
-  currentPhase = p;
-  if (leavingS01 || p === "GAP" || p === "POST") {
-    selected.clear();
-    exclusiveSelected.clear();
-    freePicks.clear();
-  }
-  render();
-}
-
-function checkSeason2ExpiryNotification(now = Date.now()) {
-  const closeTime = Date.parse(S02_CLOSE_AT);
-  if (now >= closeTime) {
-    try {
-      const email = localStorage.getItem("kencarcer_alert_S02");
-      const alreadyNotified = localStorage.getItem("kencarcer_notified_S02");
-      if (email && !alreadyNotified) {
-        localStorage.setItem("kencarcer_notified_S02", "true");
-        if (WORKER_URL) {
-          fetch(WORKER_URL.replace(/\/+$/, "") + "/api/notify-closure", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ season: "S02", email })
-          }).catch(() => {});
-        }
-      }
-    } catch (err) {
-      console.error("Season 2 expiry notification error:", err);
-    }
-  }
-}
-
-function storeTick() {
-  applyPhase();
-  tickSeason();
-  tickS02();
-  tickBeatCountdowns();
-  checkSeason2ExpiryNotification();
-}
-
 buildTicker();
 buildPaygrid();
-selectedSeason = defaultSeason();
-updateBrandSeasonLabel();
 rebuildCatalog();
-currentPhase = storePhase();
-storeTick();
-render();
-storeTimer = setInterval(storeTick, 1000);
 startBtc();
 loadMins();
 refreshExclusiveStatus();
@@ -1685,115 +1223,6 @@ grid.addEventListener("click", (e) => {
   if (!btn || btn.disabled) return;
   toggle(btn.dataset.id, btn.dataset.type);
 });
-
-// Per-beat "GET NOTIFIED" subscription (shown on locked/upcoming beat cards).
-grid.addEventListener("submit", async (e) => {
-  const form = e.target.closest(".beat-alert-form");
-  if (!form) return;
-  e.preventDefault();
-
-  const input = form.querySelector(".beat-alert-input");
-  const beatId = form.dataset.beatId;
-  const beatName = form.dataset.beatName || beatId;
-  const dropDate = form.dataset.beatRelease || "";
-  const email = input ? input.value.trim() : "";
-
-  if (!EMAIL_RE.test(email)) {
-    alert("Please enter a valid email address.");
-    input && input.focus();
-    return;
-  }
-
-  const btn = form.querySelector(".beat-alert-btn");
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = "SAVING\u2026";
-  }
-
-  try {
-    await workerRequest("/api/notify-beat", {
-      method: "POST",
-      body: JSON.stringify({ beatId, beatName, email, dropDate })
-    });
-    try {
-      localStorage.setItem("kencarter_beat_alert_" + beatId, email);
-    } catch (err) {
-      console.error("Local storage error:", err);
-    }
-    buildGrid();
-    render();
-    alert("You\u2019re in! We\u2019ll email you the moment it drops.");
-  } catch (err) {
-    console.error("Beat-notify error:", err);
-    alert("Something went wrong. Please try again.");
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = "GET NOTIFIED";
-    }
-  }
-});
-
-const brandBtn = $("brand-season-btn");
-if (brandBtn) {
-  brandBtn.addEventListener("click", openSeasonDrawer);
-}
-
-if (seasonClose) {
-  seasonClose.addEventListener("click", closeSeasonDrawer);
-}
-
-const seasonDrawerList = $("season-drawer-list");
-if (seasonDrawerList) {
-  seasonDrawerList.addEventListener("click", (e) => {
-    if (e.target.closest(".season-drawer-card--ended")) return;
-    const btn = e.target.closest("button[data-season]");
-    if (!btn || btn.disabled) return;
-    const seasonId = btn.dataset.season;
-    setSeason(seasonId);
-    closeSeasonDrawer();
-  });
-
-  seasonDrawerList.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const form = e.target.closest(".season-alert-form");
-    if (!form) return;
-    const input = form.querySelector(".season-alert-input");
-    const seasonId = form.dataset.seasonId;
-    const email = input ? input.value.trim() : "";
-
-    if (!EMAIL_RE.test(email)) {
-      alert("Please enter a valid email address.");
-      return;
-    }
-
-    try {
-      if (seasonId) {
-        localStorage.setItem("kencarter_alert_" + seasonId, email);
-      }
-    } catch (err) {
-      console.error("Local storage error:", err);
-    }
-
-    renderSeasonDrawerList();
-  });
-}
-
-const notifyLink = $("header-notify-link");
-if (notifyLink) {
-  notifyLink.addEventListener("click", () => {
-    openSeasonDrawer();
-    setTimeout(() => {
-      const s2Card = document.querySelector('.season-alert-form[data-season-id="S02"]');
-      if (s2Card) {
-        s2Card.scrollIntoView({ behavior: "smooth", block: "center" });
-        const input = s2Card.querySelector(".season-alert-input");
-        if (input && !input.disabled) {
-          input.focus();
-        }
-      }
-    }, 250);
-  });
-}
 
 const walletModal = $("wallet-modal");
 const walletModalClose = $("wallet-modal-close");
@@ -1983,7 +1412,7 @@ async function connectSolanaWallet(e, walletType = "phantom") {
         walletInlineState.innerHTML = `
           <div style="border: 1px solid #333; padding: 16px; background: #0d0d0d; color: #fff; text-align: center;">
             <p style="margin-bottom: 8px; font-weight: 700; font-size: 11px; letter-spacing: 0.08em;">ACQUIRE KEN TO UNLOCK VIP PERKS</p>
-            <p style="margin-bottom: 14px; color: #888888; font-size: 10px; line-height: 1.5;">Hold KEN to activate your 15% lease discount, automated cashback, and Season 2 early access.</p>
+            <p style="margin-bottom: 14px; color: #888888; font-size: 10px; line-height: 1.5;">Hold KEN to activate your 15% discount and automated cashback.</p>
             <a href="https://pump.fun/coin/HEFkC6WQo3jTv39B6JhYQJ3ZW8xKxRELaWdnirdSpump" target="_blank" rel="noopener noreferrer" class="payscreen__dl" style="display: block; text-decoration: none; background: #fff; color: #000; border-color: #fff; padding: 12px; font-weight: 800; font-size: 11px; text-transform: uppercase; margin-bottom: 10px;">BUY KEN ON PUMP.FUN &rarr;</a>
             <button type="button" id="check-balance-btn" class="payscreen__dl" style="width: 100%; background: #1a1a1a; color: #fff; border: 1px solid #333; padding: 12px; font-weight: 800; font-size: 11px; text-transform: uppercase; cursor: pointer; margin-bottom: 10px;">CHECK BALANCE / I'VE BOUGHT KEN</button>
             <button type="button" id="switch-wallet-btn" style="display: block; width: 100%; background: transparent; color: #888888; border: none; font-family: inherit; font-size: 11px; font-weight: 700; cursor: pointer; text-decoration: underline; padding: 6px;">HOW TO SWITCH WALLET / DISCONNECT?</button>
@@ -2115,38 +1544,27 @@ if (walletModal) {
 
 (() => {
   const items = document.querySelectorAll(".ken-benefits__item");
-  items.forEach((item) => item.classList.add("ken-benefits__item--active"));
-
-  const sigVideo = document.querySelector(".signature-video");
-  if (sigVideo) {
-    sigVideo.muted = true;
-    sigVideo.playsInline = true;
-    sigVideo.setAttribute("playsinline", "");
-    sigVideo.setAttribute("webkit-playsinline", "");
-    sigVideo.setAttribute("muted", "");
-    const attemptPlay = () => {
-      const p = sigVideo.play();
-      if (p !== undefined) {
-        p.catch(() => {
-          const resumePlay = () => {
-            sigVideo.play().catch(() => {});
-            window.removeEventListener("touchstart", resumePlay);
-            window.removeEventListener("click", resumePlay);
-          };
-          window.addEventListener("touchstart", resumePlay, { once: true });
-          window.addEventListener("click", resumePlay, { once: true });
-        });
-      }
+  if (items.length) {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let activeIndex = 0;
+    let perkTimer = null;
+    const highlightPerk = () => {
+      items.forEach((item, index) => {
+        item.classList.toggle("ken-benefits__item--active", index === activeIndex);
+      });
     };
-    attemptPlay();
-    window.addEventListener("load", () => {
-      attemptPlay();
-    });
-    sigVideo.addEventListener("ended", () => {
-      sigVideo.pause();
-      if (sigVideo.duration) {
-        sigVideo.currentTime = sigVideo.duration;
-      }
-    });
+    const syncPerkCycle = () => {
+      clearInterval(perkTimer);
+      perkTimer = null;
+      highlightPerk();
+      if (reducedMotion.matches || document.hidden || items.length < 2) return;
+      perkTimer = setInterval(() => {
+        activeIndex = (activeIndex + 1) % items.length;
+        highlightPerk();
+      }, 3500);
+    };
+    syncPerkCycle();
+    document.addEventListener("visibilitychange", syncPerkCycle);
+    reducedMotion.addEventListener("change", syncPerkCycle);
   }
 })();
