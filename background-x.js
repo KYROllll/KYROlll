@@ -1,13 +1,13 @@
-// Falling brown-X background animation. A fixed transparent canvas sits behind
-// the storefront; brown brush X marks drift downward with gentle rotation.
+// Falling brown-X background animation. The canvas and every mark live in page
+// coordinates, so scrolling passes them instead of carrying them along.
 // The pause toggle is owned by brand-logo.js, which dispatches 'motion-toggle'.
 const canvas = document.createElement('canvas');
 canvas.setAttribute('aria-hidden', 'true');
 Object.assign(canvas.style, {
-  position: 'fixed',
-  inset: '0',
+  position: 'absolute',
+  top: '0',
+  left: '0',
   width: '100%',
-  height: '100%',
   zIndex: '-1',
   pointerEvents: 'none',
   display: 'block',
@@ -31,14 +31,18 @@ let lastTime = 0;
 let running = false;
 
 function targetCount() {
-  return Math.max(8, Math.min(22, Math.round((width * height) / 70000)));
+  return Math.max(8, Math.min(50, Math.round((width * height) / 70000)));
 }
 
-function makeSprite(fromTop) {
+function makeSprite() {
   const size = 22 + Math.random() * 30;
+  const landingY = size / 2 + Math.random() * Math.max(0, height - size);
+  const landed = paused;
   return {
     x: Math.random() * width,
-    y: fromTop ? -size - Math.random() * height * 0.25 : Math.random() * height,
+    y: landed ? landingY : landingY - Math.min(window.innerHeight * (0.3 + Math.random() * 0.7), landingY + size),
+    landingY,
+    landed,
     size,
     speed: 16 + Math.random() * 30,
     drift: (Math.random() - 0.5) * 22,
@@ -51,27 +55,29 @@ function makeSprite(fromTop) {
 
 function seed() {
   const count = targetCount();
-  sprites = Array.from({ length: count }, () => makeSprite(false));
+  while (sprites.length < count) sprites.push(makeSprite());
 }
 
 function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, 2);
-  width = window.innerWidth;
-  height = window.innerHeight;
+  width = document.documentElement.clientWidth;
+  height = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+  canvas.style.height = `${height}px`;
   canvas.width = Math.round(width * dpr);
   canvas.height = Math.round(height * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   seed();
+  drawFrame(0, performance.now());
 }
 
 function drawFrame(dt, t) {
   ctx.clearRect(0, 0, width, height);
   for (const s of sprites) {
-    s.y += s.speed * dt;
-    s.x += s.drift * dt + Math.sin(t * 0.0006 + s.phase) * 12 * dt;
-    s.rot += s.rotSpeed * dt;
-    if (s.y - s.size > height || s.x < -s.size * 2 || s.x > width + s.size * 2) {
-      Object.assign(s, makeSprite(true));
+    if (!s.landed) {
+      s.y = Math.min(s.landingY, s.y + s.speed * dt);
+      s.x = Math.max(s.size / 2, Math.min(width - s.size / 2, s.x + s.drift * dt + Math.sin(t * 0.0006 + s.phase) * 12 * dt));
+      s.rot += s.rotSpeed * dt;
+      s.landed = s.y === s.landingY;
     }
     ctx.save();
     ctx.translate(s.x, s.y);
@@ -109,10 +115,12 @@ function stop() {
 }
 
 let resizeRaf = 0;
-window.addEventListener('resize', () => {
+function scheduleResize() {
   cancelAnimationFrame(resizeRaf);
   resizeRaf = requestAnimationFrame(resize);
-});
+}
+window.addEventListener('resize', scheduleResize);
+new ResizeObserver(scheduleResize).observe(document.body);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     cancelAnimationFrame(rafId);

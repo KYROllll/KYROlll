@@ -18,7 +18,7 @@ motion.addEventListener('change', () => { paused = motion.matches; syncMotion();
 syncMotion();
 
 async function init() {
-  const response = await fetch('assets/kyrolll-contours.json');
+  const response = await fetch('assets/kyrolll-contours.json?v=2');
   if (!response.ok) throw new Error('Logo geometry unavailable');
   const { size, contours } = await response.json();
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });

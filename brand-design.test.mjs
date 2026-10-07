@@ -78,6 +78,22 @@ try {
   await desktop.locator('.logo-stage.is-ready').waitFor();
   assert.doesNotMatch(await desktop.content(), /Beat Catalog/i);
   assert.equal(await desktop.locator('body > canvas').count(), 1, 'falling-X background canvas');
+  const canvasBeforeScroll = await desktop.locator('body > canvas').evaluate(canvas => ({
+    position: getComputedStyle(canvas).position,
+    top: canvas.getBoundingClientRect().top,
+    height: canvas.getBoundingClientRect().height,
+    pixels: [...canvas.getContext('2d').getImageData(0, 0, 100, 100).data]
+  }));
+  assert.equal(canvasBeforeScroll.position, 'absolute');
+  assert(canvasBeforeScroll.height > 1000, 'background covers the document, not only the viewport');
+  await desktop.evaluate(() => scrollTo(0, 400));
+  const canvasAfterScroll = await desktop.locator('body > canvas').evaluate(canvas => ({
+    top: canvas.getBoundingClientRect().top,
+    pixels: [...canvas.getContext('2d').getImageData(0, 0, 100, 100).data]
+  }));
+  assert(Math.abs(canvasAfterScroll.top - canvasBeforeScroll.top + 400) < 2, 'marks remain at document coordinates while scrolling');
+  assert.deepEqual(canvasAfterScroll.pixels, canvasBeforeScroll.pixels, 'scrolling does not shift the painted marks');
+  await desktop.evaluate(() => scrollTo(0, 0));
   assert.equal(await desktop.locator('.background-doodles').count(), 0, 'doodles layer removed');
   assert.equal(await desktop.locator('.motion-toggle').getAttribute('aria-pressed'), 'true');
   const stillA = await desktop.locator('.logo-stage').screenshot();

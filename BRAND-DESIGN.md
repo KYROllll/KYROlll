@@ -4,8 +4,10 @@
 
 `assets/LOGO KYROlll.svg` is the supplied Downloads artwork, retained verbatim.
 It contains a raster image and alpha mask inside an SVG wrapper. The brand build
-traces the mask at 768px, with sub-pixel simplification, including all eight petals
-and the two center cutouts. It does not generate a circular backing.
+traces the mask at 768px, including all eight petals and the two center cutouts.
+The narrow center traces use a slightly stronger simplification so their pixel
+steps cannot form an extra wedge in the extruded mesh. No circular backing is
+generated.
 
 `brand-logo.js` extrudes those contours with beveled edges using Three.js. A soft
 pearl-white physical material (low metalness, high roughness, gentle clearcoat)
@@ -32,11 +34,12 @@ dependency.
 
 ## Falling brown-X background
 
-`background-x.js` paints the brown brush X (`assets/kyrolll-brown-x.png`) onto a
-fixed transparent canvas behind the storefront. A density-scaled set of sprites
-drifts downward with gentle rotation and sine wobble, respawning at the top. It
-replaces the earlier random line doodles. The canvas honors reduced-motion, the
-shared pause toggle (via the `motion-toggle` event), and tab visibility.
+`background-x.js` paints the brown brush X (`assets/kyrolll-brown-x.png`) onto an
+absolute document-height canvas behind the storefront. Sprites drift downward
+with gentle rotation until they land at a page coordinate, where they remain
+still as the visitor scrolls past. New page height adds marks without moving
+the existing ones. The canvas honors reduced-motion, the shared pause toggle
+(via the `motion-toggle` event), and tab visibility.
 
 ## Secondary mark and compact catalog
 

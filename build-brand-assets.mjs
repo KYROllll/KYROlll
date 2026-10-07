@@ -91,7 +91,10 @@ while (edges.size) {
     current = end;
   } while (current !== start);
   const area = points.reduce((sum, p, i) => { const q = points[(i + 1) % points.length]; return sum + p[0] * q[1] - q[0] * p[1]; }, 0) / 2;
-  if (Math.abs(area) > 30) contours.push({ area, points: simplify([...points, points[0]]).slice(0, -1) });
+  // The two narrow center cutouts contain dozens of 1px stair-steps. Feeding
+  // those directly into Earcut/ExtrudeGeometry creates a stray bridge triangle
+  // beside the right cutout. Keep their outline but remove sub-pixel notches.
+  if (Math.abs(area) > 30) contours.push({ area, points: simplify([...points, points[0]], area < 0 ? 2.5 : .7).slice(0, -1) });
 }
 await writeFile('assets/kyrolll-contours.json', JSON.stringify({ size, contours }));
 const path = contours.map(({ points }) => `M${points.map(p => p.join(',')).join('L')}Z`).join('');
