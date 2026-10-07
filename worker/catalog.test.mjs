@@ -41,7 +41,7 @@ function setup() {
       mails.push(JSON.parse(options.body));
       return Response.json({ id: "sent" });
     }
-    if (String(url).includes("kyrolll-flower.jpg")) return new Response(null, { status: 404 });
+    if (String(url).includes("kyrolll-social.jpg")) return new Response(null, { status: 404 });
     throw new Error("Unexpected fetch " + url);
   };
   const api = async (path, method = "GET", body, headers = {}) => {
@@ -63,9 +63,6 @@ test("continuous catalog and all three tiers fulfill only their purchased format
     assert.match(script, /const CATALOG = \[\];/);
     assert.match(script, /MP3_PRICE = 9\.95/);
     assert.match(script, /selected\.set\(id, type\)/);
-    assert.match(css, /translateX\(-50%\)/);
-    assert.match(script, /TICKER_TEXT\.repeat\(3\)/);
-    assert.match(html, /class="ticker__track">\s*<span><\/span><span aria-hidden="true"><\/span>/);
     assert.match(html, /<h1[^>]+id="brand-title">KYROlll/);
     assert.doesNotMatch(html + script + css, /signature-video|sigVideo|signature-final-frame/);
 
@@ -115,7 +112,7 @@ test("continuous catalog and all three tiers fulfill only their purchased format
     assert.match(mails[0].from, /^KYROlll </);
     assert.match(mails[0].subject, /^KYROlll —/);
     assert.match(mails[0].text, /^KYROlll —/);
-    assert.match(mails[0].html, /kyrolll-flower\.jpg/);
+    assert.match(mails[0].html, /kyrolll-metal\.png/);
     assert.match(mails[0].html, /kyrolll-email-doodles\.png/);
     assert.doesNotMatch(mails[0].html + mails[0].text, /Ken Carter|KEN CARTER/);
     assert.match(payments[0].order_description, /^KYROlll -/);

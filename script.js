@@ -8,7 +8,6 @@ const WORKER_URL = window.location.hostname === "localhost" || window.location.h
 const MP3_PRICE = 9.95;
 const PRICE = 14.95;
 const EXCLUSIVE_PRICE = 299.95;
-const LOW_STOCK_AT = 3;
 
 const LEASES_PER_BEAT = 10;
 
@@ -17,7 +16,6 @@ const LEASES_PER_BEAT = 10;
 // Register matching IDs/titles in the Worker's BEAT_CATALOG and configure
 // BEAT_LINKS before opening checkout. Newest entries render first.
 const CATALOG = [];
-const TICKER_TEXT = "KYROlll \u2014 NEWEST BEATS \u2014 MP3 LEASE $9.95 \u2014 STANDARD WAV LEASE $14.95 \u2014 EXCLUSIVE LEASE $299.95 \u2014 PICK 2 LEASES, GET 1 FREE \u2014 ";
 const money = (n) => "$" + n.toFixed(2);
 // Exclusive-sold beats are retired from the catalog entirely (master rights
 // transferred). Tracked client-side from the worker's /api/catalog endpoint.
@@ -32,7 +30,6 @@ function renderOrder(list) {
     ...list.filter((b) => isSoldOut(b)).sort(byNewest)
   ];
 }
-const pad = (n) => String(n).padStart(2, "0");
 
 const selected = new Map(); // beat ID → mp3 or wav
 const freePicks = new Set();
@@ -69,10 +66,13 @@ const backdrop = $("backdrop");
 const BTC_ENDPOINT =
   "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,tether,usd-coin&vs_currencies=usd";
 
-const KEN_MINT = "HEFkC6WQo3jTv39B6JhYQJ3ZW8xKxRELaWdnirdSpump";
-const MERCHANT_SOL_ADDRESS = "2P2m2u46hg7a7eK6YSjtogSv4QnExEdfsjAKkGz719aX";
+const BASE_CHAIN_ID = "0x2105";
+// Token launch paused. Restore the wallet/perks markup before enabling this flow.
+const TOKEN_PERKS_ENABLED = false;
 let connectedWalletAddress = null;
-let isKenHolder = false;
+let isTokenHolder = false;
+let walletProvider = null;
+let walletProof = null;
 
 const ASSETS = {
   USDT: {
@@ -98,10 +98,6 @@ const ASSETS = {
   LTC: {
     sym: "LTC", name: "LITECOIN", id: null, np: "ltc",
     icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="12" y="16.6" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="currentColor">\u0141</text></svg>`
-  },
-  KEN: {
-    sym: "KEN", name: "KEN TOKEN", id: "ken", np: "sol", mint: KEN_MINT, discount: 0.15,
-    icon: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.8"/><text x="12" y="16.6" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="currentColor">K</text></svg>`
   }
 };
 
@@ -128,13 +124,6 @@ const PAYMENT_GROUPS = [
     sub: "ETH OR SOLANA",
     assets: ["ETH", "SOL"],
     icon: ASSETS.ETH.icon
-  },
-  {
-    value: "KEN Token (KEN)",
-    label: "KEN",
-    sub: "COMMUNITY TOKEN \u00b7 15% OFF",
-    assets: ["KEN"],
-    icon: ASSETS.KEN.icon
   }
 ];
 
@@ -153,35 +142,6 @@ function renderBtc(usd) {
 
 function activeAsset() {
   return payAssetSym ? ASSETS[payAssetSym] : null;
-}
-
-const JUPITER_API = "https://price.jup.ag/v4/price?ids=" + KEN_MINT;
-
-function fetchKenPrice() {
-  const sources = [
-    fetch(WORKER_URL.replace(/\/+$/, "") + "/api/ken-price")
-      .then((r) => r.json())
-      .then((d) => (d && d.usd) || null)
-      .catch(() => null),
-    fetch("/api/ken-price")
-      .then((r) => r.json())
-      .then((d) => (d && d.usd) || null)
-      .catch(() => null),
-    fetch(JUPITER_API)
-      .then((r) => r.json())
-      .then((d) => {
-        const p = Number(d && d.data && d.data[KEN_MINT] && d.data[KEN_MINT].price);
-        return p > 0 ? p : null;
-      })
-      .catch(() => null)
-  ];
-  Promise.all(sources).then(([via, vj, vj2]) => {
-    const price = via || vj || vj2;
-    if (price > 0) {
-      CRYPTO_PRICES.ken = price;
-      renderCryptoTotal();
-    }
-  });
 }
 
 function renderCryptoTotal() {
@@ -209,27 +169,6 @@ function renderCryptoTotal() {
     }
   }
   let outer = asset.icon + `<span>${amount != null ? `${prefix} ${amount} ${asset.sym}` : "\u2014 " + asset.sym}</span>`;
-  if (asset.sym === "KEN") {
-    const badge = isKenHolder
-      ? '<span class="crypto-chip__badge">15% OFF</span>'
-      : '<span class="crypto-chip__badge crypto-chip__badge--prompt">'
-          + (connectedWalletAddress ? "HOLD KEN \u00b7 15% OFF" : "CONNECT WALLET \u00b7 15% OFF")
-          + '</span>';
-    chip.onclick = () => openWalletModal();
-  chip.classList.add("crypto-chip--actionable");
-  outer = asset.icon + `<span>= $${total.toFixed(2)}</span>` + badge;
-    if (!isKenHolder) {
-      chip.title = connectedWalletAddress ? "Hold KEN in your wallet to unlock 15% off" : "Connect your wallet to unlock 15% off";
-      chip.classList.add("crypto-chip--actionable");
-      if (!chip.dataset.promptBound) {
-        chip.dataset.promptBound = "1";
-        chip.addEventListener("click", () => openWalletModal());
-      }
-    } else {
-      chip.classList.remove("crypto-chip--actionable");
-      chip.title = "";
-    }
-  }
   chip.innerHTML = outer;
   chip.hidden = false;
   chip.classList.remove("is-flash");
@@ -287,44 +226,13 @@ function startBtc() {
         renderCryptoTotal();
       })
       .catch(() => {});
-    fetchKenPrice();
   };
   update();
   setInterval(update, 60000);
 }
 
-function buildTicker() {
-  // Two equal-width copies; each is longer than the maximum storefront width.
-  // Translating half the track lands exactly on the start of the second copy.
-  const line = TICKER_TEXT.repeat(3);
-  document.querySelectorAll(".ticker__track span").forEach((s) => (s.textContent = line));
-}
-
-function beatNum(beat) {
-  return pad(CATALOG.indexOf(beat) + 1);
-}
-
 function specLine(beat) {
   return `${beat.bpm} BPM // ${beat.key}`;
-}
-
-function stockLine(beat) {
-  if (isExclusiveSold(beat)) return "SOLD EXCLUSIVELY \u2014 RIGHTS TRANSFERRED";
-  if (isSoldOut(beat)) return `ALL ${beat.leases} LEASES SOLD`;
-  if (beat.left <= LOW_STOCK_AT) return `ONLY ${beat.left} OF ${beat.leases} LEASES LEFT`;
-  return `${beat.left} OF ${beat.leases} LEASES LEFT`;
-}
-
-function stockHTML(beat) {
-  const low = !isSoldOut(beat) && beat.left <= LOW_STOCK_AT;
-  const pips = Array.from({ length: beat.leases }, (_, i) =>
-    `<i${i < beat.left ? ` class="${i === beat.left - 1 && low ? "on last" : "on"}"` : ""}></i>`
-  ).join("");
-  return `
-    <div class="card__stockrow">
-      <span class="card__stock${low ? " card__stock--low" : ""}">${stockLine(beat)}</span>
-      <span class="card__stockbar" aria-hidden="true">${pips}</span>
-    </div>`;
 }
 
 function youtubeHTML(beat, show) {
@@ -386,7 +294,6 @@ function cardInner(beat) {
   return `
     <div class="card__media">
       <img src="${beat.img}" alt="${beat.title}" decoding="async" fetchpriority="high">
-      <span class="card__num">${beatNum(beat)} OF ${pad(CATALOG.length)}</span>
       ${mediaTag}
     </div>
     <div class="card__info">
@@ -398,8 +305,6 @@ function cardInner(beat) {
           ${youtubeHTML(beat, true)}
         </div>
         <div class="card__specs">${specLine(beat)}</div>
-        <div class="card__price">FROM ${money(MP3_PRICE)}</div>
-        ${stockHTML(beat)}
       </div>
       ${previewHTML(beat)}
       ${action}
@@ -517,10 +422,10 @@ function totals() {
   const n = basicCount + exclusiveCount;
   const subtotal = [...selected.values()].reduce((sum, tier) => sum + (tier === "mp3" ? MP3_PRICE : PRICE), 0) + exclusiveCount * EXCLUSIVE_PRICE;
   const freeCount = [...freePicks].filter((id) => selected.has(id)).length;
-  const discount = [...freePicks].reduce((sum, id) => sum + (selected.get(id) === "mp3" ? MP3_PRICE : PRICE), 0);
+  const discount = [...freePicks].filter((id) => selected.has(id)).reduce((sum, id) => sum + (selected.get(id) === "mp3" ? MP3_PRICE : PRICE), 0);
   let total = Math.max(0, subtotal - discount);
-  if (payAssetSym === "KEN" && isKenHolder) {
-    total = Math.max(0, total * 0.85); // only when wallet holds KEN
+  if (TOKEN_PERKS_ENABLED && isTokenHolder) {
+    total = Math.round(total * 85) / 100;
   }
   return { n, exclusiveN: exclusiveCount, basicCount, exclusiveCount, subtotal, freeCount, discount, total };
 }
@@ -577,6 +482,10 @@ function render() {
   $("t-subtotal").textContent = money(subtotal);
   $("t-discount-row").hidden = discount === 0;
   $("t-discount").textContent = "\u2212" + money(discount);
+  if (TOKEN_PERKS_ENABLED && $("t-holder-row")) {
+    $("t-holder-row").hidden = !isTokenHolder;
+    $("t-holder-discount").textContent = "\u2212" + money(Math.max(0, subtotal - discount - total));
+  }
   $("t-total-usd").textContent = money(total);
 
   const hint = $("free-hint");
@@ -613,7 +522,7 @@ function render() {
     const price = tier === "mp3" ? MP3_PRICE : PRICE;
     li.innerHTML = `
       <img src="${b.img}" alt="">
-      <span class="cart-items__name">${b.title} <span class="cart-items__name-alt">\u2014 ${b.name} (${tier.toUpperCase()} LEASE)</span><span class="cart-items__specs">${specLine(b)} \u2014 ${stockLine(b)}</span></span>
+      <span class="cart-items__name">${b.title} <span class="cart-items__name-alt">\u2014 ${b.name} (${tier.toUpperCase()} LEASE)</span><span class="cart-items__specs">${specLine(b)}</span></span>
       <span class="cart-items__price${picked ? " cart-items__price--free" : ""}">${picked ? "FREE" : money(price)}</span>
       ${picked ? `<button class="cart-items__free" data-free="${b.id}">REMOVE FREE</button>` : cap > freePicks.size ? `<button class="cart-items__free" data-free="${b.id}">MAKE FREE</button>` : ""}
       <button class="cart-items__remove" data-id="${b.id}" data-type="${tier}">REMOVE</button>`;
@@ -644,7 +553,6 @@ function openDrawer() {
   backdrop.hidden = false;
   document.body.style.overflow = "hidden";
   loadMins();
-  updateCashbackNotice();
 }
 
 function updateCashbackNotice() {
@@ -652,10 +560,10 @@ function updateCashbackNotice() {
   if (!el) return;
   if (connectedWalletAddress) {
     el.hidden = false;
-    el.innerHTML = "\u26A1 KEN CASHBACK ACTIVE: EARN 10% BACK IN KEN TOKENS STRAIGHT TO YOUR WALLET!";
+    el.textContent = "BASE WALLET LINKED · 10% KYROlll CASHBACK QUEUED AFTER PAYMENT (WHEN REWARDS GO LIVE).";
   } else {
     el.hidden = false;
-    el.innerHTML = "\u26A1 CONNECT YOUR SOLANA WALLET TO EARN 10% BACK IN KEN TOKENS ON EVERY ORDER \u2014 PLUS 15% OFF WHEN YOU HOLD KEN.";
+    el.textContent = "CONNECT A BASE WALLET FOR KYROlll REWARDS · HOLDERS GET 15% OFF.";
   }
 }
 
@@ -730,7 +638,7 @@ function submitOrder(e) {
     freePicks: [...freePicks],
     exclusivePicks: exclusiveChosen.map((b) => b.id),
     exclusiveTitles: exclusiveChosen.map((b) => b.title),
-    walletAddress: connectedWalletAddress || null
+    walletAddress: TOKEN_PERKS_ENABLED ? connectedWalletAddress : null
   };
 
   finishOrder();
@@ -906,6 +814,15 @@ async function startNpPayment(sym) {
   setNpStatus("GENERATING SECURE " + asset.sym + " ADDRESS\u2026");
 
   try {
+    if (TOKEN_PERKS_ENABLED && payScreenOrder.walletAddress) {
+      if (connectedWalletAddress?.toLowerCase() !== payScreenOrder.walletAddress.toLowerCase()) throw new Error("WALLET CHANGED — START CHECKOUT AGAIN");
+      walletProof = await signWalletProof();
+      const verification = await workerRequest("/api/verify-token", { method: "POST", body: JSON.stringify({ walletAddress: connectedWalletAddress, proof: walletProof }) });
+      isTokenHolder = verification.holder;
+      updateWalletButton();
+      payScreenOrder.total = Math.round((payScreenOrder.subtotal - payScreenOrder.discount) * (isTokenHolder ? 85 : 100)) / 100;
+      $("payscreen-total").textContent = money(payScreenOrder.total);
+    }
     npPayment = await workerRequest("/api/checkout", {
       method: "POST",
       body: JSON.stringify({
@@ -919,7 +836,8 @@ async function startNpPayment(sym) {
         items: payScreenOrder.items,
         freePicks: payScreenOrder.freePicks,
         exclusivePicks: payScreenOrder.exclusivePicks || [],
-        walletAddress: payScreenOrder.walletAddress || null
+        walletAddress: TOKEN_PERKS_ENABLED ? payScreenOrder.walletAddress : null,
+        proof: TOKEN_PERKS_ENABLED && payScreenOrder.walletAddress ? walletProof : null
       })
     });
     const alertEl = $("payscreen-alert");
@@ -941,7 +859,8 @@ async function startNpPayment(sym) {
 function renderNpPayment() {
   if (!npPayment) return;
   $("payscreen-equiv").textContent = `${npPayment.pay_amount} ${String(npPayment.pay_currency).toUpperCase()}`;
-  $("payscreen-network").textContent = "SEND VIA SOLANA NETWORK";
+  const network = { usdtsol: "SOLANA", sol: "SOLANA", btc: "BITCOIN", eth: "ETHEREUM", ltc: "LITECOIN" }[String(npPayment.pay_currency).toLowerCase()];
+  $("payscreen-network").textContent = network ? `SEND VIA ${network} NETWORK` : "FOLLOW THE INVOICE NETWORK";
   $("payscreen-address").textContent = npPayment.pay_address;
   renderPayQr(npPayment.pay_address);
   $("payscreen-payblock").hidden = false;
@@ -956,7 +875,7 @@ function renderPayQr(address) {
   host.innerHTML = "";
   try {
     const qr = qrcode(0, "M");
-    qr.addData("solana:" + address);
+    qr.addData(address);
     qr.make();
     host.innerHTML = qr.createImgTag(5, 8);
   } catch (err) {
@@ -1166,7 +1085,6 @@ function rebuildCatalog() {
   render();
 }
 
-buildTicker();
 buildPaygrid();
 rebuildCatalog();
 startBtc();
@@ -1233,72 +1151,33 @@ const walletSelectList = $("wallet-select-list");
 const walletInlineState = $("wallet-inline-state");
 
 async function disconnectWalletSession() {
-  window._forceDisconnected = true;
   connectedWalletAddress = null;
-  isKenHolder = false;
+  isTokenHolder = false;
+  walletProof = null;
+  walletProvider?.removeListener?.("accountsChanged", onWalletAccountsChanged);
+  walletProvider?.removeListener?.("chainChanged", onWalletChainChanged);
+  walletProvider = null;
   updateCashbackNotice();
-  try {
-    localStorage.clear();
-    localStorage.setItem("ken_user_logged_out", "true");
-    localStorage.setItem("ken_disconnected", "true");
-    localStorage.setItem("kencarter_user_disconnected", "true");
-    if (window.solana && typeof window.solana.disconnect === "function") {
-      await window.solana.disconnect();
-    }
-    if (window.solflare && typeof window.solflare.disconnect === "function") {
-      await window.solflare.disconnect();
-    }
-    if (window.phantom?.solana && typeof window.phantom.solana.disconnect === "function") {
-      await window.phantom.solana.disconnect();
-    }
-  } catch (err) {
-    console.error("Disconnect cleanup error:", err);
-  }
-
-  const btnText = $("wallet-btn-text");
-  if (btnText) btnText.textContent = "CONNECT WALLET";
-  const walletBtnEl = $("wallet-btn");
-  if (walletBtnEl) walletBtnEl.classList.remove("wallet-btn--holder");
-  rebuildCatalog();
+  updateWalletButton();
   render();
   openWalletModal();
 }
 
 function openWalletModal() {
   if (!walletModal) return;
-  if (
-    localStorage.getItem("ken_user_logged_out") === "true" ||
-    localStorage.getItem("ken_disconnected") === "true" ||
-    localStorage.getItem("kencarter_user_disconnected") === "true"
-  ) {
-    window._forceDisconnected = true;
-  }
-  if (window._forceDisconnected) {
-    connectedWalletAddress = null;
-    isKenHolder = false;
-  }
-
-  if (walletModalTitle) walletModalTitle.textContent = "CONNECT SOLANA WALLET";
-  if (walletModalDesc) walletModalDesc.textContent = "Connect your wallet to verify KEN holdings and unlock your 15% discount & automated cashback.";
+  if (walletModalTitle) walletModalTitle.textContent = connectedWalletAddress ? "BASE WALLET LINKED" : "CONNECT BASE WALLET";
+  if (walletModalDesc) walletModalDesc.textContent = connectedWalletAddress
+    ? `${connectedWalletAddress.slice(0, 6)}…${connectedWalletAddress.slice(-4)} · ${isTokenHolder ? "HOLDER · 15% OFF" : "NO HOLDER BALANCE DETECTED"}`
+    : "Verify KYROlll holdings on Base for 15% off. Link a wallet for future rewards.";
   if (walletModalSub) walletModalSub.hidden = false;
   if (walletSelectList) {
     walletSelectList.hidden = false;
-    walletSelectList.innerHTML = `
-      <button class="wallet-option-btn" id="connect-phantom-btn" type="button">
-        <span class="wallet-option-icon"><img src="assets/images/phantom.svg?v=3" alt="Phantom" width="18" height="18" style="display:block; width:18px; height:18px;" /></span>
-        <span class="wallet-option-text">CONNECT PHANTOM</span>
-      </button>
-      <button class="wallet-option-btn" id="connect-solflare-btn" type="button">
-        <span class="wallet-option-icon"><img src="assets/images/solflare.svg?v=3" alt="Solflare" width="18" height="18" style="display:block; width:18px; height:18px;" /></span>
-        <span class="wallet-option-text">CONNECT SOLFLARE</span>
-      </button>
-    `;
-
-    const phantomBtn = $("connect-phantom-btn");
-    const solflareBtn = $("connect-solflare-btn");
-
-    if (phantomBtn) phantomBtn.addEventListener("click", () => connectSolanaWallet(null, "phantom"));
-    if (solflareBtn) solflareBtn.addEventListener("click", () => connectSolanaWallet(null, "solflare"));
+    walletSelectList.innerHTML = connectedWalletAddress
+      ? '<button class="wallet-option-btn" id="recheck-wallet" type="button">RECHECK BALANCE</button><button class="wallet-option-btn" id="disconnect-wallet" type="button">DISCONNECT</button>'
+      : '<button class="wallet-option-btn" id="connect-base" type="button">CONNECT EVM WALLET</button>';
+    $("connect-base")?.addEventListener("click", connectBaseWallet);
+    $("recheck-wallet")?.addEventListener("click", verifyConnectedWallet);
+    $("disconnect-wallet")?.addEventListener("click", disconnectWalletSession);
   }
   if (walletInlineState) {
     walletInlineState.hidden = true;
@@ -1314,257 +1193,99 @@ function closeWalletModal() {
   document.body.style.overflow = "";
 }
 
-async function connectSolanaWallet(e, walletType = "phantom") {
-  if (e) {
-    e.preventDefault();
-    e.stopPropagation();
+function updateWalletButton() {
+  $("wallet-btn-text").textContent = connectedWalletAddress
+    ? `${connectedWalletAddress.slice(0, 6)}…${connectedWalletAddress.slice(-4)}${isTokenHolder ? " · 15% OFF" : " · BASE"}`
+    : "CONNECT WALLET";
+  $("wallet-btn").classList.toggle("wallet-btn--holder", isTokenHolder);
+}
+
+async function signWalletProof() {
+  if (!walletProvider || !connectedWalletAddress) throw new Error("CONNECT YOUR BASE WALLET AGAIN");
+  const accounts = await walletProvider.request({ method: "eth_accounts" });
+  if (!accounts.some((account) => account.toLowerCase() === connectedWalletAddress.toLowerCase())) {
+    await disconnectWalletSession();
+    throw new Error("WALLET ACCOUNT CHANGED — RECONNECT");
   }
+  const timestamp = Date.now();
+  const message = `KYROlll Base holder verification\nWallet: ${connectedWalletAddress}\nTimestamp: ${timestamp}`;
+  const signature = await walletProvider.request({ method: "personal_sign", params: ["0x" + Array.from(new TextEncoder().encode(message), (byte) => byte.toString(16).padStart(2, "0")).join(""), connectedWalletAddress] });
+  return { timestamp, signature };
+}
 
-  localStorage.removeItem("ken_user_logged_out");
-  localStorage.removeItem("ken_disconnected");
-  localStorage.removeItem("kencarter_user_disconnected");
-  window._forceDisconnected = false;
-
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  const currentUrl = window.location.href;
-  const encodedUrl = encodeURIComponent(currentUrl);
-
-  let provider = null;
-  if (walletType === "solflare") {
-    provider = window.solflare || window.solana;
-    if (!provider && isMobile) {
-      window.location.href = `https://solflare.com/ul/v1/browse/${encodedUrl}`;
-      return;
-    }
-  } else {
-    provider = window.phantom?.solana || window.solana;
-    if (!provider && isMobile) {
-      window.location.href = `https://phantom.app/ul/browse/${encodedUrl}?ref=${encodedUrl}`;
-      return;
-    }
+async function verifyConnectedWallet() {
+  walletModalTitle.textContent = "CHECKING BASE BALANCE";
+  walletModalDesc.textContent = "Sign a free message to verify wallet ownership.";
+  walletSelectList.hidden = true;
+  walletInlineState.hidden = false;
+  walletInlineState.textContent = "VERIFYING…";
+  try {
+    walletProof = await signWalletProof();
+    const result = await workerRequest("/api/verify-token", { method: "POST", body: JSON.stringify({ walletAddress: connectedWalletAddress, proof: walletProof }) });
+    if (!connectedWalletAddress) return;
+    isTokenHolder = result.holder === true;
+    updateWalletButton();
+    updateCashbackNotice();
+    render();
+    walletModalTitle.textContent = isTokenHolder ? "HOLDER VERIFIED" : "WALLET CONNECTED";
+    walletModalDesc.textContent = isTokenHolder ? "15% off applied to your cart." : "No KYROlll tokens detected on Base yet.";
+    walletInlineState.textContent = isTokenHolder ? "BASE · 15% OFF ACTIVE" : "RECHECK AFTER THE TOKEN DEPLOYS OR YOUR BALANCE UPDATES.";
+  } catch (err) {
+    isTokenHolder = false;
+    updateWalletButton();
+    render();
+    walletModalTitle.textContent = "VERIFICATION UNAVAILABLE";
+    walletModalDesc.textContent = err.message || "Try again later.";
+    walletInlineState.textContent = "HOLDER DISCOUNT IS NOT ACTIVE.";
   }
+  if (!connectedWalletAddress) return;
+  walletSelectList.hidden = false;
+  walletSelectList.innerHTML = '<button class="wallet-option-btn" id="recheck-wallet" type="button">RECHECK BALANCE</button><button class="wallet-option-btn" id="disconnect-wallet" type="button">DISCONNECT</button>';
+  $("recheck-wallet").addEventListener("click", verifyConnectedWallet);
+  $("disconnect-wallet").addEventListener("click", disconnectWalletSession);
+}
 
-  if (!provider) {
-    const installUrl = walletType === "solflare" ? "https://solflare.com/download" : "https://phantom.app/download";
-    window.open(installUrl, "_blank");
+async function connectBaseWallet() {
+  walletProvider = window.ethereum;
+  if (!walletProvider) {
+    walletInlineState.hidden = false;
+    walletInlineState.textContent = "INSTALL A BASE-COMPATIBLE WALLET TO CONTINUE.";
     return;
   }
-
-  if (walletModalSub) walletModalSub.hidden = true;
-  if (walletModalTitle) walletModalTitle.textContent = "CONNECTING";
-  if (walletModalDesc) walletModalDesc.textContent = "Approving connection with your Solana wallet…";
-  if (walletSelectList) walletSelectList.hidden = true;
-  if (walletInlineState) {
-    walletInlineState.innerHTML = `<div class="wallet-loading-spinner"></div>`;
-    walletInlineState.hidden = false;
-  }
-
-  const btnText = $("wallet-btn-text");
-
   try {
-    const res = await provider.connect({ onlyIfTrusted: false });
-    const pubKey = (res && res.publicKey) ? res.publicKey.toString() : (provider.publicKey ? provider.publicKey.toString() : null);
-    if (!pubKey) {
-      throw new Error("Failed to extract public key from connected wallet.");
+    await walletProvider.request({ method: "eth_requestAccounts" });
+    try {
+      await walletProvider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: BASE_CHAIN_ID }] });
+    } catch (err) {
+      if (err.code !== 4902) throw err;
+      await walletProvider.request({ method: "wallet_addEthereumChain", params: [{ chainId: BASE_CHAIN_ID, chainName: "Base", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: ["https://mainnet.base.org"], blockExplorerUrls: ["https://basescan.org"] }] });
     }
-    connectedWalletAddress = pubKey;
-    updateCashbackNotice();
-
-    if (walletModalTitle) walletModalTitle.textContent = "VERIFYING KEN";
-    if (walletModalDesc) walletModalDesc.textContent = "Scanning Solana network for token balance (HEFkC6WQo3jTv39B6JhYQJ3ZW8xKxRELaWdnirdSpump)…";
-
-    const verification = await workerRequest("/api/verify-ken", {
-      method: "POST",
-      body: JSON.stringify({
-        walletAddress: pubKey,
-        mint: "HEFkC6WQo3jTv39B6JhYQJ3ZW8xKxRELaWdnirdSpump"
-      })
-    });
-
-    if (verification && verification.holder) {
-      isKenHolder = true;
-      if (btnText) btnText.textContent = `KEN HOLDER ✓ (${verification.balance.toLocaleString()} KEN)`;
-      const walletBtnEl = $("wallet-btn");
-      if (walletBtnEl) walletBtnEl.classList.add("wallet-btn--holder");
-
-      if (walletModalTitle) walletModalTitle.textContent = "VERIFIED HOLDER";
-      if (walletModalDesc) walletModalDesc.textContent = "KEN token balance confirmed on-chain.";
-      if (walletInlineState) {
-        walletInlineState.innerHTML = `
-          <div style="text-align: center; padding: 12px;">
-            <div style="font-size: 32px; font-weight: 700; color: #fff; margin: 6px auto 8px auto;">✓</div>
-            <p style="margin-top: 4px; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; color: #fff;">15% DISCOUNT &amp; VIP PERKS UNLOCKED</p>
-          </div>
-        `;
-        walletInlineState.hidden = false;
-      }
-
-      setTimeout(() => {
-        closeWalletModal();
-      }, 1200);
-    } else {
-      isKenHolder = false;
-      if (btnText) btnText.textContent = `${pubKey.slice(0, 4)}…${pubKey.slice(-4)} (CONNECTED)`;
-
-      if (walletModalTitle) walletModalTitle.textContent = "KEN TOKEN REQUIRED";
-      if (walletModalDesc) walletModalDesc.textContent = "Wallet connected successfully, but no KEN tokens were detected.";
-      if (walletInlineState) {
-        walletInlineState.innerHTML = `
-          <div style="border: 1px solid #333; padding: 16px; background: #0d0d0d; color: #fff; text-align: center;">
-            <p style="margin-bottom: 8px; font-weight: 700; font-size: 11px; letter-spacing: 0.08em;">ACQUIRE KEN TO UNLOCK VIP PERKS</p>
-            <p style="margin-bottom: 14px; color: #888888; font-size: 10px; line-height: 1.5;">Hold KEN to activate your 15% discount and automated cashback.</p>
-            <a href="https://pump.fun/coin/HEFkC6WQo3jTv39B6JhYQJ3ZW8xKxRELaWdnirdSpump" target="_blank" rel="noopener noreferrer" class="payscreen__dl" style="display: block; text-decoration: none; background: #fff; color: #000; border-color: #fff; padding: 12px; font-weight: 800; font-size: 11px; text-transform: uppercase; margin-bottom: 10px;">BUY KEN ON PUMP.FUN &rarr;</a>
-            <button type="button" id="check-balance-btn" class="payscreen__dl" style="width: 100%; background: #1a1a1a; color: #fff; border: 1px solid #333; padding: 12px; font-weight: 800; font-size: 11px; text-transform: uppercase; cursor: pointer; margin-bottom: 10px;">CHECK BALANCE / I'VE BOUGHT KEN</button>
-            <button type="button" id="switch-wallet-btn" style="display: block; width: 100%; background: transparent; color: #888888; border: none; font-family: inherit; font-size: 11px; font-weight: 700; cursor: pointer; text-decoration: underline; padding: 6px;">HOW TO SWITCH WALLET / DISCONNECT?</button>
-            <div id="disconnect-guide" hidden style="margin-top: 10px; padding: 14px; background: #141414; border: 1px solid #333; font-size: 11px; color: #ccc; line-height: 1.7; text-align: left; direction: ltr;">
-              To switch or disconnect your wallet: click on your Phantom or Solflare extension icon in your browser toolbar, go to Settings &gt; Connected Apps, and disconnect this site.
-            </div>
-          </div>
-        `;
-        walletInlineState.hidden = false;
-        const checkBtn = $("check-balance-btn");
-        if (checkBtn) {
-          checkBtn.addEventListener("click", () => recheckKenBalance(pubKey));
-        }
-        const switchBtn = $("switch-wallet-btn");
-        const guideBox = $("disconnect-guide");
-        if (switchBtn && guideBox) {
-          switchBtn.addEventListener("click", () => {
-            guideBox.hidden = !guideBox.hidden;
-          });
-        }
-      }
-    }
-    rebuildCatalog();
-    render();
+    const accounts = await walletProvider.request({ method: "eth_accounts" });
+    if (!accounts[0]) throw new Error("NO WALLET ACCOUNT AVAILABLE");
+    connectedWalletAddress = accounts[0];
+    walletProvider.on?.("accountsChanged", onWalletAccountsChanged);
+    walletProvider.on?.("chainChanged", onWalletChainChanged);
+    await verifyConnectedWallet();
   } catch (err) {
-    console.error("Wallet connection error:", err);
-    openWalletModal();
+    walletModalTitle.textContent = "CONNECTION FAILED";
+    walletModalDesc.textContent = err.message || "Wallet request declined.";
   }
 }
 
-async function recheckKenBalance(pubKey) {
-  if (walletModalTitle) walletModalTitle.textContent = "RE-SCANNING KEN";
-  if (walletModalDesc) walletModalDesc.textContent = "Checking blockchain for updated token balance…";
-  if (walletSelectList) walletSelectList.hidden = true;
-  if (walletInlineState) {
-    walletInlineState.innerHTML = `<div class="wallet-loading-spinner" style="margin: 20px auto;"></div>`;
-    walletInlineState.hidden = false;
-  }
-
-  try {
-    const verification = await workerRequest("/api/verify-ken", {
-      method: "POST",
-      body: JSON.stringify({
-        walletAddress: pubKey,
-        mint: "HEFkC6WQo3jTv39B6JhYQJ3ZW8xKxRELaWdnirdSpump"
-      })
-    });
-
-    const btnText = $("wallet-btn-text");
-    if (verification && verification.holder) {
-      isKenHolder = true;
-      if (btnText) btnText.textContent = `KEN HOLDER ✓ (${verification.balance.toLocaleString()} KEN)`;
-      const walletBtnEl = $("wallet-btn");
-      if (walletBtnEl) walletBtnEl.classList.add("wallet-btn--holder");
-
-      if (walletModalTitle) walletModalTitle.textContent = "VERIFIED HOLDER";
-      if (walletModalDesc) walletModalDesc.textContent = "KEN token balance confirmed on-chain.";
-      if (walletInlineState) {
-        walletInlineState.innerHTML = `
-          <div style="text-align: center; padding: 12px;">
-            <div style="font-size: 32px; font-weight: 700; color: #fff; margin: 6px auto 8px auto;">✓</div>
-            <p style="margin-top: 4px; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; color: #fff;">15% DISCOUNT &amp; VIP PERKS UNLOCKED</p>
-          </div>
-        `;
-        walletInlineState.hidden = false;
-      }
-
-      setTimeout(() => {
-        closeWalletModal();
-      }, 1200);
-    } else {
-      isKenHolder = false;
-      if (walletModalTitle) walletModalTitle.textContent = "KEN TOKEN REQUIRED";
-      if (walletModalDesc) walletModalDesc.textContent = "Still no KEN tokens detected in this wallet.";
-      if (walletInlineState) {
-        walletInlineState.innerHTML = `
-          <div style="border: 1px solid #333; padding: 16px; background: #0d0d0d; color: #fff; text-align: center;">
-            <p style="margin-bottom: 8px; font-weight: 700; font-size: 11px; letter-spacing: 0.08em; color: #ff4444;">BALANCE NOT DETECTED YET</p>
-            <p style="margin-bottom: 14px; color: #888888; font-size: 10px; line-height: 1.5;">Ensure your purchase has settled on-chain, then click again.</p>
-            <a href="https://pump.fun/coin/HEFkC6WQo3jTv39B6JhYQJ3ZW8xKxRELaWdnirdSpump" target="_blank" rel="noopener noreferrer" class="payscreen__dl" style="display: block; text-decoration: none; background: #fff; color: #000; border-color: #fff; padding: 12px; font-weight: 800; font-size: 11px; text-transform: uppercase; margin-bottom: 10px;">BUY KEN ON PUMP.FUN &rarr;</a>
-            <button type="button" id="check-balance-btn" class="payscreen__dl" style="width: 100%; background: #1a1a1a; color: #fff; border: 1px solid #333; padding: 12px; font-weight: 800; font-size: 11px; text-transform: uppercase; cursor: pointer; margin-bottom: 10px;">CHECK BALANCE / I'VE BOUGHT KEN</button>
-            <button type="button" id="switch-wallet-btn" style="display: block; width: 100%; background: transparent; color: #888888; border: none; font-family: inherit; font-size: 11px; font-weight: 700; cursor: pointer; text-decoration: underline; padding: 6px;">HOW TO SWITCH WALLET / DISCONNECT?</button>
-            <div id="disconnect-guide" hidden style="margin-top: 10px; padding: 14px; background: #141414; border: 1px solid #333; font-size: 11px; color: #ccc; line-height: 1.7; text-align: left; direction: ltr;">
-              To switch or disconnect your wallet: click on your Phantom or Solflare extension icon in your browser toolbar, go to Settings &gt; Connected Apps, and disconnect this site.
-            </div>
-          </div>
-        `;
-        walletInlineState.hidden = false;
-        const checkBtn = $("check-balance-btn");
-        if (checkBtn) {
-          checkBtn.addEventListener("click", () => recheckKenBalance(pubKey));
-        }
-        const switchBtn = $("switch-wallet-btn");
-        const guideBox = $("disconnect-guide");
-        if (switchBtn && guideBox) {
-          switchBtn.addEventListener("click", () => {
-            guideBox.hidden = !guideBox.hidden;
-          });
-        }
-      }
-    }
-    rebuildCatalog();
-    render();
-  } catch (err) {
-    console.error("Recheck balance error:", err);
-    if (walletModalTitle) walletModalTitle.textContent = "VERIFICATION FAILED";
-    if (walletModalDesc) walletModalDesc.textContent = err.message || "Failed to query network.";
-  }
-}
+function onWalletAccountsChanged() { disconnectWalletSession(); }
+function onWalletChainChanged(chainId) { if (chainId !== BASE_CHAIN_ID) disconnectWalletSession(); }
 
 const walletBtn = $("wallet-btn");
-if (walletBtn) {
+if (TOKEN_PERKS_ENABLED && walletBtn) {
   walletBtn.addEventListener("click", openWalletModal);
 }
 
-if (walletModalClose) {
+if (TOKEN_PERKS_ENABLED && walletModalClose) {
   walletModalClose.addEventListener("click", closeWalletModal);
 }
 
-if (walletModal) {
+if (TOKEN_PERKS_ENABLED && walletModal) {
   walletModal.addEventListener("click", (e) => {
     if (e.target === walletModal) closeWalletModal();
   });
-  const connectActionBtn = $("connect-wallet-action");
-  if (connectActionBtn) {
-    connectActionBtn.addEventListener("click", connectSolanaWallet);
-  }
 }
-
-(() => {
-  const items = document.querySelectorAll(".ken-benefits__item");
-  if (items.length) {
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let activeIndex = 0;
-    let perkTimer = null;
-    const highlightPerk = () => {
-      items.forEach((item, index) => {
-        item.classList.toggle("ken-benefits__item--active", index === activeIndex);
-      });
-    };
-    const syncPerkCycle = () => {
-      clearInterval(perkTimer);
-      perkTimer = null;
-      highlightPerk();
-      if (reducedMotion.matches || document.hidden || items.length < 2) return;
-      perkTimer = setInterval(() => {
-        activeIndex = (activeIndex + 1) % items.length;
-        highlightPerk();
-      }, 3500);
-    };
-    syncPerkCycle();
-    document.addEventListener("visibilitychange", syncPerkCycle);
-    reducedMotion.addEventListener("change", syncPerkCycle);
-  }
-})();

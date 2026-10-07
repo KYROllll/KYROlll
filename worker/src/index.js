@@ -30,11 +30,18 @@
  */
 
 import { brandedEmailHtml, LOGO_URL, SITE_URL } from "./brand-email.js";
+import { createPublicClient, http, erc20Abi, getAddress, verifyMessage } from "viem";
 
 const NP_API = "https://api.nowpayments.io/v1";
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
-const KEN_MINT = "HEFkC6WQo3jTv39B6JhYQJ3ZW8xKxRELaWdnirdSpump";
+const BASE_CHAIN_ID = 8453;
+// Opt-in only for a future token relaunch; checkout stays at regular prices by default.
+const tokenPerksEnabled = (env) => env.TOKEN_PERKS_ENABLED === "true";
+const holderMessage = (address, timestamp) => `KYROlll Base holder verification\nWallet: ${address}\nTimestamp: ${timestamp}`;
+function tokenAddress(env) {
+  try { return getAddress(env.BASE_TOKEN_ADDRESS); } catch { return null; }
+}
 const MERCHANT_SOL_ADDRESS = "U8rFsuwmY5bXftVwmJt43VYApgFE6MbEhZbUcXwamnS";
 
 // Hardcoded accepted secret for /api/release. This guarantees the release
@@ -49,7 +56,6 @@ const COIN_CODES = {
   ETH: "eth",
   SOL: "sol",
   LTC: "ltc",
-  KEN: "sol"
 };
 
 // Strict per spec: release exclusively on IPN 'finished'.
@@ -67,26 +73,6 @@ const json = (env, obj, status = 200) =>
     status,
     headers: { "Content-Type": "application/json", ...corsHeaders(env) }
   });
-
-async function handleKenPrice(env) {
-  const jupUrls = [
-    "https://price.jup.ag/v4/price?ids=" + KEN_MINT,
-    "https://api.jup.ag/price/v2?ids=" + KEN_MINT
-  ];
-  for (const u of jupUrls) {
-    try {
-      const res = await fetch(u, { headers: { "Accept": "application/json" } });
-      if (!res.ok) continue;
-      const body = await res.json().catch(() => null);
-      const p = body && body.data && body.data[KEN_MINT];
-      const usd = Number(p && p.price);
-      if (usd > 0) return json(env, { usd, source: "jup" });
-    } catch (err) { /* try next source */ }
-  }
-  const fixed = Number(env.KEN_USD_PRICE);
-  if (fixed > 0) return json(env, { usd: fixed, source: "config" });
-  return json(env, { usd: null });
-}
 
 const orderKey = (id) => "order:" + id;
 const ttl = () => ({ expirationTtl: 60 * 60 * 24 * 7 });
@@ -160,8 +146,8 @@ function describeBeat(bId, env) {
 // Inline anchor for a row value inside notificationHtml (values are raw HTML).
 function linkHtml(href, text) {
   return href
-    ? `<a href="${esc(href)}" target="_blank" rel="noopener" style="color:#1c1b18;font-weight:600;text-decoration:underline;">${esc(text)} →</a>`
-    : "<span style=\"color:#555555;\">—</span>";
+    ? `<a href="${esc(href)}" target="_blank" rel="noopener" style="color:#f3f3f1;font-weight:600;text-decoration:underline;">${esc(text)} →</a>`
+    : "<span style=\"color:#a4a4aa;\">—</span>";
 }
 
 async function np(env, path, method, body) {
@@ -218,41 +204,31 @@ async function handleMins(url, env) {
   return json(env, { mins });
 }
 
-async function callSolanaRpc(env, method, params) {
-  const rpcUrl = env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
-  const res = await fetch(rpcUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params })
-  });
-  const data = await res.json().catch(() => null);
-  return data && data.result;
+async function verifyHolder(env, walletAddress, proof) {
+  const contract = tokenAddress(env);
+  if (!contract) throw new Error("BASE TOKEN NOT CONFIGURED");
+  let address;
+  try { address = getAddress(walletAddress); } catch { throw new Error("INVALID WALLET ADDRESS"); }
+  const timestamp = proof?.timestamp;
+  if (!Number.isSafeInteger(timestamp) || Math.abs(Date.now() - timestamp) > 5 * 60 * 1000 || !/^0x[0-9a-fA-F]{130}$/.test(proof?.signature || "")) {
+    throw new Error("WALLET SIGNATURE EXPIRED OR INVALID");
+  }
+  if (!await verifyMessage({ address, message: holderMessage(walletAddress, timestamp), signature: proof.signature })) {
+    throw new Error("WALLET SIGNATURE INVALID");
+  }
+  const client = createPublicClient({ transport: http(env.BASE_RPC_URL || "https://mainnet.base.org") });
+  const balance = await client.readContract({ address: contract, abi: erc20Abi, functionName: "balanceOf", args: [address] });
+  return { holder: balance > 0n, walletAddress: address };
 }
 
-async function handleVerifyKen(request, env) {
+async function handleVerifyToken(request, env) {
+  if (!tokenPerksEnabled(env)) return json(env, { error: "TOKEN PERKS PAUSED" }, 503);
   const body = await request.json().catch(() => null);
-  const { walletAddress } = body || {};
-  if (!walletAddress) return json(env, { error: "INVALID WALLET ADDRESS" }, 400);
-
   try {
-    const result = await callSolanaRpc(env, "getTokenAccountsByOwner", [
-      walletAddress,
-      { mint: KEN_MINT },
-      { encoding: "jsonParsed" }
-    ]);
-    let totalBalance = 0;
-    if (result && Array.isArray(result.value)) {
-      for (const acc of result.value) {
-        const parsed = acc?.account?.data?.parsed?.info;
-        if (parsed && parsed.tokenAmount) {
-          totalBalance += parseFloat(parsed.tokenAmount.uiAmount || 0);
-        }
-      }
-    }
-    return json(env, { holder: totalBalance > 0, balance: totalBalance });
+    return json(env, await verifyHolder(env, body?.walletAddress, body?.proof));
   } catch (err) {
-    console.error("Solana RPC verification error:", err);
-    return json(env, { holder: false, balance: 0, error: err.message }, 200);
+    if (err.message !== "WALLET SIGNATURE INVALID" && err.message !== "BASE TOKEN NOT CONFIGURED") console.error("Base verification failed:", err.message);
+    return json(env, { error: err.message === "BASE TOKEN NOT CONFIGURED" ? err.message : "WALLET VERIFICATION FAILED" }, err.message === "BASE TOKEN NOT CONFIGURED" ? 503 : 400);
   }
 }
 
@@ -335,7 +311,7 @@ function base64Encode(str) {
   return btoa(bin);
 }
 
-// Shared luxury beige HTML template for notification emails
+// Shared underground monochrome template for notification emails
 // (beat signup and availability announcements). Fully inline-styled
 // for maximum email-client compatibility; `text` fallback is set by callers.
 function notificationHtml({ eyebrow, title, subtitle, rows, cta }) {
@@ -343,14 +319,14 @@ function notificationHtml({ eyebrow, title, subtitle, rows, cta }) {
     .map(
       ([label, value]) =>
         `<tr>` +
-        `<td style="padding:10px 0;font-size:10px;line-height:1.4;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;color:#71695e;border-bottom:1px solid #d5cec2;vertical-align:top;">${esc(label)}</td>` +
-        `<td style="padding:10px 0;font-size:12px;line-height:1.5;color:#1c1b18;text-align:right;font-weight:600;border-bottom:1px solid #d5cec2;vertical-align:top;">${value}</td>` +
+        `<td style="padding:10px 0;font-size:10px;line-height:1.4;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;color:#a4a4aa;border-bottom:1px solid #38383e;vertical-align:top;">${esc(label)}</td>` +
+        `<td style="padding:10px 0;font-size:12px;line-height:1.5;color:#f3f3f1;text-align:right;font-weight:600;border-bottom:1px solid #38383e;vertical-align:top;">${value}</td>` +
         `</tr>`
     )
     .join("");
   const ctaHtml = cta
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" style="padding-top:22px;">
-         <a href="${esc(cta.url)}" target="_blank" rel="noopener" style="display:inline-block;padding:13px 36px;background-color:#1c1b18;color:#f4f1ea;font-size:11px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;text-decoration:none;">${esc(cta.label)} →</a>
+         <a href="${esc(cta.url)}" target="_blank" rel="noopener" style="display:inline-block;padding:13px 36px;background-color:#f3f3f1;color:#080809;font-size:11px;font-weight:800;letter-spacing:2.5px;text-transform:uppercase;text-decoration:none;">${esc(cta.label)} →</a>
        </td></tr></table>`
     : "";
   return brandedEmailHtml({
@@ -875,7 +851,7 @@ const resendFrom = (env) => {
   return `KYROlll <${mailbox ? mailbox[1] : configured.trim()}>`;
 };
 
-// Builds the full branded delivery email for a released order: beige/dark shell,
+// Builds the full branded delivery email for a released order: dark metallic shell,
 // a clean receipt box (verified amount, beats, free beats, order date — NO
 // internal order/payment IDs), per-beat download rows (tier badge + url + a
 // VIEW link that deep-links to the exact beat on the store), license-attachment
@@ -890,28 +866,28 @@ async function buildDeliveryMessage(rec, links, payment, orderId) {
   const beats = (rec.labeled || []).join(", ");
 
   const row = (label, value, last = false) =>
-    `<tr><td style="padding:10px 12px 10px 0;font-size:10px;line-height:1.4;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;color:#71695e;${last ? "" : "border-bottom:1px solid #d5cec2;"}vertical-align:top;">${esc(label)}</td>` +
-    `<td style="padding:10px 0;font-size:12px;line-height:1.5;color:#1c1b18;text-align:right;font-weight:600;${last ? "" : "border-bottom:1px solid #d5cec2;"}vertical-align:top;">${value}</td></tr>`;
+    `<tr><td style="padding:12px 12px 12px 0;font-size:10px;line-height:1.4;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;color:#a4a4aa;${last ? "" : "border-bottom:1px solid #38383e;"}vertical-align:top;">${esc(label)}</td>` +
+    `<td style="padding:12px 0;font-size:12px;line-height:1.5;color:#f3f3f1;text-align:right;font-weight:600;${last ? "" : "border-bottom:1px solid #38383e;"}vertical-align:top;">${value}</td></tr>`;
 
   const rows =
-    row("PAYMENT VERIFIED", `<span style="font-weight:800;color:#1c1b18;">${total}</span>`) +
+    row("PAYMENT VERIFIED", `<span style="font-weight:900;font-size:20px;color:#f3f3f1;">${total}</span>`) +
     row("BEATS", esc(beats)) +
     row("ORDER DATE", esc(dateLabel), true);
 
   const files = links
     .map((l) => {
       const badge = l.isExclusive
-        ? `<span style="display:inline-block;font-size:9px;letter-spacing:1px;font-weight:700;color:#f4f1ea;background-color:#1c1b18;padding:3px 7px;margin:4px 0 4px 8px;vertical-align:middle;">EXCLUSIVE MASTER RIGHTS</span>`
-        : `<span style="display:inline-block;font-size:9px;letter-spacing:1px;font-weight:700;color:#71695e;border:1px solid #d5cec2;padding:3px 7px;margin:4px 0 4px 8px;vertical-align:middle;">${l.tier === "mp3" ? "MP3" : "WAV"} LEASE</span>`;
+        ? `<span style="display:inline-block;font-size:9px;letter-spacing:1px;font-weight:700;color:#080809;background-color:#f3f3f1;padding:3px 7px;margin:4px 0 4px 8px;vertical-align:middle;">EXCLUSIVE MASTER RIGHTS</span>`
+        : `<span style="display:inline-block;font-size:9px;letter-spacing:1px;font-weight:700;color:#bcbcc3;border:1px solid #55555d;padding:3px 7px;margin:4px 0 4px 8px;vertical-align:middle;">${l.tier === "mp3" ? "MP3" : "WAV"} LEASE</span>`;
       const cta = l.url
-        ? `<a href="${esc(l.url)}" target="_blank" rel="noopener" style="display:inline-block;background-color:#1c1b18;color:#f4f1ea;padding:12px 20px;font-size:11px;font-weight:700;text-decoration:none;letter-spacing:1px;margin-top:8px;">↓ DOWNLOAD ${esc(l.title)} — ${l.tier === "mp3" ? "MP3" : "WAV"}</a>`
-        : `<span style="color:#71695e;font-weight:700;">↻ DELIVERY PENDING — URL COMING</span>`;
+        ? `<a href="${esc(l.url)}" target="_blank" rel="noopener" style="display:inline-block;background-color:#f3f3f1;color:#080809;border:1px solid #f3f3f1;padding:14px 20px;font-size:11px;font-weight:800;text-decoration:none;letter-spacing:1px;margin-top:8px;">↓ DOWNLOAD ${esc(l.title)} — ${l.tier === "mp3" ? "MP3" : "WAV"}</a>`
+        : `<span style="color:#bcbcc3;font-weight:700;">↻ DELIVERY PENDING — URL COMING</span>`;
       const view = `${SITE_URL}/#${beatAnchor(l.id)}`;
       return (
-        `<div style="margin:0 0 16px;padding:18px;background-color:#faf8f3;border:1px solid #d5cec2;">` +
-        `<p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#1c1b18;">${esc(l.title)} ${badge}</p>` +
+        `<div style="margin:0 0 16px;padding:18px;background-color:#17171a;border:1px solid #38383e;">` +
+        `<p style="margin:0 0 8px;font-size:14px;font-weight:800;color:#f3f3f1;">${esc(l.title)} ${badge}</p>` +
         `<div>${cta}</div>` +
-        `<div style="margin-top:12px;"><a href="${esc(view)}" target="_blank" rel="noopener" style="font-size:10px;color:#71695e;text-decoration:underline;letter-spacing:0.5px;">VIEW ${esc(l.title)} IN STORE →</a></div>` +
+        `<div style="margin-top:12px;"><a href="${esc(view)}" target="_blank" rel="noopener" style="font-size:10px;color:#bcbcc3;text-decoration:underline;letter-spacing:0.5px;">VIEW ${esc(l.title)} IN STORE →</a></div>` +
         `</div>`
       );
     })
@@ -923,21 +899,21 @@ async function buildDeliveryMessage(rec, links, payment, orderId) {
   if (hasExclusive) licenseChips.push("EXCLUSIVE MASTER RIGHTS LICENSE");
   const licenseNote =
     licenseChips.length
-      ? `<div style="font-size:10px;font-weight:700;letter-spacing:2px;color:#71695e;margin:24px 0 10px;">LICENSE ATTACHMENTS</div>` +
+      ? `<div style="font-size:10px;font-weight:700;letter-spacing:2px;color:#a4a4aa;margin:24px 0 10px;">LICENSE ATTACHMENTS</div>` +
         licenseChips
-          .map((c) => `<p style="margin:0 0 6px;font-size:11px;color:#1c1b18;">▸ ${c} <span style="color:#71695e;">— PDF + TXT</span></p>`)
+          .map((c) => `<p style="margin:0 0 6px;font-size:11px;color:#f3f3f1;">▸ ${c} <span style="color:#a4a4aa;">— PDF + TXT</span></p>`)
           .join("") +
-        `<p style="margin:10px 0 0;font-size:12px;color:#71695e;">Your official ${licenseChips.length === 1 ? "license contract is" : "license contracts are"} attached as PDF and text files. Keep them as proof of purchase.</p>`
+        `<p style="margin:10px 0 0;font-size:12px;color:#a4a4aa;">Your official ${licenseChips.length === 1 ? "license contract is" : "license contracts are"} attached as PDF and text files. Keep them as proof of purchase.</p>`
       : "";
 
   const html = brandedEmailHtml({
-    title: "Your sound starts here.",
+    title: "Your sound. Unlocked.",
     eyebrow: "KYROlll / ORDER CONFIRMED",
     subtitle: `Payment verified · ${total} · Your beats and licenses are ready.`,
     content: `<p style="margin:0 0 22px;">Thank you for choosing KYROlll. Your next creation starts with these files.</p>` +
       `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table>` +
-      `<h2 style="font-size:10px;font-weight:700;letter-spacing:2px;color:#71695e;margin:26px 0 14px;">YOUR FILES — INSTANT DOWNLOAD</h2>${files}${licenseNote}` +
-      `<p style="margin:16px 0 0;font-size:12px;color:#71695e;">Follow the instructions inside each license attachment before using a beat in a release.</p>`
+      `<h2 style="font-size:10px;font-weight:700;letter-spacing:2px;color:#a4a4aa;margin:26px 0 14px;">YOUR FILES — INSTANT DOWNLOAD</h2>${files}${licenseNote}` +
+      `<p style="margin:16px 0 0;font-size:12px;color:#a4a4aa;">Follow the instructions inside each license attachment before using a beat in a release.</p>`
   });
 
   const filesText = links
@@ -1104,32 +1080,35 @@ async function saveOrder(env, id, rec) {
   await env.ORDERS.put(orderKey(id), JSON.stringify(rec), ttl());
 }
 
-async function triggerKenCashback(env, rec, orderId) {
+async function triggerTokenCashback(env, rec, orderId) {
+  // A funded distributor must return a transaction hash before fulfillment is recorded.
+  // Keep the pending record for retries if it is unavailable or fails.
+  const key = "cashback:" + orderId;
+  const reward = { orderId, walletAddress: rec.walletAddress, usdAmount: Math.round(rec.total * 10) / 100, tokenAddress: tokenAddress(env), chainId: BASE_CHAIN_ID, status: "pending" };
+  await env.ORDERS.put(key, JSON.stringify(reward), { expirationTtl: 60 * 60 * 24 * 90 });
+  await dispatchReward(env, reward);
+}
+
+async function dispatchReward(env, reward) {
+  const key = "cashback:" + reward.orderId;
+  reward.tokenAddress = tokenAddress(env);
+  if (!env.REWARDS_WEBHOOK_URL || !env.REWARDS_WEBHOOK_SECRET || !reward.tokenAddress) return;
   try {
-    const usdValue = rec.total || 0;
-    const kenRewardAmount = Math.round(usdValue * 10 * 100) / 100;
-    console.log(`Processing KEN cashback of ${kenRewardAmount} KEN for order ${orderId} to wallet ${rec.walletAddress}`);
-    await env.ORDERS.put("cashback:" + orderId, JSON.stringify({
-      walletAddress: rec.walletAddress,
-      kenAmount: kenRewardAmount,
-      status: "distributed",
-      timestamp: Date.now()
-    }), { expirationTtl: 60 * 60 * 24 * 30 });
-  } catch (err) {
-    console.error("KEN cashback transfer failed, logging reward retry:", err);
-    await env.ORDERS.put("cashback-retry:" + orderId, JSON.stringify({
-      walletAddress: rec.walletAddress,
-      total: rec.total,
-      error: err.message,
-      retryCount: 1,
-      timestamp: Date.now()
-    }), { expirationTtl: 60 * 60 * 24 * 30 });
-  }
+    const res = await fetch(env.REWARDS_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.REWARDS_WEBHOOK_SECRET}`, "Idempotency-Key": reward.orderId },
+      body: JSON.stringify(reward)
+    });
+    if (!res.ok) throw new Error(`REWARD DISTRIBUTOR ${res.status}`);
+    const data = await res.json();
+    if (!/^0x[0-9a-fA-F]{64}$/.test(data.txHash || "")) throw new Error("MISSING REWARD TRANSACTION");
+    await env.ORDERS.put(key, JSON.stringify({ ...reward, status: "submitted", txHash: data.txHash }), { expirationTtl: 60 * 60 * 24 * 90 });
+  } catch (err) { console.error("Cashback pending retry:", reward.orderId, err); }
 }
 
 async function handleCheckout(request, env) {
   const body = await request.json().catch(() => null);
-  const { order_id, email, coinSym, total, items, freePicks = [], walletAddress } = body || {};
+  const { order_id, email, coinSym, total, items, freePicks = [], walletAddress, proof } = body || {};
   const catalog = beatCatalog(env);
 
   if (!email || !EMAIL_RE.test(email)) return json(env, { error: "INVALID EMAIL" }, 400);
@@ -1150,13 +1129,16 @@ async function handleCheckout(request, env) {
   }
   const subtotalCents = allItems.reduce((sum, i) => sum + Math.round(TIER_PRICES[i.tier] * 100), 0);
   const discountCents = basicItems.filter((i) => freePicks.includes(i.id)).reduce((sum, i) => sum + Math.round(TIER_PRICES[i.tier] * 100), 0);
-  // A KEN discount requires independently verified holdings, not a client flag.
-  let kenDiscount = false;
-  if (coinSym === "KEN" && walletAddress) {
-    const verification = await handleVerifyKen({ json: async () => ({ walletAddress }) }, env);
-    kenDiscount = (await verification.json()).holder === true;
+  let holder = false;
+  let verifiedWallet = null;
+  if (tokenPerksEnabled(env) && walletAddress) {
+    let verification;
+    try { verification = await verifyHolder(env, walletAddress, proof); }
+    catch (err) { return json(env, { error: err.message === "BASE TOKEN NOT CONFIGURED" ? err.message : "WALLET VERIFICATION FAILED" }, 400); }
+    holder = verification.holder;
+    verifiedWallet = verification.walletAddress;
   }
-  const finalTotal = Math.round((subtotalCents - discountCents) * (kenDiscount ? 0.85 : 1)) / 100;
+  const finalTotal = Math.round((subtotalCents - discountCents) * (holder ? 0.85 : 1)) / 100;
   if (Math.abs(Number(total) - finalTotal) > 0.01 || finalTotal <= 0) return json(env, { error: "INVALID TOTAL" }, 400);
 
   // Reuse the caller's order id when switching coins mid-checkout.
@@ -1185,7 +1167,7 @@ async function handleCheckout(request, env) {
     subtotal: subtotalCents / 100,
     discount: discountCents / 100,
     items: allItems,
-    walletAddress: walletAddress || null,
+    walletAddress: verifiedWallet,
     payment_id: String(payment.payment_id),
     status: payment.payment_status || "waiting",
     released: false,
@@ -1717,9 +1699,9 @@ async function handleIpn(request, env, ctx) {
     const links = orderLinks(env, rec.items);
     // ctx.waitUntil keeps delivery alive after this response returns
     ctx.waitUntil(deliverOrderEmail(env, rec, links, payload, id));
-    if (rec.walletAddress) {
+    if (tokenPerksEnabled(env) && rec.walletAddress) {
       ctx.waitUntil(
-        triggerKenCashback(env, rec, id).catch((e) => console.error("KEN CASHBACK ERROR:", e))
+        triggerTokenCashback(env, rec, id).catch((e) => console.error("CASHBACK ERROR:", e))
       );
     }
     return json(env, { ok: true, released: true, count: links.length, links });
@@ -1732,13 +1714,27 @@ async function handleIpn(request, env, ctx) {
 export { buildLicensePdf, buildDeliveryMessage, beatAnchor, orderDateLabel };
 
 export default {
+  async scheduled(event, env, ctx) {
+    if (!tokenPerksEnabled(env)) return;
+    ctx.waitUntil((async () => {
+      let cursor;
+      do {
+        const page = await env.ORDERS.list({ prefix: "cashback:", limit: 100, ...(cursor ? { cursor } : {}) });
+        for (const { name } of page.keys) {
+          const reward = JSON.parse(await env.ORDERS.get(name) || "null");
+          if (reward?.status === "pending") await dispatchReward(env, reward);
+        }
+        cursor = page.list_complete ? null : page.cursor;
+      } while (cursor);
+    })());
+  },
   async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(env) });
 
     const url = new URL(request.url);
     try {
       if (request.method === "POST" && url.pathname === "/api/checkout") return await handleCheckout(request, env);
-      if (request.method === "POST" && url.pathname === "/api/verify-ken") return await handleVerifyKen(request, env);
+      if (request.method === "POST" && url.pathname === "/api/verify-token") return await handleVerifyToken(request, env);
       if (request.method === "POST" && url.pathname === "/api/notify-beat") return await handleNotifyBeat(request, env);
       if (request.method === "POST" && url.pathname === "/api/notify-drop") return await handleNotifyDrop(request, env);
       if ((request.method === "POST" || request.method === "GET") && url.pathname === "/api/release") return await handleReleaseBeat(request, env);
@@ -1746,7 +1742,6 @@ export default {
       if (request.method === "GET" && url.pathname === "/api/catalog") return await handleCatalog(env);
       if (request.method === "GET" && url.pathname === "/api/status") return await handleStatus(url, env);
       if (request.method === "GET" && url.pathname === "/api/mins") return await handleMins(url, env);
-      if (request.method === "GET" && url.pathname === "/api/ken-price") return await handleKenPrice(env);
       if (request.method === "POST" && url.pathname === "/api/ipn") return await handleIpn(request, env, ctx);
       // Liveness probe (browser/manual GET) — confirms the endpoint is deployed.
       if (request.method === "GET" && url.pathname === "/api/ipn") {
