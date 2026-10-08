@@ -86,7 +86,7 @@ async function checkBeatSplit(page) {
     return { art: box('.card__media img'), info: box('.card__info'), meta: box('.card__meta'), player: box('.beat-preview'), packages: box('.card__actions') };
   });
   assert(Math.abs(layout.art.width - layout.art.height) < 2, 'cover remains square');
-  assert(layout.art.x + layout.art.width <= layout.info.x + 2 && Math.abs(layout.art.y - layout.info.y) < 2, 'art sits left of beat details');
+  assert(layout.info.x + layout.info.width + 7 <= layout.art.x && Math.abs(layout.art.y - layout.info.y) < 2, 'art sits to the right with space between columns');
   assert(layout.meta.bottom < layout.player.y && layout.player.bottom < layout.packages.y, 'title/specs, player and packages stay in order');
   assert(layout.packages.y - layout.player.bottom < 25, 'licenses sit directly below the player');
 }

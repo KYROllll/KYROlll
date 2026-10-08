@@ -1773,16 +1773,16 @@ body::before {
 .beat-navigation a { color: var(--gray); font-size: 10px; font-weight: 700; letter-spacing: .15em; text-decoration: none; }
 .beat-navigation a:hover { color: var(--white); }
 .grid.grid--detail { grid-template-columns: minmax(0, 900px); justify-content: center; }
-.card--detail { grid-template-columns: clamp(112px, 38%, 340px) minmax(0, 1fr); }
-.card--detail .card__media { width: 100%; height: auto; aspect-ratio: 1; }
-.card--detail .card__info { padding: clamp(16px, 3vw, 32px); gap: 22px; }
+.card--detail { grid-template-columns: minmax(0, 1fr) clamp(112px, 38%, 340px); column-gap: clamp(12px, 2vw, 24px); }
+.card--detail .card__media { grid-column: 2; grid-row: 1; width: 100%; height: auto; aspect-ratio: 1; }
+.card--detail .card__info { grid-column: 1; grid-row: 1; padding: clamp(16px, 3vw, 32px); gap: 22px; border-left: 0; border-right: 1px solid var(--hairline); }
 .card--detail .card__name { font-size: clamp(18px, 2vw, 25px); }
 .card--detail .card__specs { margin-top: 10px; font-size: 12px; }
 .card--detail .card__actions { margin-top: 0; gap: 8px; }
 .grid--detail .grid-closed a { color: var(--white); }
 
 @media (max-width: 700px) {
-  .card--detail { grid-template-columns: clamp(112px, 36%, 220px) minmax(0, 1fr); }
+  .card--detail { grid-template-columns: minmax(0, 1fr) clamp(112px, 36%, 220px); column-gap: 8px; }
   .card--detail .card__info { padding: 14px; gap: 12px; }
   .card--detail .card__name { font-size: clamp(14px, 2.7vw, 18px); }
   .card--detail .card__specs { margin-top: 6px; font-size: 10px; }
