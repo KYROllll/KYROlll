@@ -103,7 +103,9 @@ function orderLinks(env, items) {
     const kind = tier || (isExclusive ? "exclusive" : "wav");
     const files = map[id];
     const url = kind === "mp3" ? (typeof files === "object" && files?.mp3) || mp3[id]
-      : (id === "flesh" && env.FLESH_WAV_URL) || (typeof files === "string" ? files : files?.wav || files?.exclusive);
+      : kind === "wav" ? (id === "flesh" && env.FLESH_WAV_URL) || (typeof files === "string" ? files : files?.wav)
+      : kind === "exclusive" ? (id === "flesh" && env.FLESH_WAV_URL) || (typeof files === "string" ? files : files?.exclusive || files?.wav)
+      : null;
     return { id, title, tier: kind, url: url || null, isExclusive: kind === "exclusive" };
   });
 }

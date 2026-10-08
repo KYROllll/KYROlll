@@ -151,8 +151,10 @@ button {
   width: 100%;
   height: 100%;
 }
-.logo-fallback { object-fit: contain; padding: 40px; transform: rotate(-8deg); }
-.logo-stage.is-ready .logo-fallback { visibility: hidden; }
+.logo-stage canvas { opacity: 0; transition: opacity .45s ease-in-out; }
+.logo-stage.is-ready canvas { opacity: 1; }
+.logo-fallback { object-fit: contain; padding: 40px; transform: rotate(-8deg); opacity: 1; transition: opacity .45s ease-in-out, visibility 0s linear .45s; }
+.logo-stage.is-ready .logo-fallback { opacity: 0; visibility: hidden; }
 
 .store-banner {
   display: flex;
@@ -285,14 +287,15 @@ button {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 480px));
-  justify-content: center;
-  border-top: 1px solid var(--hairline);
-  border-left: 1px solid var(--hairline);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  padding: 16px clamp(16px, 3vw, 40px) 40px;
   width: 100%;
-  max-width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
   box-sizing: border-box;
 }
+.grid-closed { grid-column: 1 / -1; }
 
 .card {
   background: var(--paper);
@@ -300,8 +303,7 @@ button {
   display: grid;
   grid-template-columns: 160px minmax(0, 1fr);
   min-width: 0;
-  border-right: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline);
+  border: 1px solid var(--hairline);
   touch-action: manipulation;
 }
 
@@ -1437,12 +1439,17 @@ button {
   }
 }
 
+@media (max-width: 1100px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 @media (max-width: 600px) {
   .header {
     padding: 0 16px 24px;
-  }
-  .grid {
-    grid-template-columns: minmax(0, 1fr);
   }
   .card {
     grid-template-columns: 120px minmax(0, 1fr);

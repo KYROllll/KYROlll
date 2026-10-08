@@ -144,6 +144,50 @@ test("missing MP3 file rejects checkout rather than delivering WAV to MP3 buyer"
   } finally { restore(); }
 });
 
+test("single-tier orders unlock and email only their purchased format", async () => {
+  for (const tier of ["mp3", "wav"]) {
+    const { api, mails, tasks, restore } = setup();
+    try {
+      const order = await api("/api/checkout", "POST", {
+        email: "buyer@example.com", coinSym: "USDT", total: tier === "mp3" ? 9.95 : 14.95,
+        items: [{ id: "beat1", type: tier }]
+      });
+      assert.equal(order.status, 200);
+      assert.equal((await api("/api/status?order_id=" + order.data.order_id)).data.links, undefined);
+      const payload = { order_id: order.data.order_id, payment_status: "finished", payment_id: order.data.payment_id };
+      const signature = createHmac("sha512", "secret")
+        .update(Object.keys(payload).sort().map((key) => String(payload[key])).join("|"))
+        .digest("hex");
+      assert.equal((await api("/api/ipn", "POST", payload, { "x-nowpayments-sig": signature })).data.released, true);
+      await Promise.all(tasks);
+      const after = await api("/api/status?order_id=" + order.data.order_id);
+      assert.deepEqual(after.data.links.map(({ tier: deliveredTier, url }) => ({ tier: deliveredTier, url })),
+        [{ tier, url: `https://files.example/beat1.${tier}` }]);
+      assert.equal(mails.length, 1);
+      assert.match(mails[0].text, new RegExp(`https://files\\.example/beat1\\.${tier}`));
+      assert.doesNotMatch(mails[0].text + mails[0].html, new RegExp(`https://files\\.example/beat1\\.${tier === "mp3" ? "wav" : "mp3"}`));
+    } finally { restore(); }
+  }
+});
+
+test("a WAV lease never receives an exclusive-only file", async () => {
+  const { api, env, payments, restore } = setup();
+  try {
+    env.BEAT_LINKS = JSON.stringify({ beat1: { exclusive: "https://files.example/exclusive.wav" } });
+    const wav = await api("/api/checkout", "POST", {
+      email: "buyer@example.com", coinSym: "USDT", total: 14.95,
+      items: [{ id: "beat1", type: "wav" }]
+    });
+    assert.equal(wav.status, 503);
+    assert.equal(payments.length, 0);
+    const exclusive = await api("/api/checkout", "POST", {
+      email: "buyer@example.com", coinSym: "USDT", total: 299.95,
+      items: [{ id: "beat1", type: "exclusive" }]
+    });
+    assert.equal(exclusive.status, 200);
+  } finally { restore(); }
+});
+
 test("built-in FLESH release supports WAV buyers but rejects MP3 preview purchases", async () => {
   const { api, env, payments, tasks, restore } = setup();
   try {

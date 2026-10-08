@@ -77,6 +77,11 @@ try {
   const desktop = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await desktop.goto(url);
   await desktop.locator('.logo-stage.is-ready').waitFor();
+  await desktop.waitForFunction(() => getComputedStyle(document.querySelector('.logo-fallback')).opacity === '0');
+  assert(await desktop.locator('.logo-stage').evaluate(stage => {
+    const canvas = stage.querySelector('canvas');
+    return Math.abs(canvas.width / Math.min(devicePixelRatio, 2) - stage.getBoundingClientRect().width) < 2;
+  }), '3D logo renders at the displayed size before handoff');
   assert.doesNotMatch(await desktop.content(), /Beat Catalog/i);
   assert.equal(await desktop.locator('body > canvas').count(), 1, 'falling-X background canvas');
   const canvasBeforeScroll = await desktop.locator('body > canvas').evaluate(canvas => ({
@@ -112,7 +117,7 @@ try {
   assert(cover.width <= 180 && cover.height <= 180, 'desktop artwork stays album-sized');
   const card = await desktop.locator('#card-flesh').boundingBox();
   assert(card.width <= 480, 'one catalog card must not fill the page');
-  assert(Math.abs(card.x + card.width / 2 - 720) < 2, 'featured beat sits in the center of the grid');
+  assert(card.x >= 16 && card.x < 60, 'featured beat starts in the first grid column');
   assert.equal(await desktop.locator('#grid .card').first().locator('.card__btn--mp3').count(), 0);
   assert.equal(await desktop.locator('#grid .card').first().locator('.card__btn--wav').count(), 1);
   await checkPausedPerks(desktop);
@@ -140,6 +145,13 @@ try {
     CATALOG.push(...Array.from({ length: 4 }, (_, i) => ({ id: `beat${i + 1}`, title: `BEAT 0${i + 1}`, name: ['STATIC', 'AFTER HOURS', 'NO SIGNAL', 'DUST'][i], img: `assets/beat${i + 1}.jpg`, bpm: 140, key: 'C MIN', leases: 10, left: 8 })));
     rebuildCatalog();
   });
+  const desktopCards = await desktop.locator('#grid .card').evaluateAll(cards => cards.map(card => {
+    const { x, y, width } = card.getBoundingClientRect(); return { x, y, width };
+  }));
+  assert.equal(desktopCards.length, 5);
+  assert(desktopCards[0].x < desktopCards[1].x && desktopCards[1].x < desktopCards[2].x, 'three columns on desktop');
+  assert(desktopCards[3].y > desktopCards[0].y && desktopCards[3].x === desktopCards[0].x, 'later beats wrap to the next row');
+  assert(desktopCards.every(card => card.width < 480), 'cards remain compact in the multi-beat grid');
   await shot(desktop, 'catalog');
   await desktop.locator('.card__btn--mp3').first().click();
   await desktop.locator('#cartbar').click();
@@ -208,6 +220,19 @@ try {
     await noOverflow(p);
     await checkPausedPerks(p);
     await checkNoClipping(p);
+    if (vp.width === 1024 || vp.width === 375) {
+      await p.evaluate(() => {
+        CATALOG.push(...[1, 2].map(i => ({ id: `beat${i}`, title: `BEAT 0${i}`, img: `assets/beat${i}.jpg`, bpm: 140, key: 'C MIN', leases: 10, left: 8 })));
+        rebuildCatalog();
+      });
+      const positions = await p.locator('#grid .card').evaluateAll(cards => cards.map(card => {
+        const { x, y } = card.getBoundingClientRect(); return { x, y };
+      }));
+      assert.equal(positions.length, 3);
+      if (vp.width === 1024) assert(positions[1].x > positions[0].x && positions[2].y > positions[0].y, 'two columns on tablet');
+      else assert(positions[1].y > positions[0].y && positions[1].x === positions[0].x, 'one column on mobile');
+      await noOverflow(p);
+    }
     await p.close();
   }
 

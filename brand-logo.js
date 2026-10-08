@@ -24,7 +24,9 @@ async function init() {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
   renderer.setClearColor(0x000000, 0);
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setSize(400, 400, false);
+  const stageSize = host.getBoundingClientRect().width;
+  let renderedSize = stageSize;
+  renderer.setSize(stageSize, stageSize, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.domElement.setAttribute('aria-hidden', 'true');
@@ -96,19 +98,25 @@ async function init() {
   warm.position.set(-3, -2, -2); scene.add(warm);
   const resize = new ResizeObserver(([entry]) => {
     const width = entry.contentRect.width;
+    if (!width || Math.abs(width - renderedSize) < .5) return;
+    renderedSize = width;
     renderer.setSize(width, width, false);
     renderer.render(scene, camera);
   });
-  resize.observe(host);
   host.append(renderer.domElement);
   renderer.render(scene, camera);
+  resize.observe(host);
+  // Give the correctly sized first frame time to paint behind the still image
+  // before crossfading it in; never expose an empty or re-sized canvas.
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   host.classList.add('is-ready');
+  const revealAt = performance.now() + 450;
   let visible = true, elapsed = 0, previous = 0;
   new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }).observe(host);
   renderStill = () => renderer.render(scene, camera);
   renderer.setAnimationLoop(time => {
     const dt = Math.min((time - previous) / 1000, .05); previous = time;
-    if (paused || !visible || document.hidden) return;
+    if (time < revealAt || paused || !visible || document.hidden) return;
     elapsed += dt;
     // Slow, continuous full turns on three axes, composed as quaternions to
     // avoid Euler-angle snapping. Delta time makes the motion refresh-rate
