@@ -17,7 +17,8 @@ const LEASES_PER_BEAT = 10;
 const CATALOG = [{
   id: "flesh", title: 'Don Toliver type beat - "FLESH"', name: "",
   img: "assets/flesh.png", bpm: 130, key: "Am", leases: 10, left: 10,
-  preview: "https://drive.google.com/uc?export=download&id=1cg_0qBDDMu80EqJ90_POL3ekv2k1BJ7Q",
+  preview: "https://docs.google.com/uc?export=download&id=1cg_0qBDDMu80EqJ90_POL3ekv2k1BJ7Q",
+  previewFallback: "assets/previews/flesh.mp3",
   tiers: ["wav", "exclusive"]
 }];
 const money = (n) => "$" + n.toFixed(2);
@@ -252,7 +253,7 @@ function previewHTML(beat) {
     : '<p class="beat-preview__unavailable">PREVIEW COMING SOON</p>';
   const title = attr(beat.name ? `${beat.title} — ${beat.name}` : beat.title);
   return `<div class="beat-preview" data-title="${title}" data-state="idle">
-    <audio class="beat-preview__audio" src="${attr(beat.preview)}" preload="none"></audio>
+    <audio class="beat-preview__audio" src="${attr(beat.preview)}"${beat.previewFallback ? ` data-fallback="${attr(beat.previewFallback)}"` : ""} preload="none"></audio>
     <button type="button" class="beat-preview__toggle" aria-label="Play preview: ${title}" aria-pressed="false">
       <svg class="beat-preview__play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
       <svg class="beat-preview__pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>

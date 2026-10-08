@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { buildDeliveryMessage } from './worker/src/index.js';
 
 const root = new URL('./', import.meta.url);
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg' };
+const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.mp3': 'audio/mpeg' };
 const server = createServer(async (req, res) => {
   const path = new URL(req.url, 'http://localhost').pathname;
   try {
@@ -21,11 +21,12 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const url = `http://127.0.0.1:${server.address().port}`;
 let browser;
 const errors = [];
-async function setupPage(options = {}) {
+async function setupPage(options = {}, streamPreview = false) {
   const page = await browser.newPage(options);
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/*', async route => {
     const req = route.request(), target = new URL(req.url());
+    if (streamPreview && ['docs.google.com', 'drive.google.com', 'drive.usercontent.google.com'].includes(target.hostname)) return route.continue();
     if (target.origin === url && !target.pathname.startsWith('/api/')) return route.continue();
     if (target.pathname.startsWith('/assets/')) {
       return route.fulfill({ path: new URL(`.${target.pathname}`, root).pathname });
@@ -105,7 +106,13 @@ try {
   assert.equal(await desktop.locator('#grid .card').count(), 1);
   assert.match(await desktop.locator('#grid .card').first().innerText(), /FLESH.*130 BPM \/\/ Am/is);
   assert.equal(await desktop.locator('#grid .card').first().locator('img').getAttribute('src'), 'assets/flesh.png');
-  assert.equal(await desktop.locator('#grid .card').first().locator('audio').getAttribute('src'), 'https://drive.google.com/uc?export=download&id=1cg_0qBDDMu80EqJ90_POL3ekv2k1BJ7Q');
+  assert.equal(await desktop.locator('#grid .card').first().locator('audio').getAttribute('src'), 'https://docs.google.com/uc?export=download&id=1cg_0qBDDMu80EqJ90_POL3ekv2k1BJ7Q');
+  assert.equal(await desktop.locator('#grid .card').first().locator('audio').getAttribute('data-fallback'), 'assets/previews/flesh.mp3');
+  const cover = await desktop.locator('#card-flesh .card__media img').boundingBox();
+  assert(cover.width <= 180 && cover.height <= 180, 'desktop artwork stays album-sized');
+  const card = await desktop.locator('#card-flesh').boundingBox();
+  assert(card.width <= 480, 'one catalog card must not fill the page');
+  assert(Math.abs(card.x + card.width / 2 - 720) < 2, 'featured beat sits in the center of the grid');
   assert.equal(await desktop.locator('#grid .card').first().locator('.card__btn--mp3').count(), 0);
   assert.equal(await desktop.locator('#grid .card').first().locator('.card__btn--wav').count(), 1);
   await checkPausedPerks(desktop);
@@ -158,7 +165,28 @@ try {
   const mobile = await setupPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
   await mobile.goto(url);
   await mobile.locator('.logo-stage.is-ready').waitFor();
+  const mobileCover = await mobile.locator('#card-flesh .card__media img').boundingBox();
+  assert(mobileCover.width <= 120 && mobileCover.height <= 120, 'mobile artwork stays compact');
+  assert(await mobile.locator('#card-flesh .card__title-link').evaluate(link => {
+    const title = link.getBoundingClientRect(), card = link.closest('.card').getBoundingClientRect();
+    return title.top >= card.top && title.right <= card.right && title.bottom <= card.bottom;
+  }), 'beat title stays within the mobile card');
   await noOverflow(mobile);
+
+  const playback = await setupPage({ viewport: { width: 480, height: 800 }, reducedMotion: 'reduce' }, true);
+  const audioRequests = [];
+  playback.on('requestfailed', req => audioRequests.push(`${req.url()} ${req.failure()?.errorText}`));
+  playback.on('response', res => { if (res.url().includes('google.com') || res.url().includes('flesh.mp3')) audioRequests.push(`${res.status()} ${res.url()}`); });
+  await playback.goto(url);
+  await playback.locator('#card-flesh .beat-preview__toggle').click();
+  await playback.waitForFunction(() => {
+    const audio = document.querySelector('#card-flesh audio');
+    return !audio.paused && audio.currentTime > 0 && audio.closest('.beat-preview').dataset.state === 'playing';
+  }, null, { timeout: 15000 }).catch(async error => {
+    const media = await playback.locator('#card-flesh audio').evaluate(a => ({ error: a.error?.code, networkState: a.networkState, readyState: a.readyState, src: a.currentSrc }));
+    throw new Error(`${error.message}; media=${JSON.stringify(media)}; requests=${audioRequests.join(' | ')}`);
+  });
+  await playback.close();
   await checkOffer(mobile);
   await mobile.evaluate(() => scrollTo(0, 0));
   await shot(mobile, 'mobile');

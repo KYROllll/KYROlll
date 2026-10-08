@@ -28,7 +28,7 @@ function setup() {
       })[selector]
     };
     const audio = {
-      paused: true, ended: false, duration: NaN, currentTime: 0,
+      paused: true, ended: false, duration: NaN, currentTime: 0, dataset: {},
       matches: (selector) => selector === ".beat-preview__audio",
       closest: () => player,
       pause() { this.paused = true; root.emit("pause", this); },
@@ -114,4 +114,18 @@ test("failed files remain retryable, and stopping cancels a late playback event"
   assert.equal(item.button.attributes["aria-pressed"], "false");
   root.emit("error", item.audio);
   assert.equal(item.player.dataset.state, "error");
+});
+
+test("blocked Drive preview retries once with the hosted MP3", async () => {
+  const { controller, track } = setup();
+  const item = track("FLESH");
+  item.audio.dataset.fallback = "assets/previews/flesh.mp3";
+  const pending = controller.toggle(item.audio);
+  item.audio.reject(new Error("Blocked by browser"));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(item.audio.src, "assets/previews/flesh.mp3");
+  item.audio.resolve();
+  await pending;
+  assert.equal(item.player.dataset.state, "playing");
+  assert.equal(item.audio.dataset.fallbackTried, "true");
 });

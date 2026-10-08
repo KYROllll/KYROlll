@@ -27,7 +27,8 @@ class BeatPreviewPlayer {
         }
         const player = audio.closest(".beat-preview");
         if (type === "error") {
-          this.fail(audio);
+          // Some Drive responses are blocked by browsers before play() rejects.
+          if (!audio.dataset.fallback || audio.dataset.fallbackTried) this.fail(audio);
           return;
         }
         if (type === "waiting" && this.active === audio) player.dataset.state = "loading";
@@ -70,7 +71,15 @@ class BeatPreviewPlayer {
       await audio.play();
     } catch {
       // A pause or another selection can reject an older pending play().
-      if (request === this.request) this.fail(audio);
+      if (request !== this.request) return;
+      if (audio.dataset.fallback && !audio.dataset.fallbackTried) {
+        audio.dataset.fallbackTried = "true";
+        audio.src = audio.dataset.fallback;
+        audio.load();
+        try { await audio.play(); } catch { if (request === this.request) this.fail(audio); }
+      } else {
+        this.fail(audio);
+      }
     }
   }
 

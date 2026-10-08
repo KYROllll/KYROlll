@@ -145,7 +145,7 @@ test("missing MP3 file rejects checkout rather than delivering WAV to MP3 buyer"
 });
 
 test("built-in FLESH release supports WAV buyers but rejects MP3 preview purchases", async () => {
-  const { api, env, payments, restore } = setup();
+  const { api, env, payments, tasks, restore } = setup();
   try {
     delete env.BEAT_CATALOG;
     env.FLESH_WAV_URL = "https://files.example/flesh.wav";
@@ -162,6 +162,14 @@ test("built-in FLESH release supports WAV buyers but rejects MP3 preview purchas
     assert.equal(order.status, 200);
     assert.equal(payments[0].order_description, 'KYROlll - Don Toliver type beat - "FLESH" WAV');
     assert.equal((await api("/api/status?order_id=" + order.data.order_id)).data.links, undefined);
+    const payload = { order_id: order.data.order_id, payment_status: "finished", payment_id: order.data.payment_id };
+    const signature = createHmac("sha512", "secret")
+      .update(Object.keys(payload).sort().map((key) => String(payload[key])).join("|"))
+      .digest("hex");
+    assert.equal((await api("/api/ipn", "POST", payload, { "x-nowpayments-sig": signature })).data.released, true);
+    await Promise.all(tasks);
+    const after = await api("/api/status?order_id=" + order.data.order_id);
+    assert.deepEqual(after.data.links.map(({ tier, url }) => ({ tier, url })), [{ tier: "wav", url: env.FLESH_WAV_URL }]);
   } finally { restore(); }
 });
 
