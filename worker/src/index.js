@@ -25,6 +25,7 @@
  *   BEAT_CATALOG            JSON: { "new-id": { "title": "BEAT 01", "name": "…" }, … }
  *   BEAT_LINKS              JSON: { "new-id": { "mp3": "https://…", "wav": "https://…" }, … }
  *                           Legacy string entries remain WAV-only.
+ *   FLESH_WAV_URL           Private buyer WAV link for the first release.
  *
  * Bindings: KV namespace "ORDERS" (see wrangler.toml).
  */
@@ -102,19 +103,23 @@ function orderLinks(env, items) {
     const kind = tier || (isExclusive ? "exclusive" : "wav");
     const files = map[id];
     const url = kind === "mp3" ? (typeof files === "object" && files?.mp3) || mp3[id]
-      : (typeof files === "string" ? files : files?.wav || files?.exclusive);
+      : (id === "flesh" && env.FLESH_WAV_URL) || (typeof files === "string" ? files : files?.wav || files?.exclusive);
     return { id, title, tier: kind, url: url || null, isExclusive: kind === "exclusive" };
   });
 }
 
-// No legacy beats are on sale. Configure new releases in BEAT_CATALOG with
-// IDs/titles matching script.js; checkout rejects all IDs until then.
+// Storefront releases. Buyer URLs remain in private Worker bindings.
+const RELEASES = {
+  flesh: { title: 'Don Toliver type beat - "FLESH"', bpm: 130, key: "Am", tiers: ["wav", "exclusive"] }
+};
+
+// Optional private catalog entries can extend the built-in releases.
 function beatCatalog(env) {
   try {
     const catalog = JSON.parse(env.BEAT_CATALOG || "{}");
-    return catalog && !Array.isArray(catalog) && typeof catalog === "object" ? catalog : {};
+    return { ...RELEASES, ...(catalog && !Array.isArray(catalog) && typeof catalog === "object" ? catalog : {}) };
   } catch {
-    return {};
+    return RELEASES;
   }
 }
 
@@ -1114,7 +1119,7 @@ async function handleCheckout(request, env) {
   if (!email || !EMAIL_RE.test(email)) return json(env, { error: "INVALID EMAIL" }, 400);
   const payCurrency = COIN_CODES[coinSym];
   if (!payCurrency) return json(env, { error: "UNSUPPORTED COIN" }, 400);
-  if (!Array.isArray(items) || !items.length || !items.every((i) => i && Object.hasOwn(catalog, i.id) && typeof catalog[i.id]?.title === "string" && catalog[i.id].title && ["mp3", "wav", "exclusive", "lease"].includes(i.type)) || new Set(items.map((i) => i.id)).size !== items.length) {
+  if (!Array.isArray(items) || !items.length || !items.every((i) => i && Object.hasOwn(catalog, i.id) && typeof catalog[i.id]?.title === "string" && catalog[i.id].title && ["mp3", "wav", "exclusive", "lease"].includes(i.type) && (!catalog[i.id].tiers || catalog[i.id].tiers.includes(i.type === "lease" ? "wav" : i.type))) || new Set(items.map((i) => i.id)).size !== items.length) {
     return json(env, { error: "EMPTY CART" }, 400);
   }
   const allItems = items.map((item) => ({ id: item.id, title: catalog[item.id].title, tier: item.type === "lease" ? "wav" : item.type, isExclusive: item.type === "exclusive" }));

@@ -18,23 +18,33 @@ NOWPayments key or the Drive URLs — only this Worker does.
 cd worker
 npm install
 
-npx wrangler kv namespace create ORDERS     # paste the id into wrangler.toml
+npx wrangler kv namespace create ORDERS --config wrangler.toml # paste the id into wrangler.toml
 
-npx wrangler secret put NOWPAYMENTS_API_KEY
-npx wrangler secret put NOWPAYMENTS_IPN_SECRET
-npx wrangler secret put RESEND_API_KEY
-npx wrangler secret put RESEND_FROM         # "KYROlll <noreply@your-verified-domain>"
-npx wrangler secret put BEAT_CATALOG       # JSON metadata for the new releases
-npx wrangler secret put BEAT_LINKS          # MP3 + WAV URLs from step below
+npx wrangler secret put NOWPAYMENTS_API_KEY --config wrangler.toml
+npx wrangler secret put NOWPAYMENTS_IPN_SECRET --config wrangler.toml
+npx wrangler secret put RESEND_API_KEY --config wrangler.toml
+npx wrangler secret put RESEND_FROM --config wrangler.toml # "KYROlll <noreply@your-verified-domain>"
+npx wrangler secret put FLESH_WAV_URL --config wrangler.toml
+npx wrangler secret put BEAT_LINKS --config wrangler.toml # MP3 + WAV URLs for future releases
 
-npm run deploy
+npx wrangler deploy --config wrangler.toml
 ```
 
-The catalog starts empty. Add new releases to `CATALOG` in `script.js` (each
-entry needs `id`, `title`, `name`, `img`, `bpm`, `key`, and `leases`; use
-`left: leases` for the initial stock), register matching IDs and titles in
-`BEAT_CATALOG`, and upload their files to `BEAT_LINKS`. Without a matching
-Worker catalog entry or purchased-format link, checkout is rejected.
+FLESH is the first built-in release, with ID `flesh`. Add later releases to
+`CATALOG` in `script.js` (each entry needs `id`, `title`, `img`, `bpm`, `key`,
+`leases`, and `left`; `name` is optional). Register matching IDs and titles in
+`BEAT_CATALOG` or the Worker's built-in catalog, and store buyer files in the
+private `BEAT_LINKS` binding. Without a matching Worker catalog entry or
+purchased-format link, checkout is rejected.
+
+For FLESH, set the `FLESH_WAV_URL` secret on the checkout Worker (use
+`--config wrangler.toml` when invoking Wrangler from this directory). It points
+to the buyer WAV Drive URL without replacing existing `BEAT_LINKS`. Do not
+commit the buyer URL to the storefront: the Worker returns it only after a
+verified paid order. The public Drive MP3 is a preview, so FLESH sells WAV
+and exclusive only; add a distinct buyer MP3 file before enabling its MP3
+lease. A live checkout also requires the `NOWPAYMENTS_API_KEY` and
+`NOWPAYMENTS_IPN_SECRET` Worker secrets.
 
 ### In-browser audio previews
 
@@ -83,8 +93,8 @@ are deployed with `npx wrangler secret list`.
 
 ## BEAT_LINKS value (paste when prompted — keep out of git)
 
-Upload separate untagged MP3 and WAV files for every beat before opening
-checkout. Configure `BEAT_LINKS` with both formats; the Worker rejects carts
+Upload separate buyer MP3 and WAV files for every tier you sell. Configure
+`BEAT_LINKS` with the purchased formats; the Worker rejects carts
 whose purchased format has no URL, so buyers are never charged for a missing
 file. Exclusive orders use the WAV link. Existing string values remain valid
 for WAV/exclusive purchases, but do **not** supply an MP3 file. Alternatively,

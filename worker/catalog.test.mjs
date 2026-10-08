@@ -60,7 +60,7 @@ test("continuous catalog and all three tiers fulfill only their purchased format
     const script = readFileSync(new URL("../script.js", import.meta.url), "utf8");
     const css = readFileSync(new URL("../style.css", import.meta.url), "utf8");
     assert.doesNotMatch(html + script + css, /season|countdown|drops soon/i);
-    assert.match(script, /const CATALOG = \[\];/);
+    assert.match(script, /id: "flesh"/);
     assert.match(script, /MP3_PRICE = 9\.95/);
     assert.match(script, /selected\.set\(id, type\)/);
     assert.match(html, /<h1[^>]+id="brand-title">KYROlll/);
@@ -144,7 +144,28 @@ test("missing MP3 file rejects checkout rather than delivering WAV to MP3 buyer"
   } finally { restore(); }
 });
 
-test("empty catalog rejects old beat IDs even when stale file links remain", async () => {
+test("built-in FLESH release supports WAV buyers but rejects MP3 preview purchases", async () => {
+  const { api, env, payments, restore } = setup();
+  try {
+    delete env.BEAT_CATALOG;
+    env.FLESH_WAV_URL = "https://files.example/flesh.wav";
+    assert.deepEqual((await api("/api/catalog")).data, { sold: [] });
+    const mp3 = await api("/api/checkout", "POST", {
+      email: "buyer@example.com", coinSym: "USDT", total: 9.95,
+      items: [{ id: "flesh", type: "mp3" }]
+    });
+    assert.equal(mp3.status, 400);
+    const order = await api("/api/checkout", "POST", {
+      email: "buyer@example.com", coinSym: "USDT", total: 14.95,
+      items: [{ id: "flesh", type: "wav" }]
+    });
+    assert.equal(order.status, 200);
+    assert.equal(payments[0].order_description, 'KYROlll - Don Toliver type beat - "FLESH" WAV');
+    assert.equal((await api("/api/status?order_id=" + order.data.order_id)).data.links, undefined);
+  } finally { restore(); }
+});
+
+test("unknown beat IDs are rejected even when stale file links remain", async () => {
   const { api, env, payments, restore } = setup();
   try {
     delete env.BEAT_CATALOG;

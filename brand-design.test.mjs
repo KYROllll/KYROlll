@@ -50,7 +50,7 @@ async function checkOffer(page) {
     }), prices: [...card.querySelectorAll('dd')].map(el => el.textContent) };
   });
   assert(layout.height <= 180 && layout.fits, 'compact offer content must fit without clipping');
-  assert.deepEqual(layout.prices, ['$9.95', '$14.95', '$299.95']);
+  assert.deepEqual(layout.prices, ['$14.95', '$299.95']);
 }
 async function checkPausedPerks(page) {
   assert.equal(await page.locator('#wallet-btn, #wallet-modal, .perks, #cashback-notice, #t-holder-row').count(), 0);
@@ -102,6 +102,12 @@ try {
   assert(stillA.equals(stillB), 'reduced-motion logo must be still');
   await noOverflow(desktop);
   await checkOffer(desktop);
+  assert.equal(await desktop.locator('#grid .card').count(), 1);
+  assert.match(await desktop.locator('#grid .card').first().innerText(), /FLESH.*130 BPM \/\/ Am/is);
+  assert.equal(await desktop.locator('#grid .card').first().locator('img').getAttribute('src'), 'assets/flesh.png');
+  assert.equal(await desktop.locator('#grid .card').first().locator('audio').getAttribute('src'), 'https://drive.google.com/uc?export=download&id=1cg_0qBDDMu80EqJ90_POL3ekv2k1BJ7Q');
+  assert.equal(await desktop.locator('#grid .card').first().locator('.card__btn--mp3').count(), 0);
+  assert.equal(await desktop.locator('#grid .card').first().locator('.card__btn--wav').count(), 1);
   await checkPausedPerks(desktop);
   await checkNoClipping(desktop);
   await desktop.evaluate(() => scrollTo(0, 0));
@@ -162,11 +168,7 @@ try {
   await shot(mobile, 'offer-320');
   await checkPausedPerks(mobile);
   await checkNoClipping(mobile);
-  await mobile.evaluate(() => {
-    CATALOG.push({ id: 'beat1', title: 'BEAT 01', name: 'STATIC', img: 'assets/beat1.jpg', bpm: 140, key: 'C MIN', leases: 10, left: 8 });
-    rebuildCatalog();
-  });
-  await mobile.locator('.card__btn--wav').tap();
+  await mobile.locator('#card-flesh .card__btn--wav').tap();
   await mobile.locator('#cartbar').tap();
   await shot(mobile, 'mobile-cart');
   await noOverflow(mobile);

@@ -12,10 +12,14 @@ const EXCLUSIVE_PRICE = 299.95;
 const LEASES_PER_BEAT = 10;
 
 // Add new releases here with id, title, name, img, bpm, key, leases, left,
-// optional public preview (MP3/WAV snippet URL), and optional youtube.
-// Register matching IDs/titles in the Worker's BEAT_CATALOG and configure
-// BEAT_LINKS before opening checkout. Newest entries render first.
-const CATALOG = [];
+// optional public preview, and optional youtube. Newest entries render first.
+// Buyer files are configured privately in the Worker, never here.
+const CATALOG = [{
+  id: "flesh", title: 'Don Toliver type beat - "FLESH"', name: "",
+  img: "assets/flesh.png", bpm: 130, key: "Am", leases: 10, left: 10,
+  preview: "https://drive.google.com/uc?export=download&id=1cg_0qBDDMu80EqJ90_POL3ekv2k1BJ7Q",
+  tiers: ["wav", "exclusive"]
+}];
 const money = (n) => "$" + n.toFixed(2);
 // Exclusive-sold beats are retired from the catalog entirely (master rights
 // transferred). Tracked client-side from the worker's /api/catalog endpoint.
@@ -246,7 +250,7 @@ function previewHTML(beat) {
   if (!beat.preview) return beat.youtube
     ? `<a class="beat-preview__unavailable" href="${attr(beat.youtube)}" target="_blank" rel="noopener noreferrer">PREVIEW ON YOUTUBE ↗</a>`
     : '<p class="beat-preview__unavailable">PREVIEW COMING SOON</p>';
-  const title = attr(`${beat.title} — ${beat.name}`);
+  const title = attr(beat.name ? `${beat.title} — ${beat.name}` : beat.title);
   return `<div class="beat-preview" data-title="${title}" data-state="idle">
     <audio class="beat-preview__audio" src="${attr(beat.preview)}" preload="none"></audio>
     <button type="button" class="beat-preview__toggle" aria-label="Play preview: ${title}" aria-pressed="false">
@@ -278,9 +282,9 @@ function cardInner(beat) {
     : sold
     ? `<button class="card__btn card__btn--sold" disabled>SOLD OUT</button>`
     : `<div class="card__actions">
-           <button class="card__btn card__btn--mp3${lease === "mp3" ? " card__btn--active" : ""}" data-id="${beat.id}" data-type="mp3" aria-pressed="${lease === "mp3"}">
-             MP3 LEASE (${money(MP3_PRICE)})${lease === "mp3" ? ' <span class="card__btn-check">&check;</span>' : ""}
-           </button>
+           ${(!beat.tiers || beat.tiers.includes("mp3")) ? `<button class="card__btn card__btn--mp3${lease === "mp3" ? " card__btn--active" : ""}" data-id="${beat.id}" data-type="mp3" aria-pressed="${lease === "mp3"}">
+              MP3 LEASE (${money(MP3_PRICE)})${lease === "mp3" ? ' <span class="card__btn-check">&check;</span>' : ""}
+           </button>` : ""}
            <button class="card__btn card__btn--wav${lease === "wav" ? " card__btn--active" : ""}" data-id="${beat.id}" data-type="wav" aria-pressed="${lease === "wav"}">
              STANDARD WAV LEASE (${money(PRICE)})${lease === "wav" ? ' <span class="card__btn-check">&check;</span>' : ""}
            </button>
@@ -300,7 +304,7 @@ function cardInner(beat) {
       <div class="card__meta">
         <div class="card__name">
           <a class="card__title-link" href="#${beatAnchorOf(beat)}" onclick="event.stopPropagation()">
-            <span>${beat.title} <span class="card__name-alt">\u2014 ${beat.name}</span></span>
+             <span>${beat.title}${beat.name ? ` <span class="card__name-alt">\u2014 ${beat.name}</span>` : ""}</span>
           </a>
           ${youtubeHTML(beat, true)}
         </div>
