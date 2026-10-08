@@ -77,18 +77,31 @@ async function checkNoClipping(page) {
   });
   assert(wordmark.left >= -1 && wordmark.right <= wordmark.vw + 1, 'wordmark must stay within viewport');
 }
-async function checkBeatSplit(page) {
-  const layout = await page.locator('#card-flesh.card--detail').evaluate(card => {
+async function checkBeatOpenLayout(page) {
+  const layout = await page.locator('#card-flesh.beat-detail').evaluate(detail => {
     const box = selector => {
-      const { x, y, width, height, bottom } = card.querySelector(selector).getBoundingClientRect();
+      const { x, y, width, height, bottom } = detail.querySelector(selector).getBoundingClientRect();
       return { x, y, width, height, bottom };
     };
-    return { art: box('.card__media img'), info: box('.card__info'), meta: box('.card__meta'), player: box('.beat-preview'), packages: box('.card__actions') };
+    return {
+      art: box('.beat-detail__artwork img'), info: box('.beat-detail__content'),
+      meta: box('.card__meta'), player: box('.beat-preview'), packages: box('.card__actions'),
+      mp3: box('.card__btn--mp3'), wav: box('.card__btn--wav'), exclusive: box('.card__btn--exclusive'),
+      background: getComputedStyle(detail).backgroundColor, border: getComputedStyle(detail).borderTopWidth
+    };
   });
-  assert(Math.abs(layout.art.width - layout.art.height) < 2, 'cover remains square');
-  assert(layout.info.x + layout.info.width + 7 <= layout.art.x && Math.abs(layout.art.y - layout.info.y) < 2, 'art sits to the right with space between columns');
+  assert.equal(layout.border, '0px', 'detail has no enclosing card border');
+  assert.equal(layout.background, 'rgba(0, 0, 0, 0)', 'detail uses the site background');
+  assert(layout.art.width >= 260 && Math.abs(layout.art.width - layout.art.height) < 2, 'large cover stays square');
+  if (page.viewportSize().width > 700) {
+    assert(layout.info.x + layout.info.width + 30 <= layout.art.x, 'large artwork sits to the right with open space');
+    assert(layout.mp3.x < layout.wav.x && layout.exclusive.y > layout.wav.y, 'licenses form roomy individual blocks');
+  } else {
+    assert(layout.art.bottom + 20 <= layout.info.y, 'mobile places artwork above its open content block');
+    assert(layout.mp3.y < layout.wav.y && layout.wav.y < layout.exclusive.y, 'mobile licenses each get their own row');
+  }
   assert(layout.meta.bottom < layout.player.y && layout.player.bottom < layout.packages.y, 'title/specs, player and packages stay in order');
-  assert(layout.packages.y - layout.player.bottom < 25, 'licenses sit directly below the player');
+  assert(layout.packages.y - layout.player.bottom < 45, 'licenses sit below the player');
 }
 try {
   browser = await chromium.launch({ headless: true });
@@ -142,11 +155,11 @@ try {
   const direct = await setupPage({ viewport: { width: 1024, height: 800 }, reducedMotion: 'reduce' });
   await direct.goto(`${url}/?beat=flesh`);
   assert.match(await direct.title(), /FLESH/);
-  assert.equal(await direct.locator('#grid .card--detail').count(), 1);
+  assert.equal(await direct.locator('#grid .beat-detail').count(), 1);
   assert.match(await direct.locator('#card-flesh').innerText(), /130 BPM \/\/ AM/i);
   assert.equal(await direct.locator('#card-flesh audio').getAttribute('src'), 'https://docs.google.com/uc?export=download&id=1cg_0qBDDMu80EqJ90_POL3ekv2k1BJ7Q');
   assert.equal(await direct.locator('#card-flesh .card__btn').count(), 3);
-  await checkBeatSplit(direct);
+  await checkBeatOpenLayout(direct);
   assert((await direct.locator('.brand-hero').boundingBox()).height < 180, 'direct visitors see the beat without a full-height hero');
   await shot(direct, 'beat-detail');
   await direct.locator('#card-flesh .card__btn--wav').click();
@@ -161,7 +174,7 @@ try {
   assert.match(await direct.locator('#grid').innerText(), /BEAT NOT FOUND/);
   await direct.goto(`${url}/#flesh`);
   await direct.waitForURL(/index\.html\?beat=flesh$/);
-  assert.equal(await direct.locator('#card-flesh.card--detail').count(), 1, 'legacy beat hash opens its dedicated view');
+  assert.equal(await direct.locator('#card-flesh.beat-detail').count(), 1, 'legacy beat hash opens its dedicated view');
   await direct.close();
 
   await desktop.emulateMedia({ reducedMotion: 'no-preference' });
@@ -195,8 +208,8 @@ try {
   await shot(desktop, 'catalog');
   await desktop.locator('#grid .catalog-tile__link').first().click();
   assert.match(desktop.url(), /\?beat=beat4$/);
-  assert.equal(await desktop.locator('#grid .card--detail').count(), 1);
-  assert.match(await desktop.locator('#grid .card--detail').innerText(), /140 BPM \/\/ C MIN/i);
+  assert.equal(await desktop.locator('#grid .beat-detail').count(), 1);
+  assert.match(await desktop.locator('#grid .beat-detail').innerText(), /140 BPM \/\/ C MIN/i);
   await desktop.locator('.card__btn--mp3').click();
   await desktop.locator('#cartbar').click();
   await desktop.locator('.drawer--open').waitFor();
@@ -252,9 +265,9 @@ try {
   await mobile.locator('.logo-stage.is-ready').waitFor();
   assert.equal(await mobile.locator('#card-flesh .catalog-tile__link').count(), 1);
   await mobile.locator('#card-flesh .catalog-tile__link').tap();
-  const mobileCover = await mobile.locator('#card-flesh .card__media img').boundingBox();
-  assert(mobileCover.width <= 220 && mobileCover.height <= 220, 'beat-page artwork fits beside mobile player');
-  await checkBeatSplit(mobile);
+  const mobileCover = await mobile.locator('#card-flesh .beat-detail__artwork img').boundingBox();
+  assert(mobileCover.width >= 300 && Math.abs(mobileCover.width - mobileCover.height) < 2, 'mobile cover has premium square presence');
+  await checkBeatOpenLayout(mobile);
   assert.match(await mobile.locator('#card-flesh').innerText(), /130 BPM \/\/ AM/i);
   await noOverflow(mobile);
 
@@ -277,7 +290,7 @@ try {
   await shot(mobile, 'mobile');
   await mobile.setViewportSize({ width: 320, height: 740 });
   await noOverflow(mobile);
-  await checkBeatSplit(mobile);
+  await checkBeatOpenLayout(mobile);
   await checkNoClipping(mobile);
   await checkOffer(mobile);
   await shot(mobile, 'offer-320');

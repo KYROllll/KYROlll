@@ -268,7 +268,7 @@ function previewHTML(beat) {
   </div>`;
 }
 
-function cardInner(beat) {
+function beatDetailInner(beat) {
   const sold = isSoldOut(beat);
   const exclusiveGone = isExclusiveSold(beat);
   const mediaTag = exclusiveGone
@@ -299,11 +299,11 @@ function cardInner(beat) {
           </div>`;
 
   return `
-    <div class="card__media">
-      <img src="${beat.img}" alt="${beat.title}" decoding="async" fetchpriority="high">
+    <figure class="beat-detail__artwork">
+      <img src="${beat.img}" alt="${beat.title} cover art" decoding="async" fetchpriority="high">
       ${mediaTag}
-    </div>
-    <div class="card__info">
+    </figure>
+    <section class="beat-detail__content" aria-label="Beat preview and licenses">
       <div class="card__meta">
         <div class="card__name">
           <h2 class="card__title-link">
@@ -315,7 +315,7 @@ function cardInner(beat) {
       </div>
       ${previewHTML(beat)}
       ${action}
-    </div>`;
+    </section>`;
 }
 
 function buildGrid() {
@@ -346,8 +346,8 @@ function buildGrid() {
     card.id = "card-" + beat.id;
     if (detail) {
       const isSel = selected.has(beat.id) || exclusiveSelected.has(beat.id);
-      card.className = "card card--detail" + (isSoldOut(beat) ? " card--sold" : "") + (isSel ? " card--selected" : "");
-      card.innerHTML = cardInner(beat);
+      card.className = "beat-detail" + (isSoldOut(beat) ? " beat-detail--sold" : "") + (isSel ? " beat-detail--selected" : "");
+      card.innerHTML = beatDetailInner(beat);
     } else {
       card.className = "catalog-tile" + (isSoldOut(beat) ? " catalog-tile--sold" : "");
       card.innerHTML = `<a class="catalog-tile__link" href="index.html?beat=${encodeURIComponent(beat.id)}" aria-label="View ${beat.title}">
@@ -461,7 +461,7 @@ function render() {
     const lease = selected.get(b.id);
     const isExclusiveOn = exclusiveSelected.has(b.id);
 
-    card.classList.toggle("card--selected", !!lease || isExclusiveOn);
+    card.classList.toggle("beat-detail--selected", !!lease || isExclusiveOn);
 
     for (const [tier, label, price] of [["mp3", "MP3 LEASE", MP3_PRICE], ["wav", "STANDARD WAV LEASE", PRICE]]) {
       const btn = card.querySelector(".card__btn--" + tier);
