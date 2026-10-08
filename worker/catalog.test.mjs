@@ -118,6 +118,8 @@ test("continuous catalog and all three tiers fulfill only their purchased format
     assert.doesNotMatch(mails[0].html + mails[0].text, /Ken Carter|KEN CARTER/);
     assert.match(payments[0].order_description, /^KYROlll -/);
     assert.match(mails[0].html, /DOWNLOAD BEAT 01 — MP3/);
+    assert.match(mails[0].html, /\?beat=beat1/);
+    assert.match(mails[0].text, /\?beat=beat2/);
     assert.match(mails[0].html, /DOWNLOAD BEAT 02 — WAV/);
     assert.match(mails[0].html, /EXCLUSIVE MASTER RIGHTS/);
     assert.deepEqual(mails[0].attachments.map((item) => item.filename), [
@@ -289,6 +291,7 @@ test("FLESH exclusive purchase delivers its MP3+WAV folder and matching personal
     assert.equal(mails.length, 1);
     assert.match(mails[0].html, /EXCLUSIVE MP3 \+ WAV FOLDER/);
     assert.match(mails[0].text, /EXCLUSIVE MP3 \+ WAV FOLDER/);
+    assert.match(mails[0].text, /\?beat=flesh/);
     assert(mails[0].html.includes(env.FLESH_EXCLUSIVE_URL) && mails[0].text.includes(env.FLESH_EXCLUSIVE_URL));
     assert(!mails[0].html.includes(env.FLESH_WAV_URL) && !mails[0].text.includes(env.FLESH_MP3_URL));
     assert.deepEqual(mails[0].attachments.map((file) => file.filename), ["EXCLUSIVE_LICENSE.pdf", "EXCLUSIVE_LICENSE.txt"]);

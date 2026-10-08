@@ -840,8 +840,8 @@ async function buildLicensePdf({ kind, beats, licensee, orderDate, totalText }) 
   return bytesToBase64(assembleLicensePdf(pages, logo));
 }
 
-// Map a beat id to its pretty scroll-to-beat anchor used in emails and store
-// links:  "beat5" → "#beat-05" · "s2-beat3" → "#s2-beat-03".
+// Legacy beat anchors, retained for consumers of this exported helper.
+// New receipt and release links use beatPageUrl instead.
 function beatAnchor(beatId) {
   const s = String(beatId || "");
   let m = s.match(/^beat(\d+)$/i);
@@ -850,6 +850,8 @@ function beatAnchor(beatId) {
   if (m) return "s" + m[1] + "-beat-" + m[2].padStart(2, "0");
   return s;
 }
+
+const beatPageUrl = (beatId) => `${SITE_URL}/?beat=${encodeURIComponent(beatId)}`;
 
 // Default sender under the store's own (verified) domain, so delivery mail is
 // SPF/DKIM/DMARC-authenticated. Env RESEND_FROM overrides when provided.
@@ -894,7 +896,7 @@ async function buildDeliveryMessage(rec, links, payment, orderId) {
       const cta = l.url
         ? `<a href="${esc(l.url)}" target="_blank" rel="noopener" style="display:inline-block;background-color:#f3f3f1;color:#080809;border:1px solid #f3f3f1;padding:14px 20px;font-size:11px;font-weight:800;text-decoration:none;letter-spacing:1px;margin-top:8px;">${action}</a>`
         : `<span style="color:#bcbcc3;font-weight:700;">↻ DELIVERY PENDING — URL COMING</span>`;
-      const view = `${SITE_URL}/#${beatAnchor(l.id)}`;
+      const view = beatPageUrl(l.id);
       return (
         `<div style="margin:0 0 16px;padding:18px;background-color:#17171a;border:1px solid #38383e;">` +
         `<p style="margin:0 0 8px;font-size:14px;font-weight:800;color:#f3f3f1;">${esc(l.title)} ${badge}</p>` +
@@ -931,7 +933,7 @@ async function buildDeliveryMessage(rec, links, payment, orderId) {
   const filesText = links
     .map((l) => {
       const label = l.isExclusive ? (l.id === "flesh" ? "EXCLUSIVE MP3 + WAV FOLDER" : "EXCLUSIVE FILE") : `${String(l.tier || "wav").toUpperCase()} LEASE`;
-      return `${l.title} [${label}]: ${l.url || "DELIVERY PENDING — URL COMING"}\n  View: ${SITE_URL}/#${beatAnchor(l.id)}`;
+      return `${l.title} [${label}]: ${l.url || "DELIVERY PENDING — URL COMING"}\n  View: ${beatPageUrl(l.id)}`;
     })
     .join("\n");
 
@@ -1358,9 +1360,9 @@ async function handleReleaseBeat(request, env) {
     ctaUrl = String(body.url || SITE_URL).trim();
     force = /^(1|true|yes|y|on)$/i.test(String(body.force || "").trim());
   }
-  // Deep-link the CTA to the exact beat on the store (/#beat-05, /#s2-beat-03)
+  // Deep-link the CTA to the beat's dedicated view
   // unless the caller explicitly supplied a custom destination URL.
-  if (beatId && !gaveUrl) ctaUrl = SITE_URL + "/#" + beatAnchor(beatId);
+  if (beatId && !gaveUrl) ctaUrl = beatPageUrl(beatId);
 
   // --- 2. Gather subscribers ---
   let subscriberMap = {}; // { beatId: [email, …] }
@@ -1531,7 +1533,7 @@ async function handleNotifyDrop(request, env) {
   const beatLabel = name === info.name ? info.display : `${name} — ${info.title}`;
   const bpm = info.bpm != null ? `${info.bpm} BPM` : "—";
   const keyLabel = info.key || "—";
-  const dropCta = SITE_URL + "/#" + beatAnchor(beatId);
+  const dropCta = beatPageUrl(beatId);
   let sent = 0;
   for (const email of emails) {
     // Per-email dedup: never send the same beatId twice to the same address.

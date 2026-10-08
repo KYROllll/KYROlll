@@ -41,6 +41,10 @@ FLESH is the first built-in release, with ID `flesh`. Add later releases to
 private `BEAT_LINKS` binding. Without a matching Worker catalog entry or
 purchased-format link, checkout is rejected.
 
+Each catalog ID has a shareable beat view (`/?beat=flesh` for FLESH). Catalog
+tiles show the artwork and title; the beat view contains the player, metadata,
+and license options. Receipt and release emails link to the same beat view.
+
 For FLESH, set `FLESH_WAV_URL`, `FLESH_MP3_URL`, and
 `FLESH_EXCLUSIVE_URL` on the checkout Worker (use `--config wrangler.toml`
 when invoking Wrangler from this directory).

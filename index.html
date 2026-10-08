@@ -10,8 +10,9 @@
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://www.kencarter.abrdns.com/assets/kyrolll-social.jpg">
   <title>KYROlll — BEATS &amp; ORIGINAL PRODUCTION</title>
+  <script>document.documentElement.classList.toggle("beat-page", new URLSearchParams(location.search).has("beat"));</script>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
-  <link rel="stylesheet" href="style.css?v=76">
+  <link rel="stylesheet" href="style.css?v=77">
 </head>
 <body>
   <div class="viewport">
@@ -50,6 +51,9 @@
         </dl>
       </aside>
     </div>
+    <nav class="beat-navigation" id="beat-navigation" aria-label="Beat navigation" hidden>
+      <a href="index.html#catalog" id="all-beats-link">← ALL BEATS</a>
+    </nav>
     <section class="grid" id="grid" aria-label="Available beats"></section>
   </main>
 
@@ -134,7 +138,7 @@
 
   <script src="assets/qrcode.min.js"></script>
   <script src="preview-player.js?v=2"></script>
-  <script src="script.js?v=23"></script>
+  <script src="script.js?v=24"></script>
   <script type="module" src="assets/brand-logo.min.js?v=5"></script>
   <script type="module" src="assets/background-x.min.js?v=2"></script>
 </body>

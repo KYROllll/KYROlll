@@ -113,22 +113,43 @@ try {
   assert(stillA.equals(stillB), 'reduced-motion logo must be still');
   await noOverflow(desktop);
   await checkOffer(desktop);
-  assert.equal(await desktop.locator('#grid .card').count(), 1);
-  assert.match(await desktop.locator('#grid .card').first().innerText(), /FLESH.*130 BPM \/\/ Am/is);
-  assert.equal(await desktop.locator('#grid .card').first().locator('img').getAttribute('src'), 'assets/flesh.png');
-  assert.equal(await desktop.locator('#grid .card').first().locator('audio').getAttribute('src'), 'https://docs.google.com/uc?export=download&id=1cg_0qBDDMu80EqJ90_POL3ekv2k1BJ7Q');
-  assert.equal(await desktop.locator('#grid .card').first().locator('audio').getAttribute('data-fallback'), 'assets/previews/flesh.mp3');
-  const cover = await desktop.locator('#card-flesh .card__media img').boundingBox();
-  assert(cover.width <= 180 && cover.height <= 180, 'desktop artwork stays album-sized');
-  const card = await desktop.locator('#card-flesh').boundingBox();
-  assert(card.width <= 480, 'one catalog card must not fill the page');
-  assert(card.x >= 16 && card.x < 60, 'featured beat starts in the first grid column');
-  assert.equal(await desktop.locator('#grid .card').first().locator('.card__btn--mp3').count(), 1);
-  assert.equal(await desktop.locator('#grid .card').first().locator('.card__btn--wav').count(), 1);
+  assert.equal(await desktop.locator('#grid .catalog-tile').count(), 1);
+  assert.match(await desktop.locator('#card-flesh').innerText(), /FLESH/i);
+  assert.doesNotMatch(await desktop.locator('#card-flesh').innerText(), /BPM|LEASE|PREVIEW/);
+  assert.equal(await desktop.locator('#card-flesh .catalog-tile__art img').getAttribute('src'), 'assets/flesh.png');
+  assert.equal(await desktop.locator('#card-flesh .catalog-tile__link').getAttribute('href'), 'index.html?beat=flesh');
+  assert.equal(await desktop.locator('#grid audio, #grid .card__btn').count(), 0);
+  const cover = await desktop.locator('#card-flesh .catalog-tile__art img').boundingBox();
+  assert(cover.width <= 480 && Math.abs(cover.width - cover.height) < 2, 'catalog art is square and fits its column');
   await checkPausedPerks(desktop);
   await checkNoClipping(desktop);
   await desktop.evaluate(() => scrollTo(0, 0));
   await shot(desktop, 'desktop');
+
+  const direct = await setupPage({ viewport: { width: 1024, height: 800 }, reducedMotion: 'reduce' });
+  await direct.goto(`${url}/?beat=flesh`);
+  assert.match(await direct.title(), /FLESH/);
+  assert.equal(await direct.locator('#grid .card--detail').count(), 1);
+  assert.match(await direct.locator('#card-flesh').innerText(), /130 BPM \/\/ AM/i);
+  assert.equal(await direct.locator('#card-flesh audio').getAttribute('src'), 'https://docs.google.com/uc?export=download&id=1cg_0qBDDMu80EqJ90_POL3ekv2k1BJ7Q');
+  assert.equal(await direct.locator('#card-flesh .card__btn').count(), 3);
+  assert((await direct.locator('.brand-hero').boundingBox()).height < 180, 'direct visitors see the beat without a full-height hero');
+  await shot(direct, 'beat-detail');
+  await direct.locator('#card-flesh .card__btn--wav').click();
+  await direct.locator('#all-beats-link').click();
+  assert.equal(await direct.locator('#grid .catalog-tile').count(), 1);
+  assert.match(await direct.locator('#cartbar-label').innerText(), /\$14\.95/);
+  await direct.goBack();
+  assert.equal(await direct.locator('#card-flesh .card__btn--wav').getAttribute('aria-pressed'), 'true');
+  await direct.goForward();
+  assert.equal(await direct.locator('#grid .catalog-tile').count(), 1);
+  await direct.goto(`${url}/?beat=missing`);
+  assert.match(await direct.locator('#grid').innerText(), /BEAT NOT FOUND/);
+  await direct.goto(`${url}/#flesh`);
+  await direct.waitForURL(/index\.html\?beat=flesh$/);
+  assert.equal(await direct.locator('#card-flesh.card--detail').count(), 1, 'legacy beat hash opens its dedicated view');
+  await direct.close();
+
   await desktop.emulateMedia({ reducedMotion: 'no-preference' });
   const movingA = await desktop.locator('.logo-stage').screenshot();
   await desktop.waitForTimeout(900);
@@ -150,7 +171,7 @@ try {
     CATALOG.push(...Array.from({ length: 4 }, (_, i) => ({ id: `beat${i + 1}`, title: `BEAT 0${i + 1}`, name: ['STATIC', 'AFTER HOURS', 'NO SIGNAL', 'DUST'][i], img: `assets/beat${i + 1}.jpg`, bpm: 140, key: 'C MIN', leases: 10, left: 8 })));
     rebuildCatalog();
   });
-  const desktopCards = await desktop.locator('#grid .card').evaluateAll(cards => cards.map(card => {
+  const desktopCards = await desktop.locator('#grid .catalog-tile').evaluateAll(cards => cards.map(card => {
     const { x, y, width } = card.getBoundingClientRect(); return { x, y, width };
   }));
   assert.equal(desktopCards.length, 5);
@@ -158,7 +179,11 @@ try {
   assert(desktopCards[3].y > desktopCards[0].y && desktopCards[3].x === desktopCards[0].x, 'later beats wrap to the next row');
   assert(desktopCards.every(card => card.width < 480), 'cards remain compact in the multi-beat grid');
   await shot(desktop, 'catalog');
-  await desktop.locator('.card__btn--mp3').first().click();
+  await desktop.locator('#grid .catalog-tile__link').first().click();
+  assert.match(desktop.url(), /\?beat=beat4$/);
+  assert.equal(await desktop.locator('#grid .card--detail').count(), 1);
+  assert.match(await desktop.locator('#grid .card--detail').innerText(), /140 BPM \/\/ C MIN/i);
+  await desktop.locator('.card__btn--mp3').click();
   await desktop.locator('#cartbar').click();
   await desktop.locator('.drawer--open').waitFor();
   assert.equal(await desktop.locator('#t-total-usd').textContent(), '$9.95');
@@ -175,13 +200,22 @@ try {
   await desktop.evaluate(() => prepDownloads());
   await checkPausedPerks(desktop);
   // The compact offer's instruction must still lead to a real free lease.
-  for (let i = 0; i < 2; i++) await desktop.locator('.card__btn--mp3').nth(i).click();
+  for (const id of ['beat4', 'beat3']) {
+    if (!desktop.url().endsWith(`?beat=${id}`)) {
+      await desktop.locator('#all-beats-link').click();
+      await desktop.locator(`#card-${id} .catalog-tile__link`).click();
+    }
+    await desktop.locator('.card__btn--mp3').click();
+  }
+  await desktop.locator('#all-beats-link').click();
   await checkOffer(desktop);
   await desktop.locator('#cartbar').click();
   assert.match(await desktop.locator('#free-hint').textContent(), /ONE MORE/);
   assert.equal(await desktop.locator('.cart-items__free').count(), 0);
   await desktop.locator('#close').click();
-  await desktop.locator('.card__btn--mp3').nth(2).click();
+  await desktop.locator('#card-beat2 .catalog-tile__link').click();
+  await desktop.locator('.card__btn--mp3').click();
+  await desktop.locator('#all-beats-link').click();
   await checkOffer(desktop, true);
   await desktop.locator('#cartbar').click();
   assert.equal(await desktop.locator('.cart-items__free-label').count(), 1, 'third distinct lease is free automatically');
@@ -190,7 +224,9 @@ try {
   await desktop.getByRole('button', { name: 'MAKE FREE', exact: true }).first().click();
   assert.equal(await desktop.locator('.cart-items__free-label').count(), 1, 'the buyer can change the free pick');
   await desktop.locator('#close').click();
-  await desktop.locator('.card__btn--mp3').first().click();
+  await desktop.locator('#card-beat4 .catalog-tile__link').click();
+  await desktop.locator('.card__btn--mp3').click();
+  await desktop.locator('#all-beats-link').click();
   await checkOffer(desktop);
   await desktop.locator('#cartbar').click();
   assert.equal(await desktop.locator('#t-total-usd').textContent(), '$19.90');
@@ -200,19 +236,18 @@ try {
   const mobile = await setupPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
   await mobile.goto(url);
   await mobile.locator('.logo-stage.is-ready').waitFor();
+  assert.equal(await mobile.locator('#card-flesh .catalog-tile__link').count(), 1);
+  await mobile.locator('#card-flesh .catalog-tile__link').tap();
   const mobileCover = await mobile.locator('#card-flesh .card__media img').boundingBox();
-  assert(mobileCover.width <= 120 && mobileCover.height <= 120, 'mobile artwork stays compact');
-  assert(await mobile.locator('#card-flesh .card__title-link').evaluate(link => {
-    const title = link.getBoundingClientRect(), card = link.closest('.card').getBoundingClientRect();
-    return title.top >= card.top && title.right <= card.right && title.bottom <= card.bottom;
-  }), 'beat title stays within the mobile card');
+  assert(mobileCover.width <= 400 && mobileCover.height <= 400, 'beat-page artwork fits mobile');
+  assert.match(await mobile.locator('#card-flesh').innerText(), /130 BPM \/\/ AM/i);
   await noOverflow(mobile);
 
   const playback = await setupPage({ viewport: { width: 480, height: 800 }, reducedMotion: 'reduce' }, true);
   const audioRequests = [];
   playback.on('requestfailed', req => audioRequests.push(`${req.url()} ${req.failure()?.errorText}`));
   playback.on('response', res => { if (res.url().includes('google.com') || res.url().includes('flesh.mp3')) audioRequests.push(`${res.status()} ${res.url()}`); });
-  await playback.goto(url);
+  await playback.goto(`${url}/index.html?beat=flesh`);
   await playback.locator('#card-flesh .beat-preview__toggle').click();
   await playback.waitForFunction(() => {
     const audio = document.querySelector('#card-flesh audio');
@@ -248,14 +283,14 @@ try {
         CATALOG.push(...[1, 2].map(i => ({ id: `beat${i}`, title: `BEAT 0${i}`, img: `assets/beat${i}.jpg`, bpm: 140, key: 'C MIN', leases: 10, left: 8 })));
         rebuildCatalog();
       });
-      const positions = await p.locator('#grid .card').evaluateAll(cards => cards.map(card => {
+      const positions = await p.locator('#grid .catalog-tile').evaluateAll(cards => cards.map(card => {
         const { x, y } = card.getBoundingClientRect(); return { x, y };
       }));
       assert.equal(positions.length, 3);
       if (vp.width === 1024) assert(positions[1].x > positions[0].x && positions[2].y > positions[0].y, 'two columns on tablet');
       else assert(positions[1].y > positions[0].y && positions[1].x === positions[0].x, 'one column on mobile');
       if (vp.width === 320) {
-        for (let i = 0; i < 3; i++) await p.locator('.card__btn--mp3').nth(i).click();
+        await p.evaluate(() => { for (const id of ['flesh', 'beat1', 'beat2']) selected.set(id, 'mp3'); render(); });
         await checkOffer(p, true);
         await checkNoClipping(p);
       }

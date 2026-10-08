@@ -306,9 +306,9 @@ function cardInner(beat) {
     <div class="card__info">
       <div class="card__meta">
         <div class="card__name">
-          <a class="card__title-link" href="#${beatAnchorOf(beat)}" onclick="event.stopPropagation()">
-             <span>${beat.title}${beat.name ? ` <span class="card__name-alt">\u2014 ${beat.name}</span>` : ""}</span>
-          </a>
+          <h2 class="card__title-link">
+              <span>${beat.title}${beat.name ? ` <span class="card__name-alt">\u2014 ${beat.name}</span>` : ""}</span>
+          </h2>
           ${youtubeHTML(beat, true)}
         </div>
         <div class="card__specs">${specLine(beat)}</div>
@@ -321,39 +321,48 @@ function cardInner(beat) {
 function buildGrid() {
   previewPlayer.stop();
   grid.innerHTML = "";
-  const list = renderOrder(CATALOG);
+  const id = new URLSearchParams(location.search).get("beat");
+  const detail = id !== null;
+  const list = detail ? CATALOG.filter((beat) => beat.id === id) : renderOrder(CATALOG);
+  document.documentElement.classList.toggle("beat-page", detail);
+  grid.classList.toggle("grid--detail", detail);
+  $("beat-navigation").hidden = !detail;
+  $("catalog").hidden = detail;
+  grid.setAttribute("aria-label", detail ? "Beat details" : "Available beats");
+  document.title = detail && list.length ? `${list[0].title} — KYROlll` : "KYROlll — BEATS & ORIGINAL PRODUCTION";
 
   if (!list.length) {
     const panel = document.createElement("article");
     panel.className = "grid-closed";
-    panel.innerHTML = '<div class="grid-closed__box"><div class="grid-closed__title">NO BEATS AVAILABLE</div><p>CHECK BACK FOR NEW BEATS.</p></div>';
+    panel.innerHTML = detail
+      ? '<div class="grid-closed__box"><div class="grid-closed__title">BEAT NOT FOUND</div><p><a href="index.html#catalog">VIEW ALL BEATS →</a></p></div>'
+      : '<div class="grid-closed__box"><div class="grid-closed__title">NO BEATS AVAILABLE</div><p>CHECK BACK FOR NEW BEATS.</p></div>';
     grid.appendChild(panel);
     return;
   }
 
   list.forEach((beat) => {
     const card = document.createElement("article");
-    const isSel = selected.has(beat.id) || exclusiveSelected.has(beat.id);
-    card.className =
-      "card" +
-       (isSoldOut(beat) ? " card--sold" : "") +
-       (isSel ? " card--selected" : "");
     card.id = "card-" + beat.id;
-    card.innerHTML = cardInner(beat);
+    if (detail) {
+      const isSel = selected.has(beat.id) || exclusiveSelected.has(beat.id);
+      card.className = "card card--detail" + (isSoldOut(beat) ? " card--sold" : "") + (isSel ? " card--selected" : "");
+      card.innerHTML = cardInner(beat);
+    } else {
+      card.className = "catalog-tile" + (isSoldOut(beat) ? " catalog-tile--sold" : "");
+      card.innerHTML = `<a class="catalog-tile__link" href="index.html?beat=${encodeURIComponent(beat.id)}" aria-label="View ${beat.title}">
+        <span class="catalog-tile__art"><img src="${beat.img}" alt="" loading="lazy" decoding="async"></span>
+        <span class="catalog-tile__title">${beat.title}${beat.name ? ` — ${beat.name}` : ""}</span>
+      </a>`;
+    }
     grid.appendChild(card);
   });
 }
 
-const padAnchor = (n) => String(n).padStart(2, "0");
-
-function beatAnchorOf(beat) {
-  const m = /^(s2-)?beat(\d+)$/.exec(beat.id);
-  if (!m) return beat.id;
-  return `${m[1] ? "s2-" : ""}beat-${padAnchor(Number(m[2]))}`;
-}
-
 function beatFromAnchor(anchor) {
   const clean = String(anchor || "").replace(/^#/, "");
+  const direct = CATALOG.find((beat) => beat.id === clean || `card-${beat.id}` === clean);
+  if (direct) return direct.id;
   const m = /^(s2-)?beat-(\d+)$/.exec(clean);
   if (m) {
     const beatId = `${m[1] ? "s2-" : ""}beat${Number(m[2])}`;
@@ -367,23 +376,10 @@ function beatFromAnchor(anchor) {
   return null;
 }
 
-// Scrolls to a beat and flashes its card. Legacy anchors remain valid.
-function gotoBeatHash(anchor) {
-  const beatId = beatFromAnchor(anchor);
-  if (!CATALOG.some((b) => b.id === beatId)) return;
-  requestAnimationFrame(() => {
-    const card = $("card-" + beatId);
-    if (!card) return;
-    card.scrollIntoView({ behavior: "smooth", block: "center" });
-    card.classList.remove("card--flash");
-    void card.offsetWidth;
-    card.classList.add("card--flash");
-  });
-}
-
 function handleDeepHash() {
-  const h = location.hash || "";
-  if (h.length > 1 && h.slice(1).trim()) gotoBeatHash(h.slice(1));
+  if (new URLSearchParams(location.search).has("beat")) return;
+  const id = beatFromAnchor(location.hash);
+  if (id && CATALOG.some((beat) => beat.id === id)) location.replace(`index.html?beat=${encodeURIComponent(id)}`);
 }
 
 function toggle(id, type) {
@@ -442,7 +438,7 @@ function render() {
   const { n, subtotal, discount, total } = totals();
 
   // The bundle callout appears only once three distinct leases qualify.
-  const offerUnlocked = selected.size >= 3;
+  const offerUnlocked = selected.size >= 3 && !new URLSearchParams(location.search).has("beat");
   $("offer").hidden = !offerUnlocked;
   $("catalog").classList.toggle("catalog-heading--empty", !offerUnlocked);
 
@@ -1100,6 +1096,7 @@ startBtc();
 loadMins();
 refreshExclusiveStatus();
 window.addEventListener("hashchange", handleDeepHash);
+window.addEventListener("popstate", rebuildCatalog);
 handleDeepHash();
 
 if (!WORKER_URL) $("config-warning").hidden = false;
@@ -1146,9 +1143,23 @@ $("payscreen-close").addEventListener("click", () => {
 $("copy-address").addEventListener("click", copyPayAddress);
 
 grid.addEventListener("click", (e) => {
+  const link = e.target.closest(".catalog-tile__link");
+  if (link) {
+    e.preventDefault();
+    history.pushState(null, "", link.href);
+    rebuildCatalog();
+    window.scrollTo({ top: 0 });
+    return;
+  }
   const btn = e.target.closest(".card__btn");
   if (!btn || btn.disabled) return;
   toggle(btn.dataset.id, btn.dataset.type);
+});
+$("all-beats-link").addEventListener("click", (e) => {
+  e.preventDefault();
+  history.pushState(null, "", e.currentTarget.href);
+  rebuildCatalog();
+  $("grid").scrollIntoView({ block: "start" });
 });
 
 const walletModal = $("wallet-modal");
