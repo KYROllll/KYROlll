@@ -1773,24 +1773,27 @@ body::before {
 .beat-navigation a { color: var(--gray); font-size: 10px; font-weight: 700; letter-spacing: .15em; text-decoration: none; }
 .beat-navigation a:hover { color: var(--white); }
 .grid.grid--detail { grid-template-columns: minmax(0, 900px); justify-content: center; }
-.card--detail { grid-template-columns: minmax(0, 300px) minmax(0, 1fr); }
+.card--detail { grid-template-columns: clamp(112px, 38%, 340px) minmax(0, 1fr); }
 .card--detail .card__media { width: 100%; height: auto; aspect-ratio: 1; }
 .card--detail .card__info { padding: clamp(16px, 3vw, 32px); gap: 22px; }
 .card--detail .card__name { font-size: clamp(18px, 2vw, 25px); }
 .card--detail .card__specs { margin-top: 10px; font-size: 12px; }
-.card--detail .card__actions { gap: 8px; }
+.card--detail .card__actions { margin-top: 0; gap: 8px; }
 .grid--detail .grid-closed a { color: var(--white); }
 
 @media (max-width: 700px) {
-  .card--detail { grid-template-columns: minmax(0, 1fr); }
-  .card--detail .card__media { width: min(100%, 400px); margin: auto; }
-  .card--detail .card__info { border-left: 0; border-top: 1px solid var(--hairline); }
+  .card--detail { grid-template-columns: clamp(112px, 36%, 220px) minmax(0, 1fr); }
+  .card--detail .card__info { padding: 14px; gap: 12px; }
+  .card--detail .card__name { font-size: clamp(14px, 2.7vw, 18px); }
+  .card--detail .card__specs { margin-top: 6px; font-size: 10px; }
 }
 @media (max-width: 600px) {
   .beat-page .brand-hero { padding: 10px 16px; }
   .beat-page .brand-wordmark { font-size: 38px; }
   .beat-page .logo-stage { width: 60px; }
   .beat-page .logo-fallback { padding: 4px; }
+  .card--detail .card__info { padding: 10px; gap: 10px; }
+  .card--detail .beat-preview { gap: 5px 8px; padding: 8px 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }

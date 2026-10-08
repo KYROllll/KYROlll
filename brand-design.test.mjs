@@ -77,6 +77,19 @@ async function checkNoClipping(page) {
   });
   assert(wordmark.left >= -1 && wordmark.right <= wordmark.vw + 1, 'wordmark must stay within viewport');
 }
+async function checkBeatSplit(page) {
+  const layout = await page.locator('#card-flesh.card--detail').evaluate(card => {
+    const box = selector => {
+      const { x, y, width, height, bottom } = card.querySelector(selector).getBoundingClientRect();
+      return { x, y, width, height, bottom };
+    };
+    return { art: box('.card__media img'), info: box('.card__info'), meta: box('.card__meta'), player: box('.beat-preview'), packages: box('.card__actions') };
+  });
+  assert(Math.abs(layout.art.width - layout.art.height) < 2, 'cover remains square');
+  assert(layout.art.x + layout.art.width <= layout.info.x + 2 && Math.abs(layout.art.y - layout.info.y) < 2, 'art sits left of beat details');
+  assert(layout.meta.bottom < layout.player.y && layout.player.bottom < layout.packages.y, 'title/specs, player and packages stay in order');
+  assert(layout.packages.y - layout.player.bottom < 25, 'licenses sit directly below the player');
+}
 try {
   browser = await chromium.launch({ headless: true });
   const desktop = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
@@ -133,6 +146,7 @@ try {
   assert.match(await direct.locator('#card-flesh').innerText(), /130 BPM \/\/ AM/i);
   assert.equal(await direct.locator('#card-flesh audio').getAttribute('src'), 'https://docs.google.com/uc?export=download&id=1cg_0qBDDMu80EqJ90_POL3ekv2k1BJ7Q');
   assert.equal(await direct.locator('#card-flesh .card__btn').count(), 3);
+  await checkBeatSplit(direct);
   assert((await direct.locator('.brand-hero').boundingBox()).height < 180, 'direct visitors see the beat without a full-height hero');
   await shot(direct, 'beat-detail');
   await direct.locator('#card-flesh .card__btn--wav').click();
@@ -239,7 +253,8 @@ try {
   assert.equal(await mobile.locator('#card-flesh .catalog-tile__link').count(), 1);
   await mobile.locator('#card-flesh .catalog-tile__link').tap();
   const mobileCover = await mobile.locator('#card-flesh .card__media img').boundingBox();
-  assert(mobileCover.width <= 400 && mobileCover.height <= 400, 'beat-page artwork fits mobile');
+  assert(mobileCover.width <= 220 && mobileCover.height <= 220, 'beat-page artwork fits beside mobile player');
+  await checkBeatSplit(mobile);
   assert.match(await mobile.locator('#card-flesh').innerText(), /130 BPM \/\/ AM/i);
   await noOverflow(mobile);
 
@@ -262,6 +277,8 @@ try {
   await shot(mobile, 'mobile');
   await mobile.setViewportSize({ width: 320, height: 740 });
   await noOverflow(mobile);
+  await checkBeatSplit(mobile);
+  await checkNoClipping(mobile);
   await checkOffer(mobile);
   await shot(mobile, 'offer-320');
   await checkPausedPerks(mobile);
