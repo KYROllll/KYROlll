@@ -902,7 +902,7 @@ function startNpPolling(orderId) {
           hasExclusive ? NP_STATUS_COPY.exclusive : NP_STATUS_COPY.finished,
           hasExclusive ? "exclusive" : "ok"
         );
-        revealDownloads(s);
+        revealDownloads(s, orderId);
         return;
       }
       const st = String(s.status || "").toLowerCase();
@@ -956,7 +956,7 @@ function prepDownloads() {
   $("payscreen-downloads").innerHTML = "";
 }
 
-function revealDownloads(s) {
+function revealDownloads(s, orderId) {
   const links = (s && s.links) || [];
   const licenses = (s && s.licenses) || [];
   const list = $("payscreen-downloads");
@@ -969,12 +969,14 @@ function revealDownloads(s) {
       a.href = it.url;
       a.target = "_blank";
       a.rel = "noopener";
-      a.textContent = `DOWNLOAD ${it.title} — ${String(it.tier || "wav").toUpperCase()}`;
+      a.textContent = it.isExclusive && it.id === "flesh"
+        ? `OPEN ${it.title} — EXCLUSIVE MP3 + WAV FOLDER`
+        : `DOWNLOAD ${it.title} — ${String(it.tier || "wav").toUpperCase()}`;
       list.appendChild(a);
     } else {
       const pending = document.createElement("div");
       pending.className = "payscreen__dl payscreen__dl--pending";
-      pending.textContent = `DOWNLOAD ${it.title} — ${String(it.tier || "wav").toUpperCase()} DELIVERY PENDING`;
+      pending.textContent = `${it.isExclusive && it.id === "flesh" ? "EXCLUSIVE MP3 + WAV FOLDER" : String(it.tier || "wav").toUpperCase()} DELIVERY PENDING — ${it.title}`;
       list.appendChild(pending);
     }
     if (it.isExclusive && it.id) EXCLUSIVE_SOLD.add(it.id);
@@ -983,7 +985,7 @@ function revealDownloads(s) {
     const a = document.createElement("a");
     a.className = "payscreen__dl";
     if (lic.tier === "exclusive") {
-      a.href = "EXCLUSIVE_LICENSE.pdf";
+      a.href = WORKER_URL + "/api/exclusive-license?order_id=" + encodeURIComponent(orderId);
       a.download = "EXCLUSIVE_LICENSE.pdf";
       a.textContent = "DOWNLOAD EXCLUSIVE LICENSE";
     } else if (lic.tier === "mp3") {

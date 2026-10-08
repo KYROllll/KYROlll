@@ -50,7 +50,8 @@ function setup() {
     }), env, ctx);
     return { status: res.status, data: await res.json() };
   };
-  return { env, api, mails, payments, tasks, restore: () => { globalThis.fetch = fetchOriginal; } };
+  const download = (path) => worker.fetch(new Request("https://worker.example" + path), env, ctx);
+  return { env, api, download, mails, payments, tasks, restore: () => { globalThis.fetch = fetchOriginal; } };
 }
 
 test("continuous catalog and all three tiers fulfill only their purchased formats", async () => {
@@ -213,7 +214,7 @@ test("a WAV lease never receives an exclusive-only file", async () => {
 });
 
 test("FLESH delivers the MP3 or WAV selected by its buyer, never both", async () => {
-  const { api, env, payments, tasks, mails, restore } = setup();
+  const { api, download, env, payments, tasks, mails, restore } = setup();
   try {
     delete env.BEAT_CATALOG;
     env.FLESH_WAV_URL = "https://files.example/flesh.wav";
@@ -250,11 +251,57 @@ test("FLESH delivers the MP3 or WAV selected by its buyer, never both", async ()
     assert.deepEqual(afterMp3.data.links.map(({ tier, url }) => ({ tier, url })), [{ tier: "mp3", url: env.FLESH_MP3_URL }]);
     const after = await api("/api/status?order_id=" + order.data.order_id);
     assert.deepEqual(after.data.links.map(({ tier, url }) => ({ tier, url })), [{ tier: "wav", url: env.FLESH_WAV_URL }]);
+    assert.equal((await download("/api/exclusive-license?order_id=" + order.data.order_id)).status, 404);
     assert.equal(mails.length, 2);
     assert.match(mails[0].text, /https:\/\/files\.example\/flesh\.mp3/);
     assert.doesNotMatch(mails[0].text + mails[0].html, /https:\/\/files\.example\/flesh\.wav/);
     assert.match(mails[1].text, /https:\/\/files\.example\/flesh\.wav/);
     assert.doesNotMatch(mails[1].text + mails[1].html, /https:\/\/files\.example\/flesh\.mp3/);
+  } finally { restore(); }
+});
+
+test("FLESH exclusive purchase delivers its MP3+WAV folder and matching personalized license", async () => {
+  const { api, download, env, mails, tasks, payments, restore } = setup();
+  try {
+    env.FLESH_MP3_URL = "https://files.example/flesh.mp3";
+    env.FLESH_WAV_URL = "https://files.example/flesh.wav";
+    const checkout = { email: "buyer@example.com", coinSym: "USDT", total: 299.95, items: [{ id: "flesh", type: "exclusive" }] };
+    assert.equal((await api("/api/checkout", "POST", checkout)).status, 503, "never charge for an exclusive WAV-only delivery");
+    assert.equal(payments.length, 0);
+    env.FLESH_EXCLUSIVE_URL = "https://drive.google.com/drive/folders/exclusive-test";
+    const order = await api("/api/checkout", "POST", checkout);
+    assert.equal(order.status, 200);
+    const statusUrl = "/api/status?order_id=" + order.data.order_id;
+    const pdfUrl = "/api/exclusive-license?order_id=" + order.data.order_id;
+    assert.equal((await api(statusUrl)).data.links, undefined);
+    assert.equal((await download(pdfUrl)).status, 403);
+    assert.equal(mails.length, 0);
+
+    const payload = { order_id: order.data.order_id, payment_status: "finished", payment_id: order.data.payment_id };
+    const signature = createHmac("sha512", "secret")
+      .update(Object.keys(payload).sort().map((key) => String(payload[key])).join("|"))
+      .digest("hex");
+    assert.equal((await api("/api/ipn", "POST", payload, { "x-nowpayments-sig": signature })).data.released, true);
+    await Promise.all(tasks);
+    const after = await api(statusUrl);
+    assert.deepEqual(after.data.links.map(({ tier, url }) => ({ tier, url })), [{ tier: "exclusive", url: env.FLESH_EXCLUSIVE_URL }]);
+    assert.deepEqual(after.data.licenses.map(({ tier, filename }) => ({ tier, filename })), [{ tier: "exclusive", filename: "EXCLUSIVE_LICENSE.pdf" }]);
+    assert.equal(mails.length, 1);
+    assert.match(mails[0].html, /EXCLUSIVE MP3 \+ WAV FOLDER/);
+    assert.match(mails[0].text, /EXCLUSIVE MP3 \+ WAV FOLDER/);
+    assert(mails[0].html.includes(env.FLESH_EXCLUSIVE_URL) && mails[0].text.includes(env.FLESH_EXCLUSIVE_URL));
+    assert(!mails[0].html.includes(env.FLESH_WAV_URL) && !mails[0].text.includes(env.FLESH_MP3_URL));
+    assert.deepEqual(mails[0].attachments.map((file) => file.filename), ["EXCLUSIVE_LICENSE.pdf", "EXCLUSIVE_LICENSE.txt"]);
+    assert.equal(Buffer.from(mails[0].attachments[1].content, "base64").toString("utf8").trim(),
+      readFileSync(new URL("../EXCLUSIVE_LICENSE.txt", import.meta.url), "utf8").trim());
+    const attachedPdf = Buffer.from(mails[0].attachments[0].content, "base64").toString("latin1");
+    assert.match(attachedPdf.slice(0, 8), /^%PDF-/);
+    assert(attachedPdf.includes("buyer@example.com") && attachedPdf.includes("FLESH"), "exclusive PDF identifies the purchaser and beat");
+    const pdf = await download(pdfUrl);
+    assert.equal(pdf.status, 200);
+    assert.match(pdf.headers.get("Content-Disposition"), /EXCLUSIVE_LICENSE\.pdf/);
+    assert.match(Buffer.from(await pdf.arrayBuffer()).toString("latin1", 0, 8), /^%PDF-/);
+    assert.deepEqual((await api("/api/catalog")).data.sold, ["flesh"]);
   } finally { restore(); }
 });
 

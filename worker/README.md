@@ -11,6 +11,8 @@ NOWPayments key or the Drive URLs — only this Worker does.
    `finished`, marks the order released and emails the download links
 3. `GET /api/status?order_id=…` — live status for the popup; returns the
    links **only** after the IPN handler has marked the order released
+4. `GET /api/exclusive-license?order_id=…` — buyer-specific exclusive PDF
+   for a released exclusive order (the same agreement as the email attachment)
 
 ## Deploy
 
@@ -26,6 +28,7 @@ npx wrangler secret put RESEND_API_KEY --config wrangler.toml
 npx wrangler secret put RESEND_FROM --config wrangler.toml # "KYROlll <noreply@your-verified-domain>"
 npx wrangler secret put FLESH_WAV_URL --config wrangler.toml
 npx wrangler secret put FLESH_MP3_URL --config wrangler.toml
+npx wrangler secret put FLESH_EXCLUSIVE_URL --config wrangler.toml
 npx wrangler secret put BEAT_LINKS --config wrangler.toml # MP3 + WAV URLs for future releases
 
 npx wrangler deploy --config wrangler.toml
@@ -38,13 +41,17 @@ FLESH is the first built-in release, with ID `flesh`. Add later releases to
 private `BEAT_LINKS` binding. Without a matching Worker catalog entry or
 purchased-format link, checkout is rejected.
 
-For FLESH, set `FLESH_WAV_URL` and `FLESH_MP3_URL` on the checkout Worker
-(use `--config wrangler.toml` when invoking Wrangler from this directory).
+For FLESH, set `FLESH_WAV_URL`, `FLESH_MP3_URL`, and
+`FLESH_EXCLUSIVE_URL` on the checkout Worker (use `--config wrangler.toml`
+when invoking Wrangler from this directory).
 The Worker delivers only the purchased format after payment and these bindings
 do not replace existing `BEAT_LINKS`. The MP3 link currently points to the
 same untagged recording used for the publicly accessible preview; supply a
-different MP3 upload if a buyer-only version is desired. A live checkout also
-requires `NOWPAYMENTS_API_KEY` and `NOWPAYMENTS_IPN_SECRET`.
+different MP3 upload if a buyer-only version is desired. The exclusive secret
+points to the buyer folder with clean MP3 and WAV files; exclusive checkout
+will not charge if the folder link is missing. The receipt email includes the
+folder link and personalized exclusive PDF and TXT agreements. A live checkout
+also requires `NOWPAYMENTS_API_KEY` and `NOWPAYMENTS_IPN_SECRET`.
 
 ### In-browser audio previews
 
@@ -96,8 +103,9 @@ are deployed with `npx wrangler secret list`.
 Upload separate buyer MP3 and WAV files for every tier you sell. Configure
 `BEAT_LINKS` with the purchased formats; the Worker rejects carts
 whose purchased format has no URL, so buyers are never charged for a missing
-file. Exclusive orders use the WAV link. Existing string values remain valid
-for WAV/exclusive purchases, but do **not** supply an MP3 file. Alternatively,
+file. For FLESH, exclusive orders use the dedicated MP3+WAV folder secret;
+other releases can use their exclusive link or WAV file. Existing string values
+remain valid for WAV/exclusive purchases, but do **not** supply an MP3 file. Alternatively,
 set `MP3_LINKS` as a JSON object of beat IDs to MP3 URLs alongside legacy
 string `BEAT_LINKS` values.
 

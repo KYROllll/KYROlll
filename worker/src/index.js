@@ -12,6 +12,7 @@
  * Routes
  *   POST /api/checkout            create a NOWPayments payment for a cart
  *   GET  /api/status?order_id=…   live payment status (+ links ONLY if released)
+ *   GET  /api/exclusive-license?order_id=…  personalized PDF after release
  *   POST /api/ipn                 NOWPayments webhook — HMAC-SHA512 verified;
  *                                 releases links + emails them on 'finished'
  *
@@ -27,6 +28,7 @@
  *                           Legacy string entries remain WAV-only.
  *   FLESH_WAV_URL           Private buyer WAV link for the first release.
  *   FLESH_MP3_URL           MP3 download link for the first release.
+ *   FLESH_EXCLUSIVE_URL     Buyer folder containing clean MP3 + WAV for FLESH.
  *
  * Bindings: KV namespace "ORDERS" (see wrangler.toml).
  */
@@ -105,7 +107,7 @@ function orderLinks(env, items) {
     const files = map[id];
     const url = kind === "mp3" ? (id === "flesh" && env.FLESH_MP3_URL) || (typeof files === "object" && files?.mp3) || mp3[id]
       : kind === "wav" ? (id === "flesh" && env.FLESH_WAV_URL) || (typeof files === "string" ? files : files?.wav)
-      : kind === "exclusive" ? (id === "flesh" && env.FLESH_WAV_URL) || (typeof files === "string" ? files : files?.exclusive || files?.wav)
+      : kind === "exclusive" ? (id === "flesh" ? env.FLESH_EXCLUSIVE_URL : (typeof files === "string" ? files : files?.exclusive || files?.wav))
       : null;
     return { id, title, tier: kind, url: url || null, isExclusive: kind === "exclusive" };
   });
@@ -462,7 +464,7 @@ The Buyer agrees to:
 
 ### 8. Delivery Confirmation
 Upon successful payment verification and delivery:
-- The Buyer will receive: **WAV files (untagged) + Exclusive_License.txt**
+- The Buyer will receive: **the exclusive audio files specified in the purchase (for FLESH: clean untagged MP3 and WAV files in the exclusive download folder), plus EXCLUSIVE_LICENSE.pdf and EXCLUSIVE_LICENSE.txt by email**
 - The beat will be **permanently removed** from the KYROlll beat store
 - The Buyer assumes **full ownership** of the master recording
 
@@ -884,11 +886,13 @@ async function buildDeliveryMessage(rec, links, payment, orderId) {
 
   const files = links
     .map((l) => {
+      const exclusiveFolder = l.isExclusive && l.id === "flesh";
       const badge = l.isExclusive
         ? `<span style="display:inline-block;font-size:9px;letter-spacing:1px;font-weight:700;color:#080809;background-color:#f3f3f1;padding:3px 7px;margin:4px 0 4px 8px;vertical-align:middle;">EXCLUSIVE MASTER RIGHTS</span>`
         : `<span style="display:inline-block;font-size:9px;letter-spacing:1px;font-weight:700;color:#bcbcc3;border:1px solid #55555d;padding:3px 7px;margin:4px 0 4px 8px;vertical-align:middle;">${l.tier === "mp3" ? "MP3" : "WAV"} LEASE</span>`;
+      const action = exclusiveFolder ? `OPEN ${esc(l.title)} — EXCLUSIVE MP3 + WAV FOLDER` : `↓ DOWNLOAD ${esc(l.title)} — ${l.tier === "mp3" ? "MP3" : "WAV"}`;
       const cta = l.url
-        ? `<a href="${esc(l.url)}" target="_blank" rel="noopener" style="display:inline-block;background-color:#f3f3f1;color:#080809;border:1px solid #f3f3f1;padding:14px 20px;font-size:11px;font-weight:800;text-decoration:none;letter-spacing:1px;margin-top:8px;">↓ DOWNLOAD ${esc(l.title)} — ${l.tier === "mp3" ? "MP3" : "WAV"}</a>`
+        ? `<a href="${esc(l.url)}" target="_blank" rel="noopener" style="display:inline-block;background-color:#f3f3f1;color:#080809;border:1px solid #f3f3f1;padding:14px 20px;font-size:11px;font-weight:800;text-decoration:none;letter-spacing:1px;margin-top:8px;">${action}</a>`
         : `<span style="color:#bcbcc3;font-weight:700;">↻ DELIVERY PENDING — URL COMING</span>`;
       const view = `${SITE_URL}/#${beatAnchor(l.id)}`;
       return (
@@ -925,7 +929,10 @@ async function buildDeliveryMessage(rec, links, payment, orderId) {
   });
 
   const filesText = links
-    .map((l) => `${l.title} [${String(l.tier || "wav").toUpperCase()} LEASE]: ${l.url || "DELIVERY PENDING — URL COMING"}\n  View: ${SITE_URL}/#${beatAnchor(l.id)}`)
+    .map((l) => {
+      const label = l.isExclusive ? (l.id === "flesh" ? "EXCLUSIVE MP3 + WAV FOLDER" : "EXCLUSIVE FILE") : `${String(l.tier || "wav").toUpperCase()} LEASE`;
+      return `${l.title} [${label}]: ${l.url || "DELIVERY PENDING — URL COMING"}\n  View: ${SITE_URL}/#${beatAnchor(l.id)}`;
+    })
     .join("\n");
 
   const text =
@@ -1654,6 +1661,28 @@ async function handleStatus(url, env) {
   return json(env, { status: st, released: false });
 }
 
+// The checkout popup serves the same personalized exclusive contract as the
+// delivery email; never expose a sample PDF before payment verification.
+async function handleExclusiveLicense(url, env) {
+  const id = url.searchParams.get("order_id");
+  const raw = id && await env.ORDERS.get(orderKey(id));
+  if (!raw) return json(env, { error: "ORDER NOT FOUND" }, 404);
+  const rec = JSON.parse(raw);
+  if (!rec.released) return json(env, { error: "ORDER NOT RELEASED" }, 403);
+  const exclusive = rec.items.filter((item) => item.isExclusive);
+  if (!exclusive.length) return json(env, { error: "EXCLUSIVE LICENSE NOT FOUND" }, 404);
+  const pdf = await buildLicensePdf({
+    kind: "exclusive", beats: exclusive.map((item) => item.title).join("\n"),
+    licensee: rec.email, orderDate: orderDateLabel(rec.updated || Date.now()), totalText: money(rec.total)
+  });
+  return new Response(Uint8Array.from(atob(pdf), (c) => c.charCodeAt(0)), {
+    headers: {
+      ...corsHeaders(env), "Content-Type": "application/pdf", "Cache-Control": "private, no-store",
+      "Content-Disposition": 'attachment; filename="EXCLUSIVE_LICENSE.pdf"'
+    }
+  });
+}
+
 async function handleIpn(request, env, ctx) {
   const raw = await request.text();
 
@@ -1749,6 +1778,7 @@ export default {
       if ((request.method === "POST" || request.method === "GET") && url.pathname === "/api/resend") return await handleResend(request, env);
       if (request.method === "GET" && url.pathname === "/api/catalog") return await handleCatalog(env);
       if (request.method === "GET" && url.pathname === "/api/status") return await handleStatus(url, env);
+      if (request.method === "GET" && url.pathname === "/api/exclusive-license") return await handleExclusiveLicense(url, env);
       if (request.method === "GET" && url.pathname === "/api/mins") return await handleMins(url, env);
       if (request.method === "POST" && url.pathname === "/api/ipn") return await handleIpn(request, env, ctx);
       // Liveness probe (browser/manual GET) — confirms the endpoint is deployed.

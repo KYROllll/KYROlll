@@ -170,6 +170,9 @@ try {
   await desktop.waitForFunction(() => getComputedStyle(document.querySelector('#payscreen .payscreen__card')).opacity === '1');
   await shot(desktop, 'checkout');
   await desktop.locator('#payscreen-close').click();
+  await desktop.evaluate(() => revealDownloads({ links: [], licenses: [{ tier: 'exclusive' }] }, 'KC-TEST'));
+  assert.match(await desktop.locator('a[download="EXCLUSIVE_LICENSE.pdf"]').getAttribute('href'), /\/api\/exclusive-license\?order_id=KC-TEST$/);
+  await desktop.evaluate(() => prepDownloads());
   await checkPausedPerks(desktop);
   // The compact offer's instruction must still lead to a real free lease.
   for (let i = 0; i < 2; i++) await desktop.locator('.card__btn--mp3').nth(i).click();
