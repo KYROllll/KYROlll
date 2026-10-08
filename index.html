@@ -11,7 +11,7 @@
   <meta property="og:image" content="https://www.kencarter.abrdns.com/assets/kyrolll-social.jpg">
   <title>KYROlll — BEATS &amp; ORIGINAL PRODUCTION</title>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
-  <link rel="stylesheet" href="style.css?v=75">
+  <link rel="stylesheet" href="style.css?v=76">
 </head>
 <body>
   <div class="viewport">
@@ -37,13 +37,14 @@
   </section>
 
   <main>
-    <div class="catalog-heading" id="catalog">
-      <aside class="offer" aria-labelledby="offer-title">
+    <div class="catalog-heading catalog-heading--empty" id="catalog">
+      <aside class="offer" id="offer" aria-labelledby="offer-title" hidden>
         <div class="offer__summary">
           <span class="offer__badge" aria-hidden="true">2+1</span>
-          <div><h3 class="offer__title" id="offer-title">Pick 2 leases. <span>The 3rd is free.</span></h3><p class="offer__sub">Choose your free lease in cart.</p></div>
+          <div><h3 class="offer__title" id="offer-title">Pick 2 leases. <span>The 3rd is free.</span></h3><p class="offer__sub">Free lease applied automatically. Change your pick in cart.</p></div>
         </div>
         <dl class="offer__prices" aria-label="License prices in US dollars">
+          <div><dt>MP3 lease</dt><dd>$9.95</dd></div>
           <div><dt>WAV lease</dt><dd>$14.95</dd></div>
           <div><dt>Exclusive</dt><dd>$299.95</dd></div>
         </dl>
@@ -79,7 +80,7 @@
 
       <dl class="totals">
         <div><dt>SUBTOTAL</dt><dd id="t-subtotal">$0.00</dd></div>
-        <div class="totals__discount" id="t-discount-row" hidden><dt>YOUR FREE BEAT</dt><dd id="t-discount">&minus;$0.00</dd></div>
+        <div class="totals__discount" id="t-discount-row" hidden><dt>2+1 BUNDLE DISCOUNT</dt><dd id="t-discount">&minus;$0.00</dd></div>
         <div class="totals__grand"><dt>TOTAL</dt><dd id="t-total"><span id="t-total-usd">$0.00</span><span class="totals__crypto" id="t-crypto" hidden></span></dd></div>
       </dl>
 
@@ -133,7 +134,7 @@
 
   <script src="assets/qrcode.min.js"></script>
   <script src="preview-player.js?v=2"></script>
-  <script src="script.js?v=21"></script>
+  <script src="script.js?v=22"></script>
   <script type="module" src="assets/brand-logo.min.js?v=5"></script>
   <script type="module" src="assets/background-x.min.js?v=2"></script>
 </body>

@@ -41,7 +41,12 @@ async function setupPage(options = {}, streamPreview = false) {
 }
 const shot = (page, name) => page.screenshot({ path: join(tmpdir(), 'opencode', `kyrolll-${name}.png`), fullPage: !/cart|checkout/.test(name) });
 const noOverflow = async page => assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'horizontal overflow');
-async function checkOffer(page) {
+async function checkOffer(page, unlocked = false) {
+  if (!unlocked) {
+    assert(await page.locator('.offer').evaluate(offer => offer.hidden), 'bundle stays hidden until three leases qualify');
+    assert.equal(await page.locator('#catalog').evaluate(heading => heading.getBoundingClientRect().height), 0);
+    return;
+  }
   await page.locator('.offer').scrollIntoViewIfNeeded();
   const layout = await page.locator('.offer').evaluate(card => {
     const box = card.getBoundingClientRect();
@@ -51,7 +56,7 @@ async function checkOffer(page) {
     }), prices: [...card.querySelectorAll('dd')].map(el => el.textContent) };
   });
   assert(layout.height <= 180 && layout.fits, 'compact offer content must fit without clipping');
-  assert.deepEqual(layout.prices, ['$14.95', '$299.95']);
+  assert.deepEqual(layout.prices, ['$9.95', '$14.95', '$299.95']);
 }
 async function checkPausedPerks(page) {
   assert.equal(await page.locator('#wallet-btn, #wallet-modal, .perks, #cashback-notice, #t-holder-row').count(), 0);
@@ -118,7 +123,7 @@ try {
   const card = await desktop.locator('#card-flesh').boundingBox();
   assert(card.width <= 480, 'one catalog card must not fill the page');
   assert(card.x >= 16 && card.x < 60, 'featured beat starts in the first grid column');
-  assert.equal(await desktop.locator('#grid .card').first().locator('.card__btn--mp3').count(), 0);
+  assert.equal(await desktop.locator('#grid .card').first().locator('.card__btn--mp3').count(), 1);
   assert.equal(await desktop.locator('#grid .card').first().locator('.card__btn--wav').count(), 1);
   await checkPausedPerks(desktop);
   await checkNoClipping(desktop);
@@ -167,11 +172,26 @@ try {
   await desktop.locator('#payscreen-close').click();
   await checkPausedPerks(desktop);
   // The compact offer's instruction must still lead to a real free lease.
-  for (let i = 0; i < 3; i++) await desktop.locator('.card__btn--mp3').nth(i).click();
+  for (let i = 0; i < 2; i++) await desktop.locator('.card__btn--mp3').nth(i).click();
+  await checkOffer(desktop);
   await desktop.locator('#cartbar').click();
-  await desktop.getByRole('button', { name: 'MAKE FREE', exact: true }).first().click();
+  assert.match(await desktop.locator('#free-hint').textContent(), /ONE MORE/);
+  assert.equal(await desktop.locator('.cart-items__free').count(), 0);
+  await desktop.locator('#close').click();
+  await desktop.locator('.card__btn--mp3').nth(2).click();
+  await checkOffer(desktop, true);
+  await desktop.locator('#cartbar').click();
+  assert.equal(await desktop.locator('.cart-items__free-label').count(), 1, 'third distinct lease is free automatically');
   assert.equal(await desktop.locator('#t-total-usd').textContent(), '$19.90');
   assert.equal(await desktop.locator('#t-discount').textContent(), '−$9.95');
+  await desktop.getByRole('button', { name: 'MAKE FREE', exact: true }).first().click();
+  assert.equal(await desktop.locator('.cart-items__free-label').count(), 1, 'the buyer can change the free pick');
+  await desktop.locator('#close').click();
+  await desktop.locator('.card__btn--mp3').first().click();
+  await checkOffer(desktop);
+  await desktop.locator('#cartbar').click();
+  assert.equal(await desktop.locator('#t-total-usd').textContent(), '$19.90');
+  assert(await desktop.locator('#t-discount-row').evaluate(row => row.hidden), 'discount clears below three leases');
   await desktop.locator('#close').click();
 
   const mobile = await setupPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
@@ -213,14 +233,14 @@ try {
   await shot(mobile, 'mobile-cart');
   await noOverflow(mobile);
 
-  for (const vp of [{ width: 360, height: 780 }, { width: 375, height: 812 }, { width: 414, height: 896 }, { width: 768, height: 1024 }, { width: 1024, height: 768 }]) {
+  for (const vp of [{ width: 320, height: 740 }, { width: 360, height: 780 }, { width: 375, height: 812 }, { width: 414, height: 896 }, { width: 768, height: 1024 }, { width: 1024, height: 768 }]) {
     const p = await setupPage({ viewport: vp, reducedMotion: 'reduce' });
     await p.goto(url);
     await p.locator('.logo-stage.is-ready').waitFor();
     await noOverflow(p);
     await checkPausedPerks(p);
     await checkNoClipping(p);
-    if (vp.width === 1024 || vp.width === 375) {
+    if (vp.width === 1024 || vp.width === 375 || vp.width === 320) {
       await p.evaluate(() => {
         CATALOG.push(...[1, 2].map(i => ({ id: `beat${i}`, title: `BEAT 0${i}`, img: `assets/beat${i}.jpg`, bpm: 140, key: 'C MIN', leases: 10, left: 8 })));
         rebuildCatalog();
@@ -231,6 +251,11 @@ try {
       assert.equal(positions.length, 3);
       if (vp.width === 1024) assert(positions[1].x > positions[0].x && positions[2].y > positions[0].y, 'two columns on tablet');
       else assert(positions[1].y > positions[0].y && positions[1].x === positions[0].x, 'one column on mobile');
+      if (vp.width === 320) {
+        for (let i = 0; i < 3; i++) await p.locator('.card__btn--mp3').nth(i).click();
+        await checkOffer(p, true);
+        await checkNoClipping(p);
+      }
       await noOverflow(p);
     }
     await p.close();

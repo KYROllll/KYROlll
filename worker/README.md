@@ -25,6 +25,7 @@ npx wrangler secret put NOWPAYMENTS_IPN_SECRET --config wrangler.toml
 npx wrangler secret put RESEND_API_KEY --config wrangler.toml
 npx wrangler secret put RESEND_FROM --config wrangler.toml # "KYROlll <noreply@your-verified-domain>"
 npx wrangler secret put FLESH_WAV_URL --config wrangler.toml
+npx wrangler secret put FLESH_MP3_URL --config wrangler.toml
 npx wrangler secret put BEAT_LINKS --config wrangler.toml # MP3 + WAV URLs for future releases
 
 npx wrangler deploy --config wrangler.toml
@@ -37,14 +38,13 @@ FLESH is the first built-in release, with ID `flesh`. Add later releases to
 private `BEAT_LINKS` binding. Without a matching Worker catalog entry or
 purchased-format link, checkout is rejected.
 
-For FLESH, set the `FLESH_WAV_URL` secret on the checkout Worker (use
-`--config wrangler.toml` when invoking Wrangler from this directory). It points
-to the buyer WAV Drive URL without replacing existing `BEAT_LINKS`. Do not
-commit the buyer URL to the storefront: the Worker returns it only after a
-verified paid order. The public Drive MP3 is a preview, so FLESH sells WAV
-and exclusive only; add a distinct buyer MP3 file before enabling its MP3
-lease. A live checkout also requires the `NOWPAYMENTS_API_KEY` and
-`NOWPAYMENTS_IPN_SECRET` Worker secrets.
+For FLESH, set `FLESH_WAV_URL` and `FLESH_MP3_URL` on the checkout Worker
+(use `--config wrangler.toml` when invoking Wrangler from this directory).
+The Worker delivers only the purchased format after payment and these bindings
+do not replace existing `BEAT_LINKS`. The MP3 link currently points to the
+same untagged recording used for the publicly accessible preview; supply a
+different MP3 upload if a buyer-only version is desired. A live checkout also
+requires `NOWPAYMENTS_API_KEY` and `NOWPAYMENTS_IPN_SECRET`.
 
 ### In-browser audio previews
 

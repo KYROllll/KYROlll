@@ -19,7 +19,7 @@ const CATALOG = [{
   img: "assets/flesh.png", bpm: 130, key: "Am", leases: 10, left: 10,
   preview: "https://docs.google.com/uc?export=download&id=1cg_0qBDDMu80EqJ90_POL3ekv2k1BJ7Q",
   previewFallback: "assets/previews/flesh.mp3",
-  tiers: ["wav", "exclusive"]
+  tiers: ["mp3", "wav", "exclusive"]
 }];
 const money = (n) => "$" + n.toFixed(2);
 // Exclusive-sold beats are retired from the catalog entirely (master rights
@@ -46,16 +46,18 @@ function normalizeFreePicks() {
   const cap = freeCap();
   [...freePicks].forEach((id) => !selected.has(id) && freePicks.delete(id));
   while (freePicks.size > cap) freePicks.delete([...freePicks][0]);
+  // Apply the offer as soon as every third distinct lease enters the cart.
+  for (const id of [...selected.keys()].reverse()) {
+    if (freePicks.size >= cap) break;
+    freePicks.add(id);
+  }
 }
 
 function toggleFreePick(id) {
   if (!selected.has(id) || freeCap() === 0) return;
-  if (freePicks.has(id)) {
-    freePicks.delete(id);
-  } else {
-    if (freePicks.size >= freeCap()) freePicks.delete([...freePicks][0]);
-    freePicks.add(id);
-  }
+  if (freePicks.has(id)) return;
+  if (freePicks.size >= freeCap()) freePicks.delete([...freePicks][0]);
+  freePicks.add(id);
   render();
 }
 
@@ -439,6 +441,11 @@ function render() {
   normalizeFreePicks();
   const { n, subtotal, discount, total } = totals();
 
+  // The bundle callout appears only once three distinct leases qualify.
+  const offerUnlocked = selected.size >= 3;
+  $("offer").hidden = !offerUnlocked;
+  $("catalog").classList.toggle("catalog-heading--empty", !offerUnlocked);
+
   updatePaygridLocks();
   if (n > 0 && payGroup && isGroupBelowMin(payGroup)) {
     const alt = firstAffordableGroup();
@@ -495,7 +502,6 @@ function render() {
 
   const hint = $("free-hint");
   const cap = freeCap();
-  const missing = cap - freePicks.size;
   const moreAvailable = CATALOG.some(
     (b) => !isSoldOut(b) && !selected.has(b.id) && !exclusiveSelected.has(b.id)
   );
@@ -504,13 +510,9 @@ function render() {
   } else if (selected.size % 3 === 2 && moreAvailable) {
     hint.hidden = false;
     hint.textContent = "ONE MORE \u2014 YOUR NEXT BEAT COMES FREE.";
-  } else if (missing > 0) {
-    hint.hidden = false;
-    hint.textContent =
-      `TAP \u201cMAKE FREE\u201d ON ${missing === 1 ? "THE BEAT" : missing + " BEATS"} YOU WANT \u2014 ${missing === 1 ? "IT'S" : "THEY'RE"} ON US.`;
   } else if (freePicks.size > 0) {
     hint.hidden = false;
-    hint.textContent = `FREE BEAT${cap > 1 ? "S" : ""} APPLIED.`;
+    hint.textContent = `FREE BEAT${cap > 1 ? "S" : ""} APPLIED \u2014 CHANGE YOUR PICK BELOW.`;
   } else {
     hint.hidden = true;
   }
@@ -527,9 +529,9 @@ function render() {
     const price = tier === "mp3" ? MP3_PRICE : PRICE;
     li.innerHTML = `
       <img src="${b.img}" alt="">
-      <span class="cart-items__name">${b.title} <span class="cart-items__name-alt">\u2014 ${b.name} (${tier.toUpperCase()} LEASE)</span><span class="cart-items__specs">${specLine(b)}</span></span>
+      <span class="cart-items__name">${b.title} <span class="cart-items__name-alt">${b.name ? `\u2014 ${b.name} ` : ""}(${tier.toUpperCase()} LEASE)</span><span class="cart-items__specs">${specLine(b)}</span></span>
       <span class="cart-items__price${picked ? " cart-items__price--free" : ""}">${picked ? "FREE" : money(price)}</span>
-      ${picked ? `<button class="cart-items__free" data-free="${b.id}">REMOVE FREE</button>` : cap > freePicks.size ? `<button class="cart-items__free" data-free="${b.id}">MAKE FREE</button>` : ""}
+      ${picked ? `<span class="cart-items__free-label">FREE PICK</span>` : cap > 0 ? `<button class="cart-items__free" data-free="${b.id}">MAKE FREE</button>` : ""}
       <button class="cart-items__remove" data-id="${b.id}" data-type="${tier}">REMOVE</button>`;
     list.appendChild(li);
   });
@@ -540,7 +542,7 @@ function render() {
     li.className = "cart-item--exclusive";
     li.innerHTML = `
       <img src="${b.img}" alt="">
-      <span class="cart-items__name">${b.title} <span class="cart-items__name-alt">\u2014 ${b.name} (EXCLUSIVE)</span><span class="cart-items__specs">${specLine(b)} \u2014 EXCLUSIVE LICENSE</span></span>
+      <span class="cart-items__name">${b.title} <span class="cart-items__name-alt">${b.name ? `\u2014 ${b.name} ` : ""}(EXCLUSIVE)</span><span class="cart-items__specs">${specLine(b)} \u2014 EXCLUSIVE LICENSE</span></span>
       <span class="cart-items__price">${money(EXCLUSIVE_PRICE)}</span>
       <button class="cart-items__remove" data-id="${b.id}" data-type="exclusive">REMOVE</button>`;
     list.appendChild(li);

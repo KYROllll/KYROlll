@@ -170,6 +170,30 @@ test("single-tier orders unlock and email only their purchased format", async ()
   }
 });
 
+test("2+1 discount requires three distinct non-exclusive leases", async () => {
+  const { api, payments, restore } = setup();
+  try {
+    const items = [{ id: "beat1", type: "mp3" }, { id: "beat2", type: "wav" }];
+    const tooSoon = await api("/api/checkout", "POST", {
+      email: "buyer@example.com", coinSym: "USDT", total: 14.95,
+      items, freePicks: ["beat1"]
+    });
+    assert.equal(tooSoon.status, 400);
+    const exclusiveIsNotThird = await api("/api/checkout", "POST", {
+      email: "buyer@example.com", coinSym: "USDT", total: 314.90,
+      items: [...items, { id: "beat3", type: "exclusive" }], freePicks: ["beat1"]
+    });
+    assert.equal(exclusiveIsNotThird.status, 400);
+    assert.equal(payments.length, 0);
+    const qualified = await api("/api/checkout", "POST", {
+      email: "buyer@example.com", coinSym: "USDT", total: 24.90,
+      items: [...items, { id: "beat3", type: "mp3" }], freePicks: ["beat3"]
+    });
+    assert.equal(qualified.status, 200);
+    assert.equal(payments[0].price_amount, 24.90);
+  } finally { restore(); }
+});
+
 test("a WAV lease never receives an exclusive-only file", async () => {
   const { api, env, payments, restore } = setup();
   try {
@@ -188,8 +212,8 @@ test("a WAV lease never receives an exclusive-only file", async () => {
   } finally { restore(); }
 });
 
-test("built-in FLESH release supports WAV buyers but rejects MP3 preview purchases", async () => {
-  const { api, env, payments, tasks, restore } = setup();
+test("FLESH delivers the MP3 or WAV selected by its buyer, never both", async () => {
+  const { api, env, payments, tasks, mails, restore } = setup();
   try {
     delete env.BEAT_CATALOG;
     env.FLESH_WAV_URL = "https://files.example/flesh.wav";
@@ -198,22 +222,39 @@ test("built-in FLESH release supports WAV buyers but rejects MP3 preview purchas
       email: "buyer@example.com", coinSym: "USDT", total: 9.95,
       items: [{ id: "flesh", type: "mp3" }]
     });
-    assert.equal(mp3.status, 400);
+    assert.equal(mp3.status, 503, "no buyer MP3 URL means no MP3 charge");
+    env.FLESH_MP3_URL = "https://files.example/flesh.mp3";
+    const mp3Order = await api("/api/checkout", "POST", {
+      email: "buyer@example.com", coinSym: "USDT", total: 9.95,
+      items: [{ id: "flesh", type: "mp3" }]
+    });
+    assert.equal(mp3Order.status, 200);
     const order = await api("/api/checkout", "POST", {
       email: "buyer@example.com", coinSym: "USDT", total: 14.95,
       items: [{ id: "flesh", type: "wav" }]
     });
     assert.equal(order.status, 200);
-    assert.equal(payments[0].order_description, 'KYROlll - Don Toliver type beat - "FLESH" WAV');
+    assert.equal(payments[0].order_description, 'KYROlll - Don Toliver type beat - "FLESH" MP3');
+    assert.equal(payments[1].order_description, 'KYROlll - Don Toliver type beat - "FLESH" WAV');
+    assert.equal((await api("/api/status?order_id=" + mp3Order.data.order_id)).data.links, undefined);
     assert.equal((await api("/api/status?order_id=" + order.data.order_id)).data.links, undefined);
-    const payload = { order_id: order.data.order_id, payment_status: "finished", payment_id: order.data.payment_id };
-    const signature = createHmac("sha512", "secret")
-      .update(Object.keys(payload).sort().map((key) => String(payload[key])).join("|"))
-      .digest("hex");
-    assert.equal((await api("/api/ipn", "POST", payload, { "x-nowpayments-sig": signature })).data.released, true);
+    for (const purchase of [mp3Order, order]) {
+      const payload = { order_id: purchase.data.order_id, payment_status: "finished", payment_id: purchase.data.payment_id };
+      const signature = createHmac("sha512", "secret")
+        .update(Object.keys(payload).sort().map((key) => String(payload[key])).join("|"))
+        .digest("hex");
+      assert.equal((await api("/api/ipn", "POST", payload, { "x-nowpayments-sig": signature })).data.released, true);
+    }
     await Promise.all(tasks);
+    const afterMp3 = await api("/api/status?order_id=" + mp3Order.data.order_id);
+    assert.deepEqual(afterMp3.data.links.map(({ tier, url }) => ({ tier, url })), [{ tier: "mp3", url: env.FLESH_MP3_URL }]);
     const after = await api("/api/status?order_id=" + order.data.order_id);
     assert.deepEqual(after.data.links.map(({ tier, url }) => ({ tier, url })), [{ tier: "wav", url: env.FLESH_WAV_URL }]);
+    assert.equal(mails.length, 2);
+    assert.match(mails[0].text, /https:\/\/files\.example\/flesh\.mp3/);
+    assert.doesNotMatch(mails[0].text + mails[0].html, /https:\/\/files\.example\/flesh\.wav/);
+    assert.match(mails[1].text, /https:\/\/files\.example\/flesh\.wav/);
+    assert.doesNotMatch(mails[1].text + mails[1].html, /https:\/\/files\.example\/flesh\.mp3/);
   } finally { restore(); }
 });
 

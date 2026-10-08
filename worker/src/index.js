@@ -26,6 +26,7 @@
  *   BEAT_LINKS              JSON: { "new-id": { "mp3": "https://…", "wav": "https://…" }, … }
  *                           Legacy string entries remain WAV-only.
  *   FLESH_WAV_URL           Private buyer WAV link for the first release.
+ *   FLESH_MP3_URL           MP3 download link for the first release.
  *
  * Bindings: KV namespace "ORDERS" (see wrangler.toml).
  */
@@ -102,7 +103,7 @@ function orderLinks(env, items) {
   return items.map(({ id, title, tier, isExclusive }) => {
     const kind = tier || (isExclusive ? "exclusive" : "wav");
     const files = map[id];
-    const url = kind === "mp3" ? (typeof files === "object" && files?.mp3) || mp3[id]
+    const url = kind === "mp3" ? (id === "flesh" && env.FLESH_MP3_URL) || (typeof files === "object" && files?.mp3) || mp3[id]
       : kind === "wav" ? (id === "flesh" && env.FLESH_WAV_URL) || (typeof files === "string" ? files : files?.wav)
       : kind === "exclusive" ? (id === "flesh" && env.FLESH_WAV_URL) || (typeof files === "string" ? files : files?.exclusive || files?.wav)
       : null;
@@ -112,7 +113,7 @@ function orderLinks(env, items) {
 
 // Storefront releases. Buyer URLs remain in private Worker bindings.
 const RELEASES = {
-  flesh: { title: 'Don Toliver type beat - "FLESH"', bpm: 130, key: "Am", tiers: ["wav", "exclusive"] }
+  flesh: { title: 'Don Toliver type beat - "FLESH"', bpm: 130, key: "Am", tiers: ["mp3", "wav", "exclusive"] }
 };
 
 // Optional private catalog entries can extend the built-in releases.
