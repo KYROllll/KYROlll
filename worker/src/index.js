@@ -95,7 +95,6 @@ function beatLinks(env) {
 }
 
 const TIER_PRICES = { mp3: 9.95, wav: 14.95, exclusive: 299.95 };
-
 // Links are held only in Worker configuration. Never substitute a WAV link for
 // a missing MP3 (or vice versa); a pending row makes missing uploads visible.
 function orderLinks(env, items) {
@@ -105,9 +104,11 @@ function orderLinks(env, items) {
   return items.map(({ id, title, tier, isExclusive }) => {
     const kind = tier || (isExclusive ? "exclusive" : "wav");
     const files = map[id];
+    const fleshEx = env.FLESH_EXCLUSIVE_URL;
+    const fleshExclusiveUrl = fleshEx ? (fleshEx.startsWith("http") ? fleshEx : `https://drive.google.com/drive/folders/${fleshEx}`) : null;
     const url = kind === "mp3" ? (id === "flesh" && env.FLESH_MP3_URL) || (typeof files === "object" && files?.mp3) || mp3[id]
       : kind === "wav" ? (id === "flesh" && env.FLESH_WAV_URL) || (typeof files === "string" ? files : files?.wav)
-      : kind === "exclusive" ? (id === "flesh" ? env.FLESH_EXCLUSIVE_URL : (typeof files === "string" ? files : files?.exclusive || files?.wav))
+      : kind === "exclusive" ? (id === "flesh" ? fleshExclusiveUrl : (typeof files === "string" ? files : files?.exclusive || files?.wav))
       : null;
     return { id, title, tier: kind, url: url || null, isExclusive: kind === "exclusive" };
   });
@@ -1123,19 +1124,24 @@ async function dispatchReward(env, reward) {
   } catch (err) { console.error("Cashback pending retry:", reward.orderId, err); }
 }
 
-async function handleCheckout(request, env) {
+const VALID_PROMO_CODES = new Set(["KYROTEST", "TEST100", "100OFF", "KYRO100"]);
+
+async function handleCheckout(request, env, ctx) {
   const body = await request.json().catch(() => null);
-  const { order_id, email, coinSym, total, items, freePicks = [], walletAddress, proof } = body || {};
+  const { order_id, email, coinSym, total, items, freePicks = [], walletAddress, proof, promoCode } = body || {};
   const catalog = beatCatalog(env);
 
   if (!email || !EMAIL_RE.test(email)) return json(env, { error: "INVALID EMAIL" }, 400);
-  const payCurrency = COIN_CODES[coinSym];
+
+  const isZero = promoCode && VALID_PROMO_CODES.has(String(promoCode).trim().toUpperCase());
+  const payCurrency = isZero ? "test" : COIN_CODES[coinSym];
   if (!payCurrency) return json(env, { error: "UNSUPPORTED COIN" }, 400);
+
   if (!Array.isArray(items) || !items.length || !items.every((i) => i && Object.hasOwn(catalog, i.id) && typeof catalog[i.id]?.title === "string" && catalog[i.id].title && ["mp3", "wav", "exclusive", "lease"].includes(i.type) && (!catalog[i.id].tiers || catalog[i.id].tiers.includes(i.type === "lease" ? "wav" : i.type))) || new Set(items.map((i) => i.id)).size !== items.length) {
     return json(env, { error: "EMPTY CART" }, 400);
   }
   const allItems = items.map((item) => ({ id: item.id, title: catalog[item.id].title, tier: item.type === "lease" ? "wav" : item.type, isExclusive: item.type === "exclusive" }));
-  if (orderLinks(env, allItems).some((link) => !link.url)) return json(env, { error: "A PURCHASED FILE IS NOT YET AVAILABLE — PLEASE TRY LATER" }, 503);
+  if (!isZero && orderLinks(env, allItems).some((link) => !link.url)) return json(env, { error: "A PURCHASED FILE IS NOT YET AVAILABLE — PLEASE TRY LATER" }, 503);
   const basicItems = allItems.filter((item) => !item.isExclusive);
   const exclusiveItems = allItems.filter((item) => item.isExclusive);
   for (const item of allItems) {
@@ -1155,8 +1161,14 @@ async function handleCheckout(request, env) {
     holder = verification.holder;
     verifiedWallet = verification.walletAddress;
   }
-  const finalTotal = Math.round((subtotalCents - discountCents) * (holder ? 0.85 : 1)) / 100;
-  if (Math.abs(Number(total) - finalTotal) > 0.01 || finalTotal <= 0) return json(env, { error: "INVALID TOTAL" }, 400);
+  const calculatedTotal = Math.round((subtotalCents - discountCents) * (holder ? 0.85 : 1)) / 100;
+  const finalTotal = isZero ? 0 : calculatedTotal;
+
+  if (isZero) {
+    if (Number(total) !== 0) return json(env, { error: "INVALID TOTAL" }, 400);
+  } else {
+    if (Math.abs(Number(total) - finalTotal) > 0.01 || finalTotal <= 0) return json(env, { error: "INVALID TOTAL" }, 400);
+  }
 
   // Reuse the caller's order id when switching coins mid-checkout.
   const id = order_id && /^KC-[A-Z0-9-]{3,32}$/.test(order_id)
@@ -1166,6 +1178,53 @@ async function handleCheckout(request, env) {
   // Server-side exclusivity enforcement: never create an invoice for an
   // exclusive beat that is already sold or reserved by another live checkout.
   await assertExclusivesAvailable(env, id, exclusiveItems);
+
+  if (isZero) {
+    const rec = {
+      email,
+      coin: "free",
+      total: 0,
+      labeled: allItems.map((i) => `${i.title} ${i.tier.toUpperCase()} LEASE`),
+      subtotal: subtotalCents / 100,
+      discount: subtotalCents / 100,
+      items: allItems,
+      walletAddress: verifiedWallet,
+      payment_id: "TEST-" + id,
+      status: "finished",
+      released: true,
+      updated: Date.now()
+    };
+    await saveOrder(env, id, rec);
+
+    const links = orderLinks(env, allItems);
+
+    try {
+      await Promise.all(exclusiveItems.map((item) => markBeatExclusiveSold(env, item.id)));
+      for (const item of exclusiveItems) {
+        const holderKey = await env.ORDERS.get(pendingExclusiveKey(item.id)).catch(() => null);
+        if (!holderKey || holderKey === id) {
+          await env.ORDERS.delete(pendingExclusiveKey(item.id));
+        }
+      }
+    } catch (err) {
+      console.error("Exclusive post-release bookkeeping failed:", err.message);
+    }
+
+    ctx.waitUntil(deliverOrderEmail(env, rec, links, { payment_id: rec.payment_id }, id));
+
+    const licenses = [];
+    if (rec.items.some((i) => i.tier === "mp3")) licenses.push({ tier: "mp3", filename: "MP3_LICENSE.txt" });
+    if (rec.items.some((i) => i.tier === "wav" || (!i.tier && !i.isExclusive))) licenses.push({ tier: "wav", filename: "LICENSE.pdf" });
+    if (rec.items.some((i) => i.isExclusive)) licenses.push({ tier: "exclusive", filename: "EXCLUSIVE_LICENSE.pdf" });
+
+    return json(env, {
+      order_id: id,
+      released: true,
+      payment_id: rec.payment_id,
+      links,
+      licenses
+    });
+  }
 
   const payment = await np(env, "/payment", "POST", {
     price_amount: finalTotal,
@@ -1772,7 +1831,7 @@ export default {
 
     const url = new URL(request.url);
     try {
-      if (request.method === "POST" && url.pathname === "/api/checkout") return await handleCheckout(request, env);
+      if (request.method === "POST" && url.pathname === "/api/checkout") return await handleCheckout(request, env, ctx);
       if (request.method === "POST" && url.pathname === "/api/verify-token") return await handleVerifyToken(request, env);
       if (request.method === "POST" && url.pathname === "/api/notify-beat") return await handleNotifyBeat(request, env);
       if (request.method === "POST" && url.pathname === "/api/notify-drop") return await handleNotifyDrop(request, env);

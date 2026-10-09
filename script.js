@@ -419,18 +419,28 @@ function toggle(id, type) {
   render();
 }
 
+const VALID_PROMO_CODES = new Set(["KYROTEST", "TEST100", "100OFF", "KYRO100"]);
+let appliedPromoCode = null;
+
 function totals() {
   const basicCount = selected.size;
   const exclusiveCount = exclusiveSelected.size;
   const n = basicCount + exclusiveCount;
   const subtotal = [...selected.values()].reduce((sum, tier) => sum + (tier === "mp3" ? MP3_PRICE : PRICE), 0) + exclusiveCount * EXCLUSIVE_PRICE;
   const freeCount = [...freePicks].filter((id) => selected.has(id)).length;
-  const discount = [...freePicks].filter((id) => selected.has(id)).reduce((sum, id) => sum + (selected.get(id) === "mp3" ? MP3_PRICE : PRICE), 0);
-  let total = Math.max(0, subtotal - discount);
+  const bundleDiscount = [...freePicks].filter((id) => selected.has(id)).reduce((sum, id) => sum + (selected.get(id) === "mp3" ? MP3_PRICE : PRICE), 0);
+  let afterBundle = Math.max(0, subtotal - bundleDiscount);
   if (TOKEN_PERKS_ENABLED && isTokenHolder) {
-    total = Math.round(total * 85) / 100;
+    afterBundle = Math.round(afterBundle * 85) / 100;
   }
-  return { n, exclusiveN: exclusiveCount, basicCount, exclusiveCount, subtotal, freeCount, discount, total };
+  let promoDiscount = 0;
+  let total = afterBundle;
+  if (appliedPromoCode && VALID_PROMO_CODES.has(appliedPromoCode)) {
+    promoDiscount = afterBundle;
+    total = 0;
+  }
+  const discount = bundleDiscount + promoDiscount;
+  return { n, exclusiveN: exclusiveCount, basicCount, exclusiveCount, subtotal, freeCount, discount, total, promoDiscount };
 }
 
 function render() {
@@ -490,6 +500,23 @@ function render() {
   $("t-subtotal").textContent = money(subtotal);
   $("t-discount-row").hidden = discount === 0;
   $("t-discount").textContent = "\u2212" + money(discount);
+
+  const promoActive = appliedPromoCode && VALID_PROMO_CODES.has(appliedPromoCode);
+  const promoRow = $("t-promo-row");
+  if (promoRow) {
+    promoRow.hidden = !promoActive;
+    if (promoActive) {
+      $("t-promo-name").textContent = appliedPromoCode;
+      $("t-promo-discount").textContent = "\u2212" + money(totals().promoDiscount);
+    }
+  }
+
+  const isZero = total === 0;
+  const paygridLabel = $("paygrid-label");
+  const paygrid = $("paygrid");
+  if (paygridLabel) paygridLabel.style.display = isZero ? "none" : "";
+  if (paygrid) paygrid.style.display = isZero ? "none" : "";
+
   if (TOKEN_PERKS_ENABLED && $("t-holder-row")) {
     $("t-holder-row").hidden = !isTokenHolder;
     $("t-holder-discount").textContent = "\u2212" + money(Math.max(0, subtotal - discount - total));
@@ -581,6 +608,35 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 let lastOrder = null;
 
+function applyPromoCode() {
+  const input = $("promo-code");
+  const errEl = $("promo-error");
+  const succEl = $("promo-success");
+  const code = (input.value || "").trim().toUpperCase();
+
+  errEl.hidden = true;
+  succEl.hidden = true;
+
+  if (!code) {
+    appliedPromoCode = null;
+    render();
+    return;
+  }
+
+  if (VALID_PROMO_CODES.has(code)) {
+    appliedPromoCode = code;
+    succEl.textContent = `PROMO CODE "${code}" APPLIED — 100% OFF`;
+    succEl.hidden = false;
+    input.classList.remove("invalid");
+  } else {
+    appliedPromoCode = null;
+    errEl.textContent = "INVALID PROMO CODE";
+    errEl.hidden = false;
+    input.classList.add("invalid");
+  }
+  render();
+}
+
 function submitOrder(e) {
   e.preventDefault();
 
@@ -600,7 +656,7 @@ function submitOrder(e) {
     return;
   }
 
-  if (payGroup && isGroupBelowMin(payGroup)) {
+  if (total > 0 && payGroup && isGroupBelowMin(payGroup)) {
     const alt = firstAffordableGroup();
     if (alt) {
       selectPayment(alt.value);
@@ -609,6 +665,12 @@ function submitOrder(e) {
       errorEl.hidden = false;
       return;
     }
+  }
+
+  if (total > 0 && !payGroup) {
+    errorEl.textContent = "PLEASE SELECT A PAYMENT METHOD.";
+    errorEl.hidden = false;
+    return;
   }
 
   if (!CATALOG.length) {
@@ -641,7 +703,8 @@ function submitOrder(e) {
     freePicks: [...freePicks],
     exclusivePicks: exclusiveChosen.map((b) => b.id),
     exclusiveTitles: exclusiveChosen.map((b) => b.title),
-    walletAddress: TOKEN_PERKS_ENABLED ? connectedWalletAddress : null
+    walletAddress: TOKEN_PERKS_ENABLED ? connectedWalletAddress : null,
+    promoCode: appliedPromoCode
   };
 
   finishOrder();
@@ -920,12 +983,51 @@ function stopNpPolling() {
   }
 }
 
+async function startZeroOrder(order) {
+  setNpStatus("PROCESSING 100% DISCOUNT ORDER...", "warn");
+  $("payscreen-payblock").hidden = true;
+  $("payscreen-downloads-wrap").hidden = true;
+  try {
+    const res = await workerRequest("/api/checkout", {
+      method: "POST",
+      body: JSON.stringify({
+        email: order.email,
+        coinSym: "USDT",
+        total: 0,
+        items: order.items,
+        freePicks: order.freePicks,
+        exclusivePicks: order.exclusivePicks || [],
+        promoCode: order.promoCode
+      })
+    });
+    if (res.released) {
+      const hasExclusive = res.links && res.links.some((l) => l.isExclusive);
+      setNpStatus(
+        hasExclusive ? NP_STATUS_COPY.exclusive : NP_STATUS_COPY.finished,
+        hasExclusive ? "exclusive" : "ok"
+      );
+      revealDownloads(res, res.order_id);
+    }
+  } catch (err) {
+    setNpStatus(err.message.toUpperCase() || "ORDER ERROR", "warn");
+  }
+}
+
 function showPayscreen(order) {
   if (!order || !payscreen) return;
   payScreenOrder = order;
   $("payscreen-total").textContent = money(order.total);
   const tabs = $("payscreen-tabs");
   tabs.innerHTML = "";
+  if (order.total === 0) {
+    tabs.hidden = true;
+    $("payscreen-network").textContent = "100% DISCOUNT — FREE TEST ORDER";
+    prepDownloads();
+    payscreen.hidden = false;
+    document.body.style.overflow = "";
+    startZeroOrder(order);
+    return;
+  }
   const syms = order.group ? order.group.assets : ["USDT"];
   syms.forEach((sym) => tabs.appendChild(buildCoinChip(sym)));
   tabs.hidden = syms.length < 2;
@@ -1077,12 +1179,17 @@ function hidePayscreen() {
 function resetDrawer() {
   $("email").value = "";
   $("payment").value = "";
+  $("promo-code").value = "";
+  $("promo-error").hidden = true;
+  $("promo-success").hidden = true;
+  appliedPromoCode = null;
   document.querySelectorAll(".paygrid__opt").forEach((b) => {
     b.classList.remove("paygrid__opt--on");
     b.setAttribute("aria-checked", "false");
   });
   $("paygrid").classList.remove("invalid");
   closeDrawer();
+  render();
 }
 
 function rebuildCatalog() {
@@ -1135,6 +1242,13 @@ $("cart-items").addEventListener("click", (e) => {
   }
 });
 $("order-form").addEventListener("submit", submitOrder);
+$("apply-promo-btn")?.addEventListener("click", applyPromoCode);
+$("promo-code")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    applyPromoCode();
+  }
+});
 $("payscreen-close").addEventListener("click", () => {
   hidePayscreen();
   resetDrawer();

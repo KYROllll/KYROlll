@@ -85,10 +85,19 @@
       <dl class="totals">
         <div><dt>SUBTOTAL</dt><dd id="t-subtotal">$0.00</dd></div>
         <div class="totals__discount" id="t-discount-row" hidden><dt>2+1 BUNDLE DISCOUNT</dt><dd id="t-discount">&minus;$0.00</dd></div>
+        <div class="totals__discount" id="t-promo-row" hidden><dt>PROMO DISCOUNT (<span id="t-promo-name"></span>)</dt><dd id="t-promo-discount">&minus;$0.00</dd></div>
         <div class="totals__grand"><dt>TOTAL</dt><dd id="t-total"><span id="t-total-usd">$0.00</span><span class="totals__crypto" id="t-crypto" hidden></span></dd></div>
       </dl>
 
       <form class="order-form" id="order-form" novalidate>
+        <label class="order-form__label" for="promo-code">PROMO CODE (OPTIONAL)</label>
+        <div class="promo-row" style="display: flex; gap: 8px;">
+          <input class="order-form__input" type="text" id="promo-code" name="promoCode" placeholder="E.G. KYROTEST" style="flex: 1;">
+          <button class="btn btn--solid" type="button" id="apply-promo-btn" style="padding: 14px 18px; font-size: 11px; white-space: nowrap;">APPLY</button>
+        </div>
+        <p class="order-form__error" id="promo-error" hidden></p>
+        <p class="order-form__success" id="promo-success" hidden style="color: #4ade80;"></p>
+
         <label class="order-form__label" for="email">EMAIL FOR DELIVERY</label>
         <input class="order-form__input" type="email" id="email" name="email"
                placeholder="YOU@EMAIL.COM" autocomplete="email" required>

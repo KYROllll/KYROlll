@@ -321,3 +321,31 @@ test("unknown beat IDs are rejected even when stale file links remain", async ()
     assert.equal(payments.length, 0);
   } finally { restore(); }
 });
+
+test("100% off promo code KYROTEST sets total to $0 and successfully dispatches email and links including exclusive drive folder", async () => {
+  const { api, env, mails, tasks, payments, restore } = setup();
+  try {
+    env.FLESH_MP3_URL = "https://files.example/flesh.mp3";
+    env.FLESH_WAV_URL = "https://files.example/flesh.wav";
+    env.FLESH_EXCLUSIVE_URL = "https://drive.google.com/drive/folders/1cTQc6XtjjsxDVT_F56sM85fAnbo_Y9CY";
+
+    const checkout = {
+      email: "testbuyer@example.com",
+      coinSym: "USDT",
+      total: 0,
+      promoCode: "KYROTEST",
+      items: [{ id: "flesh", type: "exclusive" }]
+    };
+
+    const res = await api("/api/checkout", "POST", checkout);
+    assert.equal(res.status, 200);
+    assert.equal(res.data.released, true);
+    assert.equal(payments.length, 0, "No NOWPayments calls for $0 test orders");
+
+    await Promise.all(tasks);
+    assert.equal(mails.length, 1);
+    assert.match(mails[0].text, /1cTQc6XtjjsxDVT_F56sM85fAnbo_Y9CY/);
+    assert.match(mails[0].html, /1cTQc6XtjjsxDVT_F56sM85fAnbo_Y9CY/);
+    assert.deepEqual(mails[0].attachments.map((f) => f.filename), ["EXCLUSIVE_LICENSE.pdf", "EXCLUSIVE_LICENSE.txt"]);
+  } finally { restore(); }
+});
