@@ -1148,7 +1148,7 @@ async function showFreeOrderSuccess(order) {
   const alertEl = $("payscreen-alert");
   if (alertEl) alertEl.hidden = true;
   const statusEl = $("success-status");
-  if (statusEl) statusEl.textContent = "SUCCESS — FILES UNLOCKED & DISPATCHING EMAIL...";
+  if (statusEl) statusEl.textContent = "SUCCESS — FILES UNLOCKED";
   const wrap = $("success-downloads-wrap");
   if (wrap) wrap.hidden = true;
   const list = $("success-downloads");
@@ -1423,6 +1423,17 @@ function resetDrawer() {
 }
 
 function rebuildCatalog() {
+  const isHome = !new URLSearchParams(location.search).has("beat");
+  if (isHome) {
+    closeDrawer();
+    hidePayscreen();
+    const successModal = $("success-modal");
+    if (successModal) successModal.hidden = true;
+    const walletModal = $("wallet-modal");
+    if (walletModal) walletModal.hidden = true;
+    document.body.style.overflow = "";
+    document.body.style.position = "";
+  }
   buildGrid();
   render();
 }
