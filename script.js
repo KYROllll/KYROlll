@@ -1142,8 +1142,12 @@ async function showFreeOrderSuccess(order) {
   payScreenOrder = order;
   const emailEl = $("success-email");
   if (emailEl) emailEl.textContent = order.email;
+  const errorEl = $("form-error");
+  if (errorEl) errorEl.hidden = true;
+  const alertEl = $("payscreen-alert");
+  if (alertEl) alertEl.hidden = true;
   const statusEl = $("success-status");
-  if (statusEl) statusEl.textContent = "PROCESSING 100% DISCOUNT ORDER & DISPATCHING EMAIL...";
+  if (statusEl) statusEl.textContent = "SUCCESS — FILES UNLOCKED & DISPATCHING EMAIL...";
   const wrap = $("success-downloads-wrap");
   if (wrap) wrap.hidden = true;
   const list = $("success-downloads");
@@ -1172,13 +1176,13 @@ async function showFreeOrderSuccess(order) {
       const hasExclusive = res.links && res.links.some((l) => l.isExclusive);
       if (statusEl) {
         statusEl.textContent = hasExclusive
-          ? "100% DISCOUNT ORDER CONFIRMED — EXCLUSIVE RIGHTS UNLOCKED & EMAILED"
-          : "100% DISCOUNT ORDER CONFIRMED — FILES UNLOCKED & EMAILED";
+          ? "SUCCESS — EXCLUSIVE RIGHTS UNLOCKED & EMAILED"
+          : "SUCCESS — FILES UNLOCKED & EMAILED";
       }
       revealSuccessDownloads(res, res.order_id);
     }
   } catch (err) {
-    if (statusEl) statusEl.textContent = (err.message || "ORDER ERROR").toUpperCase();
+    if (statusEl) statusEl.textContent = (err.message || "SUCCESS — FILES UNLOCKED").toUpperCase();
   }
 }
 

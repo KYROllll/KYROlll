@@ -1133,7 +1133,7 @@ async function handleCheckout(request, env, ctx) {
 
   if (!email || !EMAIL_RE.test(email)) return json(env, { error: "INVALID EMAIL" }, 400);
 
-  const isZero = promoCode && VALID_PROMO_CODES.has(String(promoCode).trim().toUpperCase());
+  const isZero = Number(total) === 0 || (promoCode && VALID_PROMO_CODES.has(String(promoCode).trim().toUpperCase()));
   const payCurrency = isZero ? "test" : COIN_CODES[coinSym];
   if (!payCurrency) return json(env, { error: "UNSUPPORTED COIN" }, 400);
 

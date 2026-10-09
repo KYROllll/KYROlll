@@ -73,11 +73,17 @@ function resize() {
 function drawFrame(dt, t) {
   ctx.clearRect(0, 0, width, height);
   for (const s of sprites) {
-    if (!s.landed) {
-      s.y = Math.min(s.landingY, s.y + s.speed * dt);
+    if (!paused) {
+      s.y += s.speed * dt;
       s.x = Math.max(s.size / 2, Math.min(width - s.size / 2, s.x + s.drift * dt + Math.sin(t * 0.0006 + s.phase) * 12 * dt));
       s.rot += s.rotSpeed * dt;
-      s.landed = s.y === s.landingY;
+      if (s.y >= s.landingY) {
+        s.y = -s.size - Math.random() * 200;
+        s.landingY = s.size / 2 + Math.random() * Math.max(0, height - s.size);
+        s.x = Math.random() * width;
+        s.speed = 16 + Math.random() * 30;
+        s.drift = (Math.random() - 0.5) * 22;
+      }
     }
     ctx.save();
     ctx.translate(s.x, s.y);

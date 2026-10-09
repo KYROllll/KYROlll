@@ -65,6 +65,12 @@ main {
   flex: 1 0 auto;
 }
 
+@media (min-width: 601px) {
+  .viewport {
+    padding-left: 44px;
+  }
+}
+
 button {
   font-family: inherit;
   text-transform: uppercase;
