@@ -67,37 +67,44 @@ main {
 
 @media (min-width: 769px) {
   .viewport {
-    padding-left: 44px;
+    padding-left: 64px;
   }
 }
 
 @media (max-width: 768px) {
   .viewport {
-    padding-left: 0;
+    padding-left: 0 !important;
   }
   .cartbar {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    top: auto;
-    width: 100%;
-    height: auto;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    writing-mode: horizontal-tb;
-    text-orientation: initial;
-    border: none;
-    border-top: 1px solid #e0e0e0;
-    background: #ffffff;
-    color: #000000;
-    padding: 16px 24px max(16px, env(safe-area-inset-bottom));
-    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    z-index: 40 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    height: auto !important;
+    border: none !important;
+    border-top: 1px solid #e0e0e0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    padding: 16px 24px max(16px, env(safe-area-inset-bottom)) !important;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12) !important;
+    writing-mode: horizontal-tb !important;
+    text-orientation: initial !important;
   }
   .cartbar[disabled] {
-    border-right: none;
-    border-top: 1px solid #e0e0e0;
+    background: #ffffff !important;
+    color: #71717a !important;
+    border-top: 1px solid #e0e0e0 !important;
+    opacity: 1 !important;
+    cursor: not-allowed !important;
   }
 }
 
