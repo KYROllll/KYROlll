@@ -40,13 +40,22 @@ const selected = new Map(); // beat ID → mp3 or wav
 const freePicks = new Set();
 const exclusiveSelected = new Set();
 
-const freeCap = () => (selected.size >= 3 ? Math.floor(selected.size / 3) : 0);
+// The 2+1 bundle only activates with three or more distinct non-exclusive
+// leases in the cart. A single beat (or any exclusive lease) never qualifies.
+const BUNDLE_MIN_LEASES = 3;
+const bundleLeaseCount = () => selected.size;
+const bundleActive = () => bundleLeaseCount() >= BUNDLE_MIN_LEASES;
+
+const freeCap = () => (bundleActive() ? Math.floor(bundleLeaseCount() / 3) : 0);
 
 function normalizeFreePicks() {
   const cap = freeCap();
-  [...freePicks].forEach((id) => !selected.has(id) || selected.size < 3 && freePicks.delete(id));
+  // Drop any free pick that is no longer part of a qualifying cart.
+  [...freePicks].forEach((id) => {
+    if (!selected.has(id) || !bundleActive()) freePicks.delete(id);
+  });
   while (freePicks.size > cap) freePicks.delete([...freePicks][0]);
-  if (selected.size < 3) {
+  if (!bundleActive()) {
     freePicks.clear();
     return;
   }
@@ -435,7 +444,7 @@ function totals() {
   // The 2+1 bundle discount activates strictly when the cart holds
   // three or more non-exclusive leases — never for a single beat or
   // an exclusive lease.
-  const bundleDiscount = selected.size >= 3
+  const bundleDiscount = bundleActive()
     ? [...freePicks].filter((id) => selected.has(id)).reduce((sum, id) => sum + (selected.get(id) === "mp3" ? MP3_PRICE : PRICE), 0)
     : 0;
   let afterBundle = Math.max(0, subtotal - bundleDiscount);
@@ -457,7 +466,7 @@ function render() {
   const { n, subtotal, discount, total, bundleDiscount } = totals();
 
   // The bundle callout appears only once three distinct leases qualify.
-  const offerUnlocked = selected.size >= 3 && !new URLSearchParams(location.search).has("beat");
+  const offerUnlocked = bundleActive() && !new URLSearchParams(location.search).has("beat");
   $("offer").hidden = !offerUnlocked;
   $("catalog").classList.toggle("catalog-heading--empty", !offerUnlocked);
 
