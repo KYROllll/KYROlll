@@ -452,11 +452,22 @@ function restorePromo() {
   } catch { /* ignore */ }
 }
 
-// Drives the applied-coupon tag badge in the cart summary.
+// Drives the applied-coupon tag badge in the cart summary. While a code is
+// active the promo input collapses and the tag cleanly represents the discount.
 function syncPromoUI(animate = false) {
   const tag = $("promo-tag");
-  if (!tag) return;
   const on = !!appliedPromoCode && VALID_PROMO_CODES.has(appliedPromoCode);
+
+  const promoSection = $("promo-section");
+  if (promoSection) {
+    promoSection.hidden = on;
+    if (on) {
+      const input = $("promo-code");
+      if (input) input.value = "";
+    }
+  }
+
+  if (!tag) return;
   tag.hidden = !on;
   if (!on) {
     tag.classList.remove("is-visible");
@@ -631,9 +642,8 @@ function openDrawer() {
   drawer.setAttribute("aria-hidden", "false");
   backdrop.hidden = false;
   document.body.style.overflow = "hidden";
-  // Restore the persisted promo so reopening the cart never asks for it again.
-  const promoInput = $("promo-code");
-  if (promoInput) promoInput.value = appliedPromoCode || "";
+  // Reopen with the same promo state: the tag badge stays active and the input
+  // collapses whenever a code is already applied.
   syncPromoUI();
   loadMins();
 }
@@ -676,8 +686,9 @@ function applyPromoCode() {
   if (VALID_PROMO_CODES.has(code)) {
     appliedPromoCode = code;
     persistPromo(code);
-    input.value = code;
     input.classList.remove("invalid");
+    // syncPromoUI clears the field and collapses the input row; the tag badge
+    // represents the active discount in the summary above.
     syncPromoUI(true);
   } else {
     appliedPromoCode = null;
@@ -694,6 +705,8 @@ function applyPromoCode() {
 function clearPromo() {
   appliedPromoCode = null;
   persistPromo(null);
+  const promoSection = $("promo-section");
+  if (promoSection) promoSection.hidden = false;
   const input = $("promo-code");
   if (input) {
     input.value = "";

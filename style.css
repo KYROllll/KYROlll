@@ -1404,6 +1404,33 @@ button {
   font-weight: 700;
 }
 
+.order-form__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #222;
+}
+
+.promo-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.promo-row__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.promo-row__btn {
+  padding: 14px 18px;
+  font-size: 11px;
+  white-space: nowrap;
+  flex: none;
+}
+
 .promo-tag {
   display: inline-flex;
   align-items: center;
@@ -1418,7 +1445,9 @@ button {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
+  line-height: 1;
   text-transform: uppercase;
+  vertical-align: middle;
   opacity: 0;
 }
 
@@ -1431,9 +1460,16 @@ button {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.promo-tag__icon {
+.promo-tag__icon,
+.promo-tag__code,
+.promo-tag__amount,
+.promo-tag__remove {
   display: inline-flex;
   align-items: center;
+  flex: none;
+}
+
+.promo-tag__icon {
   color: #4ade80;
 }
 
@@ -1449,17 +1485,16 @@ button {
 
 .promo-tag__amount {
   color: #4ade80;
-  padding-left: 8px;
+  padding-left: 10px;
   border-left: 1px solid rgba(74, 222, 128, 0.3);
 }
 
 .promo-tag__remove {
-  display: inline-flex;
-  align-items: center;
   justify-content: center;
   width: 18px;
   height: 18px;
-  margin-left: 2px;
+  margin: 0;
+  padding: 0;
   border: 0;
   border-radius: 50%;
   background: rgba(74, 222, 128, 0.15);

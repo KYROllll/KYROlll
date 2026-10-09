@@ -96,12 +96,14 @@
       </div>
 
       <form class="order-form" id="order-form" novalidate>
-        <label class="order-form__label" for="promo-code">PROMO CODE (OPTIONAL)</label>
-        <div class="promo-row" style="display: flex; gap: 8px;">
-          <input class="order-form__input" type="text" id="promo-code" name="promoCode" placeholder="Enter promo code" style="flex: 1;">
-          <button class="btn btn--solid" type="button" id="apply-promo-btn" style="padding: 14px 18px; font-size: 11px; white-space: nowrap;">APPLY</button>
+        <div class="order-form__section" id="promo-section">
+          <label class="order-form__label" for="promo-code">PROMO CODE (OPTIONAL)</label>
+          <div class="promo-row">
+            <input class="order-form__input promo-row__input" type="text" id="promo-code" name="promoCode" placeholder="Enter promo code">
+            <button class="btn btn--solid promo-row__btn" type="button" id="apply-promo-btn">APPLY</button>
+          </div>
+          <p class="order-form__error" id="promo-error" hidden></p>
         </div>
-        <p class="order-form__error" id="promo-error" hidden></p>
 
         <label class="order-form__label" for="email">EMAIL FOR DELIVERY</label>
         <input class="order-form__input" type="email" id="email" name="email"
