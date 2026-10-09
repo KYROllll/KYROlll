@@ -736,6 +736,51 @@ function submitOrder(e) {
     return;
   }
 
+  if (isFreeOrder) {
+    if (!CATALOG.length) {
+      errorEl.textContent = "NO BEATS AVAILABLE.";
+      errorEl.hidden = false;
+      return;
+    }
+
+    const chosen = CATALOG.filter((b) => selected.has(b.id));
+    const exclusiveChosen = CATALOG.filter((b) => exclusiveSelected.has(b.id));
+
+    const items = [
+      ...chosen.map((b) => ({ id: b.id, title: b.title, type: selected.get(b.id) })),
+      ...exclusiveChosen.map((b) => ({ id: b.id, title: b.title, type: "exclusive" }))
+    ];
+
+    const labeled = [
+      ...chosen.map((b) => `${b.title} ${selected.get(b.id).toUpperCase()} LEASE`),
+      ...exclusiveChosen.map((b) => `${b.title} EXCLUSIVE`)
+    ];
+
+    lastOrder = {
+      email,
+      group: null,
+      labeled,
+      subtotal,
+      discount,
+      total: 0,
+      items,
+      freePicks: [...freePicks],
+      exclusivePicks: exclusiveChosen.map((b) => b.id),
+      exclusiveTitles: exclusiveChosen.map((b) => b.title),
+      walletAddress: TOKEN_PERKS_ENABLED ? connectedWalletAddress : null,
+      promoCode: appliedPromoCode
+    };
+
+    selected.clear();
+    exclusiveSelected.clear();
+    freePicks.clear();
+    render();
+    closeDrawer();
+
+    showFreeOrderSuccess(lastOrder);
+    return;
+  }
+
   if (!isFreeOrder && payGroup && isGroupBelowMin(payGroup)) {
     const alt = firstAffordableGroup();
     if (alt) {
@@ -1093,16 +1138,56 @@ async function startZeroOrder(order) {
   }
 }
 
+async function showFreeOrderSuccess(order) {
+  payScreenOrder = order;
+  const titleEl = payscreen.querySelector(".payscreen__title");
+  if (titleEl) titleEl.textContent = "100% DISCOUNT — ORDER SUCCESSFUL";
+  $("payscreen-total").textContent = money(0);
+  $("payscreen-tabs").hidden = true;
+  if ($("payscreen-payblock")) $("payscreen-payblock").hidden = true;
+  $("payscreen-network").textContent = "FREE TEST ORDER — EMAILED TO " + order.email;
+  setNpStatus("PROCESSING 100% DISCOUNT ORDER...", "warn");
+  prepDownloads();
+  payscreen.hidden = false;
+  document.body.style.overflow = "hidden";
+
+  try {
+    const res = await workerRequest("/api/checkout", {
+      method: "POST",
+      body: JSON.stringify({
+        email: order.email,
+        coinSym: "USDT",
+        total: 0,
+        items: order.items,
+        freePicks: order.freePicks,
+        exclusivePicks: order.exclusivePicks || [],
+        promoCode: order.promoCode
+      })
+    });
+    if (res.released) {
+      const hasExclusive = res.links && res.links.some((l) => l.isExclusive);
+      setNpStatus(
+        hasExclusive ? NP_STATUS_COPY.exclusive : NP_STATUS_COPY.finished,
+        hasExclusive ? "exclusive" : "ok"
+      );
+      revealDownloads(res, res.order_id);
+    }
+  } catch (err) {
+    setNpStatus(err.message.toUpperCase() || "ORDER ERROR", "warn");
+  }
+}
+
 function showPayscreen(order) {
   if (!order || !payscreen) return;
   payScreenOrder = order;
+  const titleEl = payscreen.querySelector(".payscreen__title");
+  if (titleEl) titleEl.textContent = order.total <= 0 ? "100% DISCOUNT — ORDER SUCCESSFUL" : "COMPLETE YOUR PAYMENT";
   $("payscreen-total").textContent = money(order.total);
   const tabs = $("payscreen-tabs");
   tabs.innerHTML = "";
   if (order.total <= 0) {
-    // Free checkout: never build crypto coin tabs or generate a payment.
-    // The worker marks the order finished and emails the files directly.
     tabs.hidden = true;
+    if ($("payscreen-payblock")) $("payscreen-payblock").hidden = true;
     $("payscreen-network").textContent = "100% DISCOUNT — FREE TEST ORDER";
     prepDownloads();
     payscreen.hidden = false;
@@ -1110,6 +1195,7 @@ function showPayscreen(order) {
     startZeroOrder(order);
     return;
   }
+  if ($("payscreen-payblock")) $("payscreen-payblock").hidden = false;
   const syms = order.group ? order.group.assets : ["USDT"];
   syms.forEach((sym) => tabs.appendChild(buildCoinChip(sym)));
   tabs.hidden = syms.length < 2;
