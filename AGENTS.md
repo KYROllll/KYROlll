@@ -48,6 +48,18 @@ curl -s http://localhost:8000/api/catalog                                # {"sol
 curl -s http://localhost:3000/config.js                                  # sets KYROLLL_WORKER_URL
 ```
 
-Tests that ship with the repo: `*.test.mjs` at the root and in `worker/`
-(Playwright-based browser tests need a browser download and are not part of the
-sandbox boot).
+Tests that ship with the repo:
+- `worker/*.test.mjs` (via `worker/verify.mjs`) and the root
+  `preview-player.test.mjs` are `node:test` based and need no browser:
+  `docker compose -f docker-compose.base44.yml exec -T worker node --test catalog.test.mjs base-token.test.mjs`
+- `brand-design.test.mjs` is Playwright-based and needs Chromium + root
+  `node_modules`, which the sandbox does not install.
+
+## Deliberate behaviour worth knowing
+
+Order delivery is **email-only**: the payscreen and the success modal never list
+download links or license files (see `showSuccessModal` / `completeFreeOrder` in
+`script.js`). Everything — links, PDF/TXT licenses — goes out through the
+Worker's branded Resend email. That email cannot send until `RESEND_API_KEY` and
+`RESEND_FROM` are set, so an un-configured preview legitimately reports
+"EMAIL DELIVERY PENDING".

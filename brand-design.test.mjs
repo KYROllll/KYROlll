@@ -222,9 +222,16 @@ try {
   await desktop.waitForFunction(() => getComputedStyle(document.querySelector('#payscreen .payscreen__card')).opacity === '1');
   await shot(desktop, 'checkout');
   await desktop.locator('#payscreen-close').click();
-  await desktop.evaluate(() => revealDownloads({ links: [], licenses: [{ tier: 'exclusive' }] }, 'KC-TEST'));
-  assert.match(await desktop.locator('a[download="EXCLUSIVE_LICENSE.pdf"]').getAttribute('href'), /\/api\/exclusive-license\?order_id=KC-TEST$/);
-  await desktop.evaluate(() => prepDownloads());
+  // Email-only delivery: the confirmation modal shows a checkmark and an email
+  // note, never raw download links or license files.
+  await desktop.evaluate(() => showSuccessModal({ email: 'preview@example.com', total: 9.95, items: [], freePicks: [] }));
+  assert(await desktop.locator('#success-modal .success-check').isVisible(), 'confirmation checkmark is shown');
+  assert.match(await desktop.locator('#success-status').innerText(), /EMAIL/i);
+  assert.match(await desktop.locator('#success-modal .payscreen__note').innerText(), /email/i);
+  assert.equal(await desktop.locator('#success-modal .payscreen__dl').count(), 0, 'no on-screen download links');
+  assert.equal(await desktop.locator('#success-downloads').count(), 0, 'no on-screen license list');
+  assert.equal(await desktop.evaluate(() => document.body.style.overflow), '', 'body scrolling stays unlocked');
+  await desktop.locator('#success-close').click();
   await checkPausedPerks(desktop);
   // The compact offer's instruction must still lead to a real free lease.
   for (const id of ['beat4', 'beat3']) {

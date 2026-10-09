@@ -1210,7 +1210,9 @@ async function handleCheckout(request, env, ctx) {
       console.error("Exclusive post-release bookkeeping failed:", err.message);
     }
 
-    ctx.waitUntil(deliverOrderEmail(env, rec, links, { payment_id: rec.payment_id }, id));
+    // Deliver synchronously so the confirmation modal can reflect the real
+    // dispatch outcome instead of assuming the email went out.
+    const delivery = await deliverOrderEmail(env, rec, links, { payment_id: rec.payment_id }, id);
 
     const licenses = [];
     if (rec.items.some((i) => i.tier === "mp3")) licenses.push({ tier: "mp3", filename: "MP3_LICENSE.txt" });
@@ -1222,7 +1224,8 @@ async function handleCheckout(request, env, ctx) {
       released: true,
       payment_id: rec.payment_id,
       links,
-      licenses
+      licenses,
+      delivery
     });
   }
 
@@ -1684,42 +1687,47 @@ async function handleResend(request, env) {
   return json(env, { ok: true, order_id: orderId, delivery });
 }
 
-async function handleStatus(url, env) {
+async function handleStatus(url, env, ctx) {
   const id = url.searchParams.get("order_id");
   const raw = id && (await env.ORDERS.get(orderKey(id)));
   if (!raw) return json(env, { error: "ORDER NOT FOUND" }, 404);
   const rec = JSON.parse(raw);
 
-  // Links exist on this response ONLY after the IPN handler marked released.
-  if (rec.released) {
-    const links = orderLinks(env, rec.items);
-
-    const licenses = [];
-    if (rec.items.some((i) => i.tier === "mp3")) licenses.push({ tier: "mp3", filename: "MP3_LICENSE.txt" });
-    if (rec.items.some((i) => i.tier === "wav" || (!i.tier && !i.isExclusive))) licenses.push({ tier: "wav", filename: "LICENSE.pdf" });
-    if (rec.items.some((i) => i.isExclusive)) { licenses.push({ tier: "exclusive", filename: "EXCLUSIVE_LICENSE.pdf" }); }
-
-    return json(env, {
-      status: "finished",
-      released: true,
-      links,
-      licenses
-    });
+  // Live proxy so the popup can show blockchain progress, and the settlement
+  // check: when NOWPayments already reports the payment finished, release here
+  // too (releaseOrder is idempotent) so fulfillment never depends on the
+  // webhook reaching us.
+  if (!rec.released) {
+    try {
+      const p = await np(env, "/payment/" + rec.payment_id, "GET");
+      const st = p.payment_status;
+      if (st && st !== rec.status) {
+        rec.status = st;
+        rec.updated = Date.now();
+        await saveOrder(env, id, rec);
+      }
+      if (st === RELEASE_STATUS) {
+        await releaseOrder(env, ctx, rec, id, { payment_id: rec.payment_id, payment_status: st });
+      }
+    } catch {}
   }
 
-  // Live proxy so the popup can show blockchain progress pre-release.
-  let st = rec.status;
-  try {
-    const p = await np(env, "/payment/" + rec.payment_id, "GET");
-    st = p.payment_status;
-    if (st && st !== rec.status) {
-      rec.status = st;
-      rec.updated = Date.now();
-      await saveOrder(env, id, rec);
-    }
-  } catch {}
+  if (!rec.released) return json(env, { status: rec.status, released: false });
 
-  return json(env, { status: st, released: false });
+  const links = orderLinks(env, rec.items);
+
+  const licenses = [];
+  if (rec.items.some((i) => i.tier === "mp3")) licenses.push({ tier: "mp3", filename: "MP3_LICENSE.txt" });
+  if (rec.items.some((i) => i.tier === "wav" || (!i.tier && !i.isExclusive))) licenses.push({ tier: "wav", filename: "LICENSE.pdf" });
+  if (rec.items.some((i) => i.isExclusive)) { licenses.push({ tier: "exclusive", filename: "EXCLUSIVE_LICENSE.pdf" }); }
+
+  return json(env, {
+    status: "finished",
+    released: true,
+    links,
+    licenses,
+    delivery: rec.delivery || null
+  });
 }
 
 // The checkout popup serves the same personalized exclusive contract as the
@@ -1742,6 +1750,45 @@ async function handleExclusiveLicense(url, env) {
       "Content-Disposition": 'attachment; filename="EXCLUSIVE_LICENSE.pdf"'
     }
   });
+}
+
+// Idempotent fulfillment: marks an order released, retires any exclusive beats,
+// and dispatches the branded delivery email exactly once. Used by the signed
+// IPN webhook AND by the live status poll when NOWPayments already reports a
+// settled ('finished') payment, so fulfillment never depends on the webhook
+// reaching us.
+async function releaseOrder(env, ctx, rec, id, payment) {
+  if (rec.released) return;
+  // Fulfillment first: release is persisted BEFORE any best-effort cleanup,
+  // so the buyer's links/cashback are never held hostage by a KV hiccup.
+  rec.released = true;
+  await saveOrder(env, id, rec);
+
+  const exclusiveBeats = rec.items.filter((item) => item.isExclusive);
+
+  // Post-release bookkeeping is best-effort and non-fatal: mark exclusives
+  // sold (so catalog/checkout reject them) and clear this order's checkout
+  // reservation — but only if the pending key still points at THIS order.
+  try {
+    await Promise.all(exclusiveBeats.map((item) => markBeatExclusiveSold(env, item.id)));
+    for (const item of exclusiveBeats) {
+      const holder = await env.ORDERS.get(pendingExclusiveKey(item.id)).catch(() => null);
+      if (!holder || holder === id) {
+        await env.ORDERS.delete(pendingExclusiveKey(item.id));
+      }
+    }
+  } catch (err) {
+    console.error("Exclusive post-release bookkeeping failed:", err.message);
+  }
+
+  const links = orderLinks(env, rec.items);
+  // ctx.waitUntil keeps delivery alive after this response returns
+  ctx.waitUntil(deliverOrderEmail(env, rec, links, payment, id));
+  if (tokenPerksEnabled(env) && rec.walletAddress) {
+    ctx.waitUntil(
+      triggerTokenCashback(env, rec, id).catch((e) => console.error("CASHBACK ERROR:", e))
+    );
+  }
 }
 
 async function handleIpn(request, env, ctx) {
@@ -1772,36 +1819,8 @@ async function handleIpn(request, env, ctx) {
   rec.updated = Date.now();
 
   if (payload.payment_status === RELEASE_STATUS && !rec.released) {
-    // Fulfillment first: release is persisted BEFORE any best-effort cleanup,
-    // so the buyer's links/cashback are never held hostage by a KV hiccup.
-    rec.released = true;
-    await saveOrder(env, id, rec);
-
-    const exclusiveBeats = rec.items.filter((item) => item.isExclusive);
-
-    // Post-release bookkeeping is best-effort and non-fatal: mark exclusives
-    // sold (so catalog/checkout reject them) and clear this order's checkout
-    // reservation — but only if the pending key still points at THIS order.
-    try {
-      await Promise.all(exclusiveBeats.map((item) => markBeatExclusiveSold(env, item.id)));
-      for (const item of exclusiveBeats) {
-        const holder = await env.ORDERS.get(pendingExclusiveKey(item.id)).catch(() => null);
-        if (!holder || holder === id) {
-          await env.ORDERS.delete(pendingExclusiveKey(item.id));
-        }
-      }
-    } catch (err) {
-      console.error("Exclusive post-release bookkeeping failed:", err.message);
-    }
-
+    await releaseOrder(env, ctx, rec, id, payload);
     const links = orderLinks(env, rec.items);
-    // ctx.waitUntil keeps delivery alive after this response returns
-    ctx.waitUntil(deliverOrderEmail(env, rec, links, payload, id));
-    if (tokenPerksEnabled(env) && rec.walletAddress) {
-      ctx.waitUntil(
-        triggerTokenCashback(env, rec, id).catch((e) => console.error("CASHBACK ERROR:", e))
-      );
-    }
     return json(env, { ok: true, released: true, count: links.length, links });
   }
 
@@ -1838,7 +1857,7 @@ export default {
       if ((request.method === "POST" || request.method === "GET") && url.pathname === "/api/release") return await handleReleaseBeat(request, env);
       if ((request.method === "POST" || request.method === "GET") && url.pathname === "/api/resend") return await handleResend(request, env);
       if (request.method === "GET" && url.pathname === "/api/catalog") return await handleCatalog(env);
-      if (request.method === "GET" && url.pathname === "/api/status") return await handleStatus(url, env);
+      if (request.method === "GET" && url.pathname === "/api/status") return await handleStatus(url, env, ctx);
       if (request.method === "GET" && url.pathname === "/api/exclusive-license") return await handleExclusiveLicense(url, env);
       if (request.method === "GET" && url.pathname === "/api/mins") return await handleMins(url, env);
       if (request.method === "POST" && url.pathname === "/api/ipn") return await handleIpn(request, env, ctx);
