@@ -66,7 +66,9 @@ services:
         # `compatibility_date = "2026-08-01"`. Override it locally so the local
         # runtime starts; wrangler.toml is untouched and `wrangler deploy` still
         # uses the repo's date.
-        exec npx wrangler dev --config wrangler.toml --ip 0.0.0.0 --port 8787 \
+        # Run Wrangler directly instead of through npx so a normal container
+        # shutdown does not get reported as an npm command failure (SIGTERM).
+        exec node ./node_modules/wrangler/bin/wrangler.js dev --config wrangler.toml --ip 0.0.0.0 --port 8787 \
           --compatibility-date=2026-05-03
     restart: on-failure
     healthcheck:

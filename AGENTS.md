@@ -17,8 +17,10 @@ about *running* the app in this sandbox, not about the app's own behaviour.
 ## How the two are wired here
 
 - `docker-compose.base44.yml` runs `web` (`node server.mjs`, host port 3000) and
-  `worker` (`npx wrangler dev`, host port 8000). Both bind-mount the checkout and
-  run live from source.
+  `worker` (the locally installed Wrangler CLI, host port 8000). Both bind-mount
+  the checkout and run live from source. Wrangler is launched directly rather
+  than through `npx`, so normal container shutdowns do not log an npm SIGTERM
+  command failure.
 - `script.js` picks its backend URL from `window.KYROLLL_WORKER_URL` if it is
   set, otherwise localhost:8787, otherwise the deployed `*.workers.dev` URL.
   `server.mjs` serves `/config.js` and, **only when `BASE44_PREVIEW_MODE=1`**,
