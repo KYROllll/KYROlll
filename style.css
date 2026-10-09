@@ -1061,28 +1061,31 @@ button {
 .cartbar {
   position: fixed;
   left: 0;
-  right: 0;
+  top: 0;
   bottom: 0;
   z-index: 40;
   display: flex;
+  flex-direction: column;
   justify-content: space-between;
   align-items: center;
-  width: 100%;
+  width: 44px;
   border: none;
-  border-top: 1px solid #e0e0e0;
+  border-right: 1px solid #e0e0e0;
   background: #ffffff;
   color: #000000;
   font-size: 13px;
   font-weight: 700;
-  padding: 18px 20px max(18px, env(safe-area-inset-bottom));
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+  padding: max(24px, env(safe-area-inset-top)) 8px max(24px, env(safe-area-inset-bottom));
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
   transition: opacity 0.2s ease;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
 }
 
 .cartbar[disabled] {
   background: #ffffff;
   color: #71717a;
-  border-top: 1px solid #e0e0e0;
+  border-right: 1px solid #e0e0e0;
   opacity: 1;
   cursor: not-allowed;
 }
@@ -1849,7 +1852,6 @@ body > canvas {
 .card:hover .card__media img { filter: contrast(1.08); }
 .footer { border-top: 1px solid var(--hairline); padding-top: 48px; }
 .footer__logo { display: block; width: 200px; height: auto; margin: 0 auto 22px; }
-.cartbar { background: #ffffff; color: #000000; border: none; border-top: 1px solid #e0e0e0; box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12); padding-bottom: max(18px, env(safe-area-inset-bottom)); }
 .drawer, .payscreen__card { background: #101012; border-color: #48484e; }
 .payscreen__card { box-shadow: 0 0 80px #92726015; }
 .cashback-notice, .free-hint { border-color: #444; background: #19191c; }
@@ -1889,7 +1891,6 @@ body > canvas {
   .card__btn { font-size: 9px; padding: 9px 4px; }
   .card__info { padding: 10px; }
   .cartbar { font-size: 11px; }
-  body { padding-bottom: 64px; }
 }
 
 /* The catalog is an artwork index; player and license controls live on each beat view. */
