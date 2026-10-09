@@ -1411,25 +1411,6 @@ button {
   margin-bottom: 18px;
   padding-bottom: 18px;
   border-bottom: 1px solid #222;
-  overflow: hidden;
-  max-height: 300px;
-  opacity: 1;
-  visibility: visible;
-  transition: max-height 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-              opacity 0.25s ease,
-              margin-bottom 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-              padding-bottom 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-              border-bottom-width 0.35s ease;
-}
-
-.order-form__section.is-collapsed {
-  max-height: 0;
-  opacity: 0;
-  margin-bottom: 0;
-  padding-bottom: 0;
-  border-bottom-width: 0;
-  visibility: hidden;
-  pointer-events: none;
 }
 
 .promo-row {

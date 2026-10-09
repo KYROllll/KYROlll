@@ -452,21 +452,19 @@ function restorePromo() {
   } catch { /* ignore */ }
 }
 
-// Drives the applied-coupon tag badge in the cart summary. While a code is
-// active the promo input collapses and the tag cleanly represents the discount.
+// Drives the applied-coupon tag badge in the cart summary. The promo input
+// stays visible at all times so customers can add or swap codes on demand.
 function syncPromoUI(animate = false) {
   const tag = $("promo-tag");
   const on = !!appliedPromoCode && VALID_PROMO_CODES.has(appliedPromoCode);
 
-  const promoSection = $("promo-section");
-  if (promoSection) {
-    promoSection.classList.toggle("is-collapsed", on);
-    promoSection.setAttribute("aria-hidden", on ? "true" : "false");
-    if (on) {
-      const input = $("promo-code");
-      if (input) input.value = "";
-    }
+  const input = $("promo-code");
+  if (input) {
+    if (on) input.value = "";
+    input.placeholder = on ? "Enter another promo code" : "Enter promo code";
   }
+  const label = document.querySelector('label[for="promo-code"]');
+  if (label) label.textContent = on ? "ADD ANOTHER PROMO CODE (OPTIONAL)" : "PROMO CODE (OPTIONAL)";
 
   if (!tag) return;
   tag.hidden = !on;
@@ -688,8 +686,8 @@ function applyPromoCode() {
     appliedPromoCode = code;
     persistPromo(code);
     input.classList.remove("invalid");
-    // syncPromoUI clears the field and collapses the input row; the tag badge
-    // represents the active discount in the summary above.
+    // syncPromoUI clears the field and swaps the placeholder/label; the tag
+    // badge represents the active discount in the summary above.
     syncPromoUI(true);
   } else {
     appliedPromoCode = null;
@@ -706,11 +704,6 @@ function applyPromoCode() {
 function clearPromo() {
   appliedPromoCode = null;
   persistPromo(null);
-  const promoSection = $("promo-section");
-  if (promoSection) {
-    promoSection.classList.remove("is-collapsed");
-    promoSection.setAttribute("aria-hidden", "false");
-  }
   const input = $("promo-code");
   if (input) {
     input.value = "";
