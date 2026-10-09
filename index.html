@@ -152,6 +152,29 @@
     </div>
   </div>
 
+  <div class="payscreen" id="success-modal" hidden role="dialog" aria-modal="true" aria-label="Order success and downloads">
+    <div class="payscreen__card">
+      <button class="payscreen__close" id="success-close" aria-label="Close">&times;</button>
+
+      <span class="payscreen__kicker"><span class="brand-name">KYROlll</span> &mdash; ORDER CONFIRMED</span>
+      <h2 class="payscreen__title">SUCCESS &mdash; FILES UNLOCKED</h2>
+
+      <span class="np-status np-status--ok visible" id="success-status">100% DISCOUNT APPLIED &mdash; EMAIL DISPATCHED</span>
+
+      <dl class="payscreen__amounts">
+        <div><dt>TOTAL PAID</dt><dd>$0.00</dd></div>
+        <div><dt>DELIVERY EMAIL</dt><dd id="success-email" style="font-size: 11px; text-transform: none;"></dd></div>
+      </dl>
+
+      <div class="payscreen__dls" id="success-downloads-wrap" hidden>
+        <span class="payscreen__label">YOUR DOWNLOADS &amp; LICENSES</span>
+        <div id="success-downloads"></div>
+      </div>
+
+      <p class="payscreen__note">Your digital files and PDF/TXT licenses are unlocked above and have also been sent to your email.</p>
+    </div>
+  </div>
+
   <script src="assets/qrcode.min.js"></script>
   <script src="preview-player.js?v=2"></script>
   <script src="script.js?v=25"></script>

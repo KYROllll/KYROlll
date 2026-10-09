@@ -1140,16 +1140,20 @@ async function startZeroOrder(order) {
 
 async function showFreeOrderSuccess(order) {
   payScreenOrder = order;
-  const titleEl = payscreen.querySelector(".payscreen__title");
-  if (titleEl) titleEl.textContent = "100% DISCOUNT — ORDER SUCCESSFUL";
-  $("payscreen-total").textContent = money(0);
-  $("payscreen-tabs").hidden = true;
-  if ($("payscreen-payblock")) $("payscreen-payblock").hidden = true;
-  $("payscreen-network").textContent = "FREE TEST ORDER — EMAILED TO " + order.email;
-  setNpStatus("PROCESSING 100% DISCOUNT ORDER...", "warn");
-  prepDownloads();
-  payscreen.hidden = false;
-  document.body.style.overflow = "hidden";
+  const emailEl = $("success-email");
+  if (emailEl) emailEl.textContent = order.email;
+  const statusEl = $("success-status");
+  if (statusEl) statusEl.textContent = "PROCESSING 100% DISCOUNT ORDER & DISPATCHING EMAIL...";
+  const wrap = $("success-downloads-wrap");
+  if (wrap) wrap.hidden = true;
+  const list = $("success-downloads");
+  if (list) list.innerHTML = "";
+
+  const modal = $("success-modal");
+  if (modal) {
+    modal.hidden = false;
+    document.body.style.overflow = "hidden";
+  }
 
   try {
     const res = await workerRequest("/api/checkout", {
@@ -1166,35 +1170,88 @@ async function showFreeOrderSuccess(order) {
     });
     if (res.released) {
       const hasExclusive = res.links && res.links.some((l) => l.isExclusive);
-      setNpStatus(
-        hasExclusive ? NP_STATUS_COPY.exclusive : NP_STATUS_COPY.finished,
-        hasExclusive ? "exclusive" : "ok"
-      );
-      revealDownloads(res, res.order_id);
+      if (statusEl) {
+        statusEl.textContent = hasExclusive
+          ? "100% DISCOUNT ORDER CONFIRMED — EXCLUSIVE RIGHTS UNLOCKED & EMAILED"
+          : "100% DISCOUNT ORDER CONFIRMED — FILES UNLOCKED & EMAILED";
+      }
+      revealSuccessDownloads(res, res.order_id);
     }
   } catch (err) {
-    setNpStatus(err.message.toUpperCase() || "ORDER ERROR", "warn");
+    if (statusEl) statusEl.textContent = (err.message || "ORDER ERROR").toUpperCase();
   }
+}
+
+function revealSuccessDownloads(s, orderId) {
+  const links = (s && s.links) || [];
+  const licenses = (s && s.licenses) || [];
+  const list = $("success-downloads");
+  if (!list) return;
+  list.innerHTML = "";
+  (links || []).forEach((it) => {
+    if (it.url) {
+      const a = document.createElement("a");
+      a.className = "payscreen__dl";
+      a.href = it.url;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = it.isExclusive && it.id === "flesh"
+        ? `OPEN ${it.title} — EXCLUSIVE MP3 + WAV FOLDER`
+        : `DOWNLOAD ${it.title} — ${String(it.tier || "wav").toUpperCase()}`;
+      list.appendChild(a);
+    } else {
+      const pending = document.createElement("div");
+      pending.className = "payscreen__dl payscreen__dl--pending";
+      pending.textContent = `${it.isExclusive && it.id === "flesh" ? "EXCLUSIVE MP3 + WAV FOLDER" : String(it.tier || "wav").toUpperCase()} DELIVERY PENDING — ${it.title}`;
+      list.appendChild(pending);
+    }
+    if (it.isExclusive && it.id) EXCLUSIVE_SOLD.add(it.id);
+  });
+  (licenses || []).forEach((lic) => {
+    const a = document.createElement("a");
+    a.className = "payscreen__dl";
+    if (lic.tier === "exclusive") {
+      a.href = WORKER_URL + "/api/exclusive-license?order_id=" + encodeURIComponent(orderId);
+      a.download = "EXCLUSIVE_LICENSE.pdf";
+      a.textContent = "DOWNLOAD EXCLUSIVE LICENSE";
+    } else if (lic.tier === "mp3") {
+      a.href = "MP3_LICENSE.txt";
+      a.download = "MP3_LICENSE.txt";
+      a.textContent = "DOWNLOAD MP3 LICENSE";
+    } else {
+      a.href = "LICENSE.pdf";
+      a.download = "LICENSE.pdf";
+      a.textContent = "DOWNLOAD LEASE LICENSE";
+    }
+    list.appendChild(a);
+    if (lic.tier !== "mp3") {
+      const text = document.createElement("a");
+      text.className = "payscreen__dl";
+      text.href = lic.tier === "exclusive" ? "EXCLUSIVE_LICENSE.txt" : "LICENSE.txt";
+      text.download = text.href;
+      text.textContent = `DOWNLOAD ${lic.tier === "exclusive" ? "EXCLUSIVE" : "WAV"} LICENSE TEXT`;
+      list.appendChild(text);
+    }
+  });
+  if ((links && links.length) || (licenses && licenses.length)) {
+    const wrap = $("success-downloads-wrap");
+    if (wrap) wrap.hidden = false;
+  }
+  refreshExclusiveStatus();
 }
 
 function showPayscreen(order) {
   if (!order || !payscreen) return;
+  if (order.total <= 0) {
+    showFreeOrderSuccess(order);
+    return;
+  }
   payScreenOrder = order;
   const titleEl = payscreen.querySelector(".payscreen__title");
-  if (titleEl) titleEl.textContent = order.total <= 0 ? "100% DISCOUNT — ORDER SUCCESSFUL" : "COMPLETE YOUR PAYMENT";
+  if (titleEl) titleEl.textContent = "COMPLETE YOUR PAYMENT";
   $("payscreen-total").textContent = money(order.total);
   const tabs = $("payscreen-tabs");
   tabs.innerHTML = "";
-  if (order.total <= 0) {
-    tabs.hidden = true;
-    if ($("payscreen-payblock")) $("payscreen-payblock").hidden = true;
-    $("payscreen-network").textContent = "100% DISCOUNT — FREE TEST ORDER";
-    prepDownloads();
-    payscreen.hidden = false;
-    document.body.style.overflow = "hidden";
-    startZeroOrder(order);
-    return;
-  }
   if ($("payscreen-payblock")) $("payscreen-payblock").hidden = false;
   const syms = order.group ? order.group.assets : ["USDT"];
   syms.forEach((sym) => tabs.appendChild(buildCoinChip(sym)));
@@ -1379,13 +1436,27 @@ if (!WORKER_URL) $("config-warning").hidden = false;
 
 cartbar.addEventListener("click", openDrawer);
 $("close").addEventListener("click", closeDrawer);
-backdrop.addEventListener("click", closeDrawer);
+backdrop.addEventListener("click", () => {
+  closeDrawer();
+  hidePayscreen();
+  const successModal = $("success-modal");
+  if (successModal) successModal.hidden = true;
+  document.body.style.overflow = "";
+});
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   const walletModal = $("wallet-modal");
   if (walletModal && !walletModal.hidden) {
     walletModal.hidden = true;
     document.body.style.overflow = "";
+    return;
+  }
+  const successModal = $("success-modal");
+  if (successModal && !successModal.hidden) {
+    successModal.hidden = true;
+    document.body.style.overflow = "";
+    resetDrawer();
+    window.scrollTo({ top: 0 });
     return;
   }
   if (hidePayscreen()) window.scrollTo({ top: 0 });
@@ -1421,6 +1492,13 @@ $("promo-code")?.addEventListener("keydown", (e) => {
 });
 $("payscreen-close").addEventListener("click", () => {
   hidePayscreen();
+  resetDrawer();
+  window.scrollTo({ top: 0 });
+});
+$("success-close")?.addEventListener("click", () => {
+  const successModal = $("success-modal");
+  if (successModal) successModal.hidden = true;
+  document.body.style.overflow = "";
   resetDrawer();
   window.scrollTo({ top: 0 });
 });
