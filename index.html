@@ -85,9 +85,15 @@
       <dl class="totals">
         <div><dt>SUBTOTAL</dt><dd id="t-subtotal">$0.00</dd></div>
         <div class="totals__discount" id="t-discount-row" hidden><dt>2+1 BUNDLE DISCOUNT</dt><dd id="t-discount">&minus;$0.00</dd></div>
-        <div class="totals__discount" id="t-promo-row" hidden><dt>PROMO DISCOUNT (<span id="t-promo-name"></span>)</dt><dd id="t-promo-discount">&minus;$0.00</dd></div>
         <div class="totals__grand"><dt>TOTAL</dt><dd id="t-total"><span id="t-total-usd">$0.00</span><span class="totals__crypto" id="t-crypto" hidden></span></dd></div>
       </dl>
+
+      <div class="promo-tag" id="promo-tag" role="status" aria-label="Applied promo code" hidden>
+        <span class="promo-tag__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></svg></span>
+        <span class="promo-tag__code" id="promo-tag-code"></span>
+        <span class="promo-tag__amount" id="promo-tag-amount"></span>
+        <button type="button" class="promo-tag__remove" id="promo-tag-remove" aria-label="Remove promo code">&times;</button>
+      </div>
 
       <form class="order-form" id="order-form" novalidate>
         <label class="order-form__label" for="promo-code">PROMO CODE (OPTIONAL)</label>
@@ -96,7 +102,6 @@
           <button class="btn btn--solid" type="button" id="apply-promo-btn" style="padding: 14px 18px; font-size: 11px; white-space: nowrap;">APPLY</button>
         </div>
         <p class="order-form__error" id="promo-error" hidden></p>
-        <p class="order-form__success" id="promo-success" role="status" aria-label="Promo code applied" hidden><span class="promo-success__icon" aria-hidden="true">&#10003;</span></p>
 
         <label class="order-form__label" for="email">EMAIL FOR DELIVERY</label>
         <input class="order-form__input" type="email" id="email" name="email"

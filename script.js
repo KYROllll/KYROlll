@@ -452,21 +452,24 @@ function restorePromo() {
   } catch { /* ignore */ }
 }
 
-// Keeps the minimal green checkmark in sync with the applied promo state.
+// Drives the applied-coupon tag badge in the cart summary.
 function syncPromoUI(animate = false) {
-  const succEl = $("promo-success");
-  if (!succEl) return;
-  const on = !!appliedPromoCode;
-  succEl.hidden = !on;
+  const tag = $("promo-tag");
+  if (!tag) return;
+  const on = !!appliedPromoCode && VALID_PROMO_CODES.has(appliedPromoCode);
+  tag.hidden = !on;
   if (!on) {
-    succEl.classList.remove("is-visible");
+    tag.classList.remove("is-visible");
     return;
   }
+  $("promo-tag-code").textContent = appliedPromoCode;
+  const amount = totals().promoDiscount;
+  $("promo-tag-amount").textContent = amount > 0 ? "\u2212" + money(amount) : "100% OFF";
   if (animate) {
-    succEl.classList.remove("is-visible");
-    void succEl.offsetWidth;
+    tag.classList.remove("is-visible");
+    void tag.offsetWidth;
   }
-  succEl.classList.add("is-visible");
+  tag.classList.add("is-visible");
 }
 
 function totals() {
@@ -555,15 +558,6 @@ function render() {
   $("t-discount-row").hidden = bundleDiscount === 0;
   $("t-discount").textContent = "\u2212" + money(bundleDiscount);
 
-  const promoActive = appliedPromoCode && VALID_PROMO_CODES.has(appliedPromoCode);
-  const promoRow = $("t-promo-row");
-  if (promoRow) {
-    promoRow.hidden = !promoActive;
-    if (promoActive) {
-      $("t-promo-name").textContent = appliedPromoCode;
-      $("t-promo-discount").textContent = "\u2212" + money(totals().promoDiscount);
-    }
-  }
   syncPromoUI();
 
   const isZero = total === 0;
@@ -675,10 +669,7 @@ function applyPromoCode() {
   errEl.hidden = true;
 
   if (!code) {
-    appliedPromoCode = null;
-    persistPromo(null);
-    syncPromoUI();
-    render();
+    clearPromo();
     return;
   }
 
@@ -696,6 +687,20 @@ function applyPromoCode() {
     input.classList.add("invalid");
     syncPromoUI();
   }
+  render();
+}
+
+// Clears the applied promo (also wired to the tag's remove button).
+function clearPromo() {
+  appliedPromoCode = null;
+  persistPromo(null);
+  const input = $("promo-code");
+  if (input) {
+    input.value = "";
+    input.classList.remove("invalid");
+  }
+  $("promo-error").hidden = true;
+  syncPromoUI();
   render();
 }
 
@@ -1248,8 +1253,6 @@ function resetDrawer() {
   $("payment").value = "";
   $("promo-code").value = "";
   $("promo-error").hidden = true;
-  $("promo-success").hidden = true;
-  $("promo-success").classList.remove("is-visible");
   appliedPromoCode = null;
   persistPromo(null);
   document.querySelectorAll(".paygrid__opt").forEach((b) => {
@@ -1313,6 +1316,7 @@ $("cart-items").addEventListener("click", (e) => {
 });
 $("order-form").addEventListener("submit", submitOrder);
 $("apply-promo-btn")?.addEventListener("click", applyPromoCode);
+$("promo-tag-remove")?.addEventListener("click", clearPromo);
 $("promo-code")?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();
