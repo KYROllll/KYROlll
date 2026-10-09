@@ -1404,6 +1404,30 @@ button {
   font-weight: 700;
 }
 
+.order-form__success {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(74, 222, 128, 0.45);
+  color: #4ade80;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1;
+  opacity: 0;
+}
+
+.order-form__success.is-visible {
+  animation: promo-success-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes promo-success-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.8); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .btn {
   font-size: 13px;
   font-weight: 700;

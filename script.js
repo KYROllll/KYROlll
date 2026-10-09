@@ -433,7 +433,41 @@ function toggle(id, type) {
 }
 
 const VALID_PROMO_CODES = new Set(["KYROTEST", "TEST100", "100OFF", "KYRO100"]);
+const PROMO_STORAGE_KEY = "kyrolll:promo";
 let appliedPromoCode = null;
+
+// The applied promo code lives outside the drawer session: it survives closing
+// and reopening the cart, SPA navigation, and full page reloads.
+function persistPromo(code) {
+  try {
+    if (code) localStorage.setItem(PROMO_STORAGE_KEY, code);
+    else localStorage.removeItem(PROMO_STORAGE_KEY);
+  } catch { /* storage unavailable (private mode) — keep it in memory only */ }
+}
+
+function restorePromo() {
+  try {
+    const stored = (localStorage.getItem(PROMO_STORAGE_KEY) || "").trim().toUpperCase();
+    if (stored && VALID_PROMO_CODES.has(stored)) appliedPromoCode = stored;
+  } catch { /* ignore */ }
+}
+
+// Keeps the minimal green checkmark in sync with the applied promo state.
+function syncPromoUI(animate = false) {
+  const succEl = $("promo-success");
+  if (!succEl) return;
+  const on = !!appliedPromoCode;
+  succEl.hidden = !on;
+  if (!on) {
+    succEl.classList.remove("is-visible");
+    return;
+  }
+  if (animate) {
+    succEl.classList.remove("is-visible");
+    void succEl.offsetWidth;
+  }
+  succEl.classList.add("is-visible");
+}
 
 function totals() {
   const basicCount = selected.size;
@@ -530,6 +564,7 @@ function render() {
       $("t-promo-discount").textContent = "\u2212" + money(totals().promoDiscount);
     }
   }
+  syncPromoUI();
 
   const isZero = total === 0;
   const paygridLabel = $("paygrid-label");
@@ -602,6 +637,10 @@ function openDrawer() {
   drawer.setAttribute("aria-hidden", "false");
   backdrop.hidden = false;
   document.body.style.overflow = "hidden";
+  // Restore the persisted promo so reopening the cart never asks for it again.
+  const promoInput = $("promo-code");
+  if (promoInput) promoInput.value = appliedPromoCode || "";
+  syncPromoUI();
   loadMins();
 }
 
@@ -631,28 +670,31 @@ let lastOrder = null;
 function applyPromoCode() {
   const input = $("promo-code");
   const errEl = $("promo-error");
-  const succEl = $("promo-success");
   const code = (input.value || "").trim().toUpperCase();
 
   errEl.hidden = true;
-  succEl.hidden = true;
 
   if (!code) {
     appliedPromoCode = null;
+    persistPromo(null);
+    syncPromoUI();
     render();
     return;
   }
 
   if (VALID_PROMO_CODES.has(code)) {
     appliedPromoCode = code;
-    succEl.textContent = `PROMO CODE "${code}" APPLIED — 100% OFF`;
-    succEl.hidden = false;
+    persistPromo(code);
+    input.value = code;
     input.classList.remove("invalid");
+    syncPromoUI(true);
   } else {
     appliedPromoCode = null;
+    persistPromo(null);
     errEl.textContent = "INVALID PROMO CODE";
     errEl.hidden = false;
     input.classList.add("invalid");
+    syncPromoUI();
   }
   render();
 }
@@ -665,6 +707,9 @@ function submitOrder(e) {
   const email = emailInput.value.trim();
   normalizeFreePicks();
   const { n, subtotal, discount, total } = totals();
+  // A $0.00 cart (e.g. a 100% off promo like KYROTEST) skips every crypto
+  // gateway requirement — no payment method is needed for a free/test checkout.
+  const isFreeOrder = total <= 0;
 
   errorEl.hidden = true;
   emailInput.classList.remove("invalid");
@@ -676,7 +721,7 @@ function submitOrder(e) {
     return;
   }
 
-  if (total > 0 && payGroup && isGroupBelowMin(payGroup)) {
+  if (!isFreeOrder && payGroup && isGroupBelowMin(payGroup)) {
     const alt = firstAffordableGroup();
     if (alt) {
       selectPayment(alt.value);
@@ -687,7 +732,7 @@ function submitOrder(e) {
     }
   }
 
-  if (total > 0 && !payGroup) {
+  if (!isFreeOrder && !payGroup) {
     errorEl.textContent = "PLEASE SELECT A PAYMENT METHOD.";
     errorEl.hidden = false;
     return;
@@ -1039,12 +1084,14 @@ function showPayscreen(order) {
   $("payscreen-total").textContent = money(order.total);
   const tabs = $("payscreen-tabs");
   tabs.innerHTML = "";
-  if (order.total === 0) {
+  if (order.total <= 0) {
+    // Free checkout: never build crypto coin tabs or generate a payment.
+    // The worker marks the order finished and emails the files directly.
     tabs.hidden = true;
     $("payscreen-network").textContent = "100% DISCOUNT — FREE TEST ORDER";
     prepDownloads();
     payscreen.hidden = false;
-    document.body.style.overflow = "";
+    document.body.style.overflow = "hidden";
     startZeroOrder(order);
     return;
   }
@@ -1202,7 +1249,9 @@ function resetDrawer() {
   $("promo-code").value = "";
   $("promo-error").hidden = true;
   $("promo-success").hidden = true;
+  $("promo-success").classList.remove("is-visible");
   appliedPromoCode = null;
+  persistPromo(null);
   document.querySelectorAll(".paygrid__opt").forEach((b) => {
     b.classList.remove("paygrid__opt--on");
     b.setAttribute("aria-checked", "false");
@@ -1218,6 +1267,7 @@ function rebuildCatalog() {
 }
 
 buildPaygrid();
+restorePromo();
 rebuildCatalog();
 startBtc();
 loadMins();
@@ -1229,8 +1279,8 @@ handleDeepHash();
 if (!WORKER_URL) $("config-warning").hidden = false;
 
 cartbar.addEventListener("click", openDrawer);
-$("close").addEventListener("click", resetDrawer);
-backdrop.addEventListener("click", resetDrawer);
+$("close").addEventListener("click", closeDrawer);
+backdrop.addEventListener("click", closeDrawer);
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   const walletModal = $("wallet-modal");
@@ -1240,7 +1290,7 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (hidePayscreen()) window.scrollTo({ top: 0 });
-  else resetDrawer();
+  else closeDrawer();
 });
 $("cart-items").addEventListener("click", (e) => {
   const free = e.target.closest(".cart-items__free");
