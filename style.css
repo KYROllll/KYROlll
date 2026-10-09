@@ -1069,12 +1069,12 @@ button {
   align-items: center;
   width: 100%;
   border: none;
-  border-top: 1px solid var(--black);
   background: var(--black);
   color: var(--white);
   font-size: 13px;
   font-weight: 700;
   padding: 18px 20px;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.35);
   transition: opacity 0.2s ease;
 }
 
@@ -1568,11 +1568,13 @@ button {
 }
 
 @media (max-width: 768px) {
-  html,
-  body {
+  html {
     overflow-x: hidden;
+  }
+  body {
     width: 100%;
-    position: relative;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -1804,12 +1806,17 @@ body::before {
   opacity: .045;
   background: url("assets/grain.svg") repeat;
 }
+body > canvas {
+  pointer-events: none !important;
+  touch-action: none !important;
+}
 .brand-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 40px 24px 56px; border-bottom: 1px solid var(--hairline); }
 .store-banner, .motion-toggle {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 .hero-link { display: inline-flex; align-items: center; gap: 40px; margin-top: 16px; padding: 12px 0; color: var(--white); border-bottom: 1px solid #777; text-decoration: none; font-size: 10px; font-weight: 800; letter-spacing: .13em; }
-.hero-link span { font-size: 23px; }
+.hero-link__arrow { display: inline-flex; align-items: center; }
+.hero-link__arrow svg { width: 14px; height: 14px; display: block; }
 .hero-link:hover { border-color: var(--accent); }
 .motion-toggle { color: var(--gray); border: 0; background: none; font-size: 9px; padding: 10px 0; }
 .motion-toggle:hover { color: var(--white); }
@@ -1840,7 +1847,7 @@ body::before {
 .card:hover .card__media img { filter: contrast(1.08); }
 .footer { border-top: 1px solid var(--hairline); padding-top: 48px; }
 .footer__logo { display: block; width: 200px; height: auto; margin: 0 auto 22px; }
-.cartbar { background: var(--white); color: var(--black); border-color: #777; padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+.cartbar { background: var(--black); color: var(--white); border: none; box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.35); padding-bottom: max(18px, env(safe-area-inset-bottom)); }
 .drawer, .payscreen__card { background: #101012; border-color: #48484e; }
 .payscreen__card { box-shadow: 0 0 80px #92726015; }
 .cashback-notice, .free-hint { border-color: #444; background: #19191c; }
@@ -1857,6 +1864,11 @@ body::before {
   .logo-stage { width: min(100%, 420px); }
 }
 @media (max-width: 600px) {
+  input,
+  .order-form__input,
+  .promo-row__input {
+    font-size: 16px !important;
+  }
   .store-banner { padding: 12px 20px; font-size: 8px; letter-spacing: .06em; }
   .motion-toggle { font-size: 8px; }
   .brand-hero { padding: 24px 16px 36px; }
@@ -1875,6 +1887,7 @@ body::before {
   .card__btn { font-size: 9px; padding: 9px 4px; }
   .card__info { padding: 10px; }
   .cartbar { font-size: 11px; }
+  body { padding-bottom: 64px; }
 }
 
 /* The catalog is an artwork index; player and license controls live on each beat view. */
