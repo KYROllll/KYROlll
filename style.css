@@ -1509,6 +1509,7 @@ button {
 }
 
 .promo-tag__remove {
+  position: relative;
   justify-content: center;
   width: 18px;
   height: 18px;
@@ -1518,10 +1519,29 @@ button {
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.08);
   color: #000000;
-  font-size: 13px;
-  line-height: 1;
+  font-size: 0;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
+}
+
+.promo-tag__remove::before,
+.promo-tag__remove::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 1.5px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.promo-tag__remove::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.promo-tag__remove::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .promo-tag__remove:hover {
