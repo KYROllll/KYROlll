@@ -40,12 +40,16 @@ const selected = new Map(); // beat ID → mp3 or wav
 const freePicks = new Set();
 const exclusiveSelected = new Set();
 
-const freeCap = () => Math.floor(selected.size / 3);
+const freeCap = () => (selected.size >= 3 ? Math.floor(selected.size / 3) : 0);
 
 function normalizeFreePicks() {
   const cap = freeCap();
-  [...freePicks].forEach((id) => !selected.has(id) && freePicks.delete(id));
+  [...freePicks].forEach((id) => !selected.has(id) || selected.size < 3 && freePicks.delete(id));
   while (freePicks.size > cap) freePicks.delete([...freePicks][0]);
+  if (selected.size < 3) {
+    freePicks.clear();
+    return;
+  }
   // Apply the offer as soon as every third distinct lease enters the cart.
   for (const id of [...selected.keys()].reverse()) {
     if (freePicks.size >= cap) break;
@@ -428,7 +432,12 @@ function totals() {
   const n = basicCount + exclusiveCount;
   const subtotal = [...selected.values()].reduce((sum, tier) => sum + (tier === "mp3" ? MP3_PRICE : PRICE), 0) + exclusiveCount * EXCLUSIVE_PRICE;
   const freeCount = [...freePicks].filter((id) => selected.has(id)).length;
-  const bundleDiscount = [...freePicks].filter((id) => selected.has(id)).reduce((sum, id) => sum + (selected.get(id) === "mp3" ? MP3_PRICE : PRICE), 0);
+  // The 2+1 bundle discount activates strictly when the cart holds
+  // three or more non-exclusive leases — never for a single beat or
+  // an exclusive lease.
+  const bundleDiscount = selected.size >= 3
+    ? [...freePicks].filter((id) => selected.has(id)).reduce((sum, id) => sum + (selected.get(id) === "mp3" ? MP3_PRICE : PRICE), 0)
+    : 0;
   let afterBundle = Math.max(0, subtotal - bundleDiscount);
   if (TOKEN_PERKS_ENABLED && isTokenHolder) {
     afterBundle = Math.round(afterBundle * 85) / 100;
@@ -440,12 +449,12 @@ function totals() {
     total = 0;
   }
   const discount = bundleDiscount + promoDiscount;
-  return { n, exclusiveN: exclusiveCount, basicCount, exclusiveCount, subtotal, freeCount, discount, total, promoDiscount };
+  return { n, exclusiveN: exclusiveCount, basicCount, exclusiveCount, subtotal, freeCount, discount, total, promoDiscount, bundleDiscount };
 }
 
 function render() {
   normalizeFreePicks();
-  const { n, subtotal, discount, total } = totals();
+  const { n, subtotal, discount, total, bundleDiscount } = totals();
 
   // The bundle callout appears only once three distinct leases qualify.
   const offerUnlocked = selected.size >= 3 && !new URLSearchParams(location.search).has("beat");
