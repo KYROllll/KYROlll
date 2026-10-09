@@ -516,8 +516,10 @@ function render() {
 
   $("drawer-count").textContent = n;
   $("t-subtotal").textContent = money(subtotal);
-  $("t-discount-row").hidden = discount === 0;
-  $("t-discount").textContent = "\u2212" + money(discount);
+  // The "2+1 BUNDLE DISCOUNT" row reflects only the bundle discount (never a
+  // promo discount), and stays hidden unless three non-exclusive leases qualify.
+  $("t-discount-row").hidden = bundleDiscount === 0;
+  $("t-discount").textContent = "\u2212" + money(bundleDiscount);
 
   const promoActive = appliedPromoCode && VALID_PROMO_CODES.has(appliedPromoCode);
   const promoRow = $("t-promo-row");
