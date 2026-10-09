@@ -641,6 +641,7 @@ function openDrawer() {
   drawer.setAttribute("aria-hidden", "false");
   backdrop.hidden = false;
   document.body.style.overflow = "hidden";
+  document.documentElement.style.overflow = "hidden";
   // Reopen with the same promo state: the tag badge stays active and the input
   // collapses whenever a code is already applied.
   syncPromoUI();
@@ -664,6 +665,7 @@ function closeDrawer() {
   drawer.setAttribute("aria-hidden", "true");
   backdrop.hidden = true;
   document.body.style.overflow = "";
+  document.documentElement.style.overflow = "";
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -778,7 +780,7 @@ function submitOrder(e) {
     render();
     closeDrawer();
 
-    showFreeOrderSuccess(lastOrder);
+    showSuccessModal(lastOrder);
     return;
   }
 
@@ -1139,7 +1141,7 @@ async function startZeroOrder(order) {
   }
 }
 
-async function showFreeOrderSuccess(order) {
+async function showSuccessModal(order) {
   payScreenOrder = order;
   const emailEl = $("success-email");
   if (emailEl) emailEl.textContent = order.email;
@@ -1158,6 +1160,7 @@ async function showFreeOrderSuccess(order) {
   if (modal) {
     modal.hidden = false;
     document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
   }
 
   try {
@@ -1183,9 +1186,10 @@ async function showFreeOrderSuccess(order) {
       revealSuccessDownloads(res, res.order_id);
     }
   } catch (err) {
-    if (statusEl) statusEl.textContent = (err.message || "SUCCESS — FILES UNLOCKED").toUpperCase();
+    if (statusEl) statusEl.textContent = "SUCCESS — FILES UNLOCKED";
   }
 }
+const showFreeOrderSuccess = showSuccessModal;
 
 function revealSuccessDownloads(s, orderId) {
   const links = (s && s.links) || [];
@@ -1264,6 +1268,7 @@ function showPayscreen(order) {
   prepDownloads();
   payscreen.hidden = false;
   document.body.style.overflow = "hidden";
+  document.documentElement.style.overflow = "hidden";
   selectInitialCoin(syms);
 }
 
@@ -1403,6 +1408,7 @@ function hidePayscreen() {
   const qrHost = $("payscreen-qr");
   if (qrHost) qrHost.innerHTML = "";
   document.body.style.overflow = "";
+  document.documentElement.style.overflow = "";
   return true;
 }
 
@@ -1445,7 +1451,11 @@ startBtc();
 loadMins();
 refreshExclusiveStatus();
 window.addEventListener("hashchange", handleDeepHash);
-window.addEventListener("popstate", rebuildCatalog);
+window.addEventListener("popstate", () => {
+  document.body.style.overflow = "";
+  document.documentElement.style.overflow = "";
+  rebuildCatalog();
+});
 handleDeepHash();
 
 if (!WORKER_URL) $("config-warning").hidden = false;
@@ -1458,6 +1468,7 @@ backdrop.addEventListener("click", () => {
   const successModal = $("success-modal");
   if (successModal) successModal.hidden = true;
   document.body.style.overflow = "";
+  document.documentElement.style.overflow = "";
 });
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
@@ -1465,12 +1476,14 @@ document.addEventListener("keydown", (e) => {
   if (walletModal && !walletModal.hidden) {
     walletModal.hidden = true;
     document.body.style.overflow = "";
+    document.documentElement.style.overflow = "";
     return;
   }
   const successModal = $("success-modal");
   if (successModal && !successModal.hidden) {
     successModal.hidden = true;
     document.body.style.overflow = "";
+    document.documentElement.style.overflow = "";
     resetDrawer();
     window.scrollTo({ top: 0 });
     return;
@@ -1515,6 +1528,7 @@ $("success-close")?.addEventListener("click", () => {
   const successModal = $("success-modal");
   if (successModal) successModal.hidden = true;
   document.body.style.overflow = "";
+  document.documentElement.style.overflow = "";
   resetDrawer();
   window.scrollTo({ top: 0 });
 });
@@ -1535,6 +1549,8 @@ grid.addEventListener("click", (e) => {
 });
 $("all-beats-link").addEventListener("click", (e) => {
   e.preventDefault();
+  document.body.style.overflow = "";
+  document.documentElement.style.overflow = "";
   history.pushState(null, "", e.currentTarget.href);
   rebuildCatalog();
   $("grid").scrollIntoView({ block: "start" });
@@ -1583,12 +1599,14 @@ function openWalletModal() {
   }
   walletModal.hidden = false;
   document.body.style.overflow = "hidden";
+  document.documentElement.style.overflow = "hidden";
 }
 
 function closeWalletModal() {
   if (!walletModal) return;
   walletModal.hidden = true;
   document.body.style.overflow = "";
+  document.documentElement.style.overflow = "";
 }
 
 function updateWalletButton() {
