@@ -80,6 +80,11 @@ function toggleFreePick(id) {
 
 const $ = (id) => document.getElementById(id);
 
+function unlockScroll() {
+  document.body.style.cssText = '';
+  document.documentElement.style.cssText = '';
+}
+
 const grid = $("grid");
 const previewPlayer = new BeatPreviewPlayer(grid);
 window.addEventListener("pagehide", () => previewPlayer.stop());
@@ -396,7 +401,10 @@ function beatFromAnchor(anchor) {
 function handleDeepHash() {
   if (new URLSearchParams(location.search).has("beat")) return;
   const id = beatFromAnchor(location.hash);
-  if (id && CATALOG.some((beat) => beat.id === id)) location.replace(`index.html?beat=${encodeURIComponent(id)}`);
+  if (id && CATALOG.some((beat) => beat.id === id)) {
+    unlockScroll();
+    location.replace(`index.html?beat=${encodeURIComponent(id)}`);
+  }
 }
 
 function toggle(id, type) {
@@ -667,8 +675,7 @@ function closeDrawer() {
   drawer.classList.remove("drawer--open");
   drawer.setAttribute("aria-hidden", "true");
   backdrop.hidden = true;
-  document.body.style.overflow = "";
-  document.documentElement.style.overflow = "";
+  unlockScroll();
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1296,8 +1303,7 @@ function rebuildCatalog() {
     if (successModal) successModal.hidden = true;
     const walletModal = $("wallet-modal");
     if (walletModal) walletModal.hidden = true;
-    document.body.style.overflow = "";
-    document.body.style.position = "";
+    unlockScroll();
   }
   buildGrid();
   render();
@@ -1311,8 +1317,7 @@ loadMins();
 refreshExclusiveStatus();
 window.addEventListener("hashchange", handleDeepHash);
 window.addEventListener("popstate", () => {
-  document.body.style.overflow = "";
-  document.documentElement.style.overflow = "";
+  unlockScroll();
   rebuildCatalog();
 });
 handleDeepHash();
@@ -1326,23 +1331,20 @@ backdrop.addEventListener("click", () => {
   hidePayscreen();
   const successModal = $("success-modal");
   if (successModal) successModal.hidden = true;
-  document.body.style.overflow = "";
-  document.documentElement.style.overflow = "";
+  unlockScroll();
 });
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   const walletModal = $("wallet-modal");
   if (walletModal && !walletModal.hidden) {
     walletModal.hidden = true;
-    document.body.style.overflow = "";
-    document.documentElement.style.overflow = "";
+    unlockScroll();
     return;
   }
   const successModal = $("success-modal");
   if (successModal && !successModal.hidden) {
     successModal.hidden = true;
-    document.body.style.overflow = "";
-    document.documentElement.style.overflow = "";
+    unlockScroll();
     resetDrawer();
     window.scrollTo({ top: 0 });
     return;
@@ -1386,8 +1388,7 @@ $("payscreen-close").addEventListener("click", () => {
 $("success-close")?.addEventListener("click", () => {
   const successModal = $("success-modal");
   if (successModal) successModal.hidden = true;
-  document.body.style.overflow = "";
-  document.documentElement.style.overflow = "";
+  unlockScroll();
   resetDrawer();
   window.scrollTo({ top: 0 });
 });
@@ -1397,6 +1398,7 @@ grid.addEventListener("click", (e) => {
   const link = e.target.closest(".catalog-tile__link");
   if (link) {
     e.preventDefault();
+    unlockScroll();
     history.pushState(null, "", link.href);
     rebuildCatalog();
     window.scrollTo({ top: 0 });
@@ -1408,8 +1410,7 @@ grid.addEventListener("click", (e) => {
 });
 $("all-beats-link").addEventListener("click", (e) => {
   e.preventDefault();
-  document.body.style.overflow = "";
-  document.documentElement.style.overflow = "";
+  unlockScroll();
   history.pushState(null, "", e.currentTarget.href);
   rebuildCatalog();
   $("grid").scrollIntoView({ block: "start" });
@@ -1462,8 +1463,7 @@ function openWalletModal() {
 function closeWalletModal() {
   if (!walletModal) return;
   walletModal.hidden = true;
-  document.body.style.overflow = "";
-  document.documentElement.style.overflow = "";
+  unlockScroll();
 }
 
 function updateWalletButton() {
