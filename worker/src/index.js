@@ -185,6 +185,10 @@ async function handleMins(url, env) {
     .map((s) => s.trim())
     .filter((s) => COIN_CODES[s]);
   const mins = {};
+  // No API key configured → every lookup would be rejected. Skip the network
+  // entirely and let the storefront fall back to showing all coins.
+  if (!env.NOWPAYMENTS_API_KEY) return json(env, { mins });
+
   // NOWPayments rate-limits bursts — pace lookups (configurable for tests)
   const paceMs = Number(env.MIN_LOOKUP_DELAY_MS ?? 200);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -198,6 +202,12 @@ async function handleMins(url, env) {
         try {
           m = await np(env, "/min-amount?currency_from=" + code + "&currency_to=usd", "GET");
         } catch (e) {
+          // A rejected/expired key fails identically for every coin — report it
+          // once and stop instead of firing the same rejected call per coin.
+          if (e.status === 401 || e.status === 403) {
+            console.error("min lookup skipped: NOWPayments rejected the API key");
+            return json(env, { mins });
+          }
           if (attempt === 0) await sleep(paceMs * 2);
           else throw e;
         }

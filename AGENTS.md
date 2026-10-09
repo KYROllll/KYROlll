@@ -38,6 +38,12 @@ delivery emails stay disabled until real NOWPayments / Resend values (and the
 `FLESH_*` buyer links) are provided. `/api/catalog` (the healthcheck) touches
 only KV, so it works without credentials.
 
+`GET /api/mins` degrades gracefully: with no `NOWPAYMENTS_API_KEY` it returns
+`{"mins":{}}` without calling NOWPayments (the storefront then shows every
+coin), and if the key is present but rejected (401/403) it stops after the
+first call and logs one line instead of failing per coin. Neither case is an
+error — the empty `mins` only means the sub-minimum coin lock isn't applied.
+
 ## Verify it works
 
 ```bash
