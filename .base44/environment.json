@@ -1,0 +1,42 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    {
+      "name": "NOWPAYMENTS_API_KEY",
+      "description": "NOWPayments dashboard → Store settings → API keys. Required for checkout invoices.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "NOWPAYMENTS_IPN_SECRET",
+      "description": "NOWPayments dashboard → Store settings → IPN. Verifies payment webhooks so files release.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "RESEND_API_KEY",
+      "description": "Resend dashboard → API Keys (re_…). Sends order/receipt emails.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "RESEND_FROM",
+      "description": "Verified Resend sender, e.g. \"KYROlll <noreply@yourdomain>\".",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "FLESH_MP3_URL",
+      "description": "Private MP3 download link for the FLESH release (buyer file).",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "FLESH_WAV_URL",
+      "description": "Private WAV download link for the FLESH release (buyer file).",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "FLESH_EXCLUSIVE_URL",
+      "description": "Private folder link with clean MP3 + WAV for a FLESH exclusive sale.",
+      "requiredAtBoot": false
+    }
+  ]
+}

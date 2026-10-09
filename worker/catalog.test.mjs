@@ -349,3 +349,32 @@ test("100% off promo code KYROTEST sets total to $0 and successfully dispatches 
     assert.deepEqual(mails[0].attachments.map((f) => f.filename), ["EXCLUSIVE_LICENSE.pdf", "EXCLUSIVE_LICENSE.txt"]);
   } finally { restore(); }
 });
+
+test("mins lookup skips the network when NOWPayments is not configured", async () => {
+  const fetchOriginal = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; throw new Error("network must not be touched"); };
+  try {
+    const env = { ORDERS: { get: async () => null, put: async () => {}, delete: async () => {} } };
+    const res = await worker.fetch(new Request("https://worker.example/api/mins?coins=BTC,ETH,SOL,USDT,USDC,LTC"), env, {});
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { mins: {} });
+    assert.equal(calls, 0, "no NOWPayments call without an API key");
+  } finally { globalThis.fetch = fetchOriginal; }
+});
+
+test("mins lookup stops after one rejected API key instead of firing per coin", async () => {
+  const fetchOriginal = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return Response.json({ statusCode: 403, code: "INVALID_API_KEY", message: "Invalid api key" }, { status: 403 });
+  };
+  try {
+    const env = { NOWPAYMENTS_API_KEY: "bad", MIN_LOOKUP_DELAY_MS: "0", ORDERS: { get: async () => null, put: async () => {}, delete: async () => {} } };
+    const res = await worker.fetch(new Request("https://worker.example/api/mins?coins=BTC,ETH,SOL,USDT,USDC,LTC"), env, {});
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { mins: {} });
+    assert.equal(calls, 1, "a rejected key aborts the sweep after the first call");
+  } finally { globalThis.fetch = fetchOriginal; }
+});

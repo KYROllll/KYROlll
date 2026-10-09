@@ -143,40 +143,36 @@
 
        <p class="payscreen__network" id="payscreen-network">INVOICE NETWORK</p>
 
-      <div class="payscreen__dls" id="payscreen-downloads-wrap" hidden>
-        <span class="payscreen__label">YOUR FILES &mdash; UNLOCKED ON PAYMENT VERIFICATION</span>
-        <div id="payscreen-downloads"></div>
-      </div>
-
-        <p class="payscreen__note" id="payscreen-payment-note">Send the exact amount on the invoice network shown above. NOWPayments verifies settlement before your files unlock here and by email.</p>
+        <p class="payscreen__note" id="payscreen-payment-note">Send the exact amount on the invoice network shown above. NOWPayments verifies settlement on-chain, then your secure download links, PDF/TXT licenses, and files are emailed to you automatically.</p>
     </div>
   </div>
 
-  <div class="payscreen" id="success-modal" hidden role="dialog" aria-modal="true" aria-label="Order success and downloads">
+  <div class="payscreen" id="success-modal" hidden role="dialog" aria-modal="true" aria-label="Order confirmed">
     <div class="payscreen__card">
       <button class="payscreen__close" id="success-close" aria-label="Close">&times;</button>
 
       <span class="payscreen__kicker"><span class="brand-name">KYROlll</span> &mdash; ORDER CONFIRMED</span>
-      <h2 class="payscreen__title">SUCCESS &mdash; FILES UNLOCKED</h2>
 
-      <span class="np-status np-status--ok visible" id="success-status">100% DISCOUNT APPLIED &mdash; EMAIL DISPATCHED</span>
+      <span class="success-check" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+      </span>
+
+      <h2 class="payscreen__title" id="success-title">SUCCESS &mdash; ORDER CONFIRMED</h2>
+
+      <span class="np-status np-status--ok visible" id="success-status">PAYMENT VERIFIED &mdash; EMAIL DISPATCHED</span>
 
       <dl class="payscreen__amounts">
-        <div><dt>TOTAL PAID</dt><dd>$0.00</dd></div>
+        <div><dt>TOTAL PAID</dt><dd id="success-total">$0.00</dd></div>
         <div><dt>DELIVERY EMAIL</dt><dd id="success-email" style="font-size: 11px; text-transform: none;"></dd></div>
       </dl>
 
-      <div class="payscreen__dls" id="success-downloads-wrap" hidden>
-        <span class="payscreen__label">YOUR DOWNLOADS &amp; LICENSES</span>
-        <div id="success-downloads"></div>
-      </div>
-
-      <p class="payscreen__note">Your digital files and PDF/TXT licenses are unlocked above and have also been sent to your email.</p>
+      <p class="payscreen__note">All secure download links, PDF/TXT licenses, and files have been dispatched to the email address above. Open that email to access your purchase &mdash; nothing is delivered on this screen.</p>
     </div>
   </div>
 
   <script src="assets/qrcode.min.js"></script>
   <script src="preview-player.js?v=2"></script>
+  <script src="config.js"></script>
   <script src="script.js?v=25"></script>
   <script type="module" src="assets/brand-logo.min.js?v=5"></script>
   <script type="module" src="assets/background-x.min.js?v=2"></script>

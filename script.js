@@ -1,9 +1,13 @@
 // Cloudflare Worker backend — performs every NOWPayments call, holds the
 // download URLs, and dispatches the delivery email after an HMAC-verified
 // 'finished' IPN. Nothing order-related is submitted from this file.
-const WORKER_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-  ? "http://localhost:8787"
-  : "https://kencarter-checkout.kencarter-store.workers.dev";
+// config.js (served by server.mjs) can point this at a locally running checkout
+// Worker for the Base44 preview; without it the store falls back to localhost in
+// local dev and to the deployed Worker in production.
+const WORKER_URL = window.KYROLLL_WORKER_URL
+  || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? "http://localhost:8787"
+    : "https://kencarter-checkout.kencarter-store.workers.dev");
 
 const MP3_PRICE = 9.95;
 const PRICE = 14.95;
@@ -648,8 +652,7 @@ function openDrawer() {
   drawer.classList.add("drawer--open");
   drawer.setAttribute("aria-hidden", "false");
   backdrop.hidden = false;
-  document.body.style.overflow = "hidden";
-  document.documentElement.style.overflow = "hidden";
+  // Body scrolling stays unlocked at all times — the drawer is a fixed overlay.
   // Reopen with the same promo state: the tag badge stays active and the input
   // collapses whenever a code is already applied.
   syncPromoUI();
@@ -787,7 +790,7 @@ function submitOrder(e) {
     render();
     closeDrawer();
 
-    showSuccessModal(lastOrder);
+    completeFreeOrder(lastOrder);
     return;
   }
 
@@ -1003,6 +1006,14 @@ function appendFallbackChips() {
   refreshChipLocks();
 }
 
+// Internal server validation text (e.g. "INVALID TOTAL") is never shown to the
+// buyer — it maps to clear, actionable copy instead.
+const CHECKOUT_ERROR_COPY = {
+  "INVALID TOTAL": "CHECKOUT COULD NOT START \u2014 PLEASE TRY ANOTHER PAYMENT METHOD.",
+  "EMPTY CART": "YOUR CART IS EMPTY.",
+  "INVALID FREE PICKS": "PLEASE RESELECT YOUR FREE LEASE."
+};
+
 async function startNpPayment(sym) {
   const asset = ASSETS[sym];
   if (!asset || !payScreenOrder) return;
@@ -1011,7 +1022,6 @@ async function startNpPayment(sym) {
   stopNpPolling();
   npPayment = null;
   $("payscreen-payblock").hidden = true;
-  $("payscreen-downloads-wrap").hidden = true;
   setNpStatus("GENERATING SECURE " + asset.sym + " ADDRESS\u2026");
 
   try {
@@ -1052,7 +1062,7 @@ async function startNpPayment(sym) {
       showMinAlert(sym);
       setNpStatus("AMOUNT BELOW " + sym + " MINIMUM \u2014 PICK ANOTHER COIN", "warn");
     } else {
-      setNpStatus(msg.toUpperCase() || "CHECKOUT ERROR \u2014 PICK A COIN TO RETRY", "warn");
+      setNpStatus(CHECKOUT_ERROR_COPY[msg.trim()] || msg.toUpperCase() || "CHECKOUT ERROR \u2014 PICK A COIN TO RETRY", "warn");
     }
   }
 }
@@ -1090,13 +1100,16 @@ function startNpPolling(orderId) {
     try {
       const s = await workerRequest("/api/status?order_id=" + encodeURIComponent(orderId));
       if (s.released) {
+        // Payment verified — the email is the delivery channel, so close the
+        // payment screen and show the clean order-confirmed modal.
         stopNpPolling();
-        const hasExclusive = s.links && s.links.some((l) => l.isExclusive);
-        setNpStatus(
-          hasExclusive ? NP_STATUS_COPY.exclusive : NP_STATUS_COPY.finished,
-          hasExclusive ? "exclusive" : "ok"
-        );
-        revealDownloads(s, orderId);
+        const order = payScreenOrder || lastOrder;
+        const hasExclusive = (s.links || []).some((l) => l.isExclusive);
+        (s.links || []).forEach((l) => { if (l.isExclusive && l.id) EXCLUSIVE_SOLD.add(l.id); });
+        hidePayscreen();
+        showSuccessModal(order, hasExclusive
+          ? "EXCLUSIVE MASTER RIGHTS \u2014 FILES & LICENSES EMAILED"
+          : "PAYMENT VERIFIED \u2014 FILES & LICENSES EMAILED");
         return;
       }
       const st = String(s.status || "").toLowerCase();
@@ -1118,58 +1131,33 @@ function stopNpPolling() {
   }
 }
 
-async function startZeroOrder(order) {
-  setNpStatus("PROCESSING 100% DISCOUNT ORDER...", "warn");
-  $("payscreen-payblock").hidden = true;
-  $("payscreen-downloads-wrap").hidden = true;
-  try {
-    const res = await workerRequest("/api/checkout", {
-      method: "POST",
-      body: JSON.stringify({
-        email: order.email,
-        coinSym: "USDT",
-        total: 0,
-        items: order.items,
-        freePicks: order.freePicks,
-        exclusivePicks: order.exclusivePicks || [],
-        promoCode: order.promoCode
-      })
-    });
-    if (res.released) {
-      const hasExclusive = res.links && res.links.some((l) => l.isExclusive);
-      setNpStatus(
-        hasExclusive ? NP_STATUS_COPY.exclusive : NP_STATUS_COPY.finished,
-        hasExclusive ? "exclusive" : "ok"
-      );
-      revealDownloads(res, res.order_id);
-    }
-  } catch (err) {
-    setNpStatus(err.message.toUpperCase() || "ORDER ERROR", "warn");
-  }
-}
-
-async function showSuccessModal(order) {
+// Email-only delivery: this modal is a clean confirmation, never a download
+// list. Every secure link, PDF/TXT license, and file reaches the buyer by email.
+function showSuccessModal(order, statusText) {
   payScreenOrder = order;
   const emailEl = $("success-email");
-  if (emailEl) emailEl.textContent = order.email;
+  if (emailEl) emailEl.textContent = (order && order.email) || "";
+  const totalEl = $("success-total");
+  if (totalEl) totalEl.textContent = money(order && Number.isFinite(order.total) ? order.total : 0);
   const errorEl = $("form-error");
   if (errorEl) errorEl.hidden = true;
   const alertEl = $("payscreen-alert");
   if (alertEl) alertEl.hidden = true;
-  const statusEl = $("success-status");
-  if (statusEl) statusEl.textContent = "SUCCESS — FILES UNLOCKED & EMAIL DISPATCHED";
-  const wrap = $("success-downloads-wrap");
-  if (wrap) wrap.hidden = true;
-  const list = $("success-downloads");
-  if (list) list.innerHTML = "";
+  setSuccessStatus(statusText || "ORDER CONFIRMED — EMAIL DISPATCHED");
 
   const modal = $("success-modal");
-  if (modal) {
-    modal.hidden = false;
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
-  }
+  if (modal) modal.hidden = false;
+}
 
+function setSuccessStatus(text) {
+  const statusEl = $("success-status");
+  if (statusEl) statusEl.textContent = text;
+}
+
+// Free / 100%-off checkout: persists the $0 order so the branded delivery email
+// goes out, then reflects the real dispatch outcome in the confirmation modal.
+async function completeFreeOrder(order) {
+  showSuccessModal(order, "ORDER CONFIRMED — PREPARING EMAIL…");
   try {
     const res = await workerRequest("/api/checkout", {
       method: "POST",
@@ -1183,83 +1171,21 @@ async function showSuccessModal(order) {
         promoCode: order.promoCode
       })
     });
-    if (res.released) {
-      const hasExclusive = res.links && res.links.some((l) => l.isExclusive);
-      if (statusEl) {
-        statusEl.textContent = hasExclusive
-          ? "SUCCESS — EXCLUSIVE RIGHTS UNLOCKED & EMAIL DISPATCHED"
-          : "SUCCESS — FILES UNLOCKED & EMAIL DISPATCHED";
-      }
-      revealSuccessDownloads(res, res.order_id);
-    }
+    const hasExclusive = (res.links || []).some((l) => l.isExclusive);
+    const prefix = hasExclusive ? "EXCLUSIVE MASTER RIGHTS" : "ORDER CONFIRMED";
+    setSuccessStatus(res.delivery && res.delivery.status === "sent"
+      ? `${prefix} — FILES & LICENSES EMAILED`
+      : `${prefix} — EMAIL DELIVERY PENDING`);
   } catch (err) {
-    if (statusEl) statusEl.textContent = "SUCCESS — FILES UNLOCKED & EMAIL DISPATCHED";
+    console.error("Free order dispatch failed:", err);
+    setSuccessStatus("ORDER CONFIRMED — EMAIL DELIVERY PENDING");
   }
-}
-const showFreeOrderSuccess = showSuccessModal;
-
-function revealSuccessDownloads(s, orderId) {
-  const links = (s && s.links) || [];
-  const licenses = (s && s.licenses) || [];
-  const list = $("success-downloads");
-  if (!list) return;
-  list.innerHTML = "";
-  (links || []).forEach((it) => {
-    if (it.url) {
-      const a = document.createElement("a");
-      a.className = "payscreen__dl";
-      a.href = it.url;
-      a.target = "_blank";
-      a.rel = "noopener";
-      a.textContent = it.isExclusive && it.id === "flesh"
-        ? `OPEN ${it.title} — EXCLUSIVE MP3 + WAV FOLDER`
-        : `DOWNLOAD ${it.title} — ${String(it.tier || "wav").toUpperCase()}`;
-      list.appendChild(a);
-    } else {
-      const pending = document.createElement("div");
-      pending.className = "payscreen__dl payscreen__dl--pending";
-      pending.textContent = `${it.isExclusive && it.id === "flesh" ? "EXCLUSIVE MP3 + WAV FOLDER" : String(it.tier || "wav").toUpperCase()} DELIVERY PENDING — ${it.title}`;
-      list.appendChild(pending);
-    }
-    if (it.isExclusive && it.id) EXCLUSIVE_SOLD.add(it.id);
-  });
-  (licenses || []).forEach((lic) => {
-    const a = document.createElement("a");
-    a.className = "payscreen__dl";
-    if (lic.tier === "exclusive") {
-      a.href = WORKER_URL + "/api/exclusive-license?order_id=" + encodeURIComponent(orderId);
-      a.download = "EXCLUSIVE_LICENSE.pdf";
-      a.textContent = "DOWNLOAD EXCLUSIVE LICENSE";
-    } else if (lic.tier === "mp3") {
-      a.href = "MP3_LICENSE.txt";
-      a.download = "MP3_LICENSE.txt";
-      a.textContent = "DOWNLOAD MP3 LICENSE";
-    } else {
-      a.href = "LICENSE.pdf";
-      a.download = "LICENSE.pdf";
-      a.textContent = "DOWNLOAD LEASE LICENSE";
-    }
-    list.appendChild(a);
-    if (lic.tier !== "mp3") {
-      const text = document.createElement("a");
-      text.className = "payscreen__dl";
-      text.href = lic.tier === "exclusive" ? "EXCLUSIVE_LICENSE.txt" : "LICENSE.txt";
-      text.download = text.href;
-      text.textContent = `DOWNLOAD ${lic.tier === "exclusive" ? "EXCLUSIVE" : "WAV"} LICENSE TEXT`;
-      list.appendChild(text);
-    }
-  });
-  if ((links && links.length) || (licenses && licenses.length)) {
-    const wrap = $("success-downloads-wrap");
-    if (wrap) wrap.hidden = false;
-  }
-  refreshExclusiveStatus();
 }
 
 function showPayscreen(order) {
   if (!order || !payscreen) return;
   if (order.total <= 0) {
-    showFreeOrderSuccess(order);
+    completeFreeOrder(order);
     return;
   }
   payScreenOrder = order;
@@ -1272,10 +1198,7 @@ function showPayscreen(order) {
   const syms = order.group ? order.group.assets : ["USDT"];
   syms.forEach((sym) => tabs.appendChild(buildCoinChip(sym)));
   tabs.hidden = syms.length < 2;
-  prepDownloads();
   payscreen.hidden = false;
-  document.body.style.overflow = "hidden";
-  document.documentElement.style.overflow = "hidden";
   selectInitialCoin(syms);
 }
 
@@ -1289,68 +1212,6 @@ async function selectInitialCoin(syms) {
     return;
   }
   startNpPayment(available[0]);
-}
-
-function prepDownloads() {
-  $("payscreen-downloads-wrap").hidden = true;
-  $("payscreen-downloads").innerHTML = "";
-}
-
-function revealDownloads(s, orderId) {
-  const links = (s && s.links) || [];
-  const licenses = (s && s.licenses) || [];
-  const list = $("payscreen-downloads");
-  list.innerHTML = "";
-  (links || []).forEach((it) => {
-    // Missing BEAT_LINKS URLs surface as a pending row instead of silence.
-    if (it.url) {
-      const a = document.createElement("a");
-      a.className = "payscreen__dl";
-      a.href = it.url;
-      a.target = "_blank";
-      a.rel = "noopener";
-      a.textContent = it.isExclusive && it.id === "flesh"
-        ? `OPEN ${it.title} — EXCLUSIVE MP3 + WAV FOLDER`
-        : `DOWNLOAD ${it.title} — ${String(it.tier || "wav").toUpperCase()}`;
-      list.appendChild(a);
-    } else {
-      const pending = document.createElement("div");
-      pending.className = "payscreen__dl payscreen__dl--pending";
-      pending.textContent = `${it.isExclusive && it.id === "flesh" ? "EXCLUSIVE MP3 + WAV FOLDER" : String(it.tier || "wav").toUpperCase()} DELIVERY PENDING — ${it.title}`;
-      list.appendChild(pending);
-    }
-    if (it.isExclusive && it.id) EXCLUSIVE_SOLD.add(it.id);
-  });
-  (licenses || []).forEach((lic) => {
-    const a = document.createElement("a");
-    a.className = "payscreen__dl";
-    if (lic.tier === "exclusive") {
-      a.href = WORKER_URL + "/api/exclusive-license?order_id=" + encodeURIComponent(orderId);
-      a.download = "EXCLUSIVE_LICENSE.pdf";
-      a.textContent = "DOWNLOAD EXCLUSIVE LICENSE";
-    } else if (lic.tier === "mp3") {
-      a.href = "MP3_LICENSE.txt";
-      a.download = "MP3_LICENSE.txt";
-      a.textContent = "DOWNLOAD MP3 LICENSE";
-    } else {
-      a.href = "LICENSE.pdf";
-      a.download = "LICENSE.pdf";
-      a.textContent = "DOWNLOAD LEASE LICENSE";
-    }
-    list.appendChild(a);
-    if (lic.tier !== "mp3") {
-      const text = document.createElement("a");
-      text.className = "payscreen__dl";
-      text.href = lic.tier === "exclusive" ? "EXCLUSIVE_LICENSE.txt" : "LICENSE.txt";
-      text.download = text.href;
-      text.textContent = `DOWNLOAD ${lic.tier === "exclusive" ? "EXCLUSIVE" : "WAV"} LICENSE TEXT`;
-      list.appendChild(text);
-    }
-  });
-  if ((links && links.length) || (licenses && licenses.length)) {
-    $("payscreen-downloads-wrap").hidden = false;
-  }
-  refreshExclusiveStatus();
 }
 
 // Polls the worker's catalog endpoint so exclusive-sold beats flip to SOLD OUT
@@ -1414,7 +1275,6 @@ function hidePayscreen() {
   npPayment = null;
   const qrHost = $("payscreen-qr");
   if (qrHost) qrHost.innerHTML = "";
-  unlockScroll();
   return true;
 }
 
@@ -1598,8 +1458,6 @@ function openWalletModal() {
     walletInlineState.innerHTML = "";
   }
   walletModal.hidden = false;
-  document.body.style.overflow = "hidden";
-  document.documentElement.style.overflow = "hidden";
 }
 
 function closeWalletModal() {

@@ -23,6 +23,19 @@ const MIME_TYPES = {
 
 const server = http.createServer((req, res) => {
   let reqUrl = req.url.split("?")[0];
+
+  // Runtime config for the storefront. In the Base44 preview
+  // (BASE44_PREVIEW_MODE=1) this points script.js at the locally running
+  // checkout Worker; in every other environment it is a no-op and script.js
+  // keeps its built-in fallback URL.
+  if (reqUrl === "/config.js") {
+    const override = process.env.BASE44_PREVIEW_MODE === "1" && process.env.KYROLLL_WORKER_URL
+      ? `window.KYROLLL_WORKER_URL = ${JSON.stringify(process.env.KYROLLL_WORKER_URL)};\n`
+      : "/* no runtime overrides */\n";
+    res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-store" });
+    return res.end(override);
+  }
+
   let filePath = path.join(__dirname, reqUrl === "/" ? "index.html" : reqUrl);
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || "application/octet-stream";
