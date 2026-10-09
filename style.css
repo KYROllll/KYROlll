@@ -65,9 +65,39 @@ main {
   flex: 1 0 auto;
 }
 
-@media (min-width: 601px) {
+@media (min-width: 769px) {
   .viewport {
     padding-left: 44px;
+  }
+}
+
+@media (max-width: 768px) {
+  .viewport {
+    padding-left: 0;
+  }
+  .cartbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    writing-mode: horizontal-tb;
+    text-orientation: initial;
+    border: none;
+    border-top: 1px solid #e0e0e0;
+    background: #ffffff;
+    color: #000000;
+    padding: 16px 24px max(16px, env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+  }
+  .cartbar[disabled] {
+    border-right: none;
+    border-top: 1px solid #e0e0e0;
   }
 }
 

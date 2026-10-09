@@ -678,7 +678,6 @@ function applyPromoCode() {
   errEl.hidden = true;
 
   if (!code) {
-    clearPromo();
     return;
   }
 
@@ -690,8 +689,10 @@ function applyPromoCode() {
     // badge represents the active discount in the summary above.
     syncPromoUI(true);
   } else {
-    appliedPromoCode = null;
-    persistPromo(null);
+    if (!appliedPromoCode) {
+      appliedPromoCode = null;
+      persistPromo(null);
+    }
     errEl.textContent = "INVALID PROMO CODE";
     errEl.hidden = false;
     input.classList.add("invalid");
