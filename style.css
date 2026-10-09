@@ -1411,6 +1411,25 @@ button {
   margin-bottom: 18px;
   padding-bottom: 18px;
   border-bottom: 1px solid #222;
+  overflow: hidden;
+  max-height: 300px;
+  opacity: 1;
+  visibility: visible;
+  transition: max-height 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.25s ease,
+              margin-bottom 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              padding-bottom 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              border-bottom-width 0.35s ease;
+}
+
+.order-form__section.is-collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom-width: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .promo-row {
@@ -1437,11 +1456,11 @@ button {
   gap: 8px;
   align-self: flex-start;
   margin: 0 0 4px;
-  padding: 6px 6px 6px 10px;
-  border: 1px solid rgba(74, 222, 128, 0.4);
+  padding: 6px 8px 6px 10px;
+  border: 1px solid #d1d5db;
   border-radius: 999px;
-  background: rgba(74, 222, 128, 0.08);
-  color: var(--white);
+  background: #ffffff;
+  color: #000000;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -1456,8 +1475,8 @@ button {
 }
 
 @keyframes promo-tag-in {
-  from { opacity: 0; transform: translateY(6px) scale(0.92); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .promo-tag__icon,
@@ -1470,7 +1489,7 @@ button {
 }
 
 .promo-tag__icon {
-  color: #4ade80;
+  color: #000000;
 }
 
 .promo-tag__icon svg {
@@ -1480,13 +1499,13 @@ button {
 }
 
 .promo-tag__code {
-  color: var(--white);
+  color: #000000;
 }
 
 .promo-tag__amount {
-  color: #4ade80;
-  padding-left: 10px;
-  border-left: 1px solid rgba(74, 222, 128, 0.3);
+  color: #16a34a;
+  padding-left: 8px;
+  border-left: 1px solid #e5e7eb;
 }
 
 .promo-tag__remove {
@@ -1497,8 +1516,8 @@ button {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
+  background: rgba(0, 0, 0, 0.08);
+  color: #000000;
   font-size: 13px;
   line-height: 1;
   cursor: pointer;
@@ -1506,8 +1525,8 @@ button {
 }
 
 .promo-tag__remove:hover {
-  background: #4ade80;
-  color: var(--black);
+  background: #000000;
+  color: #ffffff;
 }
 
 .btn {

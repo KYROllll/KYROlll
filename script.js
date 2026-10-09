@@ -460,7 +460,8 @@ function syncPromoUI(animate = false) {
 
   const promoSection = $("promo-section");
   if (promoSection) {
-    promoSection.hidden = on;
+    promoSection.classList.toggle("is-collapsed", on);
+    promoSection.setAttribute("aria-hidden", on ? "true" : "false");
     if (on) {
       const input = $("promo-code");
       if (input) input.value = "";
@@ -706,7 +707,10 @@ function clearPromo() {
   appliedPromoCode = null;
   persistPromo(null);
   const promoSection = $("promo-section");
-  if (promoSection) promoSection.hidden = false;
+  if (promoSection) {
+    promoSection.classList.remove("is-collapsed");
+    promoSection.setAttribute("aria-hidden", "false");
+  }
   const input = $("promo-code");
   if (input) {
     input.value = "";
