@@ -1,9 +1,13 @@
 // Cloudflare Worker backend — performs every NOWPayments call, holds the
 // download URLs, and dispatches the delivery email after an HMAC-verified
 // 'finished' IPN. Nothing order-related is submitted from this file.
-const WORKER_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-  ? "http://localhost:8787"
-  : "https://kencarter-checkout.kencarter-store.workers.dev";
+// config.js (served by server.mjs) can point this at a locally running checkout
+// Worker for the Base44 preview; without it the store falls back to localhost in
+// local dev and to the deployed Worker in production.
+const WORKER_URL = window.KYROLLL_WORKER_URL
+  || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? "http://localhost:8787"
+    : "https://kencarter-checkout.kencarter-store.workers.dev");
 
 const MP3_PRICE = 9.95;
 const PRICE = 14.95;
