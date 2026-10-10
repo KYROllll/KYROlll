@@ -731,7 +731,6 @@ function submitOrder(e) {
   e.preventDefault();
 
   const emailInput = $("email");
-  const errorEl = $("form-error");
   const email = emailInput.value.trim();
   normalizeFreePicks();
   const { n, subtotal, discount, total } = totals();
@@ -739,23 +738,11 @@ function submitOrder(e) {
   // gateway requirement — no payment method is needed for a free/test checkout.
   const isFreeOrder = total <= 0;
 
-  errorEl.hidden = true;
   emailInput.classList.remove("invalid");
 
-  if (!EMAIL_RE.test(email)) {
-    emailInput.classList.add("invalid");
-    errorEl.textContent = "ENTER A VALID EMAIL ADDRESS.";
-    errorEl.hidden = false;
-    return;
-  }
+  if (!EMAIL_RE.test(email)) return;
 
   if (isFreeOrder) {
-    if (!CATALOG.length) {
-      errorEl.textContent = "NO BEATS AVAILABLE.";
-      errorEl.hidden = false;
-      return;
-    }
-
     const chosen = CATALOG.filter((b) => selected.has(b.id));
     const exclusiveChosen = CATALOG.filter((b) => exclusiveSelected.has(b.id));
 
@@ -796,26 +783,11 @@ function submitOrder(e) {
 
   if (!isFreeOrder && payGroup && isGroupBelowMin(payGroup)) {
     const alt = firstAffordableGroup();
-    if (alt) {
-      selectPayment(alt.value);
-    } else {
-      errorEl.textContent = "CART TOTAL IS BELOW THE MINIMUM FOR EVERY SUPPORTED COIN.";
-      errorEl.hidden = false;
-      return;
-    }
-  }
-
-  if (!isFreeOrder && !payGroup) {
-    errorEl.textContent = "PLEASE SELECT A PAYMENT METHOD.";
-    errorEl.hidden = false;
+    if (alt) selectPayment(alt.value);
     return;
   }
 
-  if (!CATALOG.length) {
-    errorEl.textContent = "NO BEATS AVAILABLE.";
-    errorEl.hidden = false;
-    return;
-  }
+  if (!isFreeOrder && !payGroup) return;
 
   const chosen = CATALOG.filter((b) => selected.has(b.id));
   const exclusiveChosen = CATALOG.filter((b) => exclusiveSelected.has(b.id));
@@ -1139,11 +1111,9 @@ function showSuccessModal(order, statusText) {
   if (emailEl) emailEl.textContent = (order && order.email) || "";
   const totalEl = $("success-total");
   if (totalEl) totalEl.textContent = money(order && Number.isFinite(order.total) ? order.total : 0);
-  const errorEl = $("form-error");
-  if (errorEl) errorEl.hidden = true;
   const alertEl = $("payscreen-alert");
   if (alertEl) alertEl.hidden = true;
-  setSuccessStatus(statusText || "ORDER CONFIRMED — EMAIL DISPATCHED");
+  setSuccessStatus(statusText || "SUCCESS — ORDER CONFIRMED & EMAIL DISPATCHED");
 
   const modal = $("success-modal");
   if (modal) modal.hidden = false;
