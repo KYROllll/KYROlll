@@ -743,6 +743,33 @@ button {
   color: var(--black);
 }
 
+/* Single Prominent BUY Button */
+.buy-beat-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  background: var(--white);
+  color: var(--black);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 18px 24px;
+  border-radius: 4px;
+  border: 1px solid var(--white);
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.buy-beat-btn:hover {
+  background: #e2e2e5;
+  color: var(--black);
+}
+
 .paygrid__opt-sub {
   font-size: 7px;
   letter-spacing: 0.14em;

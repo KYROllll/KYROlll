@@ -1,7 +1,0 @@
-# Local dev secrets — copy to worker/.dev.vars (git-ignored) and fill in.
-NOWPAYMENTS_API_KEY=your-nowpayments-api-key
-NOWPAYMENTS_IPN_SECRET=your-ipn-secret-from-dashboard
-RESEND_API_KEY=re_your_resend_api_key
-RESEND_FROM="KYROlll <noreply@your-verified-domain>"
-BEAT_CATALOG={}
-BEAT_LINKS={}

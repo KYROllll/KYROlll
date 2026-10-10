@@ -1,13 +1,6 @@
 # Base44 dev environment for the KYROlll store.
 #
-# Two services, both running straight from the cloned source (no prebuilt app
-# image, no build step):
-#   web    — server.mjs static storefront on host port 3000 (the preview entry point)
-#   worker — wrangler dev (Cloudflare Worker checkout backend) on host port 8000,
-#            using wrangler's local runtime + local KV simulation
-#
-# The storefront is told where the local Worker lives via server.mjs' /config.js,
-# which only emits an override when BASE44_PREVIEW_MODE=1.
+# Static storefront running straight from cloned source via server.mjs on port 3000.
 name: kyrolll-store
 
 services:
@@ -19,12 +12,6 @@ services:
       - .:/app
     ports:
       - "3000:8080"
-    environment:
-      # Platform-provided; passthrough keeps the sandbox-only /config.js override
-      # gated on an exact "1" (unset elsewhere -> original behaviour preserved).
-      - BASE44_PREVIEW_MODE
-      # Public URL of the worker service below, injected into the preview page.
-      - KYROLLL_WORKER_URL=https://8000-${BASE44_PUBLIC_HOST_SUFFIX}
     restart: on-failure
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
@@ -32,48 +19,3 @@ services:
       timeout: 5s
       retries: 12
       start_period: 5s
-
-  worker:
-    image: node:22
-    working_dir: /app/worker
-    volumes:
-      - .:/app
-    ports:
-      - "8000:8787"
-    # Platform-managed secrets (NOWPAYMENTS_*, RESEND_*, FLESH_* links) land here.
-    # Listed LAST so dashboard values always win; empty today -> app still boots,
-    # checkout/email simply stay disabled until the owner supplies credentials.
-    env_file:
-      - /run/base44/app.env
-    environment:
-      - BASE44_PREVIEW_MODE
-    command:
-      - sh
-      - -ec
-      - |
-        npm ci --no-audit --no-fund
-        # wrangler reads local secrets from .dev.vars (git-ignored); mirror any
-        # injected env values into it without ever writing literals here.
-        : > .dev.vars
-        for k in NOWPAYMENTS_API_KEY NOWPAYMENTS_IPN_SECRET RESEND_API_KEY RESEND_FROM \
-                 FLESH_MP3_URL FLESH_WAV_URL FLESH_EXCLUSIVE_URL \
-                 BEAT_CATALOG BEAT_LINKS DISPATCH_SECRET ALLOWED_ORIGIN BASE_TOKEN_ADDRESS; do
-          v=$(printenv "$$k" || true)
-          if [ -n "$$v" ]; then printf '%s=%s\n' "$$k" "$$v" >> .dev.vars; fi
-        done
-        # Dev-only: the pinned wrangler (4.86) ships a workerd whose newest
-        # supported compatibility date is 2026-05-03, below the repo's
-        # `compatibility_date = "2026-08-01"`. Override it locally so the local
-        # runtime starts; wrangler.toml is untouched and `wrangler deploy` still
-        # uses the repo's date.
-        # Run Wrangler directly instead of through npx so a normal container
-        # shutdown does not get reported as an npm command failure (SIGTERM).
-        exec node ./node_modules/wrangler/bin/wrangler.js dev --config wrangler.toml --ip 0.0.0.0 --port 8787 \
-          --compatibility-date=2026-05-03
-    restart: on-failure
-    healthcheck:
-      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8787/api/catalog').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
-      interval: 10s
-      timeout: 5s
-      retries: 15
-      start_period: 120s
