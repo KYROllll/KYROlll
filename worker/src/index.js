@@ -866,7 +866,7 @@ const beatPageUrl = (beatId) => `${SITE_URL}/?beat=${encodeURIComponent(beatId)}
 
 // Default sender under the store's own (verified) domain, so delivery mail is
 // SPF/DKIM/DMARC-authenticated. Env RESEND_FROM overrides when provided.
-const DEFAULT_RESEND_FROM = "KYROlll <noreply@kyroll.store>";
+const DEFAULT_RESEND_FROM = "KYROlll <noreply@kyrolll.store>";
 // Keep the verified mailbox from configuration while updating its display name.
 const resendFrom = (env) => {
   const configured = env.RESEND_FROM || DEFAULT_RESEND_FROM;
@@ -1025,7 +1025,7 @@ async function assertExclusivesAvailable(env, orderId, exclusiveItems) {
 async function sendEmail(env, { to, subject, html, text = "", attachments = [] }) {
   const apiKey = env.RESEND_API_KEY;
   if (!apiKey) throw new Error("RESEND_API_KEY NOT CONFIGURED");
-  // Sender defaults to the store's own verified domain (kencarter.abrdns.com)
+  // Sender defaults to the store's own verified domain (kyrolll.store)
   // so SPF/DKIM/DMARC authenticate; an explicit RESEND_FROM env override wins.
   const from = resendFrom(env);
   if (!from) throw new Error("RESEND_FROM NOT CONFIGURED");
@@ -1035,7 +1035,7 @@ async function sendEmail(env, { to, subject, html, text = "", attachments = [] }
     subject: subject.startsWith("KYROlll") ? subject : `KYROlll — ${subject}`,
     reply_to: from,
     headers: {
-      "List-Unsubscribe": "<mailto:support@kyroll.store>",
+      "List-Unsubscribe": "<mailto:unsubscribe@kyrolll.store>",
       "X-Entity-Ref-ID": "kyrolll-order-" + Date.now()
     }
   };

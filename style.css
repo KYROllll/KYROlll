@@ -786,6 +786,45 @@ button {
   animation: payscreen-pop 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* Success confirmation: the headline and the dispatch status both wrap onto
+   several lines, so the card gets extra padding/height and roomy leading —
+   no text is ever clipped, whatever the email address or order length. */
+#success-modal .payscreen__card {
+  width: min(468px, 100%);
+  padding: 46px 30px 38px;
+  max-height: calc(100vh - 40px);
+}
+
+#success-modal .payscreen__title {
+  font-size: 16px;
+  line-height: 1.5;
+  letter-spacing: 0.1em;
+  margin: 14px auto 0;
+  max-width: 32ch;
+  padding: 0 6px;
+}
+
+#success-modal #success-status {
+  line-height: 1.6;
+  max-width: 100%;
+  white-space: normal;
+}
+
+#success-modal .payscreen__amounts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+#success-modal #success-total {
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+#success-modal .payscreen__note {
+  margin-top: 22px;
+}
+
 @keyframes payscreen-pop {
   from { opacity: 0; transform: translateY(10px) scale(0.97); }
 }
