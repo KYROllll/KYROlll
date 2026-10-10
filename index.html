@@ -10,21 +10,20 @@
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://www.kencarter.abrdns.com/assets/kyrolll-social.jpg">
   <title>KYROlll — BEATS &amp; ORIGINAL PRODUCTION</title>
-  <script>document.documentElement.classList.toggle("beat-page", new URLSearchParams(location.search).has("beat"));</script>
+  <script>document.documentElement.classList.toggle("beat-page", true);</script>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
-  <link rel="stylesheet" href="style.css?v=82">
+  <link rel="stylesheet" href="style.css?v=83">
 </head>
-<body>
+<body class="beat-page">
   <div class="viewport">
 
-  <header class="store-banner">
+  <header class="header">
     <button class="motion-toggle" type="button" aria-pressed="false">PAUSE MOTION −</button>
   </header>
 
   <section class="brand-hero" aria-labelledby="brand-title">
     <div class="signature-section">
       <h1 class="brand-wordmark" id="brand-title">KYROlll<span class="brand-wordmark__layer" aria-hidden="true">KYROlll</span><img class="brand-wordmark__mark" src="assets/kyrolll-brown-x.png" alt="" width="349" height="450" aria-hidden="true"></h1>
-      <a class="hero-link" href="#catalog">EXPLORE BEATS <span class="hero-link__arrow" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></span></a>
     </div>
     <div class="brand-logo-container">
       <div class="logo-stage" role="img" aria-label="KYROlll custom die-cut pearl flower, rotating in three dimensions">
@@ -35,8 +34,8 @@
 
   <div class="marquee-banner" aria-label="Marquee announcement">
     <div class="marquee-track">
-      <span>KYROlll &mdash; ORIGINAL SOUND &mdash; BEATS & BEATSTARS EXCLUSIVES &mdash; DON TOLIVER TYPE BEAT "FLESH" &mdash; 130 BPM // Am &mdash; PURCHASE ON BEATSTARS</span>
-      <span>KYROlll &mdash; ORIGINAL SOUND &mdash; BEATS & BEATSTARS EXCLUSIVES &mdash; DON TOLIVER TYPE BEAT "FLESH" &mdash; 130 BPM // Am &mdash; PURCHASE ON BEATSTARS</span>
+      <span>KYROlll &mdash; ORIGINAL SOUND &mdash; BEATS & BEATSTARS EXCLUSIVES &mdash; [FREE] DON TOLIVER TYPE BEAT - FLESH &mdash; 130 BPM // Am &mdash; PURCHASE ON BEATSTARS</span>
+      <span>KYROlll &mdash; ORIGINAL SOUND &mdash; BEATS & BEATSTARS EXCLUSIVES &mdash; [FREE] DON TOLIVER TYPE BEAT - FLESH &mdash; 130 BPM // Am &mdash; PURCHASE ON BEATSTARS</span>
     </div>
   </div>
 
@@ -59,11 +58,47 @@
   </section>
 
   <main>
-    <div class="catalog-heading catalog-heading--empty" id="catalog"></div>
-    <nav class="beat-navigation" id="beat-navigation" aria-label="Beat navigation" hidden>
-      <a href="index.html#catalog" id="all-beats-link">← ALL BEATS</a>
+    <div class="catalog-heading catalog-heading--empty" id="catalog" hidden></div>
+    <nav class="beat-navigation" id="beat-navigation" aria-label="Beat navigation">
+      <a href="index.html" id="all-beats-link">← KYROlll STORE</a>
     </nav>
-    <section class="grid" id="grid" aria-label="Available beats"></section>
+    <section class="grid grid--detail" id="grid" aria-label="Beat details">
+      <article class="beat-detail vinyl-open" id="card-flesh">
+        <section class="beat-detail__content" aria-label="Beat details and purchase">
+          <div class="card__meta">
+            <div class="card__name">
+              <h2 class="card__title-link animate-glow">
+                <span>[FREE] DON TOLIVER TYPE BEAT - FLESH</span>
+              </h2>
+            </div>
+            <div class="card__specs animate-glow">130 BPM // Am // TAGGED AUDIO</div>
+          </div>
+          <div class="beat-preview" data-title="[FREE] DON TOLIVER TYPE BEAT - FLESH" data-state="idle">
+            <audio class="beat-preview__audio" src="assets/previews/BEAT 1 TAG.wav" preload="none"></audio>
+            <button type="button" class="beat-preview__toggle" aria-label="Play preview: [FREE] DON TOLIVER TYPE BEAT - FLESH" aria-pressed="false">
+              <svg class="beat-preview__play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+              <svg class="beat-preview__pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
+            </button>
+            <div class="beat-preview__details">
+              <input class="beat-preview__seek" type="range" min="0" max="100" step="0.1" value="0" disabled aria-label="Seek preview: [FREE] DON TOLIVER TYPE BEAT - FLESH">
+              <span class="beat-preview__time">0:00 / --:--</span>
+            </div>
+            <span class="beat-preview__status" role="status">AUDIO PREVIEW</span>
+          </div>
+          <div class="card__actions">
+            <a class="buy-beat-btn card__btn-3d" href="https://bsta.rs/GwSz83" target="_blank" rel="noopener noreferrer">
+              BUY
+            </a>
+          </div>
+        </section>
+        <div class="beat-detail__artwork-wrap">
+          <div class="vinyl-record"></div>
+          <figure class="beat-detail__artwork">
+            <img src="assets/flesh.png" alt="[FREE] DON TOLIVER TYPE BEAT - FLESH cover art" decoding="async" fetchpriority="high">
+          </figure>
+        </div>
+      </article>
+    </section>
   </main>
 
   <footer class="footer">
@@ -74,7 +109,7 @@
 
   <script src="assets/qrcode.min.js"></script>
   <script src="preview-player.js?v=2"></script>
-  <script src="script.js?v=26"></script>
+  <script src="script.js?v=27"></script>
   <script type="module" src="assets/brand-logo.min.js?v=5"></script>
   <script type="module" src="assets/background-x.min.js?v=2"></script>
 </body>
