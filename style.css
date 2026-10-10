@@ -2288,28 +2288,116 @@ body > canvas {
   }
 }
 
-/* Audio Player Active Pulse & Wave Animations */
-.beat-preview[data-state="playing"] {
-  border-color: var(--white);
-  box-shadow: 0 0 30px rgba(255, 255, 255, 0.08);
+/* Vinyl Record & 3D Artwork Effects */
+.beat-detail__artwork-wrap {
+  grid-column: 2;
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 1;
+  justify-self: center;
+  margin: 0 auto;
+  perspective: 1200px;
 }
-.beat-preview[data-state="playing"] .beat-preview__status {
-  color: var(--white);
-  animation: audioPulse 1.2s ease-in-out infinite alternate;
+.vinyl-record {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 90%;
+  height: 90%;
+  transform: translateY(-50%) translateX(0) rotate(0deg);
+  background: radial-gradient(circle, #111 0%, #1a1a1a 40%, #000 70%, #222 100%);
+  border-radius: 50%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  z-index: 1;
+  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.8s ease;
 }
-.beat-preview[data-state="playing"] .beat-preview__toggle {
-  background: var(--white);
-  color: var(--black);
-  animation: togglePulse 1.2s ease-in-out infinite;
+.vinyl-record::before {
+  content: "";
+  position: absolute;
+  inset: 15%;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle, #151515, #151515 4px, #252525 5px, #111 6px);
 }
-.beat-preview[data-state="playing"] .beat-preview__seek {
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));
+.vinyl-record::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 32%;
+  height: 32%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, #b8860b 0%, #8b6508 60%, #333 100%);
+  border: 4px solid #000;
 }
-@keyframes audioPulse {
-  0% { opacity: 0.6; transform: scale(0.98); }
-  100% { opacity: 1; transform: scale(1.02); }
+.beat-detail:hover .vinyl-record {
+  transform: translateY(-50%) translateX(28%) rotate(135deg);
+  box-shadow: 15px 15px 40px rgba(0, 0, 0, 0.8);
 }
-@keyframes togglePulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.5); }
-  50% { transform: scale(1.06); box-shadow: 0 0 18px 3px rgba(255, 255, 255, 0.35); }
+.beat-detail__artwork {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  border-radius: 4px;
+  border: 1px solid var(--hairline);
+  overflow: hidden;
+  background: var(--paper);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+}
+
+/* 3D Button & Audio Player Effects */
+.buy-beat-btn, .beat-preview {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, background 0.2s ease;
+  transform-style: preserve-3d;
+}
+.buy-beat-btn:hover {
+  transform: perspective(1000px) rotateY(4deg) translateY(-2px);
+  box-shadow: 0 10px 30px rgba(255, 255, 255, 0.25);
+  background: #ffffff;
+}
+.beat-preview:hover {
+  transform: perspective(1000px) rotateY(-2deg);
+}
+
+/* Gorgeous Fade & Glow Animations */
+@keyframes softGlow {
+  0%, 100% { opacity: 0.9; text-shadow: 0 0 10px rgba(255,255,255,0.1); }
+  50% { opacity: 1; text-shadow: 0 0 20px rgba(255,255,255,0.3); }
+}
+.animate-glow {
+  animation: softGlow 4s ease-in-out infinite;
+}
+
+/* Layout Padding & Alignment (Zero Left Clipping) */
+.viewport {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 0;
+}
+.header {
+  padding: 24px clamp(20px, 4vw, 48px);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  box-sizing: border-box;
+}
+.brand-hero {
+  padding: 40px clamp(20px, 4vw, 48px) 56px;
+  box-sizing: border-box;
+}
+.catalog-heading {
+  padding: 24px clamp(20px, 4vw, 48px);
+  box-sizing: border-box;
+}
+.grid {
+  padding: 0 clamp(20px, 4vw, 48px) 64px;
+  box-sizing: border-box;
+}
+.beat-navigation {
+  padding: 22px clamp(20px, 4vw, 48px) 0;
+  box-sizing: border-box;
 }

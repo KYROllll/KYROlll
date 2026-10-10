@@ -1,7 +1,7 @@
 const CATALOG = [{
-  id: "flesh", title: 'Don Toliver type beat - "FLESH"', name: 'DON TOLIVER TYPE BEAT - "FLESH" - BPM 130 - KEY Am TAG',
+  id: "flesh", title: 'DON [FREE] TOLIVER TYPE BEAT - FLESH', name: 'DON TOLIVER TYPE BEAT - "FLESH" - BPM 130 - KEY Am TAG',
   img: "assets/flesh.png", bpm: 130, key: "Am",
-  preview: "assets/previews/flesh.mp3",
+  preview: "assets/previews/DON TOLIVER TYPE BEAT - \"FLESH\" - BPM 130 - KEY Am TAG.wav",
   beatstarsUrl: "https://bsta.rs/GwSz83"
 }];
 
@@ -52,23 +52,26 @@ function beatDetailInner(beat) {
     <section class="beat-detail__content" aria-label="Beat details and purchase">
       <div class="card__meta">
         <div class="card__name">
-          <h2 class="card__title-link">
+          <h2 class="card__title-link animate-glow">
               <span>${beat.title}${beat.name ? ` <span class="card__name-alt">\u2014 ${beat.name}</span>` : ""}</span>
           </h2>
           ${youtubeHTML(beat, true)}
         </div>
-        <div class="card__specs">${specLine(beat)}</div>
+        <div class="card__specs animate-glow">${specLine(beat)} // TAGGED AUDIO</div>
       </div>
       ${previewHTML(beat)}
       <div class="card__actions">
-        <a class="buy-beat-btn" href="${attr(buyUrl)}" target="_blank" rel="noopener noreferrer">
+        <a class="buy-beat-btn card__btn-3d" href="${attr(buyUrl)}" target="_blank" rel="noopener noreferrer">
           BUY
         </a>
       </div>
     </section>
-    <figure class="beat-detail__artwork">
-      <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" decoding="async" fetchpriority="high">
-    </figure>`;
+    <div class="beat-detail__artwork-wrap">
+      <div class="vinyl-record"></div>
+      <figure class="beat-detail__artwork">
+        <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" decoding="async" fetchpriority="high">
+      </figure>
+    </div>`;
 }
 
 const byNewest = (a, b) => CATALOG.indexOf(b) - CATALOG.indexOf(a);
