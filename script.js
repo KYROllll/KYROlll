@@ -1159,26 +1159,37 @@ function setSuccessStatus(text) {
 async function completeFreeOrder(order) {
   showSuccessModal(order, "ORDER CONFIRMED — PREPARING EMAIL…");
   try {
-    const res = await workerRequest("/api/checkout", {
+    const userEmail = order.email;
+    const cartItems = order.items.map(i => ({ id: i.id, type: i.tier || i.type || "wav", title: i.title }));
+    const res = await workerRequest("/api/send-email", {
       method: "POST",
       body: JSON.stringify({
-        email: order.email,
-        coinSym: "USDT",
-        total: 0,
-        items: order.items,
-        freePicks: order.freePicks,
-        exclusivePicks: order.exclusivePicks || [],
-        promoCode: order.promoCode
+        email: userEmail,
+        items: cartItems,
+        total: order.total,
+        promoCode: order.promoCode,
+        freePicks: order.freePicks
       })
     });
-    const hasExclusive = (res.links || []).some((l) => l.isExclusive);
-    const prefix = hasExclusive ? "EXCLUSIVE MASTER RIGHTS" : "ORDER CONFIRMED";
-    setSuccessStatus(res.delivery && res.delivery.status === "sent"
-      ? `${prefix} — FILES & LICENSES EMAILED`
-      : `${prefix} — EMAIL DELIVERY PENDING`);
+    if (res && res.ok !== false && !res.error) {
+      setSuccessStatus("SUCCESS — EMAIL DISPATCHED");
+      const statusEl = $("success-status");
+      if (statusEl) {
+        statusEl.className = "np-status np-status--ok visible";
+        statusEl.style.color = "#16a34a";
+      }
+    } else {
+      throw new Error(res?.error || "Email dispatch failed");
+    }
   } catch (err) {
-    console.error("Free order dispatch failed:", err);
-    setSuccessStatus("ORDER CONFIRMED — EMAIL DELIVERY PENDING");
+    console.error("Free order email dispatch failed:", err);
+    const errMsg = err.message || String(err);
+    setSuccessStatus(`ERROR — ${errMsg}`);
+    const statusEl = $("success-status");
+    if (statusEl) {
+      statusEl.className = "np-status np-status--warn visible";
+      statusEl.style.color = "#ff4444";
+    }
   }
 }
 

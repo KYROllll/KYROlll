@@ -350,6 +350,21 @@ test("100% off promo code KYROTEST sets total to $0 and successfully dispatches 
   } finally { restore(); }
 });
 
+test("POST /api/send-email triggers email dispatch successfully", async () => {
+  const { api, mails, restore } = setup();
+  try {
+    const res = await api("/api/send-email", "POST", {
+      email: "sendemail@example.com",
+      items: [{ id: "beat1", type: "mp3" }],
+      total: 0
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.data.ok, true);
+    assert.equal(mails.length, 1);
+    assert.equal(mails[0].to, "sendemail@example.com");
+  } finally { restore(); }
+});
+
 test("mins lookup skips the network when NOWPayments is not configured", async () => {
   const fetchOriginal = globalThis.fetch;
   let calls = 0;

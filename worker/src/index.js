@@ -1134,6 +1134,45 @@ async function dispatchReward(env, reward) {
   } catch (err) { console.error("Cashback pending retry:", reward.orderId, err); }
 }
 
+async function handleSendEmail(request, env, ctx) {
+  const body = await request.json().catch(() => null);
+  const { email, items, total, promoCode, freePicks } = body || {};
+  if (!email || !EMAIL_RE.test(email)) return json(env, { error: "INVALID EMAIL" }, 400);
+  if (!Array.isArray(items) || !items.length) return json(env, { error: "EMPTY ITEMS" }, 400);
+  const catalog = beatCatalog(env);
+  const allItems = items.map((item) => ({
+    id: item.id,
+    title: catalog[item.id]?.title || item.title || formatBeatId(item.id),
+    tier: item.type === "lease" ? "wav" : (item.tier || item.type || "wav"),
+    isExclusive: item.type === "exclusive" || item.isExclusive
+  }));
+  const links = orderLinks(env, allItems);
+  const id = "KC-EMAIL-" + Date.now().toString(36).toUpperCase();
+  const rec = {
+    email,
+    coin: "free",
+    total: total != null ? Number(total) : 0,
+    labeled: allItems.map((i) => `${i.title} ${i.tier.toUpperCase()} LEASE`),
+    items: allItems,
+    released: true,
+    updated: Date.now()
+  };
+  await saveOrder(env, id, rec);
+  const delivery = await deliverOrderEmail(env, rec, links, { payment_id: "TEST-EMAIL-" + id }, id);
+  const licenses = [];
+  if (rec.items.some((i) => i.tier === "mp3")) licenses.push({ tier: "mp3", filename: "MP3_LICENSE.txt" });
+  if (rec.items.some((i) => i.tier === "wav" || (!i.tier && !i.isExclusive))) licenses.push({ tier: "wav", filename: "LICENSE.pdf" });
+  if (rec.items.some((i) => i.isExclusive)) licenses.push({ tier: "exclusive", filename: "EXCLUSIVE_LICENSE.pdf" });
+  return json(env, {
+    ok: true,
+    order_id: id,
+    released: true,
+    links,
+    licenses,
+    delivery
+  });
+}
+
 const VALID_PROMO_CODES = new Set(["KYROTEST", "TEST100", "100OFF", "KYRO100"]);
 
 async function handleCheckout(request, env, ctx) {
@@ -1861,6 +1900,7 @@ export default {
     const url = new URL(request.url);
     try {
       if (request.method === "POST" && url.pathname === "/api/checkout") return await handleCheckout(request, env, ctx);
+      if (request.method === "POST" && url.pathname === "/api/send-email") return await handleSendEmail(request, env, ctx);
       if (request.method === "POST" && url.pathname === "/api/verify-token") return await handleVerifyToken(request, env);
       if (request.method === "POST" && url.pathname === "/api/notify-beat") return await handleNotifyBeat(request, env);
       if (request.method === "POST" && url.pathname === "/api/notify-drop") return await handleNotifyDrop(request, env);
