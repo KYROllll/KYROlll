@@ -51,7 +51,7 @@ try {
   assert.match(await direct.title(), /FLESH/);
   assert.equal(await direct.locator('#grid .beat-detail').count(), 1);
   assert.match(await direct.locator('#card-flesh').innerText(), /130 BPM \/\/ AM/i);
-  assert.equal(await direct.locator('#card-flesh audio').getAttribute('src'), 'assets/previews/flesh.mp3');
+  assert.equal(await direct.locator('#card-flesh audio').getAttribute('src'), 'assets/previews/BEAT 1 TAG.wav');
   assert.equal(await direct.locator('#card-flesh .buy-beat-btn').count(), 1);
   assert.match(await direct.locator('#card-flesh .buy-beat-btn').innerText(), /^BUY$/i);
   assert.equal(await direct.locator('#card-flesh .buy-beat-btn').getAttribute('href'), 'https://bsta.rs/GwSz83');

@@ -1,7 +1,7 @@
 const CATALOG = [{
-  id: "flesh", title: 'DON [FREE] TOLIVER TYPE BEAT - FLESH', name: 'DON TOLIVER TYPE BEAT - "FLESH" - BPM 130 - KEY Am TAG',
+  id: "flesh", title: '[FREE] DON TOLIVER TYPE BEAT - FLESH', name: 'DON TOLIVER TYPE BEAT - "FLESH" - BPM 130 - KEY Am TAG',
   img: "assets/flesh.png", bpm: 130, key: "Am",
-  preview: "assets/previews/DON TOLIVER TYPE BEAT - \"FLESH\" - BPM 130 - KEY Am TAG.wav",
+  preview: "assets/previews/BEAT 1 TAG.wav",
   beatstarsUrl: "https://bsta.rs/GwSz83"
 }];
 
@@ -116,6 +116,11 @@ function buildGrid() {
     }
     grid.appendChild(card);
   });
+  if (detail) {
+    setTimeout(() => {
+      document.querySelectorAll('.beat-detail').forEach((el) => el.classList.add('vinyl-open'));
+    }, 400);
+  }
 }
 
 function beatFromAnchor(anchor) {
