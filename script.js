@@ -1,5 +1,5 @@
 const CATALOG = [{
-  id: "flesh", title: 'Don Toliver type beat - "FLESH"', name: "",
+  id: "flesh", title: 'Don Toliver type beat - "FLESH"', name: 'DON TOLIVER TYPE BEAT - "FLESH" - BPM 130 - KEY Am TAG',
   img: "assets/flesh.png", bpm: 130, key: "Am",
   preview: "assets/previews/flesh.mp3",
   beatstarsUrl: "https://www.beatstars.com"
