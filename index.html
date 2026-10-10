@@ -12,9 +12,11 @@
   <title>KYROlll — BEATS &amp; ORIGINAL PRODUCTION</title>
   <script>document.documentElement.classList.toggle("beat-page", true);</script>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
-  <link rel="stylesheet" href="style.css?v=83">
+  <link rel="stylesheet" href="style.css?v=90">
 </head>
-<body class="beat-page">
+<!-- The `beat-page` state lives on <html> only (set here and re-synced by script.js),
+     so the homepage hero renders in its full immersive form. -->
+<body>
   <div class="viewport">
 
   <header class="header">
@@ -30,6 +32,10 @@
         <img class="logo-fallback" src="assets/kyrolll-metal.png?v=2" alt="" width="640" height="640" fetchpriority="high">
       </div>
     </div>
+    <a class="scroll-cue" id="scroll-cue" href="#grid" aria-label="Scroll down to explore the beat catalog">
+      <span class="scroll-cue__text">EXPLORE THE BEATS</span>
+      <span class="scroll-cue__arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+    </a>
   </section>
 
   <div class="marquee-banner" aria-label="Marquee announcement">
@@ -63,7 +69,7 @@
       <a href="index.html" id="all-beats-link">← KYROlll STORE</a>
     </nav>
     <section class="grid grid--detail" id="grid" aria-label="Beat details">
-      <article class="beat-detail vinyl-open" id="card-flesh">
+      <article class="beat-detail" id="card-flesh">
         <section class="beat-detail__content" aria-label="Beat details and purchase">
           <div class="card__meta">
             <div class="card__name">
@@ -92,7 +98,9 @@
           </div>
         </section>
         <div class="beat-detail__artwork-wrap">
-          <div class="vinyl-record"></div>
+          <div class="vinyl-record" aria-hidden="true">
+            <img class="vinyl-record__label" src="assets/kyrolll-flower.svg" alt="" width="300" height="300" loading="lazy">
+          </div>
           <figure class="beat-detail__artwork">
             <img src="assets/flesh.png" alt="[FREE] DON TOLIVER TYPE BEAT - FLESH cover art" decoding="async" fetchpriority="high">
           </figure>
@@ -108,9 +116,10 @@
   </div>
 
   <script src="assets/qrcode.min.js"></script>
-  <script src="preview-player.js?v=2"></script>
-  <script src="script.js?v=27"></script>
+  <script src="preview-player.js?v=3"></script>
+  <script src="script.js?v=28"></script>
   <script type="module" src="assets/brand-logo.min.js?v=5"></script>
   <script type="module" src="assets/background-x.min.js?v=2"></script>
+  <script src="hero-intro.js?v=2"></script>
 </body>
 </html>

@@ -2401,3 +2401,473 @@ body > canvas {
   padding: 22px clamp(20px, 4vw, 48px) 0;
   box-sizing: border-box;
 }
+
+/* ==========================================================================
+   KYROlll — MASTERCLASS OVERHAUL
+   Hero intro & scroll storytelling · exact release title · vinyl flower
+   auto-slide · 3D glowing BUY button · audio-reactive player · fluid mobile.
+   --------------------------------------------------------------------------
+   Reads one custom property published by hero-intro.js on the hero element:
+   `--hero-p` is the 0 → 1 scroll progress of the intro. Every hero movement
+   below is derived from it, so scrolling is a single style write per frame.
+   ========================================================================== */
+
+/* ---------- 1. The Portal — hero intro, brand glow, scroll storytelling ----- */
+
+.brand-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  justify-content: center;
+  min-height: min(86vh, 880px);
+  min-height: min(86svh, 880px);
+  padding-bottom: clamp(104px, 16vh, 190px);
+  --hero-p: 0;
+}
+
+.beat-page .brand-hero { min-height: 0; padding-bottom: 14px; }
+
+/* Bioluminescent halo behind the mark — expands and dissolves as you scroll. */
+.brand-hero::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: min(130vw, 980px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) scale(calc(1 + var(--hero-p) * 0.22));
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.17), rgba(255, 255, 255, 0.05) 36%, transparent 66%);
+  filter: blur(12px);
+  opacity: max(0, calc(0.95 - var(--hero-p) * 1.15));
+  pointer-events: none;
+  z-index: 0;
+}
+
+.beat-page .brand-hero::before { display: none; }
+
+/* Grainy vignette that rises into the frame as the intro hands over to the catalog. */
+.brand-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 52%;
+  background:
+    linear-gradient(to bottom, transparent, rgba(8, 8, 9, 0.92)),
+    radial-gradient(ellipse at 50% 130%, rgba(255, 255, 255, 0.07), transparent 62%);
+  opacity: calc(var(--hero-p) * 0.9);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.beat-page .brand-hero::after { display: none; }
+
+/* Parallax layers: the wordmark drifts up, the 3D flower sinks and grows. */
+.signature-section {
+  transform: translate3d(0, calc(var(--hero-p) * -48px), 0);
+  opacity: max(0, calc(1 - var(--hero-p) * 1.2));
+}
+
+.brand-logo-container {
+  position: relative;
+  z-index: 1;
+  transform: translate3d(0, calc(var(--hero-p) * 76px), 0) scale(calc(1 + var(--hero-p) * 0.06));
+  opacity: max(0, calc(1 - var(--hero-p) * 1.35));
+}
+
+.brand-wordmark {
+  text-shadow:
+    0 0 22px rgba(255, 255, 255, 0.22),
+    0 0 64px rgba(255, 255, 255, 0.12);
+  animation: heroWordmarkIn 1.15s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+}
+
+.logo-stage {
+  animation:
+    heroLogoIn 1.3s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both,
+    logoBreathe 7.5s ease-in-out 1.6s infinite;
+}
+
+@keyframes heroWordmarkIn {
+  from { opacity: 0; transform: translateY(22px); letter-spacing: -0.02em; }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes heroLogoIn {
+  from { opacity: 0; transform: translateY(30px) scale(0.9); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes logoBreathe {
+  0%, 100% { filter: drop-shadow(0 0 26px rgba(255, 255, 255, 0.13)); }
+  50% { filter: drop-shadow(0 0 52px rgba(255, 255, 255, 0.24)); }
+}
+
+/* The prompt: glass pill + spring-loaded "V" glyph. */
+.scroll-cue {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(26px, 5vh, 58px);
+  z-index: 3;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  backdrop-filter: blur(10px) saturate(1.25);
+  -webkit-backdrop-filter: blur(10px) saturate(1.25);
+  color: var(--white);
+  text-decoration: none;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  opacity: max(0, calc(1 - var(--hero-p) * 1.8));
+  transform: translateX(-50%);
+  animation: cueIn 1s cubic-bezier(0.16, 1, 0.3, 1) 0.75s both;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+
+.scroll-cue:hover,
+.scroll-cue:focus-visible {
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 0 26px rgba(255, 255, 255, 0.22);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+}
+
+.scroll-cue__arrow {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  color: var(--white);
+  animation: cueBounce 2.6s cubic-bezier(0.22, 1.4, 0.36, 1) infinite;
+}
+
+.scroll-cue__arrow svg { width: 17px; height: 17px; display: block; }
+
+.beat-page .scroll-cue { display: none; }
+
+@keyframes cueIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(22px); }
+  to { transform: translateX(-50%) translateY(0); }
+}
+
+/* Spring physics (stiffness 100 / damping 10): heavy, premium settle. */
+@keyframes cueBounce {
+  0% { transform: translateY(0); }
+  16% { transform: translateY(9px); }
+  34% { transform: translateY(-4px); }
+  52% { transform: translateY(6px); }
+  70% { transform: translateY(-1px); }
+  84% { transform: translateY(3px); }
+  100% { transform: translateY(0); }
+}
+
+/* ---------- 2. Scroll reveals for the sections under the fold --------------- */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reveal.is-revealed { opacity: 1; transform: none; }
+
+/* ---------- 3. The Vinyl Sanctum — flower label + locked-open slide --------- */
+
+/* Sleeve and record share a single box: with size + size × slide ≤ 100% the
+   record can never be clipped by the viewport, at any breakpoint. */
+.beat-detail__artwork-wrap {
+  --vinyl-size: 84%;
+  --vinyl-slide: 19%;
+  perspective: 1400px;
+}
+
+/* The sleeve gives the record room to travel by handing over part of its box. */
+.beat-detail__artwork {
+  width: var(--vinyl-size);
+  height: var(--vinyl-size);
+  margin: 0;
+  max-width: 480px;
+  transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 1s ease;
+}
+
+.vinyl-record {
+  left: 0;
+  right: auto;
+  width: var(--vinyl-size);
+  height: var(--vinyl-size);
+  transform: translateY(-50%) translateX(0) rotate(0deg);
+  background:
+    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 7px),
+    radial-gradient(circle at 50% 50%, #1b1b1e 0%, #101012 42%, #050506 72%, #17171a 100%);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.72);
+  transition:
+    transform 1.15s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 1.15s ease;
+  will-change: transform;
+}
+
+.vinyl-record::before {
+  inset: 9%;
+  background: repeating-radial-gradient(circle, #131316, #131316 3px, #232327 4px, #0d0d0f 5px);
+  opacity: 0.85;
+}
+
+/* Center label: the signature flower, spinning like a real platter. */
+.vinyl-record::after {
+  width: 36%;
+  height: 36%;
+  background: radial-gradient(circle at 50% 38%, #24242a, #0b0b0d 72%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.9);
+}
+
+.vinyl-record__label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30%;
+  height: 30%;
+  transform: translate(-50%, -50%);
+  opacity: 0.94;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.28));
+  animation: vinylSpin 6s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes vinylSpin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Locked-open position: reached automatically a few seconds after load. */
+.beat-detail.vinyl-open .vinyl-record,
+.beat-detail:hover .vinyl-record {
+  transform: translateY(-50%) translateX(var(--vinyl-slide)) rotate(26deg);
+  box-shadow: 0 26px 58px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.beat-detail.vinyl-open .beat-detail__artwork,
+.beat-detail:hover .beat-detail__artwork {
+  transform: translateX(-4%);
+  box-shadow: 0 22px 46px rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- 4. The Command Center — 3D BUY button & audio-reactive player ---- */
+
+.buy-beat-btn {
+  position: relative;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  transform-origin: center;
+  transition:
+    transform 0.6s cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 0.45s ease,
+    background 0.3s ease,
+    color 0.3s ease;
+  animation: buyTilt 7.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Continuous, subtle 3D tilt while the button rests. */
+@keyframes buyTilt {
+  0%, 100% { transform: perspective(900px) rotateX(4deg) rotateY(-5deg); }
+  50% { transform: perspective(900px) rotateX(-4deg) rotateY(5deg); }
+}
+
+/* Hover: flatten out and flood the button with a clean radiant-white neon glow. */
+@media (hover: hover) and (pointer: fine) {
+  .buy-beat-btn:hover,
+  .buy-beat-btn:focus-visible {
+    animation: none;
+    transform: perspective(900px) rotateX(0deg) rotateY(0deg) translateZ(16px);
+    background: #ffffff;
+    color: var(--black);
+    box-shadow:
+      0 0 30px rgba(255, 255, 255, 0.4),
+      0 0 70px rgba(255, 255, 255, 0.24),
+      0 12px 32px rgba(0, 0, 0, 0.45);
+  }
+}
+
+.buy-beat-btn:focus-visible { outline: 2px solid var(--white); outline-offset: 3px; }
+
+/* Glass player surface; the playing state becomes the reactive element. */
+.beat-preview {
+  position: relative;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.beat-preview:hover { transform: perspective(1000px) rotateY(-2deg) translateY(-2px); }
+
+/* Rotating conic sheen around the frame — the "audio-reactive" border. */
+.beat-preview::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from 0deg,
+    transparent 0deg,
+    rgba(255, 255, 255, 0.55) 60deg,
+    transparent 130deg,
+    transparent 190deg,
+    rgba(255, 255, 255, 0.38) 250deg,
+    transparent 320deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+  animation: playerSpin 3.6s linear infinite;
+}
+
+@keyframes playerSpin { to { transform: rotate(360deg); } }
+
+.beat-preview[data-state="playing"] {
+  border-color: rgba(255, 255, 255, 0.4);
+  animation: playerPulse 1.9s ease-in-out infinite;
+}
+
+.beat-preview[data-state="playing"]::before { opacity: 1; }
+
+.beat-preview[data-state="playing"] .beat-preview__toggle {
+  animation: togglePulse 1.9s ease-in-out infinite;
+}
+
+.beat-preview[data-state="playing"] .beat-preview__seek {
+  background: linear-gradient(to right, var(--white) var(--preview-progress), rgba(255, 255, 255, 0.14) var(--preview-progress)) center / 100% 3px no-repeat;
+}
+
+@keyframes playerPulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16), 0 0 14px rgba(255, 255, 255, 0.1); }
+  50% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 0 0 36px rgba(255, 255, 255, 0.32); }
+}
+
+@keyframes togglePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.5); }
+  50% { box-shadow: 0 0 0 11px rgba(255, 255, 255, 0); }
+}
+
+/* ---------- 5. Promo banner & countdown polish ------------------------------ */
+
+.promo-banner {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015)),
+    #101013;
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+
+.promo-banner__tag { color: #d7d7dc; }
+
+.promo-code {
+  box-shadow: 0 0 22px rgba(255, 255, 255, 0.34);
+}
+
+.countdown__item {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* ---------- 6. Extra polish: glass detail panel & catalog micro-interactions - */
+
+.beat-detail__content {
+  padding: clamp(18px, 2.6vw, 34px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 20px;
+  background: linear-gradient(158deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.012));
+  backdrop-filter: blur(16px) saturate(1.25);
+  -webkit-backdrop-filter: blur(16px) saturate(1.25);
+}
+
+.catalog-tile {
+  border-radius: 6px;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s ease, border-color 0.4s ease;
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
+
+.catalog-tile:hover,
+.catalog-tile:focus-within {
+  transform: translateY(-6px) rotateX(2.5deg) rotateY(-2deg);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 26px 46px rgba(0, 0, 0, 0.55), 0 0 34px rgba(255, 255, 255, 0.07);
+}
+
+/* ---------- 7. Motion control --------------------------------------------- */
+
+.motion-paused .logo-stage,
+.motion-paused .scroll-cue__arrow,
+.motion-paused .vinyl-record__label,
+.motion-paused .buy-beat-btn,
+.motion-paused .beat-preview[data-state="playing"],
+.motion-paused .beat-preview[data-state="playing"]::before,
+.motion-paused .beat-preview[data-state="playing"] .beat-preview__toggle,
+.motion-paused .brand-hero::before {
+  animation-play-state: paused !important;
+}
+
+/* ---------- 8. Fluid mobile & tablet -------------------------------------- */
+
+@media (max-width: 1024px) {
+  .brand-hero {
+    min-height: min(80vh, 780px);
+    min-height: min(80svh, 780px);
+    padding-bottom: clamp(92px, 15vh, 150px);
+  }
+  .brand-hero::before { width: min(150vw, 760px); }
+}
+
+@media (max-width: 768px) {
+  /* Both halves of the stack must live in column 1: the sleeve still carried a
+     `grid-column: 2`, which created an implicit second track and collapsed the
+     copy to 0px wide on phones. */
+  .beat-detail__content { grid-column: 1; order: 1; padding: 18px; border-radius: 16px; }
+  .beat-detail__artwork-wrap { grid-column: 1; order: 2; }
+  .beat-detail.vinyl-open .beat-detail__artwork,
+  .beat-detail:hover .beat-detail__artwork { transform: translateX(-2%); }
+  .catalog-tile:hover,
+  .catalog-tile:focus-within { transform: translateY(-4px); }
+}
+
+@media (max-width: 600px) {
+  .brand-hero {
+    min-height: min(76vh, 660px);
+    min-height: min(76svh, 660px);
+    padding-bottom: 88px;
+  }
+  .brand-wordmark { text-shadow: 0 0 16px rgba(255, 255, 255, 0.2), 0 0 40px rgba(255, 255, 255, 0.1); }
+  .scroll-cue { gap: 8px; padding: 8px 13px 10px; font-size: 8px; letter-spacing: 0.2em; }
+  .scroll-cue__arrow { width: 28px; height: 28px; }
+  .scroll-cue__arrow svg { width: 15px; height: 15px; }
+  .buy-beat-btn { animation-duration: 9.5s; }
+  .beat-preview { padding: 12px; border-radius: 14px; }
+  .promo-banner { padding: 14px 16px; }
+  .promo-banner__text { font-size: 10px; letter-spacing: 0.06em; }
+  .marquee-track { gap: 48px; animation-duration: 22s; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; }
+  .scroll-cue { animation: none; }
+}

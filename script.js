@@ -1,5 +1,8 @@
+// The active release renders under its exact title everywhere on the site.
+const ACTIVE_TITLE = "[FREE] DON TOLIVER TYPE BEAT - FLESH";
+
 const CATALOG = [{
-  id: "flesh", title: '[FREE] DON TOLIVER TYPE BEAT - FLESH', name: 'DON TOLIVER TYPE BEAT - "FLESH" - BPM 130 - KEY Am TAG',
+  id: "flesh", title: ACTIVE_TITLE,
   img: "assets/flesh.png", bpm: 130, key: "Am",
   preview: "assets/previews/BEAT 1 TAG.wav",
   beatstarsUrl: "https://bsta.rs/GwSz83"
@@ -14,6 +17,7 @@ function unlockScroll() {
 
 const grid = $("grid");
 const previewPlayer = new BeatPreviewPlayer(grid);
+let vinylTimer = 0;
 window.addEventListener("pagehide", () => previewPlayer.stop());
 
 function specLine(beat) {
@@ -30,7 +34,7 @@ function previewHTML(beat) {
   if (!beat.preview) return beat.youtube
     ? `<a class="beat-preview__unavailable" href="${attr(beat.youtube)}" target="_blank" rel="noopener noreferrer">PREVIEW ON YOUTUBE ↗</a>`
     : '<p class="beat-preview__unavailable">PREVIEW COMING SOON</p>';
-  const title = attr(beat.name ? `${beat.title} — ${beat.name}` : beat.title);
+  const title = attr(beat.title);
   return `<div class="beat-preview" data-title="${title}" data-state="idle">
     <audio class="beat-preview__audio" src="${attr(beat.preview)}" preload="none"></audio>
     <button type="button" class="beat-preview__toggle" aria-label="Play preview: ${title}" aria-pressed="false">
@@ -53,7 +57,7 @@ function beatDetailInner(beat) {
       <div class="card__meta">
         <div class="card__name">
           <h2 class="card__title-link animate-glow">
-              <span>${beat.title}${beat.name ? ` <span class="card__name-alt">\u2014 ${beat.name}</span>` : ""}</span>
+              <span>${beat.title}</span>
           </h2>
           ${youtubeHTML(beat, true)}
         </div>
@@ -67,7 +71,9 @@ function beatDetailInner(beat) {
       </div>
     </section>
     <div class="beat-detail__artwork-wrap">
-      <div class="vinyl-record"></div>
+      <div class="vinyl-record" aria-hidden="true">
+        <img class="vinyl-record__label" src="assets/kyrolll-flower.svg" alt="" width="300" height="300" loading="lazy">
+      </div>
       <figure class="beat-detail__artwork">
         <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" decoding="async" fetchpriority="high">
       </figure>
@@ -78,6 +84,7 @@ const byNewest = (a, b) => CATALOG.indexOf(b) - CATALOG.indexOf(a);
 
 function buildGrid() {
   previewPlayer.stop();
+  clearTimeout(vinylTimer);
   grid.innerHTML = "";
   const id = new URLSearchParams(location.search).get("beat");
   const detail = id !== null;
@@ -111,15 +118,19 @@ function buildGrid() {
       card.className = "catalog-tile";
       card.innerHTML = `<a class="catalog-tile__link" href="index.html?beat=${encodeURIComponent(beat.id)}" aria-label="View ${beat.title}">
         <span class="catalog-tile__art"><img src="${beat.img}" alt="" loading="lazy" decoding="async"></span>
-        <span class="catalog-tile__title">${beat.title}${beat.name ? ` — ${beat.name}` : ""}</span>
+        <span class="catalog-tile__title">${beat.title}</span>
       </a>`;
     }
     grid.appendChild(card);
   });
   if (detail) {
-    setTimeout(() => {
-      document.querySelectorAll('.beat-detail').forEach((el) => el.classList.add('vinyl-open'));
-    }, 400);
+    // The record slides out of the sleeve a few seconds after the page settles
+    // and stays locked in its open position (CSS drives the movement).
+    const detailCard = grid.querySelector('.beat-detail');
+    if (detailCard) {
+      clearTimeout(vinylTimer);
+      vinylTimer = setTimeout(() => detailCard.classList.add('vinyl-open'), 2400);
+    }
   }
 }
 
