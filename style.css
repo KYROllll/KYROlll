@@ -762,6 +762,13 @@ button {
   overflow-y: auto;
 }
 
+.success-modal,
+#success-modal .payscreen__card {
+  max-height: 85vh;
+  overflow-y: auto;
+  padding-bottom: 30px;
+}
+
 .payscreen__card {
   --gray: #a4a4aa;
   position: relative;
@@ -772,8 +779,9 @@ button {
   padding: 34px 26px 28px;
   text-align: center;
   margin: auto;
-  max-height: calc(100vh - 32px);
+  max-height: 85vh;
   overflow-y: auto;
+  padding-bottom: 30px;
   overscroll-behavior: contain;
   animation: payscreen-pop 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }

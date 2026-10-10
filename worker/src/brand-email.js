@@ -1,6 +1,6 @@
 // Inline styles + presentation tables survive clients that strip CSS or SVG.
 // The PDF emitter needs JPEG; emails use the transparent die-cut PNG.
-export const SITE_URL = "https://www.kencarter.abrdns.com";
+export const SITE_URL = "https://kyroll.store";
 export const LOGO_URL = `${SITE_URL}/assets/kyrolll-social.jpg`;
 export const EMAIL_LOGO_URL = `${SITE_URL}/assets/kyrolll-metal.png`;
 const DOODLE_URL = `${SITE_URL}/assets/kyrolll-email-doodles.png`;

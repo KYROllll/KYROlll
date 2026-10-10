@@ -866,7 +866,7 @@ const beatPageUrl = (beatId) => `${SITE_URL}/?beat=${encodeURIComponent(beatId)}
 
 // Default sender under the store's own (verified) domain, so delivery mail is
 // SPF/DKIM/DMARC-authenticated. Env RESEND_FROM overrides when provided.
-const DEFAULT_RESEND_FROM = "KYROlll <noreply@kencarter.abrdns.com>";
+const DEFAULT_RESEND_FROM = "KYROlll <noreply@kyroll.store>";
 // Keep the verified mailbox from configuration while updating its display name.
 const resendFrom = (env) => {
   const configured = env.RESEND_FROM || DEFAULT_RESEND_FROM;
@@ -1035,7 +1035,7 @@ async function sendEmail(env, { to, subject, html, text = "", attachments = [] }
     subject: subject.startsWith("KYROlll") ? subject : `KYROlll — ${subject}`,
     reply_to: from,
     headers: {
-      "List-Unsubscribe": "<mailto:support@kencarter.abrdns.com>",
+      "List-Unsubscribe": "<mailto:support@kyroll.store>",
       "X-Entity-Ref-ID": "kyrolll-order-" + Date.now()
     }
   };
