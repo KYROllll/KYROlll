@@ -51,6 +51,7 @@ try {
   assert.match(await direct.title(), /FLESH/);
   assert.equal(await direct.locator('#grid .beat-detail').count(), 1);
   assert.match(await direct.locator('#card-flesh').innerText(), /130 BPM \/\/ AM/i);
+  assert.equal(await direct.locator('#card-flesh audio').getAttribute('src'), 'assets/previews/flesh.mp3');
   assert.equal(await direct.locator('#card-flesh .buy-beat-btn').count(), 1);
   assert.match(await direct.locator('#card-flesh .buy-beat-btn').innerText(), /^BUY$/i);
   assert.equal(await direct.locator('#card-flesh .buy-beat-btn').getAttribute('href'), 'https://bsta.rs/GwSz83');
@@ -58,6 +59,15 @@ try {
   assert.equal(await direct.locator('#card-flesh .beat-detail__content').count(), 1);
   await shot(direct, 'beat-detail');
   await direct.close();
+
+  const playback = await setupPage({ viewport: { width: 480, height: 800 }, reducedMotion: 'reduce' });
+  await playback.goto(`${url}/index.html?beat=flesh`);
+  await playback.locator('#card-flesh .beat-preview__toggle').click();
+  await playback.waitForFunction(() => {
+    const audio = document.querySelector('#card-flesh audio');
+    return !audio.paused && audio.currentTime > 0 && audio.closest('.beat-preview').dataset.state === 'playing';
+  }, null, { timeout: 15000 });
+  await playback.close();
 
   assert.deepEqual(errors, []);
   console.log('Passed storefront layout, tagged audio preview, and BeatStars buy button checks.');
