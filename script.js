@@ -1259,12 +1259,18 @@ function rebuildCatalog() {
   render();
 }
 
-buildPaygrid();
-restorePromo();
-rebuildCatalog();
-startBtc();
-loadMins();
-refreshExclusiveStatus();
+  try {
+    buildPaygrid();
+    restorePromo();
+    rebuildCatalog();
+    startBtc();
+    loadMins();
+    refreshExclusiveStatus();
+  } catch (err) {
+    console.error("Catalog init error:", err);
+    buildGrid();
+    render();
+  }
 window.addEventListener("hashchange", handleDeepHash);
 window.addEventListener("popstate", () => {
   unlockScroll();
