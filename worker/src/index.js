@@ -1213,11 +1213,7 @@ async function handleCheckout(request, env, ctx) {
   const calculatedTotal = Math.round((subtotalCents - discountCents) * (holder ? 0.85 : 1)) / 100;
   const finalTotal = isZero ? 0 : calculatedTotal;
 
-  if (isZero) {
-    if (Number(total) !== 0) return json(env, { error: "INVALID TOTAL" }, 400);
-  } else {
-    if (Math.abs(Number(total) - finalTotal) > 0.01 || finalTotal <= 0) return json(env, { error: "INVALID TOTAL" }, 400);
-  }
+  if (!isZero && (Math.abs(Number(total) - finalTotal) > 0.01 || finalTotal <= 0)) return json(env, { error: "INVALID TOTAL" }, 400);
 
   // Reuse the caller's order id when switching coins mid-checkout.
   const id = order_id && /^KC-[A-Z0-9-]{3,32}$/.test(order_id)
@@ -1269,6 +1265,8 @@ async function handleCheckout(request, env, ctx) {
     if (rec.items.some((i) => i.isExclusive)) licenses.push({ tier: "exclusive", filename: "EXCLUSIVE_LICENSE.pdf" });
 
     return json(env, {
+      ok: true,
+      success: true,
       order_id: id,
       released: true,
       payment_id: rec.payment_id,
