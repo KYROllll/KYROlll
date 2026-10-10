@@ -1259,18 +1259,20 @@ function rebuildCatalog() {
   render();
 }
 
-  try {
-    buildPaygrid();
-    restorePromo();
-    rebuildCatalog();
-    startBtc();
-    loadMins();
-    refreshExclusiveStatus();
-  } catch (err) {
-    console.error("Catalog init error:", err);
-    buildGrid();
-    render();
-  }
+  window.addEventListener("DOMContentLoaded", () => {
+    try {
+      buildPaygrid();
+      restorePromo();
+      rebuildCatalog();
+      startBtc();
+      loadMins();
+      refreshExclusiveStatus();
+    } catch (err) {
+      console.error("Catalog init error:", err);
+      buildGrid();
+      render();
+    }
+  });
 window.addEventListener("hashchange", handleDeepHash);
 window.addEventListener("popstate", () => {
   unlockScroll();
