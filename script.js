@@ -1159,20 +1159,24 @@ function setSuccessStatus(text) {
 async function completeFreeOrder(order) {
   showSuccessModal(order, "ORDER CONFIRMED — PREPARING EMAIL…");
   try {
-    const userEmail = order.email;
-    const cartItems = order.items.map(i => ({ id: i.id, type: i.tier || i.type || "wav", title: i.title }));
-    const res = await workerRequest("/api/send-email", {
+    const res = await workerRequest("/api/checkout", {
       method: "POST",
       body: JSON.stringify({
-        email: userEmail,
-        items: cartItems,
-        total: order.total,
-        promoCode: order.promoCode,
-        freePicks: order.freePicks
+        email: order.email,
+        coinSym: "USDT",
+        total: 0,
+        items: order.items,
+        freePicks: order.freePicks,
+        exclusivePicks: order.exclusivePicks || [],
+        promoCode: order.promoCode
       })
     });
-    if (res && res.ok !== false && !res.error) {
-      setSuccessStatus("SUCCESS — EMAIL DISPATCHED");
+    if (res && res.released) {
+      const hasExclusive = (res.links || []).some((l) => l.isExclusive);
+      const prefix = hasExclusive ? "EXCLUSIVE MASTER RIGHTS" : "ORDER CONFIRMED";
+      setSuccessStatus(res.delivery && res.delivery.status === "sent"
+        ? `${prefix} — FILES & LICENSES EMAILED`
+        : `${prefix} — EMAIL DELIVERY PENDING`);
       const statusEl = $("success-status");
       if (statusEl) {
         statusEl.className = "np-status np-status--ok visible";
