@@ -1356,7 +1356,7 @@ $("cart-items").addEventListener("click", (e) => {
     render();
   }
 });
-$("order-form").addEventListener("submit", submitOrder);
+$("submit-btn")?.addEventListener("click", (e) => { e.preventDefault(); submitOrder(e); });
 $("apply-promo-btn")?.addEventListener("click", applyPromoCode);
 $("promo-tag-remove")?.addEventListener("click", clearPromo);
 $("promo-code")?.addEventListener("keydown", (e) => {
