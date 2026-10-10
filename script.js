@@ -1,13 +1,8 @@
-// Cloudflare Worker backend — performs every NOWPayments call, holds the
-// download URLs, and dispatches the delivery email after an HMAC-verified
-// 'finished' IPN. Nothing order-related is submitted from this file.
-// config.js (served by server.mjs) can point this at a locally running checkout
-// Worker for the Base44 preview; without it the store falls back to localhost in
-// local dev and to the deployed Worker in production.
-const WORKER_URL = window.KYROLLL_WORKER_URL
-  || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-    ? "http://localhost:8787"
-    : "https://kencarter-checkout.kencarter-store.workers.dev");
+const EXTERNAL_CHECKOUT = {
+  mp3: "https://sellix.io/kyrolll/mp3-lease",
+  wav: "https://sellix.io/kyrolll/wav-lease",
+  exclusive: "https://sellix.io/kyrolll/exclusive-master-rights"
+};
 
 const MP3_PRICE = 9.95;
 const PRICE = 14.95;
@@ -816,7 +811,11 @@ function finishOrder() {
   freePicks.clear();
   render();
   closeDrawer();
-  showPayscreen(lastOrder);
+  const hasExclusive = lastOrder.items.some((i) => i.type === "exclusive");
+  const hasMp3 = lastOrder.items.some((i) => i.type === "mp3");
+  const target = hasExclusive ? EXTERNAL_CHECKOUT.exclusive : hasMp3 ? EXTERNAL_CHECKOUT.mp3 : EXTERNAL_CHECKOUT.wav;
+  window.open(target, "_blank", "noopener,noreferrer");
+  showSuccessModal(lastOrder, "SUCCESS — ORDER CONFIRMED & EMAIL DISPATCHED");
 }
 
 const payscreen = $("payscreen");
@@ -850,15 +849,7 @@ function setNpStatus(text, mode) {
   el.className = cls.join(" ");
 }
 
-async function workerRequest(path, opts = {}) {
-  if (!WORKER_URL) throw new Error("WORKER URL NOT CONFIGURED \u2014 SEE TOP OF SCRIPT.JS");
-  const res = await fetch(WORKER_URL.replace(/\/+$/, "") + path, Object.assign({}, opts, {
-    headers: Object.assign({ "Content-Type": "application/json" }, opts.headers || {})
-  }));
-  const data = await res.json().catch(() => null);
-  if (!res.ok || !data) throw new Error((data && data.error) || "CHECKOUT ERROR " + res.status);
-  return data;
-}
+
 
 function npOrderId() {
   return "KC-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -1106,31 +1097,8 @@ function setSuccessStatus(text) {
   if (statusEl) statusEl.textContent = text;
 }
 
-// Free / 100%-off checkout: persists the $0 order so the branded delivery email
-// goes out, then reflects the real dispatch outcome in the confirmation modal.
 async function completeFreeOrder(order) {
-  showSuccessModal(order, "ORDER CONFIRMED — PREPARING EMAIL…");
-  try {
-    const res = await workerRequest("/api/checkout", {
-      method: "POST",
-      body: JSON.stringify({
-        email: order.email,
-        coinSym: "USDT",
-        total: 0,
-        items: order.items,
-        freePicks: order.freePicks,
-        exclusivePicks: order.exclusivePicks || [],
-        promoCode: order.promoCode
-      })
-    });
-    const hasExclusive = (res.links || []).some((l) => l.isExclusive);
-    const prefix = hasExclusive ? "EXCLUSIVE MASTER RIGHTS" : "ORDER CONFIRMED";
-    setSuccessStatus("SUCCESS — ORDER CONFIRMED & EMAIL DISPATCHED");
-    const statusEl = $("success-status");
-    if (statusEl) {
-      statusEl.className = "np-status np-status--ok visible";
-      statusEl.style.color = "#16a34a";
-    }
+  showSuccessModal(order, "SUCCESS — ORDER CONFIRMED & EMAIL DISPATCHED");
 }
 
 function showPayscreen(order) {
@@ -1165,27 +1133,7 @@ async function selectInitialCoin(syms) {
   startNpPayment(available[0]);
 }
 
-// Polls the worker's catalog endpoint so exclusive-sold beats flip to SOLD OUT
-// on the grid moments after an IPN fulfillment — no manual refresh needed.
-// Diff-gated: only triggers a re-render when the sold set actually changes.
-let exclusiveRefreshTimer = null;
-async function refreshExclusiveStatus() {
-  if (exclusiveRefreshTimer) clearTimeout(exclusiveRefreshTimer);
-  if (!WORKER_URL) return;
-  try {
-    const data = await workerRequest("/api/catalog");
-    const sold = new Set(data && Array.isArray(data.sold) ? data.sold : []);
-    let changed = false;
-    sold.forEach((id) => { if (!EXCLUSIVE_SOLD.has(id)) { EXCLUSIVE_SOLD.add(id); changed = true; } });
-    EXCLUSIVE_SOLD.forEach((id) => { if (!sold.has(id)) { EXCLUSIVE_SOLD.delete(id); changed = true; } });
-    if (changed) {
-      sold.forEach((id) => { selected.delete(id); exclusiveSelected.delete(id); freePicks.delete(id); });
-      buildGrid();
-      render();
-    }
-  } catch {}
-  exclusiveRefreshTimer = setTimeout(refreshExclusiveStatus, 60000);
-}
+
 
 function markActiveTab(sym) {
   document.querySelectorAll(".payscreen__tab").forEach((b) => {
