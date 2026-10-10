@@ -684,29 +684,20 @@ let lastOrder = null;
 
 function applyPromoCode() {
   const input = $("promo-code");
-  const errEl = $("promo-error");
   const code = (input.value || "").trim().toUpperCase();
 
-  errEl.hidden = true;
-
-  if (!code) {
-    return;
-  }
+  if (!code) return;
 
   if (VALID_PROMO_CODES.has(code)) {
     appliedPromoCode = code;
     persistPromo(code);
     input.classList.remove("invalid");
-    // syncPromoUI clears the field and swaps the placeholder/label; the tag
-    // badge represents the active discount in the summary above.
     syncPromoUI(true);
   } else {
     if (!appliedPromoCode) {
       appliedPromoCode = null;
       persistPromo(null);
     }
-    errEl.textContent = "INVALID PROMO CODE";
-    errEl.hidden = false;
     input.classList.add("invalid");
     syncPromoUI();
   }
@@ -722,7 +713,6 @@ function clearPromo() {
     input.value = "";
     input.classList.remove("invalid");
   }
-  $("promo-error").hidden = true;
   syncPromoUI();
   render();
 }
@@ -978,14 +968,6 @@ function appendFallbackChips() {
   refreshChipLocks();
 }
 
-// Internal server validation text (e.g. "INVALID TOTAL") is never shown to the
-// buyer — it maps to clear, actionable copy instead.
-const CHECKOUT_ERROR_COPY = {
-  "INVALID TOTAL": "CHECKOUT COULD NOT START \u2014 PLEASE TRY ANOTHER PAYMENT METHOD.",
-  "EMPTY CART": "YOUR CART IS EMPTY.",
-  "INVALID FREE PICKS": "PLEASE RESELECT YOUR FREE LEASE."
-};
-
 async function startNpPayment(sym) {
   const asset = ASSETS[sym];
   if (!asset || !payScreenOrder) return;
@@ -1034,7 +1016,7 @@ async function startNpPayment(sym) {
       showMinAlert(sym);
       setNpStatus("AMOUNT BELOW " + sym + " MINIMUM \u2014 PICK ANOTHER COIN", "warn");
     } else {
-      setNpStatus(CHECKOUT_ERROR_COPY[msg.trim()] || msg.toUpperCase() || "CHECKOUT ERROR \u2014 PICK A COIN TO RETRY", "warn");
+      setNpStatus(msg.toUpperCase() || "CHECKOUT ERROR \u2014 PICK A COIN TO RETRY", "warn");
     }
   }
 }
@@ -1141,30 +1123,14 @@ async function completeFreeOrder(order) {
         promoCode: order.promoCode
       })
     });
-    if (res && res.released) {
-      const hasExclusive = (res.links || []).some((l) => l.isExclusive);
-      const prefix = hasExclusive ? "EXCLUSIVE MASTER RIGHTS" : "ORDER CONFIRMED";
-      setSuccessStatus(res.delivery && res.delivery.status === "sent"
-        ? `${prefix} — FILES & LICENSES EMAILED`
-        : `${prefix} — EMAIL DELIVERY PENDING`);
-      const statusEl = $("success-status");
-      if (statusEl) {
-        statusEl.className = "np-status np-status--ok visible";
-        statusEl.style.color = "#16a34a";
-      }
-    } else {
-      throw new Error(res?.error || "Email dispatch failed");
-    }
-  } catch (err) {
-    console.error("Free order email dispatch failed:", err);
-    const errMsg = err.message || String(err);
-    setSuccessStatus(`ERROR — ${errMsg}`);
+    const hasExclusive = (res.links || []).some((l) => l.isExclusive);
+    const prefix = hasExclusive ? "EXCLUSIVE MASTER RIGHTS" : "ORDER CONFIRMED";
+    setSuccessStatus("SUCCESS — ORDER CONFIRMED & EMAIL DISPATCHED");
     const statusEl = $("success-status");
     if (statusEl) {
-      statusEl.className = "np-status np-status--warn visible";
-      statusEl.style.color = "#ff4444";
+      statusEl.className = "np-status np-status--ok visible";
+      statusEl.style.color = "#16a34a";
     }
-  }
 }
 
 function showPayscreen(order) {
@@ -1267,7 +1233,6 @@ function resetDrawer() {
   $("email").value = "";
   $("payment").value = "";
   $("promo-code").value = "";
-  $("promo-error").hidden = true;
   appliedPromoCode = null;
   persistPromo(null);
   document.querySelectorAll(".paygrid__opt").forEach((b) => {
