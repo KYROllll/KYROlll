@@ -13,8 +13,6 @@ function unlockScroll() {
 }
 
 const grid = $("grid");
-const previewPlayer = new BeatPreviewPlayer(grid);
-window.addEventListener("pagehide", () => previewPlayer.stop());
 
 function specLine(beat) {
   return `${beat.bpm} BPM // ${beat.key}`;
@@ -25,34 +23,11 @@ function youtubeHTML(beat, show) {
   return `<a href="${beat.youtube}" target="_blank" rel="noopener noreferrer" class="card__youtube-link" aria-label="Watch on YouTube" title="Watch on YouTube" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></a>`;
 }
 
-function previewHTML(beat) {
-  const attr = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
-  if (!beat.preview) return beat.youtube
-    ? `<a class="beat-preview__unavailable" href="${attr(beat.youtube)}" target="_blank" rel="noopener noreferrer">PREVIEW ON YOUTUBE ↗</a>`
-    : '<p class="beat-preview__unavailable">PREVIEW COMING SOON</p>';
-  const title = attr(beat.name ? `${beat.title} — ${beat.name}` : beat.title);
-  return `<div class="beat-preview" data-title="${title}" data-state="idle">
-    <audio class="beat-preview__audio" src="${attr(beat.preview)}" preload="none"></audio>
-    <button type="button" class="beat-preview__toggle" aria-label="Play preview: ${title}" aria-pressed="false">
-      <svg class="beat-preview__play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-      <svg class="beat-preview__pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
-    </button>
-    <div class="beat-preview__details">
-      <input class="beat-preview__seek" type="range" min="0" max="100" step="0.1" value="0" disabled aria-label="Seek preview: ${title}">
-      <span class="beat-preview__time">0:00 / --:--</span>
-    </div>
-    <span class="beat-preview__status" role="status">AUDIO PREVIEW</span>
-  </div>`;
-}
-
 function beatDetailInner(beat) {
   const attr = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
-  const buyUrl = beat.beatstarsUrl || "https://www.beatstars.com";
+  const buyUrl = beat.beatstarsUrl || "https://bsta.rs/GwSz83";
   return `
-    <figure class="beat-detail__artwork">
-      <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" decoding="async" fetchpriority="high">
-    </figure>
-    <section class="beat-detail__content" aria-label="Beat preview and purchase">
+    <section class="beat-detail__content" aria-label="Beat details and purchase">
       <div class="card__meta">
         <div class="card__name">
           <h2 class="card__title-link">
@@ -62,19 +37,20 @@ function beatDetailInner(beat) {
         </div>
         <div class="card__specs">${specLine(beat)}</div>
       </div>
-      ${previewHTML(beat)}
       <div class="card__actions">
         <a class="buy-beat-btn" href="${attr(buyUrl)}" target="_blank" rel="noopener noreferrer">
           BUY
         </a>
       </div>
-    </section>`;
+    </section>
+    <figure class="beat-detail__artwork">
+      <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" decoding="async" fetchpriority="high">
+    </figure>`;
 }
 
 const byNewest = (a, b) => CATALOG.indexOf(b) - CATALOG.indexOf(a);
 
 function buildGrid() {
-  previewPlayer.stop();
   grid.innerHTML = "";
   const id = new URLSearchParams(location.search).get("beat");
   const detail = id !== null;
