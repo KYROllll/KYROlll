@@ -180,7 +180,9 @@ function rebuildCatalog() {
 }
 
 function initCountdown() {
-  const targetDate = new Date("October 14, 2026 00:00:00").getTime();
+  // Month is 0-indexed: 9 = October. Oct 16 00:00 local is the moment Oct 15 ends,
+  // so the promo stays live through all of Oct 15 (matching "ENDS OCT 15").
+  const targetDate = new Date(2026, 9, 16, 0, 0, 0).getTime();
   const daysEl = $("cd-days");
   const hoursEl = $("cd-hours");
   const minsEl = $("cd-mins");
