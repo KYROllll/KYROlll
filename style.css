@@ -25,6 +25,7 @@ html {
   background: var(--ground);
   overscroll-behavior-y: none;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 body {
@@ -38,6 +39,8 @@ body {
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: none;
   max-width: 100%;
   isolation: isolate;
 }
@@ -2301,11 +2304,12 @@ body > canvas {
 }
 .vinyl-record {
   position: absolute;
-  top: 50%;
-  right: 0;
+  top: 0;
+  left: 0;
+  right: auto;
   width: 90%;
   height: 90%;
-  transform: translateY(-50%) translateX(0) rotate(0deg);
+  transform: translateX(0) rotate(0deg);
   background: radial-gradient(circle, #111 0%, #1a1a1a 40%, #000 70%, #222 100%);
   border-radius: 50%;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
@@ -2332,7 +2336,7 @@ body > canvas {
   border: 4px solid #000;
 }
 .beat-detail:hover .vinyl-record {
-  transform: translateY(-50%) translateX(28%) rotate(135deg);
+  transform: translateX(var(--vinyl-slide)) rotate(var(--vinyl-rotate));
   box-shadow: 15px 15px 40px rgba(0, 0, 0, 0.8);
 }
 .beat-detail__artwork {
@@ -2585,8 +2589,14 @@ body > canvas {
 /* Sleeve and record share a single box: with size + size × slide ≤ 100% the
    record can never be clipped by the viewport, at any breakpoint. */
 .beat-detail__artwork-wrap {
+  /* The sleeve stays put; the record is a touch smaller than the sleeve and is
+     anchored to the sleeve's top-left, so when it swings out it emerges from the
+     top-right edge and its lowest point still sits inside the sleeve — it can
+     never cross below the sleeve/wrap bottom. */
   --vinyl-size: 84%;
-  --vinyl-slide: 19%;
+  --vinyl-record: 74%;
+  --vinyl-slide: 20%;
+  --vinyl-rotate: 15deg;
   perspective: 1400px;
 }
 
@@ -2602,9 +2612,9 @@ body > canvas {
 .vinyl-record {
   left: 0;
   right: auto;
-  width: var(--vinyl-size);
-  height: var(--vinyl-size);
-  transform: translateY(-50%) translateX(0) rotate(0deg);
+  width: var(--vinyl-record);
+  height: var(--vinyl-record);
+  transform: translateX(0) rotate(0deg);
   background:
     repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 7px),
     radial-gradient(circle at 50% 50%, #1b1b1e 0%, #101012 42%, #050506 72%, #17171a 100%);
@@ -2650,7 +2660,7 @@ body > canvas {
 /* Locked-open position: reached automatically a few seconds after load. */
 .beat-detail.vinyl-open .vinyl-record,
 .beat-detail:hover .vinyl-record {
-  transform: translateY(-50%) translateX(var(--vinyl-slide)) rotate(26deg);
+  transform: translateX(var(--vinyl-slide)) rotate(var(--vinyl-rotate));
   box-shadow: 0 26px 58px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
@@ -2848,6 +2858,24 @@ body > canvas {
   .beat-detail:hover .beat-detail__artwork { transform: translateX(-2%); }
   .catalog-tile:hover,
   .catalog-tile:focus-within { transform: translateY(-4px); }
+
+  /* Scroll performance on phones: drop the heavy 3D perspective layers
+     (perspective + rotateX/rotateY) whose compositing causes scroll jitter on
+     touch devices. Interaction feedback stays, but flat and cheap. */
+  .beat-detail__artwork-wrap,
+  .catalog-tile,
+  .buy-beat-btn,
+  .beat-preview {
+    perspective: none;
+    transform-style: flat;
+  }
+  .buy-beat-btn {
+    animation: none;
+    transform: none;
+  }
+  .buy-beat-btn:hover,
+  .buy-beat-btn:focus-visible { transform: translateY(-2px); }
+  .beat-preview:hover { transform: translateY(-2px); }
 }
 
 @media (max-width: 600px) {
