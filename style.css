@@ -2648,11 +2648,11 @@ body > canvas {
   aspect-ratio: 1;
   justify-self: center;
   margin: 0 auto;
-  overflow: hidden;
+  overflow: visible;
   box-sizing: border-box;
   --vinyl-size: 100%;
   --vinyl-record: 88%;
-  --vinyl-slide: 50%;
+  --vinyl-slide: 88%;
   --vinyl-rotate: 360deg;
   perspective: 1400px;
 }
