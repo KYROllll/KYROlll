@@ -2652,7 +2652,7 @@ body > canvas {
   box-sizing: border-box;
   --vinyl-size: 100%;
   --vinyl-record: 88%;
-  --vinyl-slide: 88%;
+  --vinyl-slide: 65%;
   --vinyl-rotate: 360deg;
   perspective: 1400px;
 }
