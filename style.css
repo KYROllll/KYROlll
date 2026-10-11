@@ -2138,7 +2138,7 @@ body > canvas {
   box-sizing: border-box;
   transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease;
 }
-.beat-detail:hover .beat-detail__artwork img {
+.beat-detail__artwork-wrap:hover .beat-detail__artwork img {
   transform: scale(1.025);
   filter: contrast(1.05);
 }
@@ -2150,6 +2150,20 @@ body > canvas {
   margin-top: 14px;
   font-size: 12px;
   letter-spacing: 0.14em;
+  /* A thin white highlight glides across the specs line (no pulsing/shaking). */
+  width: fit-content;
+  background-image: linear-gradient(100deg, var(--gray) 0%, var(--gray) 42%, #ffffff 50%, var(--gray) 58%, var(--gray) 100%);
+  background-size: 250% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: specShine 3.8s linear infinite;
+}
+@keyframes specShine {
+  from { background-position: 100% 0; }
+  to { background-position: 0% 0; }
 }
 .beat-detail .card__actions {
   margin-top: 0;
@@ -2230,7 +2244,7 @@ body > canvas {
 .beat-detail__artwork img {
   transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease;
 }
-.beat-detail:hover .beat-detail__artwork img {
+.beat-detail__artwork-wrap:hover .beat-detail__artwork img {
   transform: scale(1.025);
   filter: contrast(1.05);
 }
@@ -2243,8 +2257,8 @@ body > canvas {
   background: #ffffff;
 }
 @keyframes detailFadeIn {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Pristine Promo Banner & Horizontal Countdown Timer */
@@ -2390,7 +2404,7 @@ body > canvas {
   border: 4px solid #000;
 }
 .beat-detail.vinyl-open .vinyl-record,
-.beat-detail:hover .vinyl-record {
+.beat-detail__artwork-wrap:hover .vinyl-record {
   transform: translateX(var(--vinyl-slide)) rotate(var(--vinyl-rotate));
   box-shadow: 20px 20px 50px rgba(0, 0, 0, 0.85);
 }
@@ -2626,6 +2640,10 @@ body > canvas {
 
 .reveal.is-revealed { opacity: 1; transform: none; }
 
+/* On a beat detail link every revealed section is already on screen, so the
+   slide-in would drag the beat card after we align it — show them settled. */
+.beat-page .reveal { opacity: 1; transform: none; transition: none; }
+
 /* ---------- 3. The Vinyl Sanctum — flower label + locked-open slide --------- */
 
 /* Sleeve and record share a single box: with size + size × slide ≤ 100% the
@@ -2715,13 +2733,13 @@ body > canvas {
 
 /* Locked-open position: reached automatically a few seconds after load. */
 .beat-detail.vinyl-open .vinyl-record,
-.beat-detail:hover .vinyl-record {
+.beat-detail__artwork-wrap:hover .vinyl-record {
   transform: translateX(var(--vinyl-slide)) rotate(var(--vinyl-rotate));
   box-shadow: 0 26px 58px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .beat-detail.vinyl-open .beat-detail__artwork,
-.beat-detail:hover .beat-detail__artwork {
+.beat-detail__artwork-wrap:hover .beat-detail__artwork {
   transform: translateX(-4%);
   box-shadow: 0 22px 46px rgba(0, 0, 0, 0.6);
 }
@@ -2911,7 +2929,7 @@ body > canvas {
   .beat-detail__content { grid-column: 1; order: 1; padding: 18px; border-radius: 16px; }
   .beat-detail__artwork-wrap { grid-column: 1; order: 2; }
   .beat-detail.vinyl-open .beat-detail__artwork,
-  .beat-detail:hover .beat-detail__artwork { transform: translateX(-2%); }
+  .beat-detail__artwork-wrap:hover .beat-detail__artwork { transform: translateX(-2%); }
   .catalog-tile:hover,
   .catalog-tile:focus-within { transform: translateY(-4px); }
 

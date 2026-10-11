@@ -61,7 +61,7 @@ function beatDetailInner(beat) {
           </h2>
           ${youtubeHTML(beat, true)}
         </div>
-        <div class="card__specs animate-glow">${specLine(beat)} // TAGGED AUDIO</div>
+        <div class="card__specs">${specLine(beat)} // TAGGED AUDIO</div>
       </div>
       ${previewHTML(beat)}
       <div class="card__actions">
@@ -81,6 +81,25 @@ function beatDetailInner(beat) {
 }
 
 const byNewest = (a, b) => CATALOG.indexOf(b) - CATALOG.indexOf(a);
+
+function scrollToBeatDetail() {
+  const card = grid.querySelector(".beat-detail");
+  if (card) card.scrollIntoView({ block: "start", behavior: "auto" });
+}
+
+// Content above the card (lazy artwork, fonts) can still be settling right
+// after render, so keep re-aligning while the page grows, then stop.
+function landOnBeatDetail() {
+  scrollToBeatDetail();
+  requestAnimationFrame(scrollToBeatDetail);
+  if ("ResizeObserver" in window) {
+    const observer = new ResizeObserver(() => scrollToBeatDetail());
+    observer.observe(document.body);
+    setTimeout(() => observer.disconnect(), 3000);
+  } else {
+    [120, 350, 700].forEach((delay) => setTimeout(scrollToBeatDetail, delay));
+  }
+}
 
 function buildGrid() {
   previewPlayer.stop();
@@ -131,6 +150,8 @@ function buildGrid() {
       clearTimeout(vinylTimer);
       vinylTimer = setTimeout(() => detailCard.classList.add('vinyl-open'), 2400);
     }
+    // Land directly on the beat card instead of the top of the page.
+    landOnBeatDetail();
   }
 }
 
@@ -193,6 +214,9 @@ window.addEventListener("DOMContentLoaded", () => {
     initCountdown();
   }
 });
+window.addEventListener("load", () => {
+  if (new URLSearchParams(location.search).has("beat")) landOnBeatDetail();
+});
 window.addEventListener("hashchange", handleDeepHash);
 window.addEventListener("popstate", () => {
   unlockScroll();
@@ -207,7 +231,6 @@ grid.addEventListener("click", (e) => {
     unlockScroll();
     history.pushState(null, "", link.href);
     rebuildCatalog();
-    window.scrollTo({ top: 0 });
     return;
   }
 });

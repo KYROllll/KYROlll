@@ -43,7 +43,11 @@
     ".marquee-banner, .promo-banner, .catalog-heading, .beat-navigation, .grid, .footer"
   );
 
-  if (!reducedMotion.matches && "IntersectionObserver" in window) {
+  // On a beat detail link the sections are already in view when the page opens.
+  // Their reveal would slide the card after we align it, so skip it there.
+  const beatDetailPage = new URLSearchParams(location.search).has("beat");
+
+  if (!beatDetailPage && !reducedMotion.matches && "IntersectionObserver" in window) {
     sections.forEach((section) => section.classList.add("reveal"));
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
