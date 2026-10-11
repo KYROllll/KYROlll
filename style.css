@@ -1721,14 +1721,32 @@ button {
   .viewport,
   main,
   .beat-detail,
-  .beat-detail__content,
-  .beat-detail__artwork-wrap {
+  .beat-detail__content {
     height: auto;
     min-height: 100vh;
     overflow-y: visible;
     overflow-x: hidden;
     width: 100%;
     max-width: 100vw;
+  }
+  .beat-detail__artwork-wrap,
+  .beat-detail__artwork {
+    width: 100% !important;
+    max-width: 320px !important;
+    height: auto !important;
+    aspect-ratio: 1 !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    margin: 0 auto !important;
+  }
+  .beat-detail__artwork img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
   }
 }
 
@@ -2634,8 +2652,8 @@ body > canvas {
   box-sizing: border-box;
   --vinyl-size: 100%;
   --vinyl-record: 88%;
-  --vinyl-slide: 46%;
-  --vinyl-rotate: 135deg;
+  --vinyl-slide: 50%;
+  --vinyl-rotate: 360deg;
   perspective: 1400px;
 }
 
