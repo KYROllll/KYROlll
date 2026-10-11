@@ -6,9 +6,14 @@ about *running* the app in this sandbox, not about the app's own behaviour.
 ## Shape of the app
 
 - **Storefront** — plain static files (`index.html`, `style.css`, `script.js`,
-  `preview-player.js`, `assets/*.min.js`) served by `server.mjs` on port 8080.
-  No bundler, no runtime dependencies: `server.mjs` is pure Node `http`, so
-  edits to HTML/CSS/JS show up on a browser reload with no rebuild.
+  `preview-player.js`, `hero-intro.js`, `assets/*.min.js`) served by `server.mjs`
+  on port 8080. No bundler, no runtime dependencies: `server.mjs` is pure Node
+  `http`, so edits to HTML/CSS/JS show up on a browser reload with no rebuild.
+- `hero-intro.js` drives the hero scroll storytelling: it publishes a 0 → 1
+  scroll progress onto `.brand-hero` as the `--hero-p` custom property (all hero
+  movement is `calc()`-ed from it in CSS) and reveals the sections below the fold.
+  It honours reduced motion and the shared `motion-toggle` event, so pausing
+  motion freezes the parallax as well.
 - **Checkout Worker** — `worker/` is a Cloudflare Worker (wrangler) that holds
   the NOWPayments key and the buyer download links. It is the only piece that
   needs secrets. It stores orders in a KV namespace (`ORDERS`), which wrangler
@@ -61,7 +66,9 @@ Tests that ship with the repo:
   `preview-player.test.mjs` are `node:test` based and need no browser:
   `docker compose -f docker-compose.base44.yml exec -T worker node --test catalog.test.mjs base-token.test.mjs`
 - `brand-design.test.mjs` is Playwright-based and needs Chromium + root
-  `node_modules`, which the sandbox does not install.
+  `node_modules`, which the sandbox does not install. To run it without touching
+  the checkout, copy the repo into a `node:22` container and install there:
+  `docker run --rm -v "$PWD":/src:ro -w /work node:22 bash -lc 'cp -r /src/. /work/ && cd /work && npm i @playwright/test@1.63.0 && npx playwright install --with-deps chromium && node --test brand-design.test.mjs'`.
 
 ## Deliberate behaviour worth knowing
 
