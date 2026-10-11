@@ -2625,17 +2625,17 @@ body > canvas {
    record can never be clipped by the viewport, at any breakpoint. */
 .beat-detail__artwork-wrap {
   position: relative;
-  width: 100% !important;
-  max-width: 100vw !important;
+  width: 100%;
+  max-width: 480px;
   aspect-ratio: 1;
   justify-self: center;
   margin: 0 auto;
-  overflow: hidden !important;
+  overflow: hidden;
   box-sizing: border-box;
   --vinyl-size: 100%;
-  --vinyl-record: 100%;
-  --vinyl-slide: 58%;
-  --vinyl-rotate: 216deg;
+  --vinyl-record: 88%;
+  --vinyl-slide: 46%;
+  --vinyl-rotate: 135deg;
   perspective: 1400px;
 }
 
@@ -2657,8 +2657,8 @@ body > canvas {
 
 .vinyl-record {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 6%;
+  left: 6%;
   width: var(--vinyl-record);
   height: var(--vinyl-record);
   transform: translateX(0) rotate(0deg);
