@@ -24,9 +24,10 @@ html {
   -webkit-text-size-adjust: 100%;
   background: var(--ground);
   overscroll-behavior-y: none;
-  overflow-x: hidden;
-  width: 100%;
-  max-width: 100vw;
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100vw !important;
+  box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -40,12 +41,20 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
-  width: 100%;
-  max-width: 100vw;
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100vw !important;
+  box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: none;
   isolation: isolate;
+}
+
+html, body, main, .viewport, .grid, .beat-detail, .beat-detail__content, .beat-detail__artwork-wrap {
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100vw !important;
+  box-sizing: border-box;
 }
 
 .brand-name { text-transform: none; }
@@ -2616,12 +2625,13 @@ body > canvas {
    record can never be clipped by the viewport, at any breakpoint. */
 .beat-detail__artwork-wrap {
   position: relative;
-  width: 100%;
-  max-width: 480px;
+  width: 100% !important;
+  max-width: 100vw !important;
   aspect-ratio: 1;
   justify-self: center;
   margin: 0 auto;
-  overflow: visible;
+  overflow: hidden !important;
+  box-sizing: border-box;
   --vinyl-size: 100%;
   --vinyl-record: 100%;
   --vinyl-slide: 58%;
