@@ -8,7 +8,7 @@
   <meta name="robots" content="noindex">
   <title>ACCOUNT — KYROlll</title>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
-  <link rel="stylesheet" href="style.css?v=102">
+  <link rel="stylesheet" href="style.css?v=103">
 </head>
 <body class="auth-body">
   <div class="viewport">
@@ -70,14 +70,10 @@
 
           <form class="auth-form" id="confirm-form" novalidate hidden>
             <p class="auth-note" id="confirm-copy">Enter the 6-digit code we sent to <strong id="confirm-email"></strong>.</p>
-            <div class="otp-boxes" id="otp-boxes" role="group" aria-label="6-digit one-time code">
-              <input class="auth-input auth-input--code otp-box" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="1" aria-label="Code digit 1">
-              <input class="auth-input auth-input--code otp-box" type="text" inputmode="numeric" autocomplete="off" maxlength="1" aria-label="Code digit 2">
-              <input class="auth-input auth-input--code otp-box" type="text" inputmode="numeric" autocomplete="off" maxlength="1" aria-label="Code digit 3">
-              <input class="auth-input auth-input--code otp-box" type="text" inputmode="numeric" autocomplete="off" maxlength="1" aria-label="Code digit 4">
-              <input class="auth-input auth-input--code otp-box" type="text" inputmode="numeric" autocomplete="off" maxlength="1" aria-label="Code digit 5">
-              <input class="auth-input auth-input--code otp-box" type="text" inputmode="numeric" autocomplete="off" maxlength="1" aria-label="Code digit 6">
-            </div>
+            <label class="auth-field">
+              <span class="auth-field__label">CONFIRMATION CODE</span>
+              <input class="auth-input auth-input--code" id="confirm-code" name="token" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" spellcheck="false">
+            </label>
             <p class="auth-error" id="confirm-error" role="alert" hidden></p>
             <p class="auth-demo-code" id="confirm-demo" hidden></p>
             <button type="submit" class="auth-submit">VERIFY &amp; CONTINUE</button>
@@ -94,7 +90,7 @@
   <script src="supabase-config.js?v=2"></script>
   <script src="catalog.js?v=1"></script>
   <script src="kyrolll-backend.js?v=3"></script>
-  <script src="account.js?v=4"></script>
+  <script src="account.js?v=5"></script>
   <script type="module" src="assets/brand-logo.min.js?v=9"></script>
 </body>
 </html>

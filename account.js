@@ -275,51 +275,18 @@
       setError("confirm-error", "");
     }
 
-    /* --- one-time-code boxes --------------------------------------------- */
-    const boxesHost = document.getElementById("otp-boxes");
-    if (boxesHost) {
-      // Keep the hand-written boxes when the count already matches the
-      // configured code length; otherwise grow or shrink so the UI can never
-      // ask for a different number of digits than Supabase sends.
-      while (boxesHost.children.length > otpLength) boxesHost.removeChild(boxesHost.lastElementChild);
-      while (boxesHost.children.length < otpLength) boxesHost.appendChild(boxesHost.firstElementChild.cloneNode(true));
-      Array.from(boxesHost.children).forEach((box, index) => {
-        box.value = "";
-        box.setAttribute("aria-label", "Code digit " + (index + 1));
+    /* --- continuous one-time-code input ----------------------------------- */
+    const codeInput = document.getElementById("confirm-code");
+    if (codeInput) {
+      codeInput.maxLength = otpLength;
+      codeInput.placeholder = "000000".slice(0, otpLength);
+      codeInput.addEventListener("input", () => {
+        codeInput.value = codeInput.value.replace(/\D/g, "").slice(0, otpLength);
       });
-      boxesHost.setAttribute("aria-label", otpLength + "-digit one-time code");
     }
-    const boxes = Array.from(document.querySelectorAll("#otp-boxes .otp-box"));
-    function codeValue() { return boxes.map((box) => box.value).join(""); }
-    function clearCode() { boxes.forEach((box) => { box.value = ""; }); }
-    function focusCode() { if (boxes[0]) setTimeout(() => { try { boxes[0].focus(); } catch (err) { /* ignore */ } }, 60); }
-
-    boxes.forEach((box, index) => {
-      box.addEventListener("input", () => {
-        box.value = box.value.replace(/\D/g, "").slice(0, 1);
-        if (box.value && index < boxes.length - 1) boxes[index + 1].focus();
-      });
-      box.addEventListener("keydown", (event) => {
-        if (event.key === "Backspace" && !box.value && index > 0) {
-          event.preventDefault();
-          boxes[index - 1].value = "";
-          boxes[index - 1].focus();
-        } else if (event.key === "ArrowLeft" && index > 0) {
-          event.preventDefault();
-          boxes[index - 1].focus();
-        } else if (event.key === "ArrowRight" && index < boxes.length - 1) {
-          event.preventDefault();
-          boxes[index + 1].focus();
-        }
-      });
-      box.addEventListener("paste", (event) => {
-        const text = String((event.clipboardData || window.clipboardData).getData("text") || "").replace(/\D/g, "").slice(0, boxes.length);
-        if (!text) return;
-        event.preventDefault();
-        text.split("").forEach((digit, k) => { if (boxes[k]) boxes[k].value = digit; });
-        boxes[Math.min(text.length, boxes.length - 1)].focus();
-      });
-    });
+    function codeValue() { return codeInput ? codeInput.value.replace(/\D/g, "").slice(0, otpLength) : ""; }
+    function clearCode() { if (codeInput) codeInput.value = ""; }
+    function focusCode() { if (codeInput) setTimeout(() => { try { codeInput.focus(); } catch (err) { /* ignore */ } }, 60); }
 
     function setDemoCode(code) {
       if (!demoCodeEl) return;

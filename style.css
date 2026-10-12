@@ -3485,17 +3485,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .auth-input[readonly] { background: #d9d9de; color: #55555c; }
 .auth-input--code { text-align: center; font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 20px; letter-spacing: .5em; padding-left: .5em; }
 
-.otp-boxes { display: flex; gap: 8px; margin-bottom: 4px; }
-.otp-box {
-  width: 100%;
-  min-width: 0;
-  flex: 1 1 0;
-  padding: 12px 0;
-  font-size: 20px;
-  letter-spacing: 0;
-  text-align: center;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-}
 .auth-demo-code {
   margin: 4px 0 12px;
   border: 1px dashed rgba(255, 255, 255, .4);
