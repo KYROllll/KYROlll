@@ -13,7 +13,7 @@
  * falls back to a browser-local implementation (accounts and libraries in
  * localStorage) so the storefront stays fully usable in preview.
  *
- * Auth is passwordless: `signInWithOtp` asks Supabase to email a 6-digit code
+ * Auth is passwordless: `signInWithOtp` asks Supabase to email an 8-digit code
  * (creating the account on first use) and `verifyOtp` exchanges that code for a
  * session — the same two calls cover both signing up and logging in. */
 (function () {
@@ -26,8 +26,9 @@
   const LIBRARY_PREFIX = "kyrolll_library_";
   const OTP_KEY = "kyrolll_local_otp";
   // Number of digits in the emailed code. Mirrors the project's "Email OTP
-  // Length" (GoTrue defaults to 6); also drives how many boxes the UI renders.
-  const OTP_LENGTH = Math.min(Math.max(parseInt(CONFIG.otpLength, 10) || 6, 4), 10);
+  // Length" (brand-new projects default to 8); also drives how many digits the
+  // auth page's code input accepts.
+  const OTP_LENGTH = Math.min(Math.max(parseInt(CONFIG.otpLength, 10) || 8, 4), 10);
 
   const CONFIGURED = !!(
     CONFIG.url &&
@@ -173,10 +174,10 @@
 
   // Start a passwordless flow: Supabase emails a one-time code. `create_user`
   // lets the same call both sign up a new address and log an existing one in,
-  // so the UI only ever needs one code box. A username sent here lands in
-  // user_metadata when the account is first created. `otp_length` pins the code
-  // to the number of boxes the UI shows; the authoritative length is still the
-  // project's "Email OTP Length" setting in the Supabase dashboard.
+  // so the UI only ever needs one code input. A username sent here lands in
+  // user_metadata when the account is first created. `otp_length` asks for the
+  // code length the UI shows; the authoritative length is still the project's
+  // "Email OTP Length" setting in the Supabase dashboard.
   async function signInWithOtp(fields) {
     const email = String(fields.email || "").trim().toLowerCase();
     const username = String(fields.username || "").trim();
@@ -195,7 +196,7 @@
     return { sent: true, email };
   }
 
-  // Verify the emailed 6-digit code. For email OTP the GoTrue type is "email",
+  // Verify the emailed code. For email OTP the GoTrue type is "email",
   // which covers both a brand-new sign-up and a returning login.
   async function verifyOtp(fields) {
     const email = String(fields.email || "").trim().toLowerCase();

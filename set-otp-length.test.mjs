@@ -15,13 +15,13 @@ test("refuses to run without a management token", async () => {
   await assert.rejects(main(), /SUPABASE_ACCESS_TOKEN is required/);
 });
 
-test("reads the ref from supabase-config.js and PATCHes mailer_otp_length to 6", async () => {
+test("reads the ref from supabase-config.js and PATCHes mailer_otp_length to 8", async () => {
   const calls = [];
   globalThis.fetch = async (url, init) => {
     calls.push({ url, init });
     const method = (init && init.method) || "GET";
     const body = method === "PATCH"
-      ? { mailer_otp_length: 6 }
+      ? { mailer_otp_length: 8 }
       : { mailer_otp_length: 8 };
     return {
       status: 200,
@@ -39,7 +39,7 @@ test("reads the ref from supabase-config.js and PATCHes mailer_otp_length to 6",
   assert.match(get.url, /\/v1\/projects\/vuryglxywrqdnvnbelvp\/config\/auth$/);
   assert.equal(get.init.headers.Authorization, "Bearer sb_pat_test");
   assert.equal(patch.init.method, "PATCH");
-  assert.equal(JSON.parse(patch.init.body).mailer_otp_length, 6);
+  assert.equal(JSON.parse(patch.init.body).mailer_otp_length, 8);
 
   delete globalThis.fetch;
 });

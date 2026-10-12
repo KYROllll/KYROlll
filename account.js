@@ -248,7 +248,7 @@
     const demo = document.getElementById("auth-demo");
     const demoCodeEl = document.getElementById("confirm-demo");
     const b = backend();
-    const otpLength = (b && b.otpLength) || 6;
+    const otpLength = (b && b.otpLength) || 8;
     let pending = null;      // { email, username, createUser } for the last code sent
     let origin = "login";    // which tab to return to from the code step
 
@@ -279,7 +279,7 @@
     const codeInput = document.getElementById("confirm-code");
     if (codeInput) {
       codeInput.maxLength = otpLength;
-      codeInput.placeholder = "000000".slice(0, otpLength);
+      codeInput.placeholder = "0".repeat(Math.max(otpLength, 0));
       codeInput.addEventListener("input", () => {
         codeInput.value = codeInput.value.replace(/\D/g, "").slice(0, otpLength);
       });
