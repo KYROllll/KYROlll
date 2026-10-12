@@ -585,7 +585,10 @@
     async function render() {
       const user = getCurrentUser();
       if (!user) { root.innerHTML = lockedHTML(); return; }
-      root.innerHTML = '<p class="library-loading">LOADING YOUR LICENSES…</p>';
+      root.innerHTML = '<div class="flower-loader">' +
+        '<img class="flower-loader__flower" src="assets/kyrolll-flower-rest.png" alt="" width="208" height="208">' +
+        '<p class="flower-loader__text">LOADING YOUR LIBRARY…</p>' +
+        '</div>';
       try {
         items = await b.licenses.list();
       } catch (err) {

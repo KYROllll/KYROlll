@@ -1863,20 +1863,6 @@ button {
   flex: 1;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.wallet-loading-spinner {
-  width: 28px;
-  height: 28px;
-  border: 2px solid #333;
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 20px auto;
-}
-
 @keyframes checkmark-pop {
   0% { transform: scale(0.5); opacity: 0; }
   70% { transform: scale(1.1); opacity: 1; }
@@ -3696,7 +3682,30 @@ html.auth-open { overflow: hidden; }
 .profile-form__actions .kyrolll-btn { padding: 12px 18px; font-size: 10px; }
 .profile-status { margin-top: 12px; min-height: 1em; font-size: 9px; font-weight: 800; letter-spacing: .18em; color: #2ecc71; }
 
-.library-loading { padding: 60px 0; text-align: center; font-size: 10px; letter-spacing: .24em; color: var(--gray); }
+/* Branded inline loader: the flower silhouette slowly turning where a plain
+   loading line used to sit (library licenses, etc.). Reduced-motion kills the
+   spin via the global rule, leaving the resting frame. */
+.flower-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 70px 0;
+}
+.flower-loader__flower {
+  width: 128px;
+  height: 128px;
+  object-fit: contain;
+  filter: drop-shadow(0 14px 36px rgba(255, 255, 255, .14));
+  animation: flower-spin 14s linear infinite;
+}
+@keyframes flower-spin { to { transform: rotate(360deg); } }
+.flower-loader__text {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .24em;
+  color: var(--gray);
+}
 .library-item__actions .kyrolll-btn { white-space: nowrap; }
 
 /* Auth page: dark room, live 3D flower, clean white fields. */
@@ -3770,4 +3779,70 @@ html.auth-open { overflow: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   .flower-frame { animation: none; clip-path: none; }
+}
+
+/* ---------- Page-load preloader ------------------------------------------- */
+/* A dark veil over the first paint, holding the 3D flower until it has drawn
+   its first frame. Placed last so it out-specifies the page-scoped
+   `.logo-stage` width rules (`.beat-page`, `.flower-frame`, breakpoints). */
+.preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: none; /* armed by the inline head script when JS runs */
+  place-items: center;
+  background: radial-gradient(120% 90% at 50% 38%, #17171c 0%, #0b0b0e 52%, #080809 100%);
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity .55s ease;
+}
+.preloader-armed .preloader { display: grid; }
+.preloader.is-done { opacity: 0; pointer-events: none; }
+.preloader__stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  animation: preloader-rise .85s cubic-bezier(.16, 1, .3, 1) both;
+}
+.preloader .preloader__flower {
+  width: min(30vw, 216px);
+  filter: drop-shadow(0 18px 46px rgba(0, 0, 0, .55));
+}
+.preloader__name {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: .5em;
+  text-indent: .5em;
+  text-transform: none; /* keep the brand casing: KYROlll, never KYROLLL */
+  color: var(--white);
+}
+.preloader__tag {
+  margin: 0;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .42em;
+  text-indent: .42em;
+  color: var(--gray);
+}
+@keyframes preloader-rise {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- Live marquee accent ------------------------------------------- */
+.marquee-banner { transition: opacity .2s ease; }
+.marquee-banner.is-rotating { opacity: .38; }
+.marquee-live { display: inline-flex; align-items: center; gap: 9px; }
+.marquee-live__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: marquee-live-pulse 1.7s ease-in-out infinite;
+}
+@keyframes marquee-live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, .45); opacity: 1; }
+  50% { box-shadow: 0 0 0 6px rgba(0, 0, 0, 0); opacity: .5; }
 }

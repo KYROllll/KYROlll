@@ -17,6 +17,9 @@
     if (new URLSearchParams(location.search).has("beat")) {
       document.documentElement.classList.add("beat-page");
     }
+    // Arm the page-load preloader before the first paint. Gated on JS so a
+    // no-script visitor (or a script error) is never left under the veil.
+    document.documentElement.classList.add("preloader-armed");
   </script>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
   <link rel="stylesheet" href="style.css?v=106">
@@ -26,6 +29,16 @@
      immersive form. The beat card below is pre-rendered for that direct link and
      stays hidden on the home route until script.js swaps in the catalog. -->
 <body>
+  <div class="preloader" id="preloader" role="status" aria-label="Loading KYROlll">
+    <div class="preloader__stage">
+      <div class="logo-stage preloader__flower" role="img" aria-label="KYROlll custom die-cut pearl flower, rotating in three dimensions">
+        <img class="logo-fallback" src="assets/kyrolll-flower-rest.png?v=1" alt="" width="1040" height="1040" fetchpriority="high">
+      </div>
+      <p class="preloader__name">KYROlll</p>
+      <p class="preloader__tag">ORIGINAL SOUND</p>
+    </div>
+  </div>
+
   <div class="viewport">
 
   <header class="header">
@@ -59,8 +72,8 @@
 
   <div class="marquee-banner" aria-label="Marquee announcement">
     <div class="marquee-track">
-      <span>KYROlll &mdash; ORIGINAL SOUND &mdash; BEATS & BEATSTARS EXCLUSIVES &mdash; [FREE] DON TOLIVER TYPE BEAT - FLESH &mdash; 130 BPM // Am &mdash; PURCHASE ON BEATSTARS</span>
-      <span>KYROlll &mdash; ORIGINAL SOUND &mdash; BEATS & BEATSTARS EXCLUSIVES &mdash; [FREE] DON TOLIVER TYPE BEAT - FLESH &mdash; 130 BPM // Am &mdash; PURCHASE ON BEATSTARS</span>
+      <span>KYROlll &mdash; ORIGINAL SOUND &mdash; BEATS &amp; BEATSTARS EXCLUSIVES</span>
+      <span>KYROlll &mdash; ORIGINAL SOUND &mdash; BEATS &amp; BEATSTARS EXCLUSIVES</span>
     </div>
   </div>
 
@@ -120,12 +133,15 @@
   <script src="assets/qrcode.min.js"></script>
   <script src="supabase-config.js?v=3"></script>
   <script src="catalog.js?v=1"></script>
+  <script src="marquee-items.js?v=1"></script>
+  <script src="marquee.js?v=1"></script>
   <script src="kyrolll-backend.js?v=5"></script>
   <script src="account.js?v=8"></script>
   <script src="preview-player.js?v=3"></script>
   <script src="script.js?v=34"></script>
-  <script type="module" src="assets/brand-logo.min.js?v=9"></script>
+  <script type="module" src="assets/brand-logo.min.js?v=10"></script>
   <script type="module" src="assets/background-x.min.js?v=2"></script>
   <script src="hero-intro.js?v=4"></script>
+  <script src="preloader.js?v=1"></script>
 </body>
 </html>

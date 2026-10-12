@@ -1,26 +1,51 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
-const host = document.querySelector('.logo-stage');
+// Every `.logo-stage` on the page mounts its own flower: the hero, the account
+// flower, the page-load preloader. Prior versions only ever styled and mounted
+// the first stage, so a second stage (the preloader) silently got nothing.
+const hosts = Array.from(document.querySelectorAll('.logo-stage'));
 const motion = matchMedia('(prefers-reduced-motion: reduce)');
 const pause = document.querySelector('.motion-toggle');
 let paused = motion.matches;
-let renderStill = () => {};
+const stillRenderers = new Set();
+// Per-instance bookkeeping so the preloader's flower can be released when the
+// overlay leaves the screen (see the `kyrolll:preloader-done` listener below).
+const instances = new Map();
+
+function renderStillAll() {
+  stillRenderers.forEach((render) => { try { render(); } catch (error) { /* ignore */ } });
+}
 function syncMotion() {
   document.documentElement.classList.toggle('motion-paused', paused);
-  pause.textContent = paused ? 'PLAY MOTION +' : 'PAUSE MOTION −';
-  pause.setAttribute('aria-pressed', String(paused));
+  if (pause) {
+    pause.textContent = paused ? 'PLAY MOTION +' : 'PAUSE MOTION −';
+    pause.setAttribute('aria-pressed', String(paused));
+  }
   document.dispatchEvent(new CustomEvent('motion-toggle', { detail: { paused } }));
-  renderStill();
+  renderStillAll();
 }
-pause.addEventListener('click', () => { paused = !paused; syncMotion(); });
+// Not every account page carries the motion toggle (library / profile / success
+// do not), so guard its wiring; the pause state still propagates to the whole
+// page through the class and the shared event.
+if (pause) pause.addEventListener('click', () => { paused = !paused; syncMotion(); });
 motion.addEventListener('change', () => { paused = motion.matches; syncMotion(); });
 syncMotion();
 
-async function init() {
-  const response = await fetch('assets/kyrolll-contours.json?v=2');
-  if (!response.ok) throw new Error('Logo geometry unavailable');
-  const { size, contours } = await response.json();
+// Shared across instances: the silhouette file is fetched once, never per stage.
+let contoursPromise = null;
+function getContours() {
+  if (!contoursPromise) {
+    contoursPromise = fetch('assets/kyrolll-contours.json?v=2').then((response) => {
+      if (!response.ok) throw new Error('Logo geometry unavailable');
+      return response.json();
+    });
+  }
+  return contoursPromise;
+}
+
+async function init(host) {
+  const { size, contours } = await getContours();
   const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
   renderer.setClearColor(0x000000, 0);
@@ -145,7 +170,7 @@ async function init() {
   const revealAt = performance.now() + 450;
   let visible = true, elapsed = 0, previous = 0, lastDraw = 0;
   new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }).observe(host);
-  renderStill = () => renderer.render(scene, camera);
+  stillRenderers.add(() => renderer.render(scene, camera));
   renderer.setAnimationLoop(time => {
     const dt = Math.min((time - previous) / 1000, .05); previous = time;
     if (time < revealAt || paused || !visible || document.hidden) return;
@@ -168,5 +193,32 @@ async function init() {
   renderer.domElement.addEventListener('webglcontextlost', event => {
     event.preventDefault(); host.classList.remove('is-ready'); renderer.setAnimationLoop(null);
   });
+  instances.set(host, { renderer });
 }
-init().catch(error => console.warn('Using static metallic logo:', error.message));
+
+// The preloader's flower exists only to make page load feel deliberate. Once
+// the overlay has faded (preloader.js dispatches this), stop its render loop
+// and hand the WebGL context back so the page keeps just the hero flower.
+document.addEventListener('kyrolll:preloader-done', () => {
+  document.querySelectorAll('#preloader .logo-stage').forEach((stage) => {
+    const instance = instances.get(stage);
+    if (!instance) return;
+    instance.renderer.setAnimationLoop(null);
+    try { instance.renderer.dispose(); } catch (error) { /* ignore */ }
+    instances.delete(stage);
+  });
+});
+
+if (hosts.length) {
+  const failures = hosts.map(async (host) => {
+    try {
+      await init(host);
+    } catch (error) {
+      console.warn('Using static metallic logo:', error.message);
+    }
+  });
+  Promise.all(failures);
+} else {
+  // No stages on the page (e.g. a stripped-down view): still keep the brand
+  // pause state working, but there is nothing to draw.
+}
