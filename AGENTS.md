@@ -59,15 +59,25 @@ dependencies and rebuilds fine with the esbuild line above.
 
 ## Logo hand-off (still image → live 3D)
 
-The hero shows `assets/kyrolll-metal.png` until the WebGL flower has painted its first
-frame, then cross-fades (`style.css`, `.logo-stage.is-ready`). Two deliberate details:
-the still is centred on the resting 3D flower's footprint — computed by projecting the
-traced contours through `object.rotation.set(.15, -.22, -.12)` and the `PerspectiveCamera`
-(33° at z 6.4), which lands on 313×307 px in a 420px stage against the still's 314×306 —
-and the cross-fade is .4s, long enough that the change reads as the material settling
-rather than one image replacing another. `.logo-stage` also carries a base
-`drop-shadow` equal to `logoBreathe`'s 0% frame so the 1.6s-delayed loop cannot pop a
-halo on. Keep those three in step if the logo markup changes.
+The hero shows `assets/kyrolll-flower-rest.png` until the WebGL flower has painted its
+first frame, then cross-fades (`style.css`, `.logo-stage.is-ready`). That still is not a
+separate artwork: it is a frame the 3D flower itself rendered at its resting pose,
+captured at 2x from a 1040px stage with the transparent background kept, so it lands 1:1
+on the 520px hero stage. Because the image already sits exactly where the renderer draws
+the flower, `.logo-fallback` carries **no padding and no transform** — adding either
+would offset the still against the 3D at the hand-off — and the .4s cross-fade is long
+enough that the change reads as the material settling, not one image replacing another.
+`.logo-stage` also carries a base `drop-shadow` equal to `logoBreathe`'s 0% frame so the
+1.6s-delayed loop cannot pop a halo on. Keep those details in step if the logo changes.
+
+To re-capture the frame after the flower changes, serve a throwaway page from the repo
+root that mounts a wide `.logo-stage` plus a `.motion-toggle` button, loads
+`assets/brand-logo.min.js`, and then: wait for `is-ready`, hold ~480ms (the pose is still
+the resting one), and grab `canvas` inside a `requestAnimationFrame` (the WebGL buffer is
+only readable in the frame that drew it, which is why the loop must already be running),
+then POST `toDataURL('image/png')` somewhere it can be saved. From the preview browser a
+receiver on host port 9099 is only reachable through the proxy: take `location.origin`
+and swap its `3000-` prefix for `9099-`. Delete the throwaway page afterwards.
 
 ## The falling-X canvas is clamped by CSS, not re-measured in JS
 
