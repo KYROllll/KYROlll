@@ -258,6 +258,7 @@
     const otpLength = (b && b.otpLength) || 8;
     let pending = null;      // { email, username, createUser } for the last code sent
     let origin = "login";    // which tab to return to from the code step
+    let verified = false;    // true once a code is accepted — the success overlay is playing
 
     if (demo && b && b.mode === "local") demo.hidden = false;
 
@@ -309,6 +310,22 @@
       if (!demoCodeEl) return;
       demoCodeEl.hidden = !code;
       demoCodeEl.textContent = code ? "LOCAL DEMO CODE: " + code : "";
+    }
+
+    // One-shot success overlay: fades in, draws the ring + check, then hands
+    // off to the dashboard / checkout / next destination. Reduced-motion and
+    // the shared motion toggle get the same confirmation but without the draw.
+    async function playSuccess(authParams) {
+      const overlay = document.getElementById("auth-success");
+      if (!overlay) { finishAuth(authParams); return; }
+      const label = document.getElementById("auth-success-label");
+      if (label) label.textContent = origin === "signup" ? "WELCOME TO KYROlll" : "WELCOME BACK";
+      overlay.hidden = false;
+      requestAnimationFrame(() => overlay.classList.add("is-visible"));
+      const still = matchMedia("(prefers-reduced-motion: reduce)").matches ||
+        document.documentElement.classList.contains("motion-paused");
+      await new Promise((resolve) => setTimeout(resolve, still ? 380 : 1250));
+      finishAuth(authParams);
     }
 
     function showConfirm() {
@@ -380,14 +397,17 @@
 
     if (confirmForm) confirmForm.addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (verified) return;
       const token = codeValue();
       setError("confirm-error", "");
+      setInfo("confirm-info", false);
       if (!new RegExp("^\\d{" + otpLength + "}$").test(token)) return setError("confirm-error", "ENTER THE " + otpLength + "-DIGIT CODE FROM YOUR EMAIL");
       const button = confirmForm.querySelector(".auth-submit");
       button.disabled = true;
       try {
         await b.auth.verifyOtp({ email: pending && pending.email, token, type: "email" });
-        finishAuth(params);
+        verified = true;
+        playSuccess(params);
       } catch (err) {
         setError("confirm-error", "THE CODE IS INCORRECT");
         clearCode();
@@ -399,7 +419,7 @@
 
     const resend = document.getElementById("confirm-resend");
     if (resend) resend.addEventListener("click", async () => {
-      if (!pending) return;
+      if (!pending || verified) return;
       setError("confirm-error", "");
       // Inform immediately, while the code is actually being resent — this note
       // is neutral/white, never the red error treatment.

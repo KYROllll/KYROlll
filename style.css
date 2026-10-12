@@ -3524,6 +3524,86 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .auth-guide { display: block; width: 100%; text-align: center; margin-top: 8px; color: var(--white); }
 .auth-guide[hidden] { display: none; }
 
+/* One-shot success overlay — a drawn ✓ that plays right after OTP verification,
+   then hands off to the dashboard / next destination. */
+.auth-success {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 22px;
+  background: rgba(8, 8, 9, .78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .35s ease;
+}
+.auth-success[hidden] { display: none; }
+.auth-success.is-visible { opacity: 1; }
+
+.auth-success__svg {
+  width: 96px;
+  height: 96px;
+  transform: scale(.62);
+  filter: drop-shadow(0 0 22px rgba(243, 243, 241, .38));
+  transition: transform .5s cubic-bezier(.22, .9, .3, 1.22);
+}
+.auth-success.is-visible .auth-success__svg { transform: scale(1); }
+
+.auth-success__ring {
+  stroke: rgba(243, 243, 241, .3);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 141.4 141.4;
+  stroke-dashoffset: 141.4;
+}
+.auth-success.is-visible .auth-success__ring {
+  animation: auth-ring .55s cubic-bezier(.4, 0, .2, 1) forwards;
+}
+
+.auth-success__check {
+  stroke: var(--white);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 40 40;
+  stroke-dashoffset: 40;
+}
+.auth-success.is-visible .auth-success__check {
+  animation: auth-check .42s cubic-bezier(.4, 0, .2, 1) .3s forwards;
+}
+
+@keyframes auth-ring { to { stroke-dashoffset: 0; } }
+@keyframes auth-check { to { stroke-dashoffset: 0; } }
+
+.auth-success__label {
+  color: var(--white);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .32em;
+  text-indent: .32em;
+  text-transform: none;
+  opacity: 0;
+  transform: translateY(7px);
+  transition: opacity .35s ease .52s, transform .35s ease .52s;
+}
+.auth-success.is-visible .auth-success__label { opacity: 1; transform: none; }
+
+/* Reduced motion and the shared motion toggle: same confirmation, no draw. */
+@media (prefers-reduced-motion: reduce) {
+  .auth-success.is-visible .auth-success__ring,
+  .auth-success.is-visible .auth-success__check { animation: none; stroke-dashoffset: 0; }
+  .auth-success.is-visible .auth-success__svg { transform: none; }
+  .auth-success.is-visible .auth-success__label { opacity: 1; transform: none; transition: none; }
+}
+html.motion-paused .auth-success.is-visible .auth-success__ring,
+html.motion-paused .auth-success.is-visible .auth-success__check { animation: none; stroke-dashoffset: 0; }
+html.motion-paused .auth-success.is-visible .auth-success__svg { transform: none; }
+html.motion-paused .auth-success.is-visible .auth-success__label { opacity: 1; transform: none; transition: none; }
+
 .auth-submit {
   width: 100%;
   border: 1px solid var(--white);
