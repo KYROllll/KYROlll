@@ -22,5 +22,10 @@ window.KYROLLL_SUPABASE = Object.assign({
   // profile pictures. Keep the names in step with your Supabase Storage.
   buckets: { beats: "BEATS", avatars: "avatars" },
   // Table that records permanent licenses (see the SQL in AGENTS.md).
-  tables: { licenses: "licenses" }
+  tables: { licenses: "licenses" },
+  // Digits in the emailed one-time code. Keep it in step with the project's
+  // "Email OTP Length" (Supabase dashboard → Authentication → Providers →
+  // Email, env `GOTRUE_MAILER_OTP_LENGTH`); GoTrue defaults to 6. The auth page
+  // renders exactly this many code boxes and the OTP request asks for it.
+  otpLength: 6
 }, window.KYROLLL_SUPABASE || {});

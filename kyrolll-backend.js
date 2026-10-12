@@ -25,6 +25,9 @@
   const LOCAL_SESSION_KEY = "kyrolll_current_user";
   const LIBRARY_PREFIX = "kyrolll_library_";
   const OTP_KEY = "kyrolll_local_otp";
+  // Number of digits in the emailed code. Mirrors the project's "Email OTP
+  // Length" (GoTrue defaults to 6); also drives how many boxes the UI renders.
+  const OTP_LENGTH = Math.min(Math.max(parseInt(CONFIG.otpLength, 10) || 6, 4), 10);
 
   const CONFIGURED = !!(
     CONFIG.url &&
@@ -168,10 +171,12 @@
 
   /* ---------------------------------------------- passwordless email OTP --- */
 
-  // Start a passwordless flow: Supabase emails a 6-digit code. `create_user`
+  // Start a passwordless flow: Supabase emails a one-time code. `create_user`
   // lets the same call both sign up a new address and log an existing one in,
   // so the UI only ever needs one code box. A username sent here lands in
-  // user_metadata when the account is first created.
+  // user_metadata when the account is first created. `otp_length` pins the code
+  // to the number of boxes the UI shows; the authoritative length is still the
+  // project's "Email OTP Length" setting in the Supabase dashboard.
   async function signInWithOtp(fields) {
     const email = String(fields.email || "").trim().toLowerCase();
     const username = String(fields.username || "").trim();
@@ -179,11 +184,12 @@
     if (!CONFIGURED) {
       // No mail server in demo mode — mint a code and surface it to the UI so
       // the whole OTP flow can still be previewed end to end.
-      const code = String(Math.floor(100000 + Math.random() * 900000));
+      let code = "";
+      for (let i = 0; i < OTP_LENGTH; i += 1) code += Math.floor(Math.random() * 10);
       lsSet(OTP_KEY, { email, username, code, at: Date.now() });
       return { sent: true, email, demoCode: code };
     }
-    const body = { email, create_user: createUser };
+    const body = { email, create_user: createUser, otp_length: OTP_LENGTH };
     if (username) body.data = { username, avatar_url: "" };
     await request("POST", "/auth/v1/otp", { body });
     return { sent: true, email };
@@ -456,6 +462,7 @@
   window.KYROLLL_BACKEND = {
     configured: CONFIGURED,
     mode: CONFIGURED ? "supabase" : "local",
+    otpLength: OTP_LENGTH,
     buckets: BUCKETS,
     auth: {
       signInWithOtp,

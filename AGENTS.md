@@ -160,7 +160,11 @@ To attach a real project:
 1. **Auth** — Authentication → Providers → Email → make sure email sign-in is
    enabled so `signInWithOtp` can send codes. The email template must include the
    `{{ .Token }}` placeholder so the 6-digit code the code box asks for is
-   actually sent.
+   actually sent. The code length is the project's **Email OTP Length** setting
+   (GoTrue env `GOTRUE_MAILER_OTP_LENGTH`); keep it in step with `otpLength` in
+   `supabase-config.js` (default 6). The auth page renders exactly `otpLength`
+   boxes and the OTP request sends `otp_length` so the UI and the emailed code
+   can never drift apart.
 2. **Storage** — create a private bucket `BEATS` for the masters and an
    `avatars` bucket for profile pictures (rename in `supabase-config.js` if you
    differ). Upload each tier's object to the path named in `catalog.js`.

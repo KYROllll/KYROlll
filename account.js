@@ -248,6 +248,7 @@
     const demo = document.getElementById("auth-demo");
     const demoCodeEl = document.getElementById("confirm-demo");
     const b = backend();
+    const otpLength = (b && b.otpLength) || 6;
     let pending = null;      // { email, username, createUser } for the last code sent
     let origin = "login";    // which tab to return to from the code step
 
@@ -263,9 +264,9 @@
       const title = document.getElementById("auth-title");
       const sub = document.getElementById("auth-sub");
       const copy = {
-        login: ["WELCOME BACK", "NO PASSWORD — WE EMAIL YOU A 6-DIGIT CODE."],
+        login: ["WELCOME BACK", "NO PASSWORD — WE EMAIL YOU A " + otpLength + "-DIGIT CODE."],
         signup: ["CREATE ACCOUNT", "ONE CODE CREATES YOUR ACCOUNT AND SIGNS YOU IN."],
-        confirm: ["CHECK YOUR EMAIL", "ENTER THE 6-DIGIT CODE WE JUST SENT YOU."]
+        confirm: ["CHECK YOUR EMAIL", "ENTER THE " + otpLength + "-DIGIT CODE WE JUST SENT YOU."]
       };
       if (title) title.textContent = copy[which][0];
       if (sub) sub.textContent = copy[which][1];
@@ -274,7 +275,20 @@
       setError("confirm-error", "");
     }
 
-    /* --- six one-time-code boxes ------------------------------------------ */
+    /* --- one-time-code boxes --------------------------------------------- */
+    const boxesHost = document.getElementById("otp-boxes");
+    if (boxesHost) {
+      // Keep the hand-written boxes when the count already matches the
+      // configured code length; otherwise grow or shrink so the UI can never
+      // ask for a different number of digits than Supabase sends.
+      while (boxesHost.children.length > otpLength) boxesHost.removeChild(boxesHost.lastElementChild);
+      while (boxesHost.children.length < otpLength) boxesHost.appendChild(boxesHost.firstElementChild.cloneNode(true));
+      Array.from(boxesHost.children).forEach((box, index) => {
+        box.value = "";
+        box.setAttribute("aria-label", "Code digit " + (index + 1));
+      });
+      boxesHost.setAttribute("aria-label", otpLength + "-digit one-time code");
+    }
     const boxes = Array.from(document.querySelectorAll("#otp-boxes .otp-box"));
     function codeValue() { return boxes.map((box) => box.value).join(""); }
     function clearCode() { boxes.forEach((box) => { box.value = ""; }); }
@@ -363,7 +377,7 @@
       event.preventDefault();
       const token = codeValue();
       setError("confirm-error", "");
-      if (!/^\d{6}$/.test(token)) return setError("confirm-error", "ENTER THE 6-DIGIT CODE FROM YOUR EMAIL");
+      if (!new RegExp("^\\d{" + otpLength + "}$").test(token)) return setError("confirm-error", "ENTER THE " + otpLength + "-DIGIT CODE FROM YOUR EMAIL");
       const button = confirmForm.querySelector(".auth-submit");
       button.disabled = true;
       try {
