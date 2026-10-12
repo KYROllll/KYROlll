@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080809">
+  <meta name="robots" content="noindex">
+  <title>Payment Successful — KYROlll</title>
+  <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
+  <link rel="stylesheet" href="style.css?v=100">
+</head>
+<body class="success-page">
+  <main class="success-container">
+    <div class="success-card">
+      <div class="success-checkmark" aria-hidden="true">
+        <svg viewBox="0 0 52 52" focusable="false">
+          <circle class="checkmark__circle" cx="26" cy="26" r="23" fill="none"/>
+          <path class="checkmark__check" d="M14.5 27.5l7.5 7.5 15.5-17" fill="none"/>
+        </svg>
+      </div>
+      <h1 class="success-title">PAYMENT SUCCESSFUL</h1>
+      <p class="success-subtitle" id="success-subtitle">Your license is secured and saved to your permanent library.</p>
+
+      <div class="success-details" id="success-details">
+        <div class="success-details-row">
+          <span class="success-details-label">BEAT TITLE</span>
+          <span class="success-details-val" id="det-title">—</span>
+        </div>
+        <div class="success-details-row">
+          <span class="success-details-label">LICENSE TIER</span>
+          <span class="success-details-val" id="det-tier">—</span>
+        </div>
+        <div class="success-details-row">
+          <span class="success-details-label">PRICE PAID</span>
+          <span class="success-details-val" id="det-price">—</span>
+        </div>
+        <div class="success-details-row">
+          <span class="success-details-label">STATUS</span>
+          <span class="success-details-val success-details-val--ok" id="det-status">ACTIVE // PERMANENT ACCESS</span>
+        </div>
+      </div>
+
+      <div class="success-warning" id="auth-warning" hidden>
+        <p>You are not logged in. Create an account or log in so this purchase is permanently tied to your library.</p>
+        <div class="success-warning__actions">
+          <button type="button" class="kyrolll-btn" data-auth-action="signup">CREATE ACCOUNT</button>
+          <button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-auth-action="login">LOG IN</button>
+        </div>
+      </div>
+
+      <div class="success-actions">
+        <a href="index.html" class="kyrolll-btn kyrolll-btn--ghost">BACK TO STORE</a>
+        <button type="button" id="view-library-btn" class="kyrolll-btn">MY LIBRARY</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="account.js?v=1"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const acc = window.KYROLLL_ACCOUNT;
+      const pending = acc.getPendingPurchase();
+      const purchase = pending || {
+        beatId: "flesh",
+        beatTitle: "[FREE] DON TOLIVER TYPE BEAT - FLESH",
+        tierId: "mp3",
+        tier: "MP3 LEASE",
+        price: "$9.95"
+      };
+
+      document.getElementById("det-title").textContent = purchase.beatTitle || "—";
+      document.getElementById("det-tier").textContent = purchase.tier || "—";
+      document.getElementById("det-price").textContent = purchase.price || "—";
+
+      const warning = document.getElementById("auth-warning");
+      const subtitle = document.getElementById("success-subtitle");
+      const status = document.getElementById("det-status");
+
+      // Record the pending purchase exactly once, then clear it so a reload can
+      // never write a duplicate license into the library.
+      let recorded = false;
+      function commit() {
+        if (recorded || !pending) return;
+        if (!acc.getCurrentUser()) return;
+        acc.recordPurchase(pending);
+        acc.clearPendingPurchase();
+        recorded = true;
+      }
+
+      function refresh() {
+        const user = acc.getCurrentUser();
+        commit();
+        if (user && recorded) {
+          warning.hidden = true;
+          status.textContent = "ACTIVE // SAVED TO YOUR LIBRARY";
+          subtitle.textContent = "Your license is secured and saved to " + user.username + "'s permanent library.";
+        } else if (user) {
+          warning.hidden = true;
+          subtitle.textContent = "Your license is secured and saved to your permanent library.";
+        } else {
+          warning.hidden = false;
+          status.textContent = "AWAITING ACCOUNT";
+          subtitle.textContent = "Secure your license to your account to keep permanent access.";
+        }
+      }
+
+      refresh();
+      window.addEventListener("kyrolll:auth", refresh);
+
+      document.getElementById("view-library-btn").addEventListener("click", () => {
+        window.location.href = "index.html?view=library";
+      });
+    });
+  </script>
+</body>
+</html>

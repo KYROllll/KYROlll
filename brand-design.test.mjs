@@ -1,4 +1,4 @@
-// Browser integration checks for the updated KYROlll store (BeatStars transactions).
+// Browser integration checks for the updated KYROlll store (NOWPayments licenses).
 import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 import { createServer } from 'node:http';
@@ -53,8 +53,16 @@ try {
   assert.match(await direct.locator('#card-flesh').innerText(), /130 BPM \/\/ AM/i);
   assert.equal(await direct.locator('#card-flesh audio').getAttribute('src'), 'assets/previews/BEAT 1 TAG.wav');
   assert.equal(await direct.locator('#card-flesh .buy-beat-btn').count(), 1);
-  assert.match(await direct.locator('#card-flesh .buy-beat-btn').innerText(), /^BUY$/i);
-  assert.equal(await direct.locator('#card-flesh .buy-beat-btn').getAttribute('href'), 'https://bsta.rs/GwSz83');
+  assert.match(await direct.locator('#card-flesh .buy-beat-btn').innerText(), /BUY/i);
+  // BUY opens the three-tier license dropdown instead of linking straight out.
+  await direct.locator('#card-flesh .buy-beat-btn').click();
+  await direct.locator('.license-menu').waitFor();
+  assert.equal(await direct.locator('.license-menu .license-tier').count(), 3);
+  assert.deepEqual(
+    await direct.locator('.license-tier').evaluateAll(nodes => nodes.map(n => n.dataset.licenseId)),
+    ['mp3', 'wav', 'exclusive']
+  );
+  await direct.keyboard.press('Escape');
   assert.equal(await direct.locator('#card-flesh .beat-detail__artwork img').count(), 1);
   assert.equal(await direct.locator('#card-flesh .beat-detail__content').count(), 1);
   await shot(direct, 'beat-detail');
@@ -70,7 +78,7 @@ try {
   await playback.close();
 
   assert.deepEqual(errors, []);
-  console.log('Passed storefront layout, tagged audio preview, and BeatStars buy button checks.');
+  console.log('Passed storefront layout, tagged audio preview, and license dropdown checks.');
 } finally {
   await browser?.close();
   server.close();

@@ -19,7 +19,7 @@
     }
   </script>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
-  <link rel="stylesheet" href="style.css?v=97">
+  <link rel="stylesheet" href="style.css?v=100">
 </head>
 <!-- The `beat-page` state lives on <html> only (set in the head for a direct beat
      link and re-synced by script.js), so the homepage hero renders in its full
@@ -30,6 +30,7 @@
 
   <header class="header">
     <button class="motion-toggle" type="button" aria-pressed="false">PAUSE MOTION −</button>
+    <div class="header-auth" id="header-auth"></div>
   </header>
 
   <section class="brand-hero" aria-labelledby="brand-title">
@@ -110,9 +111,10 @@
             <span class="beat-preview__status" role="status">AUDIO PREVIEW</span>
           </div>
           <div class="card__actions">
-            <a class="buy-beat-btn card__btn-3d" href="https://bsta.rs/GwSz83" target="_blank" rel="noopener noreferrer">
-              BUY
-            </a>
+            <button type="button" class="buy-beat-btn" data-beat-id="flesh" aria-haspopup="true" aria-expanded="false">
+              BUY<span class="buy-beat-btn__caret" aria-hidden="true">▾</span>
+            </button>
+            <span class="buy-hint">MP3 · WAV · EXCLUSIVE</span>
           </div>
         </section>
         <div class="beat-detail__artwork-wrap">
@@ -134,8 +136,9 @@
   </div>
 
   <script src="assets/qrcode.min.js"></script>
+  <script src="account.js?v=1"></script>
   <script src="preview-player.js?v=3"></script>
-  <script src="script.js?v=31"></script>
+  <script src="script.js?v=32"></script>
   <script type="module" src="assets/brand-logo.min.js?v=9"></script>
   <script type="module" src="assets/background-x.min.js?v=2"></script>
   <script src="hero-intro.js?v=3"></script>

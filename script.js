@@ -5,10 +5,23 @@ const CATALOG = [{
   id: "flesh", title: ACTIVE_TITLE,
   img: "assets/flesh.png", bpm: 130, key: "Am",
   preview: "assets/previews/BEAT 1 TAG.wav",
-  beatstarsUrl: "https://bsta.rs/GwSz83"
+  beatstarsUrl: "https://bsta.rs/GwSz83",
+  downloadName: "KYROlll - FLESH",
+  // Files handed to a buyer in their permanent library (per license tier).
+  downloads: {
+    mp3: "assets/previews/flesh.mp3",
+    wav: 'assets/previews/DON TOLIVER TYPE BEAT - "FLESH" - BPM 130 - KEY Am TAG.wav',
+    exclusive: 'assets/previews/DON TOLIVER TYPE BEAT - "FLESH" - BPM 130 - KEY Am TAG.wav'
+  }
 }];
 
 const $ = (id) => document.getElementById(id);
+
+const account = () => window.KYROLLL_ACCOUNT;
+const esc = (value) => (window.KYROLLL_ACCOUNT
+  ? window.KYROLLL_ACCOUNT.escapeHTML(value)
+  : String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char])));
+const beatById = (id) => CATALOG.find((beat) => beat.id === id) || null;
 
 function unlockScroll() {
   document.body.style.cssText = '';
@@ -49,9 +62,16 @@ function previewHTML(beat) {
   </div>`;
 }
 
+function buyButtonHTML(beat) {
+  const attr = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+  return `<button type="button" class="buy-beat-btn" data-beat-id="${attr(beat.id)}" aria-haspopup="true" aria-expanded="false">
+          BUY<span class="buy-beat-btn__caret" aria-hidden="true">▾</span>
+        </button>
+        <span class="buy-hint">MP3 · WAV · EXCLUSIVE</span>`;
+}
+
 function beatDetailInner(beat) {
   const attr = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
-  const buyUrl = beat.beatstarsUrl || "https://bsta.rs/GwSz83";
   return `
     <section class="beat-detail__content" aria-label="Beat details and purchase">
       <div class="card__meta">
@@ -65,9 +85,7 @@ function beatDetailInner(beat) {
       </div>
       ${previewHTML(beat)}
       <div class="card__actions">
-        <a class="buy-beat-btn card__btn-3d" href="${attr(buyUrl)}" target="_blank" rel="noopener noreferrer">
-          BUY
-        </a>
+        ${buyButtonHTML(beat)}
       </div>
     </section>
     <div class="beat-detail__artwork-wrap">
@@ -78,6 +96,80 @@ function beatDetailInner(beat) {
         <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" decoding="async" fetchpriority="high">
       </figure>
     </div>`;
+}
+
+/* ---------------------------------------------------------------- library */
+
+function licenseTextHref(text) {
+  return "data:text/plain;charset=utf-8," + encodeURIComponent(text);
+}
+
+function libraryItemHTML(user, item) {
+  const acc = account();
+  const beat = beatById(item.beatId);
+  const art = beat && beat.img ? beat.img : "assets/flesh.png";
+  const tierAudio = beat && beat.downloads ? beat.downloads[item.tierId] : "";
+  const audio = item.audioUrl || tierAudio || (beat && beat.preview) || "";
+  const ext = item.tierId === "mp3" ? "mp3" : "wav";
+  const base = (beat && beat.downloadName) || ("KYROlll - " + item.beatTitle);
+  const audioName = item.audioName || base + "." + ext;
+  const licenseText = item.licenseText || (acc ? acc.buildLicenseText(user, item) : "");
+  return `<li class="library-item">
+    <div class="library-item__art"><img src="${esc(art)}" alt="" loading="lazy" decoding="async"></div>
+    <div class="library-item__body">
+      <div class="library-item__row">
+        <h2 class="library-item__title">${esc(item.beatTitle)}</h2>
+        <span class="library-item__tier">${esc(item.tier)}</span>
+      </div>
+      <p class="library-item__meta">${esc(item.price)} · SECURED ${esc(item.date)} · ${esc(item.id)}</p>
+      <p class="library-item__help">Your untagged master and signed PDF arrive by email. Leased audio and your license certificate are always available below.</p>
+      <div class="library-item__actions">
+        ${audio ? `<a class="kyrolll-btn" href="${audio}" download="${esc(audioName)}">DOWNLOAD AUDIO</a>` : ""}
+        <a class="kyrolll-btn kyrolll-btn--ghost" href="${licenseTextHref(licenseText)}" download="${esc(item.id)}-license.txt">LICENSE (TXT)</a>
+      </div>
+    </div>
+  </li>`;
+}
+
+function libraryHTML() {
+  const acc = account();
+  const user = acc && acc.getCurrentUser();
+  if (!user) {
+    return `<article class="library-view library-view--locked">
+      <div class="library-locked">
+        <span class="library-locked__kicker">MY LIBRARY</span>
+        <h1 class="library-locked__title">LOG IN TO ACCESS YOUR LICENSES</h1>
+        <p class="library-locked__text">Every license you secure is tied to your account, so you never lose access to your files.</p>
+        <div class="library-locked__actions">
+          <button type="button" class="kyrolll-btn" data-auth-action="login">LOG IN</button>
+          <button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-auth-action="signup">CREATE ACCOUNT</button>
+        </div>
+      </div>
+    </article>`;
+  }
+  const library = Array.isArray(user.library) ? user.library : [];
+  const items = library.map((item) => libraryItemHTML(user, item)).join("");
+  return `<article class="library-view">
+    <header class="library-head">
+      <div class="library-head__id">
+        <span class="library-head__kicker">SIGNED IN AS</span>
+        <h1 class="library-head__name">${esc(user.username)}</h1>
+        <p class="library-head__email">${esc(user.email)}</p>
+      </div>
+      <div class="library-head__side">
+        <span class="library-head__count"><strong>${library.length}</strong> LICENSE${library.length === 1 ? "" : "S"}</span>
+        <button type="button" class="auth-link" data-auth-action="logout">LOG OUT</button>
+      </div>
+    </header>
+    ${library.length
+      ? `<ul class="library-list">${items}</ul>`
+      : `<div class="library-empty">
+          <span class="library-empty__title">NO LICENSES YET</span>
+          <p>WHEN YOU SECURE A BEAT IT LANDS HERE PERMANENTLY — WITH ITS DOWNLOAD AND LICENSE.</p>
+          <a class="kyrolll-btn" href="index.html#catalog">BROWSE BEATS →</a>
+        </div>`}
+    <p class="library-note">Untagged masters and signed PDF licenses are delivered to your email on file. Downloads remain available here for life.</p>
+  </article>`;
 }
 
 const byNewest = (a, b) => CATALOG.indexOf(b) - CATALOG.indexOf(a);
@@ -105,16 +197,26 @@ function buildGrid() {
   previewPlayer.stop();
   clearTimeout(vinylTimer);
   grid.innerHTML = "";
-  const id = new URLSearchParams(location.search).get("beat");
+  const params = new URLSearchParams(location.search);
+  const id = params.get("beat");
+  const libraryView = params.get("view") === "library";
   const detail = id !== null;
   const list = detail ? CATALOG.filter((beat) => beat.id === id) : [...CATALOG].sort(byNewest);
   document.documentElement.classList.toggle("beat-page", detail);
   grid.classList.toggle("grid--detail", detail);
+  grid.classList.toggle("grid--library", libraryView);
   const beatNav = $("beat-navigation");
   if (beatNav) beatNav.hidden = !detail;
   const catalogHeading = $("catalog");
-  if (catalogHeading) catalogHeading.hidden = detail;
-  grid.setAttribute("aria-label", detail ? "Beat details" : "Available beats");
+  if (catalogHeading) catalogHeading.hidden = detail || libraryView;
+  grid.setAttribute("aria-label", libraryView ? "My library" : detail ? "Beat details" : "Available beats");
+
+  if (libraryView) {
+    document.title = "MY LIBRARY — KYROlll";
+    grid.innerHTML = libraryHTML();
+    return;
+  }
+
   document.title = detail && list.length ? `${list[0].title} — KYROlll` : "KYROlll — BEATS & ORIGINAL PRODUCTION";
 
   if (!list.length) {
@@ -172,8 +274,9 @@ function handleDeepHash() {
 }
 
 function rebuildCatalog() {
-  const isHome = !new URLSearchParams(location.search).has("beat");
-  if (isHome) {
+  const params = new URLSearchParams(location.search);
+  const isHome = !params.has("beat");
+  if (isHome || params.get("view") === "library") {
     unlockScroll();
   }
   buildGrid();
@@ -227,6 +330,13 @@ window.addEventListener("popstate", () => {
 handleDeepHash();
 
 grid.addEventListener("click", (e) => {
+  const buy = e.target.closest(".buy-beat-btn");
+  if (buy) {
+    e.preventDefault();
+    const beat = beatById(buy.getAttribute("data-beat-id"));
+    if (beat && account()) account().openLicenseMenu(buy, beat);
+    return;
+  }
   const link = e.target.closest(".catalog-tile__link");
   if (link) {
     e.preventDefault();
@@ -235,6 +345,11 @@ grid.addEventListener("click", (e) => {
     rebuildCatalog();
     return;
   }
+});
+
+// Signing in/out re-renders the library so it never shows another account's data.
+window.addEventListener("kyrolll:auth", () => {
+  if (new URLSearchParams(location.search).get("view") === "library") buildGrid();
 });
 const allBeatsLink = $("all-beats-link");
 if (allBeatsLink) {
