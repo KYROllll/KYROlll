@@ -36,6 +36,46 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   storefront on port 3000 call the worker on port 8000 cross-origin. No cookies
   or sessions are involved, so no `credentials: 'include'` is needed.
 
+## Built assets (`assets/*.min.js`)
+
+`assets/brand-logo.min.js` and `assets/background-x.min.js` are esbuild bundles of
+`brand-logo.js` / `background-x.js`. `npm run build:brand` regenerates the whole asset
+set but needs `sharp`, which this sandbox does not install. To rebuild one bundle, use
+the esbuild that ships with the Worker and run its binary directly (`bin/esbuild` is a
+native binary, not a JS entry point):
+
+```bash
+worker/node_modules/@esbuild/linux-x64/bin/esbuild background-x.js --bundle --minify \
+  --format=esm --target=es2020 --legal-comments=eof --outfile=assets/background-x.min.js
+```
+
+Bump the `?v=N` query on the matching `<script>` tag in `index.html` afterwards.
+
+## The falling-X canvas is clamped by CSS, not re-measured in JS
+
+`background-x.js` sizes its canvas from the page's measured height, so its value can be
+left over from a taller transient state (the pre-rendered beat card before `script.js`
+swaps it for a catalog tile, the 28px scroll-reveal transform). A canvas taller than the
+page left a band of empty background open below the footer.
+`body > canvas { height: 100% !important }` in `style.css` caps the canvas element to the
+body's box, so it can never paint below the page; the bitmap keeps the JS measurement, so
+a stale measurement only rescales the marks slightly.
+
+Re-measuring with `document.body.offsetHeight` inside `resize()` was tried and reverted:
+the clamp does not need it, and it did not make the sandbox smoke check any more reliable.
+
+## Preview responsiveness in this sandbox
+
+The storefront is heavy to render without a GPU: the 3D flower (three.js, MSAA, physical
+material) plus the falling-X canvas leave the main thread at roughly 15fps (~65-70ms per
+frame). The page itself still loads quickly (`domInteractive` ~1.3s, `load` ~2s), yet the
+platform's fresh-load smoke check intermittently reports `page_unresponsive (app broken)`.
+It failed the same way with and without the changes above, including with the pre-existing
+background asset, so treat it as environment capacity — the user's own preview is a second
+renderer competing for the same CPU — rather than a defect in `background-x.js`. If it
+needs to be lighter, trim the WebGL renderer first (`antialias`, pixel ratio,
+`bevelSegments`), not the page structure.
+
 ## Secrets
 
 `worker/.dev.vars` is generated at container start from the platform-managed
@@ -78,3 +118,10 @@ download links or license files (see `showSuccessModal` / `completeFreeOrder` in
 Worker's branded Resend email. That email cannot send until `RESEND_API_KEY` and
 `RESEND_FROM` are set, so an un-configured preview legitimately reports
 "EMAIL DELIVERY PENDING".
+
+`index.html` pre-renders the active release's beat card so a direct beat link
+(`?beat=…`) paints without a flash; `script.js` replaces the grid contents right after
+parse. Home is the default state: the head only adds `beat-page` when the URL carries
+`?beat=`, and `html:not(.beat-page) #grid > .beat-detail` keeps that pre-rendered card
+hidden on the home route — so entering the store never flashes a beat page before the
+homepage hero.

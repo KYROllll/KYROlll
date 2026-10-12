@@ -10,12 +10,21 @@
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://www.kencarter.abrdns.com/assets/kyrolll-social.jpg">
   <title>KYROlll — BEATS &amp; ORIGINAL PRODUCTION</title>
-  <script>document.documentElement.classList.toggle("beat-page", true);</script>
+  <script>
+    // Home is the default landing state. Only a direct beat link (?beat=…)
+    // starts as a beat page, so the store never flashes the beat page before
+    // the homepage hero. script.js re-syncs this class on every navigation.
+    if (new URLSearchParams(location.search).has("beat")) {
+      document.documentElement.classList.add("beat-page");
+    }
+  </script>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
-  <link rel="stylesheet" href="style.css?v=94">
+  <link rel="stylesheet" href="style.css?v=95">
 </head>
-<!-- The `beat-page` state lives on <html> only (set here and re-synced by script.js),
-     so the homepage hero renders in its full immersive form. -->
+<!-- The `beat-page` state lives on <html> only (set in the head for a direct beat
+     link and re-synced by script.js), so the homepage hero renders in its full
+     immersive form. The beat card below is pre-rendered for that direct link and
+     stays hidden on the home route until script.js swaps in the catalog. -->
 <body>
   <div class="viewport">
 
