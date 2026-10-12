@@ -51,6 +51,24 @@ worker/node_modules/@esbuild/linux-x64/bin/esbuild background-x.js --bundle --mi
 
 Bump the `?v=N` query on the matching `<script>` tag in `index.html` afterwards.
 
+`assets/brand-logo.min.js` bundles `three` + `three/addons`, so it can **not** be rebuilt
+in this sandbox — nothing here installs `three` (and `build-brand-assets.mjs` also needs
+`sharp`). Treat `brand-logo.js` as read-only while working in the preview: editing it
+without rebuilding the bundle silently changes nothing. `background-x.js` has no
+dependencies and rebuilds fine with the esbuild line above.
+
+## Logo hand-off (still image → live 3D)
+
+The hero shows `assets/kyrolll-metal.png` until the WebGL flower has painted its first
+frame, then cross-fades (`style.css`, `.logo-stage.is-ready`). Two deliberate details:
+the still is centred on the resting 3D flower's footprint — computed by projecting the
+traced contours through `object.rotation.set(.15, -.22, -.12)` and the `PerspectiveCamera`
+(33° at z 6.4), which lands on 313×307 px in a 420px stage against the still's 314×306 —
+and the cross-fade is .4s, long enough that the change reads as the material settling
+rather than one image replacing another. `.logo-stage` also carries a base
+`drop-shadow` equal to `logoBreathe`'s 0% frame so the 1.6s-delayed loop cannot pop a
+halo on. Keep those three in step if the logo markup changes.
+
 ## The falling-X canvas is clamped by CSS, not re-measured in JS
 
 `background-x.js` sizes its canvas from the page's measured height, so its value can be

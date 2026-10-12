@@ -196,9 +196,15 @@ button {
   width: 100%;
   height: 100%;
 }
-.logo-stage canvas { opacity: 0; transition: opacity .12s linear; }
+/* The still logo is a flat cut-out of the same artwork. It is centred on the
+   resting 3D flower's footprint — measured from the traced contours by
+   projecting them through the resting pose and the camera — so the hand-off
+   only changes the material, never the size, the shape or the place. The long
+   cross-fade then reads as the flower settling into its lit render instead of
+   one image being swapped for another. */
+.logo-stage canvas { opacity: 0; transition: opacity .4s ease; }
 .logo-stage.is-ready canvas { opacity: 1; }
-.logo-fallback { object-fit: contain; padding: 40px; transform: rotate(-8deg); opacity: 1; transition: opacity .12s linear, visibility 0s linear .12s; }
+.logo-fallback { object-fit: contain; padding: 40px; transform: translate(.83%, -1.62%) rotate(-8deg); opacity: 1; transition: opacity .4s ease, visibility 0s linear .4s; }
 .logo-stage.is-ready .logo-fallback { opacity: 0; visibility: hidden; }
 
 .store-banner {
@@ -2745,6 +2751,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 
 .logo-stage {
   animation: logoBreathe 7.5s ease-in-out 1.6s infinite;
+  /* The base glow is the animation's 0% frame, so the loop starting at 1.6s
+     grows from the glow already on screen instead of popping a halo on. */
+  filter: drop-shadow(0 0 26px rgba(255, 255, 255, 0.13));
 }
 
 @keyframes logoBreathe {
