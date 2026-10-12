@@ -16,8 +16,8 @@
  * value without editing the file (e.g. from a build step).
  */
 window.KYROLLL_SUPABASE = Object.assign({
-  url: "",
-  anonKey: "",
+  url: "https://vuryglxywrqdnvnbelvp.supabase.co",
+  anonKey: "sb_publishable_18muoQ1bmxrySKBpY9uI5g_CqvDrQWw",
   // Storage buckets. `beats` holds the downloadable masters; `avatars` holds
   // profile pictures. Keep the names in step with your Supabase Storage.
   buckets: { beats: "BEATS", avatars: "avatars" },
