@@ -246,8 +246,10 @@
     const confirmForm = document.getElementById("confirm-form");
     const tabsEl = document.querySelector(".auth-tabs");
     const demo = document.getElementById("auth-demo");
+    const demoCodeEl = document.getElementById("confirm-demo");
     const b = backend();
-    let pendingEmail = "";
+    let pending = null;      // { email, username, createUser } for the last code sent
+    let origin = "login";    // which tab to return to from the code step
 
     if (demo && b && b.mode === "local") demo.hidden = false;
 
@@ -261,9 +263,9 @@
       const title = document.getElementById("auth-title");
       const sub = document.getElementById("auth-sub");
       const copy = {
-        login: ["WELCOME BACK", "LOG IN TO KEEP EVERY LICENSE FOREVER."],
-        signup: ["CREATE ACCOUNT", "ONE ACCOUNT. EVERY LICENSE. ALWAYS AVAILABLE."],
-        confirm: ["CONFIRM YOUR EMAIL", "ENTER THE CODE FROM YOUR INBOX."]
+        login: ["WELCOME BACK", "NO PASSWORD — WE EMAIL YOU A 6-DIGIT CODE."],
+        signup: ["CREATE ACCOUNT", "ONE CODE CREATES YOUR ACCOUNT AND SIGNS YOU IN."],
+        confirm: ["CHECK YOUR EMAIL", "ENTER THE 6-DIGIT CODE WE JUST SENT YOU."]
       };
       if (title) title.textContent = copy[which][0];
       if (sub) sub.textContent = copy[which][1];
@@ -272,11 +274,66 @@
       setError("confirm-error", "");
     }
 
-    function showConfirm(email) {
-      pendingEmail = email;
+    /* --- six one-time-code boxes ------------------------------------------ */
+    const boxes = Array.from(document.querySelectorAll("#otp-boxes .otp-box"));
+    function codeValue() { return boxes.map((box) => box.value).join(""); }
+    function clearCode() { boxes.forEach((box) => { box.value = ""; }); }
+    function focusCode() { if (boxes[0]) setTimeout(() => { try { boxes[0].focus(); } catch (err) { /* ignore */ } }, 60); }
+
+    boxes.forEach((box, index) => {
+      box.addEventListener("input", () => {
+        box.value = box.value.replace(/\D/g, "").slice(0, 1);
+        if (box.value && index < boxes.length - 1) boxes[index + 1].focus();
+      });
+      box.addEventListener("keydown", (event) => {
+        if (event.key === "Backspace" && !box.value && index > 0) {
+          event.preventDefault();
+          boxes[index - 1].value = "";
+          boxes[index - 1].focus();
+        } else if (event.key === "ArrowLeft" && index > 0) {
+          event.preventDefault();
+          boxes[index - 1].focus();
+        } else if (event.key === "ArrowRight" && index < boxes.length - 1) {
+          event.preventDefault();
+          boxes[index + 1].focus();
+        }
+      });
+      box.addEventListener("paste", (event) => {
+        const text = String((event.clipboardData || window.clipboardData).getData("text") || "").replace(/\D/g, "").slice(0, boxes.length);
+        if (!text) return;
+        event.preventDefault();
+        text.split("").forEach((digit, k) => { if (boxes[k]) boxes[k].value = digit; });
+        boxes[Math.min(text.length, boxes.length - 1)].focus();
+      });
+    });
+
+    function setDemoCode(code) {
+      if (!demoCodeEl) return;
+      demoCodeEl.hidden = !code;
+      demoCodeEl.textContent = code ? "LOCAL DEMO CODE: " + code : "";
+    }
+
+    function showConfirm() {
       const shown = document.getElementById("confirm-email");
-      if (shown) shown.textContent = email;
+      if (shown) shown.textContent = (pending && pending.email) || "";
       show("confirm");
+      clearCode();
+      focusCode();
+    }
+
+    async function sendCode(fields, errorId, button) {
+      setError(errorId, "");
+      button.disabled = true;
+      try {
+        const result = await b.auth.signInWithOtp(fields);
+        pending = fields;
+        setDemoCode(result && result.demoCode);
+        showConfirm();
+      } catch (err) {
+        setError(errorId, (((err && err.message) || "COULD NOT SEND THE CODE")).toUpperCase());
+      } finally {
+        button.disabled = false;
+      }
     }
 
     if (tabsEl) tabsEl.addEventListener("click", (event) => {
@@ -284,62 +341,38 @@
       if (tab) show(tab.getAttribute("data-auth-tab"));
     });
 
-    if (loginForm) loginForm.addEventListener("submit", async (event) => {
+    if (loginForm) loginForm.addEventListener("submit", (event) => {
       event.preventDefault();
       const email = loginForm.email.value.trim();
-      const password = loginForm.password.value;
-      setError("login-error", "");
-      if (!email || !password) return setError("login-error", "ENTER YOUR EMAIL AND PASSWORD");
-      const button = loginForm.querySelector(".auth-submit");
-      button.disabled = true;
-      try {
-        await b.auth.signIn({ email, password });
-        finishAuth(params);
-      } catch (err) {
-        const message = String((err && err.message) || "");
-        if (/confirm|verif/i.test(message)) showConfirm(email);
-        else setError("login-error", (message || "COULD NOT LOG IN").toUpperCase());
-      } finally {
-        button.disabled = false;
-      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError("login-error", "ENTER A VALID EMAIL ADDRESS");
+      origin = "login";
+      sendCode({ email, createUser: true }, "login-error", loginForm.querySelector(".auth-submit"));
     });
 
-    if (signupForm) signupForm.addEventListener("submit", async (event) => {
+    if (signupForm) signupForm.addEventListener("submit", (event) => {
       event.preventDefault();
       const username = signupForm.username.value.trim();
       const email = signupForm.email.value.trim();
-      const password = signupForm.password.value;
-      const confirm = signupForm.confirm.value;
-      setError("signup-error", "");
       if (!/^[a-zA-Z0-9_.-]{3,24}$/.test(username)) return setError("signup-error", "USERNAME MUST BE 3-24 LETTERS, NUMBERS, _ . -");
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError("signup-error", "ENTER A VALID EMAIL ADDRESS");
-      if (password.length < 6) return setError("signup-error", "PASSWORD MUST BE AT LEAST 6 CHARACTERS");
-      if (password !== confirm) return setError("signup-error", "PASSWORDS DO NOT MATCH");
-      const button = signupForm.querySelector(".auth-submit");
-      button.disabled = true;
-      try {
-        const result = await b.auth.signUp({ username, email, password });
-        if (result && result.needsConfirmation) showConfirm(email);
-        else finishAuth(params);
-      } catch (err) {
-        setError("signup-error", (((err && err.message) || "COULD NOT CREATE ACCOUNT")).toUpperCase());
-      } finally {
-        button.disabled = false;
-      }
+      origin = "signup";
+      sendCode({ email, username, createUser: true }, "signup-error", signupForm.querySelector(".auth-submit"));
     });
 
     if (confirmForm) confirmForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const token = confirmForm.token.value.trim();
+      const token = codeValue();
       setError("confirm-error", "");
       if (!/^\d{6}$/.test(token)) return setError("confirm-error", "ENTER THE 6-DIGIT CODE FROM YOUR EMAIL");
       const button = confirmForm.querySelector(".auth-submit");
       button.disabled = true;
       try {
-        await b.auth.verifyOtp({ email: pendingEmail, token });
+        await b.auth.verifyOtp({ email: pending && pending.email, token, type: "email" });
         finishAuth(params);
       } catch (err) {
         setError("confirm-error", (((err && err.message) || "INVALID OR EXPIRED CODE")).toUpperCase());
+        clearCode();
+        focusCode();
       } finally {
         button.disabled = false;
       }
@@ -347,9 +380,13 @@
 
     const resend = document.getElementById("confirm-resend");
     if (resend) resend.addEventListener("click", async () => {
+      if (!pending) return;
       setError("confirm-error", "");
       try {
-        await b.auth.resendConfirmation(pendingEmail);
+        const result = await b.auth.signInWithOtp(pending);
+        setDemoCode(result && result.demoCode);
+        clearCode();
+        focusCode();
         setError("confirm-error", "A NEW CODE IS ON ITS WAY.");
       } catch (err) {
         setError("confirm-error", (((err && err.message) || "COULD NOT RESEND")).toUpperCase());
@@ -357,7 +394,7 @@
     });
 
     const back = document.getElementById("confirm-back");
-    if (back) back.addEventListener("click", () => show("login"));
+    if (back) back.addEventListener("click", () => show(origin));
 
     const wantSignup = params.get("mode") === "signup" || (params.get("reason") === "purchase" && !getCurrentUser());
     show(wantSignup ? "signup" : "login");

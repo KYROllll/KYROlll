@@ -10,7 +10,7 @@
  * While these stay empty the whole store runs in "local demo" mode: accounts,
  * libraries and licenses are kept in this browser only, so the preview works
  * with no Supabase project attached. As soon as both values are set every page
- * switches to Supabase Auth (with email confirmation), Storage and Postgres.
+ * switches to Supabase Auth (with emailed one-time codes), Storage and Postgres.
  *
  * Optional: set `window.KYROLLL_SUPABASE` before this script to override any
  * value without editing the file (e.g. from a build step).

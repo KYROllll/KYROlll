@@ -8,7 +8,7 @@
   <meta name="robots" content="noindex">
   <title>ACCOUNT — KYROlll</title>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
-  <link rel="stylesheet" href="style.css?v=101">
+  <link rel="stylesheet" href="style.css?v=102">
 </head>
 <body class="auth-body">
   <div class="viewport">
@@ -36,7 +36,7 @@
 
           <div class="auth-demo" id="auth-demo" hidden>
             <strong>LOCAL DEMO MODE</strong>
-            <span>Add your Supabase URL and anon key in <code>supabase-config.js</code> to switch on real email confirmation. Until then accounts stay in this browser.</span>
+            <span>Add your Supabase URL and publishable key in <code>supabase-config.js</code> to switch on real email codes. Until then accounts stay in this browser and the one-time code is shown on screen.</span>
           </div>
 
           <div class="auth-tabs" role="tablist">
@@ -49,12 +49,9 @@
               <span class="auth-field__label">EMAIL</span>
               <input class="auth-input" name="email" type="email" autocomplete="email" spellcheck="false">
             </label>
-            <label class="auth-field">
-              <span class="auth-field__label">PASSWORD</span>
-              <input class="auth-input" name="password" type="password" autocomplete="current-password">
-            </label>
             <p class="auth-error" id="login-error" role="alert" hidden></p>
-            <button type="submit" class="auth-submit">LOG IN</button>
+            <button type="submit" class="auth-submit">SEND LOGIN CODE</button>
+            <p class="auth-note">No password needed &mdash; we email a 6-digit code to log you in.</p>
           </form>
 
           <form class="auth-form" id="signup-form" novalidate hidden>
@@ -66,26 +63,23 @@
               <span class="auth-field__label">EMAIL</span>
               <input class="auth-input" name="email" type="email" autocomplete="email" spellcheck="false">
             </label>
-            <label class="auth-field">
-              <span class="auth-field__label">PASSWORD</span>
-              <input class="auth-input" name="password" type="password" autocomplete="new-password">
-            </label>
-            <label class="auth-field">
-              <span class="auth-field__label">CONFIRM PASSWORD</span>
-              <input class="auth-input" name="confirm" type="password" autocomplete="new-password">
-            </label>
             <p class="auth-error" id="signup-error" role="alert" hidden></p>
-            <button type="submit" class="auth-submit">CREATE ACCOUNT</button>
-            <p class="auth-note">We email a 6-digit code to confirm your address before your account is active.</p>
+            <button type="submit" class="auth-submit">SEND SIGN-UP CODE</button>
+            <p class="auth-note">We email a 6-digit code that both confirms your address and signs you in.</p>
           </form>
 
           <form class="auth-form" id="confirm-form" novalidate hidden>
             <p class="auth-note" id="confirm-copy">Enter the 6-digit code we sent to <strong id="confirm-email"></strong>.</p>
-            <label class="auth-field">
-              <span class="auth-field__label">CONFIRMATION CODE</span>
-              <input class="auth-input auth-input--code" name="token" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
-            </label>
+            <div class="otp-boxes" id="otp-boxes" role="group" aria-label="6-digit one-time code">
+              <input class="auth-input auth-input--code otp-box" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="1" aria-label="Code digit 1">
+              <input class="auth-input auth-input--code otp-box" type="text" inputmode="numeric" autocomplete="off" maxlength="1" aria-label="Code digit 2">
+              <input class="auth-input auth-input--code otp-box" type="text" inputmode="numeric" autocomplete="off" maxlength="1" aria-label="Code digit 3">
+              <input class="auth-input auth-input--code otp-box" type="text" inputmode="numeric" autocomplete="off" maxlength="1" aria-label="Code digit 4">
+              <input class="auth-input auth-input--code otp-box" type="text" inputmode="numeric" autocomplete="off" maxlength="1" aria-label="Code digit 5">
+              <input class="auth-input auth-input--code otp-box" type="text" inputmode="numeric" autocomplete="off" maxlength="1" aria-label="Code digit 6">
+            </div>
             <p class="auth-error" id="confirm-error" role="alert" hidden></p>
+            <p class="auth-demo-code" id="confirm-demo" hidden></p>
             <button type="submit" class="auth-submit">VERIFY &amp; CONTINUE</button>
             <div class="auth-codelinks">
               <button type="button" class="auth-textlink" id="confirm-resend">RESEND CODE</button>
@@ -99,8 +93,8 @@
 
   <script src="supabase-config.js?v=1"></script>
   <script src="catalog.js?v=1"></script>
-  <script src="kyrolll-backend.js?v=1"></script>
-  <script src="account.js?v=2"></script>
+  <script src="kyrolll-backend.js?v=2"></script>
+  <script src="account.js?v=3"></script>
   <script type="module" src="assets/brand-logo.min.js?v=9"></script>
 </body>
 </html>

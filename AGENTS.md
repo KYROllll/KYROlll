@@ -137,27 +137,30 @@ three files that every page loads (see the `<script>` order in `index.html`):
 
 - `supabase-config.js` — project URL, anon key and bucket/table names. **While
   `url`/`anonKey` are empty the store runs in "local demo" mode**: accounts are
-  hashed with SHA-256 and kept in `localStorage`, libraries are local, and no
-  request leaves the browser. The preview boots with no secrets. Filling both
-  values switches every page to Supabase Auth + Storage + Postgres.
+  kept in `localStorage`, libraries are local, and no request leaves the browser
+  (the emailed one-time code is shown on screen instead). The preview boots with
+  no secrets. Filling both values switches every page to Supabase Auth + Storage
+  + Postgres.
 - `kyrolll-backend.js` — a dependency-free Supabase REST client (Auth, Storage,
   PostgREST) behind `window.KYROLLL_BACKEND`, with the same promise API in both
-  modes. It uses Supabase's built-in email confirmation: `auth.signUp` returns
-  no session until the emailed code is verified with `auth.verifyOtp`.
+  modes. Auth is passwordless email OTP: `auth.signInWithOtp` asks Supabase to
+  mail a 6-digit code (creating the account on first use) and `auth.verifyOtp`
+  exchanges that code for a session — the same two calls cover sign-up and login.
 - `catalog.js` — shared beats, the three tiers, and each tier's Storage object
   `path` + `name` + same-origin `fallback`.
 
-Pages: `auth.html` (dedicated login/sign-up/confirm with the live 3D flower and
-white fields), `dashboard.html` (username + profile picture),
-`library.html` (audio download + PDF license), plus `index.html` and
+Pages: `auth.html` (dedicated passwordless login/sign-up with a 6-box code step,
+the live 3D flower and white fields), `dashboard.html` (username + profile
+picture), `library.html` (audio download + PDF license), plus `index.html` and
 `success.html`. The BUY dropdown always opens downward (clamped to the space
 below and scrollable) so it can never cover the header or footer.
 
 To attach a real project:
 
-1. **Auth** — Authentication → Providers → Email → enable **Confirm email**.
-   The email template must include the `{{ .Token }}` placeholder so the 6-digit
-   code the confirm form asks for is actually sent.
+1. **Auth** — Authentication → Providers → Email → make sure email sign-in is
+   enabled so `signInWithOtp` can send codes. The email template must include the
+   `{{ .Token }}` placeholder so the 6-digit code the code box asks for is
+   actually sent.
 2. **Storage** — create a private bucket `BEATS` for the masters and an
    `avatars` bucket for profile pictures (rename in `supabase-config.js` if you
    differ). Upload each tier's object to the path named in `catalog.js`.

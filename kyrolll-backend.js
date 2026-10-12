@@ -4,16 +4,18 @@
  * (Auth, Storage and Postgres) and exposes a stable promise API used by every
  * page:
  *
- *   KYROLLL_BACKEND.auth.signUp / verifyOtp / signIn / signOut / ready /
- *                          currentUser / updateProfile / resendConfirmation
+ *   KYROLLL_BACKEND.auth.signInWithOtp / verifyOtp / signOut / ready /
+ *                          currentUser / updateProfile
  *   KYROLLL_BACKEND.licenses.list / add
  *   KYROLLL_BACKEND.storage.download / signedUrl / uploadAvatar
  *
  * When `supabase-config.js` has no project URL/key the client transparently
- * falls back to a browser-local implementation (accounts hashed with SHA-256,
- * libraries in localStorage) so the storefront stays fully usable in preview.
- * Supabase Auth's built-in "Confirm email" is used when configured: sign-up
- * returns no session until the emailed code is verified with `verifyOtp`. */
+ * falls back to a browser-local implementation (accounts and libraries in
+ * localStorage) so the storefront stays fully usable in preview.
+ *
+ * Auth is passwordless: `signInWithOtp` asks Supabase to email a 6-digit code
+ * (creating the account on first use) and `verifyOtp` exchanges that code for a
+ * session — the same two calls cover both signing up and logging in. */
 (function () {
   "use strict";
 
@@ -22,6 +24,7 @@
   const USERS_KEY = "kyrolll_users";
   const LOCAL_SESSION_KEY = "kyrolll_current_user";
   const LIBRARY_PREFIX = "kyrolll_library_";
+  const OTP_KEY = "kyrolll_local_otp";
 
   const CONFIGURED = !!(
     CONFIG.url &&
@@ -52,22 +55,6 @@
 
   function emitAuthChange() {
     window.dispatchEvent(new CustomEvent("kyrolll:auth", { detail: { user: currentUser() } }));
-  }
-
-  async function hashPassword(password) {
-    const bytes = new TextEncoder().encode("kyrolll::" + String(password));
-    if (window.crypto && window.crypto.subtle && window.crypto.subtle.digest) {
-      try {
-        const digest = await window.crypto.subtle.digest("SHA-256", bytes);
-        return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
-      } catch (err) { /* fall through */ }
-    }
-    let hash = 0x811c9dc5;
-    for (let i = 0; i < bytes.length; i += 1) {
-      hash ^= bytes[i];
-      hash = Math.imul(hash, 0x01000193);
-    }
-    return "fnv" + (hash >>> 0).toString(16);
   }
 
   /* ------------------------------------------------------------ user shape */
@@ -179,81 +166,62 @@
 
   /* ------------------------------------------------------------------- auth */
 
-  async function signUp(fields) {
+  /* ---------------------------------------------- passwordless email OTP --- */
+
+  // Start a passwordless flow: Supabase emails a 6-digit code. `create_user`
+  // lets the same call both sign up a new address and log an existing one in,
+  // so the UI only ever needs one code box. A username sent here lands in
+  // user_metadata when the account is first created.
+  async function signInWithOtp(fields) {
     const email = String(fields.email || "").trim().toLowerCase();
-    const password = String(fields.password || "");
     const username = String(fields.username || "").trim();
+    const createUser = fields.createUser !== false;
     if (!CONFIGURED) {
-      const users = readJSON(lsGet(USERS_KEY), []) || [];
-      if (users.some((u) => String(u.email).toLowerCase() === email)) throw new Error("AN ACCOUNT WITH THAT EMAIL ALREADY EXISTS");
-      const user = {
-        id: newId("u"),
-        username,
-        email,
-        avatarUrl: "",
-        passwordHash: await hashPassword(password),
-        createdAt: new Date().toISOString()
-      };
-      users.push(user);
-      lsSet(USERS_KEY, users);
-      localUser = user;
-      lsSet(LOCAL_SESSION_KEY, user);
-      emitAuthChange();
-      return { needsConfirmation: false, user: currentUser() };
+      // No mail server in demo mode — mint a code and surface it to the UI so
+      // the whole OTP flow can still be previewed end to end.
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      lsSet(OTP_KEY, { email, username, code, at: Date.now() });
+      return { sent: true, email, demoCode: code };
     }
-    const data = await request("POST", "/auth/v1/signup", {
-      body: { email, password, data: { username, avatar_url: "" } }
-    });
-    if (data && data.access_token) {
-      saveSession({
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
-        expiresAt: Date.now() + (data.expires_in || 3600) * 1000,
-        user: normalizeUser(data.user)
-      });
-      emitAuthChange();
-      return { needsConfirmation: false, user: currentUser() };
-    }
-    return { needsConfirmation: true, user: normalizeUser(data && (data.user || data)) || { email } };
+    const body = { email, create_user: createUser };
+    if (username) body.data = { username, avatar_url: "" };
+    await request("POST", "/auth/v1/otp", { body });
+    return { sent: true, email };
   }
 
+  // Verify the emailed 6-digit code. For email OTP the GoTrue type is "email",
+  // which covers both a brand-new sign-up and a returning login.
   async function verifyOtp(fields) {
     const email = String(fields.email || "").trim().toLowerCase();
     const token = String(fields.token || "").trim();
-    if (!CONFIGURED) throw new Error("EMAIL CONFIRMATION IS NOT USED IN LOCAL DEMO MODE");
-    const data = await request("POST", "/auth/v1/verify", {
-      body: { type: fields.type || "signup", email, token }
-    });
-    saveSession({
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      expiresAt: Date.now() + (data.expires_in || 3600) * 1000,
-      user: normalizeUser(data.user)
-    });
-    emitAuthChange();
-    return currentUser();
-  }
-
-  async function resendConfirmation(email) {
-    if (!CONFIGURED) return { ok: true };
-    await request("POST", "/auth/v1/resend", { body: { type: "signup", email: String(email).trim().toLowerCase() } });
-    return { ok: true };
-  }
-
-  async function signIn(fields) {
-    const email = String(fields.email || "").trim().toLowerCase();
-    const password = String(fields.password || "");
     if (!CONFIGURED) {
+      const pending = readJSON(lsGet(OTP_KEY), null);
+      if (!pending || pending.email !== email) throw new Error("REQUEST A NEW CODE");
+      if (String(pending.code) !== token) throw new Error("INVALID OR EXPIRED CODE");
+      lsDel(OTP_KEY);
       const users = readJSON(lsGet(USERS_KEY), []) || [];
-      const user = users.find((u) => String(u.email).toLowerCase() === email);
-      if (!user) throw new Error("NO ACCOUNT FOUND FOR THAT EMAIL");
-      if ((await hashPassword(password)) !== user.passwordHash) throw new Error("INCORRECT PASSWORD");
+      let user = users.find((u) => String(u.email).toLowerCase() === email);
+      if (!user) {
+        user = {
+          id: newId("u"),
+          email,
+          username: pending.username || email.split("@")[0],
+          avatarUrl: "",
+          createdAt: new Date().toISOString()
+        };
+        users.push(user);
+      } else if (pending.username && !user.username) {
+        user.username = pending.username;
+      }
+      lsSet(USERS_KEY, users);
       localUser = user;
       lsSet(LOCAL_SESSION_KEY, user);
       emitAuthChange();
       return currentUser();
     }
-    const data = await request("POST", "/auth/v1/token?grant_type=password", { body: { email, password } });
+    const data = await request("POST", "/auth/v1/verify", {
+      body: { type: fields.type || "email", email, token }
+    });
     saveSession({
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
@@ -490,10 +458,8 @@
     mode: CONFIGURED ? "supabase" : "local",
     buckets: BUCKETS,
     auth: {
-      signUp,
+      signInWithOtp,
       verifyOtp,
-      resendConfirmation,
-      signIn,
       signOut,
       ready,
       currentUser,
