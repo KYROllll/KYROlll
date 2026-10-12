@@ -3508,6 +3508,22 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   padding: 9px 10px;
 }
 
+/* Neutral (never red) status note — e.g. "THE CODE IS ON ITS WAY." */
+.auth-info {
+  margin: 4px 0 12px;
+  border: 1px solid rgba(255, 255, 255, .35);
+  background: rgba(255, 255, 255, .06);
+  color: var(--white);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  line-height: 1.6;
+  padding: 9px 10px;
+}
+
+.auth-guide { display: block; width: 100%; text-align: center; margin-top: 8px; color: var(--white); }
+.auth-guide[hidden] { display: none; }
+
 .auth-submit {
   width: 100%;
   border: 1px solid var(--white);

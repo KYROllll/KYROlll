@@ -8,7 +8,7 @@
   <meta name="robots" content="noindex">
   <title>ACCOUNT — KYROlll</title>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
-  <link rel="stylesheet" href="style.css?v=103">
+  <link rel="stylesheet" href="style.css?v=104">
 </head>
 <body class="auth-body">
   <div class="viewport">
@@ -50,6 +50,7 @@
               <input class="auth-input" name="email" type="email" autocomplete="email" spellcheck="false">
             </label>
             <p class="auth-error" id="login-error" role="alert" hidden></p>
+            <button type="button" class="auth-textlink auth-guide" id="login-guide-signup" hidden>SIGN UP INSTEAD &rarr;</button>
             <button type="submit" class="auth-submit">SEND LOGIN CODE</button>
             <p class="auth-note">No password needed &mdash; we email an 8-digit code to log you in.</p>
           </form>
@@ -75,6 +76,7 @@
               <input class="auth-input auth-input--code" id="confirm-code" name="token" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="00000000" spellcheck="false">
             </label>
             <p class="auth-error" id="confirm-error" role="alert" hidden></p>
+            <p class="auth-info" id="confirm-info" role="status" hidden>THE CODE IS ON ITS WAY.</p>
             <p class="auth-demo-code" id="confirm-demo" hidden></p>
             <button type="submit" class="auth-submit">VERIFY &amp; CONTINUE</button>
             <div class="auth-codelinks">
@@ -89,8 +91,8 @@
 
   <script src="supabase-config.js?v=3"></script>
   <script src="catalog.js?v=1"></script>
-  <script src="kyrolll-backend.js?v=4"></script>
-  <script src="account.js?v=6"></script>
+  <script src="kyrolll-backend.js?v=5"></script>
+  <script src="account.js?v=7"></script>
   <script type="module" src="assets/brand-logo.min.js?v=9"></script>
 </body>
 </html>

@@ -225,6 +225,12 @@
     el.hidden = !message;
   }
 
+  function setInfo(id, on) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.hidden = !on;
+  }
+
   function finishAuth(params) {
     const next = params.get("next");
     if (next === "checkout" || params.get("reason") === "purchase") {
@@ -247,6 +253,7 @@
     const tabsEl = document.querySelector(".auth-tabs");
     const demo = document.getElementById("auth-demo");
     const demoCodeEl = document.getElementById("confirm-demo");
+    const loginGuide = document.getElementById("login-guide-signup");
     const b = backend();
     const otpLength = (b && b.otpLength) || 8;
     let pending = null;      // { email, username, createUser } for the last code sent
@@ -273,6 +280,16 @@
       setError("login-error", "");
       setError("signup-error", "");
       setError("confirm-error", "");
+      if (loginGuide) loginGuide.hidden = true;
+      setInfo("confirm-info", false);
+    }
+
+    // GoTrue rejects a sign-in-only (`create_user: false`) OTP request for an
+    // address that has no account; surface that exact case as "not registered".
+    function isNotRegistered(err) {
+      if (!err) return false;
+      if (err.code === "otp_disabled") return true;
+      return /signups not allowed|not registered|user not found/i.test(String(err.message || ""));
     }
 
     /* --- continuous one-time-code input ----------------------------------- */
@@ -298,6 +315,7 @@
       const shown = document.getElementById("confirm-email");
       if (shown) shown.textContent = (pending && pending.email) || "";
       show("confirm");
+      setInfo("confirm-info", false);
       clearCode();
       focusCode();
     }
@@ -311,7 +329,12 @@
         setDemoCode(result && result.demoCode);
         showConfirm();
       } catch (err) {
-        setError(errorId, (((err && err.message) || "COULD NOT SEND THE CODE")).toUpperCase());
+        if (fields.createUser === false && isNotRegistered(err)) {
+          setError(errorId, "EMAIL NOT REGISTERED — SIGN UP TO CONTINUE");
+          if (loginGuide) loginGuide.hidden = false;
+        } else {
+          setError(errorId, (((err && err.message) || "COULD NOT SEND THE CODE")).toUpperCase());
+        }
       } finally {
         button.disabled = false;
       }
@@ -322,12 +345,27 @@
       if (tab) show(tab.getAttribute("data-auth-tab"));
     });
 
+    // "SIGN UP INSTEAD" — one click switches to the sign-up tab, keeping the
+    // email the visitor already typed.
+    if (loginGuide) loginGuide.addEventListener("click", () => {
+      setInfo("confirm-info", false);
+      if (signupForm && signupForm.email && loginForm && loginForm.email.value.trim()) {
+        signupForm.email.value = loginForm.email.value.trim();
+      }
+      show("signup");
+      if (signupForm && signupForm.username) {
+        setTimeout(() => { try { signupForm.username.focus(); } catch (err) { /* ignore */ } }, 60);
+      }
+    });
+
     if (loginForm) loginForm.addEventListener("submit", (event) => {
       event.preventDefault();
       const email = loginForm.email.value.trim();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError("login-error", "ENTER A VALID EMAIL ADDRESS");
       origin = "login";
-      sendCode({ email, createUser: true }, "login-error", loginForm.querySelector(".auth-submit"));
+      // Sign-in only: an address without an account is rejected so the page can
+      // say it is not registered and point the user at sign-up.
+      sendCode({ email, createUser: false }, "login-error", loginForm.querySelector(".auth-submit"));
     });
 
     if (signupForm) signupForm.addEventListener("submit", (event) => {
@@ -351,7 +389,7 @@
         await b.auth.verifyOtp({ email: pending && pending.email, token, type: "email" });
         finishAuth(params);
       } catch (err) {
-        setError("confirm-error", (((err && err.message) || "INVALID OR EXPIRED CODE")).toUpperCase());
+        setError("confirm-error", "THE CODE IS INCORRECT");
         clearCode();
         focusCode();
       } finally {
@@ -363,14 +401,17 @@
     if (resend) resend.addEventListener("click", async () => {
       if (!pending) return;
       setError("confirm-error", "");
+      // Inform immediately, while the code is actually being resent — this note
+      // is neutral/white, never the red error treatment.
+      setInfo("confirm-info", true);
       try {
         const result = await b.auth.signInWithOtp(pending);
         setDemoCode(result && result.demoCode);
         clearCode();
         focusCode();
-        setError("confirm-error", "A NEW CODE IS ON ITS WAY.");
       } catch (err) {
-        setError("confirm-error", (((err && err.message) || "COULD NOT RESEND")).toUpperCase());
+        setInfo("confirm-info", false);
+        setError("confirm-error", "COULD NOT RESEND THE CODE");
       }
     });
 

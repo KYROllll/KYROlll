@@ -183,6 +183,19 @@
     const username = String(fields.username || "").trim();
     const createUser = fields.createUser !== false;
     if (!CONFIGURED) {
+      if (createUser === false) {
+        // Sign-in-only request: unknown addresses must be rejected exactly like
+        // the live GoTrue /otp call so the auth page can tell "not registered"
+        // apart from real failures and guide the user to sign up.
+        const users = readJSON(lsGet(USERS_KEY), []) || [];
+        const exists = users.some((u) => String(u.email || "").toLowerCase() === email);
+        if (!exists) {
+          const error = new Error("Signups not allowed for otp");
+          error.status = 422;
+          error.code = "otp_disabled";
+          throw error;
+        }
+      }
       // No mail server in demo mode — mint a code and surface it to the UI so
       // the whole OTP flow can still be previewed end to end.
       let code = "";
