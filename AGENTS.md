@@ -51,14 +51,30 @@ worker/node_modules/@esbuild/linux-x64/bin/esbuild background-x.js --bundle --mi
 
 Bump the `?v=N` query on the matching `<script>` tag in `index.html` afterwards.
 
-## Page height: measure the body's box, never `scrollHeight`
+## The falling-X canvas is clamped by CSS, not re-measured in JS
 
-`background-x.js` sizes its canvas to the document so the falling X marks cover the
-whole page. That measurement must come from the body's own box
-(`document.body.offsetHeight`). `document.body.scrollHeight` includes the canvas' own
-overflow, so as soon as anything on the page got shorter (the pre-rendered beat card
-being swapped for a catalog tile, a tighter footer) the page could never shrink back and
-an empty band of background stayed open below the footer.
+`background-x.js` sizes its canvas from the page's measured height, so its value can be
+left over from a taller transient state (the pre-rendered beat card before `script.js`
+swaps it for a catalog tile, the 28px scroll-reveal transform). A canvas taller than the
+page left a band of empty background open below the footer.
+`body > canvas { height: 100% !important }` in `style.css` caps the canvas element to the
+body's box, so it can never paint below the page; the bitmap keeps the JS measurement, so
+a stale measurement only rescales the marks slightly.
+
+Re-measuring with `document.body.offsetHeight` inside `resize()` was tried and reverted:
+the clamp does not need it, and it did not make the sandbox smoke check any more reliable.
+
+## Preview responsiveness in this sandbox
+
+The storefront is heavy to render without a GPU: the 3D flower (three.js, MSAA, physical
+material) plus the falling-X canvas leave the main thread at roughly 15fps (~65-70ms per
+frame). The page itself still loads quickly (`domInteractive` ~1.3s, `load` ~2s), yet the
+platform's fresh-load smoke check intermittently reports `page_unresponsive (app broken)`.
+It failed the same way with and without the changes above, including with the pre-existing
+background asset, so treat it as environment capacity — the user's own preview is a second
+renderer competing for the same CPU — rather than a defect in `background-x.js`. If it
+needs to be lighter, trim the WebGL renderer first (`antialias`, pixel ratio,
+`bevelSegments`), not the page structure.
 
 ## Secrets
 

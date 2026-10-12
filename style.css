@@ -1991,6 +1991,11 @@ body::before {
 }
 body > canvas {
   pointer-events: none !important;
+  /* The falling-X canvas measures the page in JS. It may lag behind a page that
+     got shorter (the beat card swapping for a catalog tile, a tighter footer),
+     and a canvas taller than the page left a band of empty background below the
+     footer. Capping it to the body's box keeps it exactly as tall as the page. */
+  height: 100% !important;
 }
 .brand-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 40px 24px 56px 52px; border-bottom: 1px solid var(--hairline); }
 .store-banner, .motion-toggle {
