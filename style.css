@@ -196,9 +196,16 @@ button {
   width: 100%;
   height: 100%;
 }
-.logo-stage canvas { opacity: 0; transition: opacity .12s linear; }
+/* The still logo is a frame the 3D flower rendered itself, captured at 2x from a
+   1040px stage, so the hand-off changes nothing but the material: the pixels the
+   canvas paints are the pixels the image was already showing. `.logo-fallback`
+   therefore carries no padding and no transform — the image is stage-sized and
+   already sits exactly where the renderer draws the flower — and the .4s
+   cross-fade reads as the flower settling into its lit render rather than one
+   image replacing another. */
+.logo-stage canvas { opacity: 0; transition: opacity .4s ease; }
 .logo-stage.is-ready canvas { opacity: 1; }
-.logo-fallback { object-fit: contain; padding: 40px; transform: rotate(-8deg); opacity: 1; transition: opacity .12s linear, visibility 0s linear .12s; }
+.logo-fallback { object-fit: contain; opacity: 1; transition: opacity .4s ease, visibility 0s linear .4s; }
 .logo-stage.is-ready .logo-fallback { opacity: 0; visibility: hidden; }
 
 .store-banner {
@@ -2092,7 +2099,7 @@ body > canvas {
 .beat-page .hero-link { display: none; }
 .beat-page .brand-logo-container { width: auto; }
 .beat-page .logo-stage { width: 88px; }
-.beat-page .logo-fallback { padding: 8px; }
+.beat-page .logo-fallback { padding: 0; }
 .beat-navigation { max-width: 1440px; margin: 0 auto; padding: 22px clamp(16px, 3vw, 40px) 0; }
 .beat-navigation a { color: var(--gray); font-size: 10px; font-weight: 700; letter-spacing: .15em; text-decoration: none; }
 .beat-navigation a:hover { color: var(--white); }
@@ -2208,7 +2215,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   .beat-page .brand-hero { padding: 10px 16px; }
   .beat-page .brand-wordmark { font-size: 38px; }
   .beat-page .logo-stage { width: 60px; }
-  .beat-page .logo-fallback { padding: 4px; }
+  .beat-page .logo-fallback { padding: 0; }
   .grid.grid--detail { padding-bottom: 64px; }
   .beat-detail__content { gap: 22px; }
   .beat-detail .card__actions { grid-template-columns: minmax(0, 1fr); gap: 12px; }
@@ -2745,6 +2752,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 
 .logo-stage {
   animation: logoBreathe 7.5s ease-in-out 1.6s infinite;
+  /* The base glow is the animation's 0% frame, so the loop starting at 1.6s
+     grows from the glow already on screen instead of popping a halo on. */
+  filter: drop-shadow(0 0 26px rgba(255, 255, 255, 0.13));
 }
 
 @keyframes logoBreathe {

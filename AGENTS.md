@@ -51,6 +51,48 @@ worker/node_modules/@esbuild/linux-x64/bin/esbuild background-x.js --bundle --mi
 
 Bump the `?v=N` query on the matching `<script>` tag in `index.html` afterwards.
 
+`assets/brand-logo.min.js` bundles `three` (r186) plus one `three/addons` helper
+(`BufferGeometryUtils`'s `mergeVertices`). It **can** be rebuilt here — install the
+matching three in a throwaway directory, build there so `three` resolves, and let the same
+esbuild write the repo's asset:
+
+```bash
+mkdir -p /tmp/rebuild && cd /tmp/rebuild && cp /app/brand-logo.js . \
+  && npm install three@0.186.0 --no-audit --no-fund \
+  && /app/worker/node_modules/@esbuild/linux-x64/bin/esbuild brand-logo.js --bundle --minify \
+     --format=esm --target=es2020 --legal-comments=eof --outfile=/app/assets/brand-logo.min.js
+```
+
+Run on the **unmodified** `brand-logo.js` that command reproduces the committed bundle
+byte-for-byte (`cmp` silent, 572128 bytes), so the toolchain is exactly reproducible and a
+source edit can be shipped with confidence. Bump the `?v=N` query on the matching
+`<script>` tag in `index.html` afterwards — and remember `brand-logo.js` without a rebuild
+changes nothing. `npm run build:brand` is still the only thing that regenerates the
+*images*, and it needs `sharp`, which this sandbox does not install. `background-x.js` has
+no dependencies and rebuilds with the esbuild line above.
+
+## Logo hand-off (still image → live 3D)
+
+The hero shows `assets/kyrolll-flower-rest.png` until the WebGL flower has painted its
+first frame, then cross-fades (`style.css`, `.logo-stage.is-ready`). That still is not a
+separate artwork: it is a frame the 3D flower itself rendered at its resting pose,
+captured at 2x from a 1040px stage with the transparent background kept, so it lands 1:1
+on the 520px hero stage. Because the image already sits exactly where the renderer draws
+the flower, `.logo-fallback` carries **no padding and no transform** — adding either
+would offset the still against the 3D at the hand-off — and the .4s cross-fade is long
+enough that the change reads as the material settling, not one image replacing another.
+`.logo-stage` also carries a base `drop-shadow` equal to `logoBreathe`'s 0% frame so the
+1.6s-delayed loop cannot pop a halo on. Keep those details in step if the logo changes.
+
+To re-capture the frame after the flower changes, serve a throwaway page from the repo
+root that mounts a wide `.logo-stage` plus a `.motion-toggle` button, loads
+`assets/brand-logo.min.js`, and then: wait for `is-ready`, hold ~480ms (the pose is still
+the resting one), and grab `canvas` inside a `requestAnimationFrame` (the WebGL buffer is
+only readable in the frame that drew it, which is why the loop must already be running),
+then POST `toDataURL('image/png')` somewhere it can be saved. From the preview browser a
+receiver on host port 9099 is only reachable through the proxy: take `location.origin`
+and swap its `3000-` prefix for `9099-`. Delete the throwaway page afterwards.
+
 ## The falling-X canvas is clamped by CSS, not re-measured in JS
 
 `background-x.js` sizes its canvas from the page's measured height, so its value can be
@@ -66,15 +108,27 @@ the clamp does not need it, and it did not make the sandbox smoke check any more
 
 ## Preview responsiveness in this sandbox
 
-The storefront is heavy to render without a GPU: the 3D flower (three.js, MSAA, physical
-material) plus the falling-X canvas leave the main thread at roughly 15fps (~65-70ms per
-frame). The page itself still loads quickly (`domInteractive` ~1.3s, `load` ~2s), yet the
-platform's fresh-load smoke check intermittently reports `page_unresponsive (app broken)`.
-It failed the same way with and without the changes above, including with the pre-existing
-background asset, so treat it as environment capacity — the user's own preview is a second
-renderer competing for the same CPU — rather than a defect in `background-x.js`. If it
-needs to be lighter, trim the WebGL renderer first (`antialias`, pixel ratio,
-`bevelSegments`), not the page structure.
+The storefront is heavy to render without a GPU. Measured on a fresh load here (SwiftShader,
+dpr 1, 1280×800), before the software-rasteriser path below: one 1.5s main-thread block
+while the flower initialises, then ~61ms per frame (≈16fps) indefinitely — 36 long tasks in
+the first four seconds. Isolating the two animations (shrink the background canvas to 1×1
+and re-measure the frame cadence) puts essentially all of that on the **flower**: the
+falling-X canvas only adds ~2ms per frame, so it is not what needs trimming.
+
+`brand-logo.js` therefore detects a software rasteriser (`WEBGL_debug_renderer_info`
+matching `swiftshader|llvmpipe|softpipe|software`) and, only there, builds a lighter scene:
+`bevelSegments` 5→2, a 128px reflection cube, a ~30fps cadence, and a scene build split
+across frames so the page keeps answering while it is built. A GPU keeps every original
+value. After it: one ~1.1s block, ~44ms per frame, 2 long tasks — and the flower is
+unchanged (mean ink luminance 216 before and after).
+
+The remaining block is the driver compiling and linking the pearl program, and it is not
+removable without changing the material: SwiftShader does **not** expose
+`KHR_parallel_shader_compile` (checked in the page), so three's `compileAsync` silently
+falls back to a synchronous compile, and `checkShaderErrors = false` only skips the log
+reads — the active-uniform query still forces the link. An environment several times slower
+than this one can therefore still trip the platform's fresh-load smoke check
+(`page_unresponsive`). Trim the material last, not the page structure.
 
 ## Secrets
 

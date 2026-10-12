@@ -21,9 +21,25 @@ async function init() {
   const response = await fetch('assets/kyrolll-contours.json?v=2');
   if (!response.ok) throw new Error('Logo geometry unavailable');
   const { size, contours } = await response.json();
+  const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
   renderer.setClearColor(0x000000, 0);
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  // Software rasterisers (SwiftShader, llvmpipe — what a machine without a GPU
+  // falls back to) spend far longer on this pearl material than a GPU does.
+  // There the flower is built from a slightly coarser bevel, a smaller
+  // environment map and a ~30fps cadence, and the shader compile skips three's
+  // error reporting: that reporting reads back every program's status and log,
+  // which forces the driver's compile onto the main thread instead of letting
+  // it finish in its own time. The silhouette, the material and the light are
+  // untouched, and the rotation is far too slow for the cadence to read.
+  // Machines with a GPU keep the full scene, error reporting included.
+  const rendererContext = renderer.getContext();
+  const rendererInfo = rendererContext.getExtension('WEBGL_debug_renderer_info');
+  const softwareRasteriser = rendererInfo
+    ? /swiftshader|llvmpipe|softpipe|software|basic render/i.test(String(rendererContext.getParameter(rendererInfo.UNMASKED_RENDERER_WEBGL)))
+    : false;
+  if (softwareRasteriser) renderer.debug.checkShaderErrors = false;
   const stageSize = host.getBoundingClientRect().width;
   let renderedSize = stageSize;
   renderer.setSize(stageSize, stageSize, false);
@@ -45,11 +61,20 @@ async function init() {
     const panel = new THREE.Mesh(new THREE.PlaneGeometry(width, height), new THREE.MeshBasicMaterial({ color: new THREE.Color().setScalar(intensity), side: THREE.DoubleSide }));
     panel.position.set(x, y, z); panel.lookAt(0, 0, 0); room.add(panel);
   }
+  // The room only ever reaches the flower as a blurred reflection of soft dim
+  // panels, so on a software rasteriser the smallest cube reads the same.
+  if (softwareRasteriser) renderer.setSize(128, 128, false);
   const environment = pmrem.fromScene(room, .015);
+  if (softwareRasteriser) renderer.setSize(stageSize, stageSize, false);
   scene.environment = environment.texture;
   room.traverse(child => { child.geometry?.dispose(); child.material?.dispose(); });
   pmrem.dispose();
   scene.add(new THREE.HemisphereLight(0xffffff, 0x30343c, .55));
+  // Everything below is split across frames on purpose: this scene is heavy to
+  // build on a software rasteriser, and the page has to stay answerable while
+  // it is built. Each await hands the browser a frame to do that in, and the
+  // crossfade only starts once the whole flower has painted.
+  await nextFrame();
   const object = new THREE.Group();
   const point = ([x, y]) => new THREE.Vector2((x / size - .5) * 3, (.5 - y / size) * 3);
   function contains(points, p) {
@@ -65,7 +90,7 @@ async function init() {
     const shape = new THREE.Shape(contour.points.map(point));
     for (const hole of contours.filter(c => c.area < 0 && contains(contour.points, c.points[0]))) shape.holes.push(new THREE.Path(hole.points.map(point)));
     // Inset the bevel: its widest edge stays on the imported silhouette.
-    const raw = new THREE.ExtrudeGeometry(shape, { depth: .13, bevelEnabled: true, bevelSegments: 5, steps: 1, bevelSize: .009, bevelOffset: -.009, bevelThickness: .024, curveSegments: 12 });
+    const raw = new THREE.ExtrudeGeometry(shape, { depth: .13, bevelEnabled: true, bevelSegments: softwareRasteriser ? 2 : 5, steps: 1, bevelSize: .009, bevelOffset: -.009, bevelThickness: .024, curveSegments: 12 });
     // Weld the traced segments so the bevel reads as polished metal rather
     // than hundreds of disconnected, flat-shaded pixel-edge facets.
     raw.deleteAttribute('normal'); raw.deleteAttribute('uv');
@@ -84,6 +109,7 @@ async function init() {
       normals.setXYZ(i, n.x, n.y, n.z);
     }
     object.add(new THREE.Mesh(geometry, material));
+    await nextFrame();
   }
   object.rotation.set(.15, -.22, -.12);
   const restingPose = object.quaternion.clone();
@@ -104,19 +130,29 @@ async function init() {
     renderer.render(scene, camera);
   });
   host.append(renderer.domElement);
-  renderer.render(scene, camera);
   resize.observe(host);
-  // Give the correctly sized first frame time to paint behind the still image
-  // before crossfading it in; never expose an empty or re-sized canvas.
-  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  // The pearl program is the most expensive thing this scene compiles.
+  // compileAsync keeps that off the main thread wherever the driver exposes
+  // KHR_parallel_shader_compile (it silently compiles synchronously where it
+  // does not), so the first paint below has nothing left to compile.
+  await renderer.compileAsync(scene, camera);
+  renderer.render(scene, camera);
+  // Give the correctly sized, fully lit first frame time to paint behind the
+  // still image before crossfading it in; never expose an empty or re-sized canvas.
+  await nextFrame();
+  await nextFrame();
   host.classList.add('is-ready');
   const revealAt = performance.now() + 450;
-  let visible = true, elapsed = 0, previous = 0;
+  let visible = true, elapsed = 0, previous = 0, lastDraw = 0;
   new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }).observe(host);
   renderStill = () => renderer.render(scene, camera);
   renderer.setAnimationLoop(time => {
     const dt = Math.min((time - previous) / 1000, .05); previous = time;
     if (time < revealAt || paused || !visible || document.hidden) return;
+    // Elapsed time accumulates on every frame, so a capped cadence only changes
+    // how often the flower is redrawn, never how fast it turns.
+    if (softwareRasteriser && time - lastDraw < 32) return;
+    lastDraw = time;
     elapsed += dt;
     // Slow, continuous full turns on three axes, composed as quaternions to
     // avoid Euler-angle snapping. Delta time makes the motion refresh-rate
