@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080809">
+  <meta name="description" content="Log in or sign up to your KYROlll account and keep every license forever.">
+  <meta name="robots" content="noindex">
+  <title>ACCOUNT — KYROlll</title>
+  <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
+  <link rel="stylesheet" href="style.css?v=101">
+</head>
+<body class="auth-body">
+  <div class="viewport">
+
+    <header class="header">
+      <button class="motion-toggle" type="button" aria-pressed="false">PAUSE MOTION −</button>
+      <div class="header-auth" id="header-auth"></div>
+    </header>
+
+    <main class="auth-page" id="auth-page">
+      <section class="auth-flower" aria-label="KYROlll 3D flower">
+        <div class="flower-frame">
+          <div class="logo-stage" role="img" aria-label="KYROlll custom die-cut pearl flower, rotating in three dimensions">
+            <img class="logo-fallback" src="assets/kyrolll-flower-rest.png?v=1" alt="" width="1040" height="1040" fetchpriority="high">
+          </div>
+        </div>
+        <p class="auth-flower__caption">KYROlll &mdash; ORIGINAL SOUND</p>
+      </section>
+
+      <section class="auth-panel">
+        <div class="auth-card" role="region" aria-label="KYROlll account">
+          <span class="auth-card__kicker">KYROlll ACCOUNT</span>
+          <h1 class="auth-card__title" id="auth-title">WELCOME BACK</h1>
+          <p class="auth-card__sub" id="auth-sub">LOG IN TO KEEP EVERY LICENSE FOREVER.</p>
+
+          <div class="auth-demo" id="auth-demo" hidden>
+            <strong>LOCAL DEMO MODE</strong>
+            <span>Add your Supabase URL and anon key in <code>supabase-config.js</code> to switch on real email confirmation. Until then accounts stay in this browser.</span>
+          </div>
+
+          <div class="auth-tabs" role="tablist">
+            <button type="button" class="auth-tab is-active" data-auth-tab="login" role="tab">LOG IN</button>
+            <button type="button" class="auth-tab" data-auth-tab="signup" role="tab">SIGN UP</button>
+          </div>
+
+          <form class="auth-form" id="login-form" novalidate>
+            <label class="auth-field">
+              <span class="auth-field__label">EMAIL</span>
+              <input class="auth-input" name="email" type="email" autocomplete="email" spellcheck="false">
+            </label>
+            <label class="auth-field">
+              <span class="auth-field__label">PASSWORD</span>
+              <input class="auth-input" name="password" type="password" autocomplete="current-password">
+            </label>
+            <p class="auth-error" id="login-error" role="alert" hidden></p>
+            <button type="submit" class="auth-submit">LOG IN</button>
+          </form>
+
+          <form class="auth-form" id="signup-form" novalidate hidden>
+            <label class="auth-field">
+              <span class="auth-field__label">USERNAME</span>
+              <input class="auth-input" name="username" type="text" autocomplete="username" spellcheck="false">
+            </label>
+            <label class="auth-field">
+              <span class="auth-field__label">EMAIL</span>
+              <input class="auth-input" name="email" type="email" autocomplete="email" spellcheck="false">
+            </label>
+            <label class="auth-field">
+              <span class="auth-field__label">PASSWORD</span>
+              <input class="auth-input" name="password" type="password" autocomplete="new-password">
+            </label>
+            <label class="auth-field">
+              <span class="auth-field__label">CONFIRM PASSWORD</span>
+              <input class="auth-input" name="confirm" type="password" autocomplete="new-password">
+            </label>
+            <p class="auth-error" id="signup-error" role="alert" hidden></p>
+            <button type="submit" class="auth-submit">CREATE ACCOUNT</button>
+            <p class="auth-note">We email a 6-digit code to confirm your address before your account is active.</p>
+          </form>
+
+          <form class="auth-form" id="confirm-form" novalidate hidden>
+            <p class="auth-note" id="confirm-copy">Enter the 6-digit code we sent to <strong id="confirm-email"></strong>.</p>
+            <label class="auth-field">
+              <span class="auth-field__label">CONFIRMATION CODE</span>
+              <input class="auth-input auth-input--code" name="token" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
+            </label>
+            <p class="auth-error" id="confirm-error" role="alert" hidden></p>
+            <button type="submit" class="auth-submit">VERIFY &amp; CONTINUE</button>
+            <div class="auth-codelinks">
+              <button type="button" class="auth-textlink" id="confirm-resend">RESEND CODE</button>
+              <button type="button" class="auth-textlink" id="confirm-back">BACK</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="supabase-config.js?v=1"></script>
+  <script src="catalog.js?v=1"></script>
+  <script src="kyrolll-backend.js?v=1"></script>
+  <script src="account.js?v=2"></script>
+  <script type="module" src="assets/brand-logo.min.js?v=9"></script>
+</body>
+</html>

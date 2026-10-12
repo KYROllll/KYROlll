@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080809">
+  <meta name="description" content="Manage your KYROlll profile — username and profile picture.">
+  <meta name="robots" content="noindex">
+  <title>PROFILE — KYROlll</title>
+  <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
+  <link rel="stylesheet" href="style.css?v=101">
+</head>
+<body class="account-body">
+  <div class="viewport">
+
+    <header class="header">
+      <a class="header-brand" href="index.html">KYROlll</a>
+      <div class="header-auth" id="header-auth"></div>
+    </header>
+
+    <main class="account-page" id="dashboard-page">
+      <nav class="account-nav" aria-label="Account">
+        <a href="index.html">← KYROlll STORE</a>
+        <div class="account-nav__links">
+          <a class="is-active" href="dashboard.html">PROFILE</a>
+          <a href="library.html">MY LIBRARY</a>
+        </div>
+      </nav>
+
+      <section class="account-panel">
+        <header class="account-panel__head">
+          <span class="account-panel__kicker">PROFILE SETTINGS</span>
+          <h1 class="account-panel__title">YOUR KYROlll IDENTITY</h1>
+          <p class="account-panel__sub">Update the name and picture shown across your library.</p>
+        </header>
+
+        <form class="profile-form" id="profile-form" novalidate>
+          <div class="profile-avatar-col">
+            <div class="profile-avatar" id="profile-avatar"></div>
+            <label class="kyrolll-btn profile-avatar-upload">
+              CHANGE PICTURE
+              <input id="profile-avatar-input" type="file" accept="image/*" hidden>
+            </label>
+          </div>
+
+          <div class="profile-fields">
+            <label class="auth-field">
+              <span class="auth-field__label">USERNAME</span>
+              <input class="auth-input" id="profile-username" name="username" type="text" autocomplete="username" spellcheck="false">
+            </label>
+            <label class="auth-field">
+              <span class="auth-field__label">EMAIL (READ ONLY)</span>
+              <input class="auth-input" id="profile-email" name="email" type="email" readonly>
+            </label>
+            <div class="profile-form__actions">
+              <button type="submit" class="kyrolll-btn">SAVE CHANGES</button>
+              <a class="kyrolll-btn kyrolll-btn--ghost" href="library.html">MY LIBRARY</a>
+              <button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-auth-action="logout">LOG OUT</button>
+            </div>
+            <p class="profile-status" id="profile-status" role="status"></p>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <img class="footer__logo" src="assets/kyrolll-secondary.png" alt="KYROlll with brown X" width="1490" height="453" loading="lazy">
+      <p><span class="brand-name">KYROlll</span> &copy; 2026</p>
+    </footer>
+  </div>
+
+  <script src="supabase-config.js?v=1"></script>
+  <script src="catalog.js?v=1"></script>
+  <script src="kyrolll-backend.js?v=1"></script>
+  <script src="account.js?v=2"></script>
+</body>
+</html>

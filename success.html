@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex">
   <title>Payment Successful — KYROlll</title>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
-  <link rel="stylesheet" href="style.css?v=100">
+  <link rel="stylesheet" href="style.css?v=101">
 </head>
 <body class="success-page">
   <main class="success-container">
@@ -43,8 +43,8 @@
       <div class="success-warning" id="auth-warning" hidden>
         <p>You are not logged in. Create an account or log in so this purchase is permanently tied to your library.</p>
         <div class="success-warning__actions">
-          <button type="button" class="kyrolll-btn" data-auth-action="signup">CREATE ACCOUNT</button>
-          <button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-auth-action="login">LOG IN</button>
+          <a class="kyrolll-btn" href="auth.html?next=success.html&mode=signup">CREATE ACCOUNT</a>
+          <a class="kyrolll-btn kyrolll-btn--ghost" href="auth.html?next=success.html&mode=login">LOG IN</a>
         </div>
       </div>
 
@@ -55,62 +55,9 @@
     </div>
   </main>
 
-  <script src="account.js?v=1"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const acc = window.KYROLLL_ACCOUNT;
-      const pending = acc.getPendingPurchase();
-      const purchase = pending || {
-        beatId: "flesh",
-        beatTitle: "[FREE] DON TOLIVER TYPE BEAT - FLESH",
-        tierId: "mp3",
-        tier: "MP3 LEASE",
-        price: "$9.95"
-      };
-
-      document.getElementById("det-title").textContent = purchase.beatTitle || "—";
-      document.getElementById("det-tier").textContent = purchase.tier || "—";
-      document.getElementById("det-price").textContent = purchase.price || "—";
-
-      const warning = document.getElementById("auth-warning");
-      const subtitle = document.getElementById("success-subtitle");
-      const status = document.getElementById("det-status");
-
-      // Record the pending purchase exactly once, then clear it so a reload can
-      // never write a duplicate license into the library.
-      let recorded = false;
-      function commit() {
-        if (recorded || !pending) return;
-        if (!acc.getCurrentUser()) return;
-        acc.recordPurchase(pending);
-        acc.clearPendingPurchase();
-        recorded = true;
-      }
-
-      function refresh() {
-        const user = acc.getCurrentUser();
-        commit();
-        if (user && recorded) {
-          warning.hidden = true;
-          status.textContent = "ACTIVE // SAVED TO YOUR LIBRARY";
-          subtitle.textContent = "Your license is secured and saved to " + user.username + "'s permanent library.";
-        } else if (user) {
-          warning.hidden = true;
-          subtitle.textContent = "Your license is secured and saved to your permanent library.";
-        } else {
-          warning.hidden = false;
-          status.textContent = "AWAITING ACCOUNT";
-          subtitle.textContent = "Secure your license to your account to keep permanent access.";
-        }
-      }
-
-      refresh();
-      window.addEventListener("kyrolll:auth", refresh);
-
-      document.getElementById("view-library-btn").addEventListener("click", () => {
-        window.location.href = "index.html?view=library";
-      });
-    });
-  </script>
+  <script src="supabase-config.js?v=1"></script>
+  <script src="catalog.js?v=1"></script>
+  <script src="kyrolll-backend.js?v=1"></script>
+  <script src="account.js?v=2"></script>
 </body>
 </html>

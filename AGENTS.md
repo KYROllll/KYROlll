@@ -130,6 +130,62 @@ reads — the active-uniform query still forces the link. An environment several
 than this one can therefore still trip the platform's fresh-load smoke check
 (`page_unresponsive`). Trim the material last, not the page structure.
 
+## Supabase accounts, storage & licenses
+
+Accounts, the permanent library and licensing run through Supabase, wired in
+three files that every page loads (see the `<script>` order in `index.html`):
+
+- `supabase-config.js` — project URL, anon key and bucket/table names. **While
+  `url`/`anonKey` are empty the store runs in "local demo" mode**: accounts are
+  hashed with SHA-256 and kept in `localStorage`, libraries are local, and no
+  request leaves the browser. The preview boots with no secrets. Filling both
+  values switches every page to Supabase Auth + Storage + Postgres.
+- `kyrolll-backend.js` — a dependency-free Supabase REST client (Auth, Storage,
+  PostgREST) behind `window.KYROLLL_BACKEND`, with the same promise API in both
+  modes. It uses Supabase's built-in email confirmation: `auth.signUp` returns
+  no session until the emailed code is verified with `auth.verifyOtp`.
+- `catalog.js` — shared beats, the three tiers, and each tier's Storage object
+  `path` + `name` + same-origin `fallback`.
+
+Pages: `auth.html` (dedicated login/sign-up/confirm with the live 3D flower and
+white fields), `dashboard.html` (username + profile picture),
+`library.html` (audio download + PDF license), plus `index.html` and
+`success.html`. The BUY dropdown always opens downward (clamped to the space
+below and scrollable) so it can never cover the header or footer.
+
+To attach a real project:
+
+1. **Auth** — Authentication → Providers → Email → enable **Confirm email**.
+   The email template must include the `{{ .Token }}` placeholder so the 6-digit
+   code the confirm form asks for is actually sent.
+2. **Storage** — create a private bucket `BEATS` for the masters and an
+   `avatars` bucket for profile pictures (rename in `supabase-config.js` if you
+   differ). Upload each tier's object to the path named in `catalog.js`.
+3. **Table** — create `licenses` and lock it to the owner with RLS:
+
+   ```sql
+   create table public.licenses (
+     id uuid primary key default gen_random_uuid(),
+     user_id uuid not null references auth.users(id) on delete cascade,
+     beat_id text not null,
+     beat_title text not null,
+     tier_id text not null,
+     tier text not null,
+     price text,
+     purchased_at timestamptz not null default now()
+   );
+   alter table public.licenses enable row level security;
+   create policy "own licenses" on public.licenses
+     for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+   ```
+
+   If the table is missing the client keeps licenses in `localStorage`, so the
+   library still works while you set things up.
+
+`assets/jspdf.min.js` is a vendored UMD build of jsPDF (2.5.2) exposing
+`window.jspdf.jsPDF`; `license-pdf.js` turns a purchased tier into a branded
+certificate. The storefront itself still needs no external CDN at runtime.
+
 ## Secrets
 
 `worker/.dev.vars` is generated at container start from the platform-managed

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080809">
+  <meta name="description" content="Your permanent KYROlll library — download leased audio and official PDF licenses.">
+  <meta name="robots" content="noindex">
+  <title>MY LIBRARY — KYROlll</title>
+  <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
+  <link rel="stylesheet" href="style.css?v=101">
+</head>
+<body class="account-body">
+  <div class="viewport">
+
+    <header class="header">
+      <a class="header-brand" href="index.html">KYROlll</a>
+      <div class="header-auth" id="header-auth"></div>
+    </header>
+
+    <main class="account-page" id="library-page">
+      <nav class="account-nav" aria-label="Account">
+        <a href="index.html">← KYROlll STORE</a>
+        <div class="account-nav__links">
+          <a href="dashboard.html">PROFILE</a>
+          <a class="is-active" href="library.html">MY LIBRARY</a>
+        </div>
+      </nav>
+
+      <div id="library-root"></div>
+    </main>
+
+    <footer class="footer">
+      <img class="footer__logo" src="assets/kyrolll-secondary.png" alt="KYROlll with brown X" width="1490" height="453" loading="lazy">
+      <p><span class="brand-name">KYROlll</span> &copy; 2026</p>
+    </footer>
+  </div>
+
+  <script src="supabase-config.js?v=1"></script>
+  <script src="catalog.js?v=1"></script>
+  <script src="kyrolll-backend.js?v=1"></script>
+  <script src="assets/jspdf.min.js"></script>
+  <script src="license-pdf.js?v=1"></script>
+  <script src="account.js?v=2"></script>
+</body>
+</html>
