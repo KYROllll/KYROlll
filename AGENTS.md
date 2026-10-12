@@ -149,11 +149,11 @@ three files that every page loads (see the `<script>` order in `index.html`):
 - `catalog.js` — shared beats, the three tiers, and each tier's Storage object
   `path` + `name` + same-origin `fallback`.
 
-Pages: `auth.html` (dedicated passwordless login/sign-up with a 6-box code step,
-the live 3D flower and white fields), `dashboard.html` (username + profile
-picture), `library.html` (audio download + PDF license), plus `index.html` and
-`success.html`. The BUY dropdown always opens downward (clamped to the space
-below and scrollable) so it can never cover the header or footer.
+Pages: `auth.html` (dedicated passwordless login/sign-up with a single 6-digit
+code input, the live 3D flower and white fields), `dashboard.html` (username +
+profile picture), `library.html` (audio download + PDF license), plus
+`index.html` and `success.html`. The BUY dropdown always opens downward (clamped
+to the space below and scrollable) so it can never cover the header or footer.
 
 To attach a real project:
 
@@ -161,10 +161,17 @@ To attach a real project:
    enabled so `signInWithOtp` can send codes. The email template must include the
    `{{ .Token }}` placeholder so the 6-digit code the code box asks for is
    actually sent. The code length is the project's **Email OTP Length** setting
-   (GoTrue env `GOTRUE_MAILER_OTP_LENGTH`); keep it in step with `otpLength` in
-   `supabase-config.js` (default 6). The auth page renders exactly `otpLength`
-   boxes and the OTP request sends `otp_length` so the UI and the emailed code
-   can never drift apart.
+   (GoTrue env `GOTRUE_MAILER_OTP_LENGTH`), **not** something the `/auth/v1/otp`
+   request can set, and brand-new projects often default the email OTP to 8.
+   Pin it to 6 to match the single code input:
+   `SUPABASE_ACCESS_TOKEN=… node set-otp-length.mjs` (token from
+   https://supabase.com/dashboard/account/tokens, Owner/Administrator — the
+   Management API auth-config endpoint requires at least Admin; the script reads
+   the project ref from `supabase-config.js`, GETs the current
+   `mailer_otp_length`, PATCHes it to 6, and prints the result).
+   `supabase-config.js` also carries `otpLength: 6`; the auth page renders that
+   many digits and the OTP request sends `otp_length` so the UI and the emailed
+   code can never drift apart.
 2. **Storage** — create a private bucket `BEATS` for the masters and an
    `avatars` bucket for profile pictures (rename in `supabase-config.js` if you
    differ). Upload each tier's object to the path named in `catalog.js`.
