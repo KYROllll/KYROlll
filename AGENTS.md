@@ -36,6 +36,30 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   storefront on port 3000 call the worker on port 8000 cross-origin. No cookies
   or sessions are involved, so no `credentials: 'include'` is needed.
 
+## Built assets (`assets/*.min.js`)
+
+`assets/brand-logo.min.js` and `assets/background-x.min.js` are esbuild bundles of
+`brand-logo.js` / `background-x.js`. `npm run build:brand` regenerates the whole asset
+set but needs `sharp`, which this sandbox does not install. To rebuild one bundle, use
+the esbuild that ships with the Worker and run its binary directly (`bin/esbuild` is a
+native binary, not a JS entry point):
+
+```bash
+worker/node_modules/@esbuild/linux-x64/bin/esbuild background-x.js --bundle --minify \
+  --format=esm --target=es2020 --legal-comments=eof --outfile=assets/background-x.min.js
+```
+
+Bump the `?v=N` query on the matching `<script>` tag in `index.html` afterwards.
+
+## Page height: measure the body's box, never `scrollHeight`
+
+`background-x.js` sizes its canvas to the document so the falling X marks cover the
+whole page. That measurement must come from the body's own box
+(`document.body.offsetHeight`). `document.body.scrollHeight` includes the canvas' own
+overflow, so as soon as anything on the page got shorter (the pre-rendered beat card
+being swapped for a catalog tile, a tighter footer) the page could never shrink back and
+an empty band of background stayed open below the footer.
+
 ## Secrets
 
 `worker/.dev.vars` is generated at container start from the platform-managed
@@ -78,3 +102,10 @@ download links or license files (see `showSuccessModal` / `completeFreeOrder` in
 Worker's branded Resend email. That email cannot send until `RESEND_API_KEY` and
 `RESEND_FROM` are set, so an un-configured preview legitimately reports
 "EMAIL DELIVERY PENDING".
+
+`index.html` pre-renders the active release's beat card so a direct beat link
+(`?beat=…`) paints without a flash; `script.js` replaces the grid contents right after
+parse. Home is the default state: the head only adds `beat-page` when the URL carries
+`?beat=`, and `html:not(.beat-page) #grid > .beat-detail` keeps that pre-rendered card
+hidden on the home route — so entering the store never flashes a beat page before the
+homepage hero.

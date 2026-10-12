@@ -1188,7 +1188,9 @@ button {
 
 .footer {
   margin-top: auto;
-  padding: 40px 20px 96px;
+  /* Equal top/bottom padding keeps the grey logo + copyright balanced in a
+     compact band instead of trailing a tall run of empty black. */
+  padding: 48px 20px;
   text-align: center;
   font-size: 10px;
   color: var(--gray);
@@ -2089,6 +2091,11 @@ body > canvas {
 .beat-navigation { max-width: 1440px; margin: 0 auto; padding: 22px clamp(16px, 3vw, 40px) 0; }
 .beat-navigation a { color: var(--gray); font-size: 10px; font-weight: 700; letter-spacing: .15em; text-decoration: none; }
 .beat-navigation a:hover { color: var(--white); }
+/* index.html pre-renders the active release's card so a direct beat link
+   (?beat=…) paints without a flash. The home route swaps it for the catalog
+   tiles right after parse, so keep it hidden until then — otherwise the store
+   briefly shows a beat page before the homepage hero. */
+html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .grid.grid--detail {
   grid-template-columns: minmax(0, 1fr);
   padding: clamp(32px, 5vw, 64px) clamp(16px, 4vw, 40px) 96px;

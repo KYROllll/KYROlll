@@ -61,7 +61,10 @@ function seed() {
 function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, 2);
   width = document.documentElement.clientWidth;
-  height = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+  // The canvas covers exactly the page it sits on. Measuring scrollHeight here
+  // would include this canvas' own overflow, so the page could never shrink back
+  // and an empty band of background stayed open under the footer.
+  height = document.body.offsetHeight;
   canvas.style.height = `${height}px`;
   canvas.width = Math.round(width * dpr);
   canvas.height = Math.round(height * dpr);
