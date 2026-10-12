@@ -195,41 +195,12 @@ function rebuildCatalog() {
   buildGrid();
 }
 
-function initCountdown() {
-  // Month is 0-indexed: 9 = October. Oct 16 00:00 local is the moment Oct 15 ends,
-  // so the promo stays live through all of Oct 15 (matching "ENDS OCT 15").
-  const targetDate = new Date(2026, 9, 16, 0, 0, 0).getTime();
-  const daysEl = $("cd-days");
-  const hoursEl = $("cd-hours");
-  const minsEl = $("cd-mins");
-  const secsEl = $("cd-secs");
-  if (!daysEl) return;
-
-  function update() {
-    const now = Date.now();
-    const diff = Math.max(0, targetDate - now);
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const secs = Math.floor((diff % (1000 * 60)) / 1000);
-
-    daysEl.textContent = String(days).padStart(2, '0');
-    hoursEl.textContent = String(hours).padStart(2, '0');
-    minsEl.textContent = String(mins).padStart(2, '0');
-    secsEl.textContent = String(secs).padStart(2, '0');
-  }
-  update();
-  setInterval(update, 1000);
-}
-
 window.addEventListener("DOMContentLoaded", () => {
   try {
     rebuildCatalog();
-    initCountdown();
   } catch (err) {
     console.error("Catalog init error:", err);
     buildGrid();
-    initCountdown();
   }
 });
 window.addEventListener("load", () => {

@@ -40,7 +40,7 @@
 
   // --- entrance reveals for the sections below the fold ---
   const sections = document.querySelectorAll(
-    ".marquee-banner, .promo-banner, .catalog-heading, .beat-navigation, .grid, .footer"
+    ".marquee-banner, .catalog-heading, .beat-navigation, .grid, .footer"
   );
 
   // On a beat detail link the sections are already in view when the page opens.
