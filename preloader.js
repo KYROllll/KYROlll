@@ -23,6 +23,14 @@
   const HARD_CAP_MS = 6000;
   let done = false;
   let timer = 0;
+  let progress = 0;
+  const targetProgress = () => {
+    const elapsed = performance.now() - started;
+    if (elapsed >= HARD_CAP_MS) return 1;
+    const t = Math.min(1, (elapsed - MIN_MS) / Math.max(800, HARD_CAP_MS * 0.35));
+    const p = Math.min(0.98, t * 0.92);
+    return p;
+  };
 
   const flowerReady = () => !!overlay.querySelector(".logo-stage.is-ready");
   const pageSettled = () => document.readyState === "complete";
@@ -44,21 +52,25 @@
     if (done) return;
     const elapsed = performance.now() - started;
     if (elapsed < MIN_MS) return;
-    // Drive a smooth bottom-up build for the preloader flower. Start from 0 and
-    // creep toward completion as the page settles, hitting 1.0 at finish.
+    // Drive a smooth bottom-up build for the preloader flower. Progressively
+    // advance toward completion as the page settles, holding near 100% briefly.
     if (typeof window.KYROLLL_FLOWER_PROGRESS === 'function') {
-      const t = Math.min(1, (elapsed - MIN_MS) / Math.max(900, HARD_CAP_MS * 0.5));
-      const p = Math.min(0.98, t * 0.9);
-      window.KYROLLL_FLOWER_PROGRESS(p);
-      setBar(p);
+      progress = targetProgress();
+      window.KYROLLL_FLOWER_PROGRESS(progress);
+      setBar(progress);
     }
     // Hide once the flower has painted its first frame (the scene build is the
     // last heavy thing the page boots), or once every resource has loaded, and
     // never wait past the hard cap.
     if (flowerReady() || pageSettled() || elapsed > HARD_CAP_MS) {
+      if (!done) progress = 1;
       setBar(1);
       if (typeof window.KYROLLL_FLOWER_PROGRESS === 'function') window.KYROLLL_FLOWER_PROGRESS(1);
-      finish();
+      // Give users a few stable seconds at 100% before fading out.
+      setTimeout(finish, 1200);
+      done = true;
+      clearInterval(timer);
+      return;
     }
   }
 
