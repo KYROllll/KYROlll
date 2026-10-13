@@ -13,7 +13,10 @@
 
   const overlay = document.getElementById("preloader");
   if (!overlay) return;
+  const bar = document.getElementById("preloader-bar");
+  function setBar(p) { if (bar) bar.style.width = Math.round(Math.max(0, Math.min(100, p * 100))) + "%"; }
 
+  setBar(0);
   const started = performance.now();
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const MIN_MS = reduceMotion ? 450 : 1150;
@@ -28,6 +31,8 @@
     if (done) return;
     done = true;
     clearInterval(timer);
+    setBar(1);
+    if (typeof window.KYROLLL_FLOWER_PROGRESS === 'function') window.KYROLLL_FLOWER_PROGRESS(1);
     overlay.classList.add("is-done"); // fades out via CSS
     setTimeout(() => {
       document.dispatchEvent(new CustomEvent("kyrolll:preloader-done"));
@@ -43,12 +48,15 @@
     // creep toward completion as the page settles, hitting 1.0 at finish.
     if (typeof window.KYROLLL_FLOWER_PROGRESS === 'function') {
       const t = Math.min(1, (elapsed - MIN_MS) / Math.max(900, HARD_CAP_MS * 0.5));
-      window.KYROLLL_FLOWER_PROGRESS(Math.min(0.98, t * 0.9));
+      const p = Math.min(0.98, t * 0.9);
+      window.KYROLLL_FLOWER_PROGRESS(p);
+      setBar(p);
     }
     // Hide once the flower has painted its first frame (the scene build is the
     // last heavy thing the page boots), or once every resource has loaded, and
     // never wait past the hard cap.
     if (flowerReady() || pageSettled() || elapsed > HARD_CAP_MS) {
+      setBar(1);
       if (typeof window.KYROLLL_FLOWER_PROGRESS === 'function') window.KYROLLL_FLOWER_PROGRESS(1);
       finish();
     }
