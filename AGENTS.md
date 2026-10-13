@@ -130,7 +130,11 @@ first time a purchase is recorded on the `exclusive` tier the beat id is added t
 `kyrolll_exclusive_sold` `localStorage` list. `licenses.soldExclusive()` returns that list plus
 whatever `GET /rest/v1/licenses?select=beat_id&tier_id=eq.exclusive` yields — best-effort, so with
 the documented owner-only RLS it only ever sees the signed-in buyer's own rows, and a public SELECT
-policy on `beat_id` is what would make the lock site-wide. `script.js` calls it once per page load
+policy on `beat_id` is what would make the lock site-wide. That read goes out **as the signed-in
+buyer** when there is a session (the bearer is what makes PostgREST resolve `auth.uid()`; `apikey`
+alone is the anonymous `anon` role and `auth.uid()` null), and stays a plain anonymous read when
+signed out so a public SELECT policy is still what the site-wide lock would need. `script.js` calls
+it once per page load
 (`loadSoldState()`) and marks every surface: `catalog-tile--sold` on the tile, `beat-detail--sold`
 on the beat page, `disabled` + `buy-beat-btn--sold` on the BUY button (the ghosted label is covered
 by the seal and the click handler refuses a sold button) and the angled `.sold-seal` over the cover
@@ -324,12 +328,24 @@ To attach a real project:
    transaction — what the `authenticated` role actually sees for that account's
    JWT claims. Rows are written **without** an `id` so the table's `uuid` default
    owns it; the local `lic_…` id is not a uuid, so sending it was rejected with
-   `22P02` and the purchase never reached the table. Every authenticated call
-   goes through `withSession()`, the dependency-free equivalent of
-   `supabase.auth.getSession()`: it awaits `ready()` — which refreshes a session
-   that is within a minute of expiring — and retries once on a 401 after a
-   refresh, so the read carries a *current* `Authorization: Bearer <token>`
-   rather than a stale one (a stale token is the usual reason a read 401s).
+   `22P02` and the purchase never reached the table. Every authenticated call —
+   the library read and write, the exclusive-sold lookup, the signed Storage URL
+   and the avatar upload — goes through `withSession()`, the dependency-free
+   equivalent of `supabase.auth.getSession()`: it awaits `ready()` — which
+   refreshes a session that is within a minute of expiring — and retries once on
+   a 401 after a refresh, so the call carries a *current*
+   `Authorization: Bearer <token>` rather than a stale one (a stale token is the
+   usual reason a read 401s).
+
+   That bearer is also the only thing that makes PostgREST assume the
+   `authenticated` role: `apikey` merely selects the project, and the client
+   never falls back to `Authorization: Bearer <apikey>` (which would silently
+   downgrade every request to `anon`, where `auth.uid()` is null and the
+   owner-only policy matches nothing). The `user_id=eq.…` filter and the
+   `user_id` write body are read back out of the *token being sent*
+   (`jwtSubject()`) rather than trusted from the cached session user, so the
+   value compared against `auth.uid()` is the same claim PostgREST will use —
+   a session refresh cannot leave the filter pointing at a superseded id.
 
 `assets/jspdf.min.js` is a vendored UMD build of jsPDF (2.5.2) exposing
 `window.jspdf.jsPDF`; `license-pdf.js` turns a purchased tier into a branded

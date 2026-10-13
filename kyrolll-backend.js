@@ -58,6 +58,24 @@
     return prefix + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
+  /* Read the `sub` claim out of an access token. RLS resolves `auth.uid()` to
+   * exactly that value, so a `user_id=eq.<sub>` filter (or a `user_id` write
+   * body) built from it is guaranteed to be the row set PostgREST will let the
+   * bearer through for. Best-effort: an opaque or malformed token yields "" and
+   * the caller falls back to the session's cached user id. */
+  function jwtSubject(token) {
+    try {
+      const part = String(token || "").split(".")[1];
+      if (!part) return "";
+      const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+      const claims = JSON.parse(atob(padded));
+      return (claims && claims.sub) || "";
+    } catch (err) {
+      return "";
+    }
+  }
+
   function emitAuthChange() {
     window.dispatchEvent(new CustomEvent("kyrolll:auth", { detail: { user: currentUser() } }));
   }
@@ -113,6 +131,13 @@
 
   async function request(method, path, options) {
     const opts = options || {};
+    // `apikey` only tells the gateway which project this is; the *role*
+    // PostgREST assumes — and therefore what `auth.uid()` resolves to — comes
+    // from the `Authorization` bearer. With no token the request is the
+    // anonymous `anon` role and `auth.uid()` is null, so anything that needs the
+    // signed-in user must pass `token`. Never fall back to
+    // `Authorization: Bearer <apikey>`: that silently downgrades to `anon` and
+    // makes an authenticated read look like an empty table.
     const headers = { apikey: CONFIG.anonKey };
     let body = opts.body;
     if (opts.token) headers.Authorization = "Bearer " + opts.token;
@@ -353,7 +378,15 @@
     const ids = new Set(localSold());
     if (!CONFIGURED) return Array.from(ids);
     try {
-      const rows = await request("GET", "/rest/v1/" + LICENSES_TABLE + "?select=beat_id&tier_id=eq.exclusive");
+      // Signed in, this goes out as the authenticated role so the buyer's own
+      // exclusive row is visible; signed out it stays a deliberately anonymous
+      // read, which is the request a public SELECT policy on `beat_id` would
+      // open up site-wide. Either way the local record still answers on failure.
+      const rows = await withSession((token) => request(
+        "GET",
+        "/rest/v1/" + LICENSES_TABLE + "?select=beat_id&tier_id=eq.exclusive",
+        token ? { token: token } : undefined
+      ));
       (rows || []).forEach((row) => { if (row.beat_id) ids.add(row.beat_id); });
     } catch (err) { /* not readable here — the local answer still stands */ }
     return Array.from(ids);
@@ -400,22 +433,27 @@
   /* Read the licenses for the signed-in user. The `user_id` filter is explicit
    * even though RLS already pins rows to `auth.uid() = user_id`: it states the
    * intent, and it is what keeps another account's rows out if the SELECT
-   * policy is ever loosened or absent. A failure is recorded (and warned once)
-   * rather than swallowed, so the library can say *why* it is empty. */
+   * policy is ever loosened or absent. It is built from the `sub` of the token
+   * being sent, not from the cached user — those must be the same value as the
+   * `auth.uid()` PostgREST will compute, and a refresh can move one past the
+   * other. A failure is recorded (and warned once) rather than swallowed, so the
+   * library can say *why* it is empty. */
   async function listLicenses() {
     const user = currentUser();
     if (!user) return [];
     const local = localList(user.id);
     try {
-      const rows = await withSession((token) => token
-        ? request(
-            "GET",
-            "/rest/v1/" + LICENSES_TABLE +
-              "?select=*&user_id=eq." + encodeURIComponent(user.id) +
-              "&order=purchased_at.desc",
-            { token: token }
-          )
-        : []);
+      const rows = await withSession((token) => {
+        if (!token) return [];
+        const owner = jwtSubject(token) || user.id;
+        return request(
+          "GET",
+          "/rest/v1/" + LICENSES_TABLE +
+            "?select=*&user_id=eq." + encodeURIComponent(owner) +
+            "&order=purchased_at.desc",
+          { token: token }
+        );
+      });
       licensesError = null;
       const remote = (rows || []).map(fromRow);
       // Merge: remote wins on id, local cache fills anything the table missed.
@@ -483,7 +521,9 @@
               token: token,
               headers: { Prefer: "return=representation" },
               body: {
-                user_id: user.id,
+                // `with check (auth.uid() = user_id)`: write the token's own
+                // subject so the insert is the one the policy will accept.
+                user_id: jwtSubject(token) || user.id,
                 beat_id: license.beatId,
                 beat_title: license.beatTitle,
                 tier_id: license.tierId,
@@ -513,12 +553,14 @@
   /* ---------------------------------------------------------------- storage */
 
   async function signedUrl(objectPath, expiresIn) {
-    if (!CONFIGURED || !session || !session.accessToken || !objectPath) return "";
+    if (!CONFIGURED || !session || !objectPath) return "";
     try {
-      const data = await request("POST", "/storage/v1/object/sign/" + BUCKETS.beats + "/" + encodeObjectPath(objectPath), {
-        token: session.accessToken,
-        body: { expiresIn: expiresIn || 3600 }
-      });
+      const data = await withSession((token) => token
+        ? request("POST", "/storage/v1/object/sign/" + BUCKETS.beats + "/" + encodeObjectPath(objectPath), {
+            token: token,
+            body: { expiresIn: expiresIn || 3600 }
+          })
+        : null);
       if (data && data.signedURL) return base + "/storage/v1" + data.signedURL;
       if (data && data.signedUrl) return base + "/storage/v1" + data.signedUrl;
     } catch (err) { /* fall through to public URL */ }
@@ -581,18 +623,24 @@
   async function uploadAvatar(dataUrlOrBlob, contentType) {
     const user = currentUser();
     if (!user) throw new Error("NOT SIGNED IN");
-    if (!CONFIGURED || !session || !session.accessToken) return dataUrlOrBlob;
+    if (!CONFIGURED || !session) return dataUrlOrBlob;
     try {
       const blob = dataUrlOrBlob instanceof Blob ? dataUrlOrBlob : await (await fetch(dataUrlOrBlob)).blob();
       const path = "avatars/" + user.id + "/avatar-" + Date.now() + ".jpg";
-      await request("POST", "/storage/v1/object/" + BUCKETS.avatars + "/" + encodeObjectPath(path), {
-        token: session.accessToken,
-        headers: { "x-upsert": "true", "Content-Type": contentType || blob.type || "image/jpeg" },
-        body: blob
-      });
-      const signed = await request("POST", "/storage/v1/object/sign/" + BUCKETS.avatars + "/" + encodeObjectPath(path), {
-        token: session.accessToken,
-        body: { expiresIn: 31536000 }
+      // The object path is keyed to the owner and the bucket policy reads
+      // `auth.uid()`, so the bearer has to be the signed-in user's — and one
+      // that has not quietly expired since the session was stored.
+      const signed = await withSession(async (token) => {
+        if (!token) throw new Error("NOT SIGNED IN");
+        await request("POST", "/storage/v1/object/" + BUCKETS.avatars + "/" + encodeObjectPath(path), {
+          token: token,
+          headers: { "x-upsert": "true", "Content-Type": contentType || blob.type || "image/jpeg" },
+          body: blob
+        });
+        return request("POST", "/storage/v1/object/sign/" + BUCKETS.avatars + "/" + encodeObjectPath(path), {
+          token: token,
+          body: { expiresIn: 31536000 }
+        });
       });
       if (signed && (signed.signedURL || signed.signedUrl)) {
         return base + "/storage/v1" + (signed.signedURL || signed.signedUrl);

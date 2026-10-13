@@ -17,6 +17,13 @@ const SERVER = "https://abcdefghijklmnopqrst.supabase.co"; // 20-char ref, not t
 const ANON = "anon-key-123";
 const USER = { id: "user-123", email: "matan@example.com", username: "matan" };
 
+// Build an unsigned JWT-shaped token so a test can control the `sub` claim that
+// RLS resolves as `auth.uid()`.
+function jwt(claims) {
+  const enc = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  return enc({ alg: "HS256", typ: "JWT" }) + "." + enc(claims) + ".signature";
+}
+
 function memoryStorage(seed) {
   const map = new Map(Object.entries(seed || {}));
   return {
@@ -69,6 +76,7 @@ function boot(fetchImpl, sessionOverride, clock) {
     Blob,
     FormData,
     File,
+    atob,
     setTimeout,
     clearTimeout
   };
@@ -260,5 +268,77 @@ test("a 401 with no refresh token is surfaced, not retried forever", async () =>
 
   assert.equal(reads, 1, "does not retry without a refresh token");
   assert.equal(backend.licenses.diagnose().error.status, 401);
+});
+
+test("filters the read by the token's sub, so it matches auth.uid()", async () => {
+  // The stored session is stale: its cached user id is no longer the `sub` of
+  // the access token the read will carry.
+  const calls = [];
+  const { backend } = boot(async (url, init) => {
+    calls.push({ url, init });
+    return { ok: true, status: 200, text: async () => "[]" };
+  }, {
+    accessToken: jwt({ sub: "user-from-token" }),
+    user: { id: "user-stale", email: "matan@example.com" }
+  });
+
+  await backend.licenses.list();
+
+  const read = calls.find((call) => call.url.includes("/rest/v1/licenses?"));
+  assert.ok(read, "reads the table");
+  assert.match(read.url, /user_id=eq\.user-from-token/, "filters on the token's sub");
+  assert.equal(read.init.headers.Authorization, "Bearer " + jwt({ sub: "user-from-token" }));
+  assert.equal(read.init.headers.apikey, ANON, "the anon key is only the project key");
+  assert.doesNotMatch(read.url, /user-stale/, "never filters on the stale cached id");
+});
+
+test("writes the token's sub as user_id so `with check` passes", async () => {
+  const calls = [];
+  const { backend } = boot(async (url, init) => {
+    calls.push({ url, init });
+    return { ok: true, status: 201, text: async () => JSON.stringify([{ id: "row-1" }]) };
+  }, {
+    accessToken: jwt({ sub: "user-from-token" }),
+    user: { id: "user-stale", email: "matan@example.com" }
+  });
+
+  await backend.licenses.add({
+    beatId: "flesh", beatTitle: "FLESH", tierId: "mp3", tier: "MP3 LEASE", price: "$9.95"
+  });
+
+  const post = calls.find((call) => call.init.method === "POST");
+  assert.ok(post, "posts the purchase");
+  assert.equal(JSON.parse(post.init.body).user_id, "user-from-token");
+});
+
+test("the exclusive lookup is authenticated when signed in", async () => {
+  const calls = [];
+  const { backend } = boot(async (url, init) => {
+    calls.push({ url, init });
+    return { ok: true, status: 200, text: async () => JSON.stringify([{ beat_id: "flesh" }]) };
+  });
+
+  const sold = await backend.licenses.soldExclusive();
+
+  assert.deepEqual(Array.from(sold), ["flesh"]);
+  const read = calls.find((call) => call.url.includes("tier_id=eq.exclusive"));
+  assert.ok(read, "asks the table");
+  assert.equal(read.init.headers.Authorization, "Bearer jwt-abc", "the user's bearer, not anonymous");
+  assert.equal(read.init.headers.apikey, ANON);
+});
+
+test("the exclusive lookup stays an anonymous read when signed out", async () => {
+  const calls = [];
+  const { backend } = boot(async (url, init) => {
+    calls.push({ url, init });
+    return { ok: true, status: 200, text: async () => "[]" };
+  }, null);
+
+  const sold = await backend.licenses.soldExclusive();
+
+  assert.equal(sold.length, 0, "the local record alone answers");
+  const read = calls.find((call) => call.url.includes("tier_id=eq.exclusive"));
+  assert.ok(read, "still makes the request a public SELECT policy would serve");
+  assert.equal(read.init.headers.Authorization, undefined, "no token to send, so no bearer");
 });
 
