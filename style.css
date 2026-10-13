@@ -3779,6 +3779,7 @@ html.auth-open { overflow: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   .flower-frame { animation: none; clip-path: none; }
+  .flower-loader__flower { animation: none !important; }
 }
 
 /* ---------- Page-load preloader ------------------------------------------- */
