@@ -66,10 +66,11 @@
       if (!done) progress = 1;
       setBar(1);
       if (typeof window.KYROLLL_FLOWER_PROGRESS === 'function') window.KYROLLL_FLOWER_PROGRESS(1);
-      // Give users a few stable seconds at 100% before fading out.
-      setTimeout(finish, 1200);
-      done = true;
-      clearInterval(timer);
+      if (!done) {
+        done = true;
+        clearInterval(timer);
+        setTimeout(finish, 1200);
+      }
       return;
     }
   }
