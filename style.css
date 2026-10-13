@@ -3946,6 +3946,10 @@ html.preloader-armed { overflow-y: hidden; }
   backface-visibility: hidden;
   transform: translateZ(0);
 }
+/* The veil flower is a finished object, not a loading meter: hold its resting
+   pose and its own shadow, and cancel the shared `logoBreathe` glow so nothing
+   about it moves while the bar fills beneath it. */
+.preloader .logo-stage { animation: none; }
 .preloader__name {
   margin: 0;
   font-size: 17px;

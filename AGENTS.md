@@ -84,6 +84,14 @@ enough that the change reads as the material settling, not one image replacing a
 `.logo-stage` also carries a base `drop-shadow` equal to `logoBreathe`'s 0% frame so the
 1.6s-delayed loop cannot pop a halo on. Keep those details in step if the logo changes.
 
+The flower is never shown assembling itself: every petal is visible from the renderer's
+very first frame, so the still → canvas hand-off swaps two identical resting flowers and
+only the preloader's progress bar moves. `brand-logo.js` still exposes a proportional
+`window.KYROlll_FLOWER_PROGRESS(p)` reveal for callers that want it, but nothing drives it
+during a load. The veil's own flower also cancels the shared `logoBreathe` glow
+(`.preloader .logo-stage { animation: none }`) so it holds one still, stable pose while
+the bar fills.
+
 To re-capture the frame after the flower changes, serve a throwaway page from the repo
 root that mounts a wide `.logo-stage` plus a `.motion-toggle` button, loads
 `assets/brand-logo.min.js`, and then: wait for `is-ready`, hold ~480ms (the pose is still

@@ -1,25 +1,27 @@
 /* KYROlll — page-load preloader.
  *
- * The fixed veil covers the very first paint, shows the 3D flower (mounted by
- * brand-logo.min.js into its own .logo-stage) and does not lift until the
- * page's own flower reports that it is **ready** (its first frame has painted
- * behind the still image), **built** (every petal has been revealed) and a
- * settle beat has passed. The veil is opaque and the page behind it is frozen
- * (`html.preloader-armed`), so the hero can never pop in half-drawn: nothing is
- * revealed until the flower is whole. After the fade the veil is removed and the
- * preloader flower's render loop is released via the `kyrolll:preloader-done`
- * event.
+ * The fixed veil covers the very first paint and shows the 3D flower (mounted
+ * by brand-logo.min.js into its own .logo-stage) already in its final, closed,
+ * fully-built resting pose. The flower never builds itself in here: only the
+ * white progress bar moves beneath it. The veil lifts once the page's own
+ * flower reports that it is **ready** (its first frame has painted behind the
+ * still image), **built** (every petal is on screen — instantaneous for the
+ * display flower) and a settle beat has passed. The veil is opaque and the page
+ * behind it is frozen (`html.preloader-armed`), so the hero can never pop in
+ * half-drawn. After the fade the veil is removed and the preloader flower's
+ * render loop is released via the `kyrolll:preloader-done` event.
  *
  * A minimum display time keeps the boot feeling deliberate rather than flickery;
  * a hard cap guarantees the site is never stranded under the veil even if WebGL
  * fails (the static flower image covers that case, and brand-logo marks a failed
  * stage `failed` so the veil can lift at once).
  *
- * The bar is driven from a single requestAnimationFrame loop that eases a
- * displayed value toward a moving target, so it fills in one continuous motion
- * instead of stepping once per timer tick. The matching `.preloader__progress-bar`
- * carries no CSS width transition on purpose (see style.css): a transition
- * re-started on every tick is what made the old bar stutter and jump.
+ * The bar is the only moving part, and it is driven from a single
+ * requestAnimationFrame loop that eases a displayed value toward a moving target,
+ * so it fills in one continuous motion instead of stepping once per timer tick.
+ * The matching `.preloader__progress-bar` carries no CSS width transition on
+ * purpose (see style.css): a transition re-started on every tick is what made the
+ * old bar stutter and jump.
  */
 (function () {
   "use strict";
@@ -29,16 +31,14 @@
   const bar = document.getElementById("preloader-bar");
 
   /* The bar is painted with `transform: scaleX()` rather than `width` so the
-   * compositor can move it without layout, and so no transition is needed. */
+   * compositor can move it without layout, and so no transition is needed. The
+   * flower is deliberately not driven from here: it holds its finished pose so
+   * the loading sequence reads as "a whole flower with a bar filling under it",
+   * never as the flower assembling itself. */
   function setBar(p) {
     if (!bar) return;
     const v = Math.max(0, Math.min(1, p));
     bar.style.transform = "scaleX(" + v + ")";
-  }
-  function setFlower(p) {
-    if (typeof window.KYROlll_FLOWER_PROGRESS === "function") {
-      window.KYROlll_FLOWER_PROGRESS(p);
-    }
   }
 
   // The stage the veil is really waiting for: the page's own flower when it has
@@ -108,7 +108,6 @@
     displayed = 1;
     target = 1;
     setBar(1);
-    setFlower(1);
     overlay.classList.add("is-done"); // fades out via CSS
 
     let removed = false;
@@ -133,11 +132,11 @@
     last = now;
     const elapsed = now - started;
 
-    // The bar is allowed to finish exactly when the page's flower is ready; it
-    // eases there — and easing the bar to 1 is what drives the flower's own
-    // progress to 1, which is what marks it "built". No early `pageSettled`
-    // shortcut: document "complete" routinely fires before the 3D flower has
-    // even started drawing, and lifting the veil then is the pop-in artifact.
+    // The bar is allowed to finish exactly when the page's flower is ready. No
+    // early `pageSettled` shortcut: document "complete" routinely fires before
+    // the 3D flower has even started drawing, and lifting the veil then is the
+    // pop-in artifact. The flower itself is never driven from here — it holds its
+    // finished pose, so only this bar moves.
     const ready = workReady();
     const goal = ready ? 1 : creepTarget(elapsed);
     if (goal > target) target = goal; // monotonic: never step backwards
@@ -150,7 +149,6 @@
     if (displayed >= 0.999) displayed = 1; // snap only the last sub-pixel
 
     setBar(displayed);
-    setFlower(displayed);
 
     if (displayed >= 1 && target >= 1 && fullyBuilt() && readyAt && now - readyAt >= SETTLE_MS) {
       if (!reachedAt) reachedAt = now;
