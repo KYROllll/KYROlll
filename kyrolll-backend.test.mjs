@@ -27,13 +27,24 @@ function memoryStorage(seed) {
   };
 }
 
+// A controllable clock so a test can let a token expire without sleeping.
+function makeClock(start) {
+  let now = start;
+  class FakeDate extends Date {
+    constructor(...args) { if (args.length === 0) super(now); else super(...args); }
+    static now() { return now; }
+  }
+  return { Date: FakeDate, set: (t) => { now = t; }, get: () => now };
+}
+
 // Run a fresh copy of the IIFE in its own context. `expiresAt` is kept in the
 // future so the load-time `ready()` does not add a refresh call to fetch.
-function boot(fetchImpl, sessionOverride) {
+function boot(fetchImpl, sessionOverride, clock) {
+  const now = clock ? clock.get() : Date.now();
   const session = sessionOverride === null ? null : Object.assign({
     accessToken: "jwt-abc",
     refreshToken: "refresh-abc",
-    expiresAt: Date.now() + 3600000,
+    expiresAt: now + 3600000,
     user: USER
   }, sessionOverride || {});
   const storage = memoryStorage(session ? { kyrolll_sb_session: JSON.stringify(session) } : {});
@@ -53,6 +64,7 @@ function boot(fetchImpl, sessionOverride) {
     localStorage: storage,
     fetch: fetchImpl,
     console,
+    Date: clock ? clock.Date : Date,
     CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init && init.detail; } },
     Blob,
     FormData,
@@ -175,3 +187,78 @@ test("a write that fails keeps the local copy and explains itself", async () => 
   assert.ok(license && license.id, "the optimistic local copy survives");
   assert.ok(warn.lines.some((line) => /license write failed/.test(line)));
 });
+
+test("refreshes a token that is about to expire before reading", async () => {
+  const clock = makeClock(Date.now());
+  const calls = [];
+  const { backend } = boot(async (url, init) => {
+    calls.push({ url, init });
+    if (url.includes("/auth/v1/token?grant_type=refresh_token")) {
+      return {
+        ok: true, status: 200,
+        text: async () => JSON.stringify({ access_token: "jwt-fresh", refresh_token: "refresh-2", expires_in: 3600, user: USER })
+      };
+    }
+    return { ok: true, status: 200, text: async () => "[]" };
+  }, { expiresAt: clock.get() + 120000 }, clock);
+
+  assert.equal(calls.length, 0, "a valid token is not refreshed at load");
+
+  clock.set(clock.get() + 90000); // now inside the refresh window
+  await backend.licenses.list();
+
+  const read = calls[calls.length - 1];
+  assert.match(read.url, /\/rest\/v1\/licenses\?/);
+  assert.equal(read.init.headers.Authorization, "Bearer jwt-fresh", "reads with the refreshed token");
+  assert.ok(calls.some((call) => call.url.includes("grant_type=refresh_token")), "refreshed first");
+});
+
+test("a 401 on the read refreshes the token and retries once", async () => {
+  let reads = 0;
+  const calls = [];
+  const { backend } = boot(async (url, init) => {
+    calls.push({ url, init });
+    if (url.includes("/auth/v1/token?grant_type=refresh_token")) {
+      return {
+        ok: true, status: 200,
+        text: async () => JSON.stringify({ access_token: "jwt-fresh", refresh_token: "refresh-2", expires_in: 3600, user: USER })
+      };
+    }
+    reads += 1;
+    if (reads === 1) {
+      return { ok: false, status: 401, text: async () => JSON.stringify({ message: "JWT expired" }) };
+    }
+    return {
+      ok: true, status: 200,
+      text: async () => JSON.stringify([
+        { id: "row-1", beat_id: "flesh", tier_id: "mp3", purchased_at: "2026-10-01T00:00:00Z" }
+      ])
+    };
+  });
+
+  const items = await backend.licenses.list();
+
+  assert.equal(items.length, 1, "the retry succeeds");
+  assert.equal(backend.licenses.diagnose().error, null, "a successful retry clears the error");
+  const attempts = calls.filter((call) => /\/rest\/v1\/licenses\?/.test(call.url));
+  assert.equal(attempts.length, 2, "one 401, then one retry");
+  assert.equal(attempts[0].init.headers.Authorization, "Bearer jwt-abc");
+  assert.equal(attempts[1].init.headers.Authorization, "Bearer jwt-fresh");
+  assert.ok(calls.some((call) => call.url.includes("grant_type=refresh_token")), "refreshed between attempts");
+});
+
+test("a 401 with no refresh token is surfaced, not retried forever", async () => {
+  const warn = captureWarn();
+  let reads = 0;
+  const { backend } = boot(async () => {
+    reads += 1;
+    return { ok: false, status: 401, text: async () => JSON.stringify({ message: "JWT expired" }) };
+  }, { refreshToken: "" });
+
+  await backend.licenses.list();
+  warn.restore();
+
+  assert.equal(reads, 1, "does not retry without a refresh token");
+  assert.equal(backend.licenses.diagnose().error.status, 401);
+});
+

@@ -372,6 +372,31 @@
     };
   }
 
+  /* Supabase's supabase-js hands callers a live token through
+   * `auth.getSession()`, refreshing it first when it is near expiry. This client
+   * is dependency-free, so the equivalent is `ready()` — which refreshes the
+   * stored session once it is within a minute of expiring — plus a one-shot
+   * retry when the server still answers 401, because a token can lapse between
+   * the freshness check and the request landing. Every authenticated call goes
+   * through here, so the request always carries a *current*
+   * `Authorization: Bearer <token>` and never a stale one — a stale token is the
+   * usual reason the library read came back 401. */
+  async function withSession(perform) {
+    if (!CONFIGURED || !session) return perform(null);
+    await ready();
+    let token = session && session.accessToken;
+    if (!token) return perform(null);
+    try {
+      return await perform(token);
+    } catch (err) {
+      if (!err || err.status !== 401 || !(session && session.refreshToken)) throw err;
+      const refreshed = await refreshSession();
+      const next = refreshed && refreshed.accessToken;
+      if (!next) throw err;
+      return await perform(next);
+    }
+  }
+
   /* Read the licenses for the signed-in user. The `user_id` filter is explicit
    * even though RLS already pins rows to `auth.uid() = user_id`: it states the
    * intent, and it is what keeps another account's rows out if the SELECT
@@ -381,18 +406,16 @@
     const user = currentUser();
     if (!user) return [];
     const local = localList(user.id);
-    if (!CONFIGURED || !session || !session.accessToken) {
-      licensesError = null;
-      return local;
-    }
     try {
-      const rows = await request(
-        "GET",
-        "/rest/v1/" + LICENSES_TABLE +
-          "?select=*&user_id=eq." + encodeURIComponent(user.id) +
-          "&order=purchased_at.desc",
-        { token: session.accessToken }
-      );
+      const rows = await withSession((token) => token
+        ? request(
+            "GET",
+            "/rest/v1/" + LICENSES_TABLE +
+              "?select=*&user_id=eq." + encodeURIComponent(user.id) +
+              "&order=purchased_at.desc",
+            { token: token }
+          )
+        : []);
       licensesError = null;
       const remote = (rows || []).map(fromRow);
       // Merge: remote wins on id, local cache fills anything the table missed.
@@ -448,25 +471,28 @@
       date: new Date(input.purchasedAt || Date.now()).toLocaleDateString()
     };
     localSave(user.id, [license].concat(list));
-    if (CONFIGURED && session && session.accessToken) {
+    if (CONFIGURED && session) {
       try {
         // No `id` in the body: the table's uuid default owns it. Sending the
         // local "lic_…" id would be rejected by a uuid column (22P02) and the
         // row would never reach the table — the purchase would live only in
-        // this browser.
-        const created = await request("POST", "/rest/v1/" + LICENSES_TABLE, {
-          token: session.accessToken,
-          headers: { Prefer: "return=representation" },
-          body: {
-            user_id: user.id,
-            beat_id: license.beatId,
-            beat_title: license.beatTitle,
-            tier_id: license.tierId,
-            tier: license.tier,
-            price: license.price,
-            purchased_at: license.purchasedAt
-          }
-        });
+        // this browser. `withSession` refreshes a stale token first, so a long
+        // checkout cannot fail the write on a 401.
+        const created = await withSession((token) => token
+          ? request("POST", "/rest/v1/" + LICENSES_TABLE, {
+              token: token,
+              headers: { Prefer: "return=representation" },
+              body: {
+                user_id: user.id,
+                beat_id: license.beatId,
+                beat_title: license.beatTitle,
+                tier_id: license.tierId,
+                tier: license.tier,
+                price: license.price,
+                purchased_at: license.purchasedAt
+              }
+            })
+          : null);
         // Adopt the server's id so the local copy and the row de-dupe on the
         // next read instead of showing the same purchase twice.
         const row = Array.isArray(created) ? created[0] : created;

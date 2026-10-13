@@ -324,7 +324,12 @@ To attach a real project:
    transaction — what the `authenticated` role actually sees for that account's
    JWT claims. Rows are written **without** an `id` so the table's `uuid` default
    owns it; the local `lic_…` id is not a uuid, so sending it was rejected with
-   `22P02` and the purchase never reached the table.
+   `22P02` and the purchase never reached the table. Every authenticated call
+   goes through `withSession()`, the dependency-free equivalent of
+   `supabase.auth.getSession()`: it awaits `ready()` — which refreshes a session
+   that is within a minute of expiring — and retries once on a 401 after a
+   refresh, so the read carries a *current* `Authorization: Bearer <token>`
+   rather than a stale one (a stale token is the usual reason a read 401s).
 
 `assets/jspdf.min.js` is a vendored UMD build of jsPDF (2.5.2) exposing
 `window.jspdf.jsPDF`; `license-pdf.js` turns a purchased tier into a branded
