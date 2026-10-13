@@ -12,6 +12,12 @@ const stillRenderers = new Set();
 // Per-instance bookkeeping so the preloader's flower can be released when the
 // overlay leaves the screen (see the `kyrolll:preloader-done` listener below).
 const instances = new Map();
+const flowerControllers = new Set();
+function setFlowerProgress(progress) {
+  const p = Math.max(0, Math.min(1, progress));
+  flowerControllers.forEach((controller) => { try { controller.setProgress(p); } catch (error) { /* ignore */ } });
+}
+window.KYROLLL_FLOWER_PROGRESS = setFlowerProgress;
 
 function renderStillAll() {
   stillRenderers.forEach((render) => { try { render(); } catch (error) { /* ignore */ } });
@@ -102,42 +108,23 @@ async function init(host) {
   // it is built. Each await hands the browser a frame to do that in, and the
   // crossfade only starts once the whole flower has painted.
   await nextFrame();
-  const object = new THREE.Group();
-  const point = ([x, y]) => new THREE.Vector2((x / size - .5) * 3, (.5 - y / size) * 3);
-  function contains(points, p) {
-    let inside = false;
-    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
-      const a = points[i], b = points[j];
-      if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside;
+  // Track meshes for bottom-up reveal. Group by vertical position (bottom to top).
+  const petalMeshes = [];
+  for (const mesh of object.children) {
+    if (mesh.isMesh) {
+      const box = mesh.geometry.boundingBox;
+      if (box) {
+        petalMeshes.push({ mesh, minY: box.min.y, maxY: box.max.y });
+      } else {
+        petalMeshes.push({ mesh, minY: -1, maxY: 1 });
+      }
     }
-    return inside;
   }
-  const material = new THREE.MeshPhysicalMaterial({ color: 0xf4f4f2, metalness: .12, roughness: .52, clearcoat: .35, clearcoatRoughness: .45, envMapIntensity: .55 });
-  for (const contour of contours.filter(c => c.area > 0)) {
-    const shape = new THREE.Shape(contour.points.map(point));
-    for (const hole of contours.filter(c => c.area < 0 && contains(contour.points, c.points[0]))) shape.holes.push(new THREE.Path(hole.points.map(point)));
-    // Inset the bevel: its widest edge stays on the imported silhouette.
-    const raw = new THREE.ExtrudeGeometry(shape, { depth: .13, bevelEnabled: true, bevelSegments: softwareRasteriser ? 2 : 5, steps: 1, bevelSize: .009, bevelOffset: -.009, bevelThickness: .024, curveSegments: 12 });
-    // Weld the traced segments so the bevel reads as polished metal rather
-    // than hundreds of disconnected, flat-shaded pixel-edge facets.
-    raw.deleteAttribute('normal'); raw.deleteAttribute('uv');
-    const geometry = mergeVertices(raw, .0001);
-    raw.dispose();
-    geometry.translate(0, 0, -.065);
-    geometry.computeVertexNormals();
-    geometry.computeBoundingBox();
-    const center = geometry.boundingBox.getCenter(new THREE.Vector3());
-    const positions = geometry.getAttribute('position'), normals = geometry.getAttribute('normal');
-    // A subtle convex normal field mimics the broad face of stamped silver,
-    // keeping every source outline and cutout in its original position.
-    for (let i = 0; i < normals.count; i++) {
-      if (Math.abs(positions.getZ(i)) < .0889) continue;
-      const n = new THREE.Vector3((positions.getX(i) - center.x) * .85, (positions.getY(i) - center.y) * .85, Math.sign(positions.getZ(i))).normalize();
-      normals.setXYZ(i, n.x, n.y, n.z);
-    }
-    object.add(new THREE.Mesh(geometry, material));
-    await nextFrame();
-  }
+  // Sort: bottom (smaller Y, more negative) first, then top last.
+  petalMeshes.sort((a, b) => a.minY - b.minY);
+  const totalPetals = petalMeshes.length || 1;
+  petalMeshes.forEach((entry) => { entry.mesh.visible = false; });
+  let currentProgress = 0;
   object.rotation.set(.15, -.22, -.12);
   const restingPose = object.quaternion.clone();
   const spin = new THREE.Quaternion(), tumble = new THREE.Quaternion(), roll = new THREE.Quaternion();
@@ -168,19 +155,30 @@ async function init(host) {
   // still image before crossfading it in; never expose an empty or re-sized canvas.
   await nextFrame();
   await nextFrame();
+  // Hide the still fallback once the WebGL flower has painted at least the
+  // first frame and starts its reveal; the build-in will reveal geometry.
   host.classList.add('is-ready');
   const revealAt = performance.now() + 450;
   let visible = true, elapsed = 0, previous = 0, lastDraw = 0;
   new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }).observe(host);
   stillRenderers.add(() => renderer.render(scene, camera));
+  const controller = {
+    setProgress(p) {
+      currentProgress = p;
+      const revealCount = Math.floor(p * totalPetals);
+      for (let i = 0; i < petalMeshes.length; i++) {
+        petalMeshes[i].mesh.visible = i <= revealCount;
+      }
+    }
+  };
+  controller.setProgress(0);
+  flowerControllers.add(controller);
   renderer.setAnimationLoop(time => {
     const now = time || performance.now();
     const dt = Math.min((now - previous) / 1000, 1 / 30);
     previous = now;
     if (now < revealAt || paused || !visible || document.hidden) return;
     elapsed += dt;
-    // Smooth quaternion rotation: adjust axes/slowness for fluidity without
-    // adding per-instance overhead. Preloader gets the same silky spin.
     spin.setFromAxisAngle(yAxis, elapsed * Math.PI * 2 / 24);
     tumble.setFromAxisAngle(xAxis, elapsed * Math.PI * 2 / 72);
     roll.setFromAxisAngle(zAxis, elapsed * Math.PI * 2 / 144);
@@ -189,16 +187,29 @@ async function init(host) {
     rim.position.y = 1 + Math.sin(elapsed * .2) * 2;
     renderer.render(scene, camera);
   });
-  renderer.domElement.addEventListener('webglcontextlost', event => {
-    event.preventDefault(); host.classList.remove('is-ready'); renderer.setAnimationLoop(null);
-  });
-  instances.set(host, { renderer });
+  instances.set(host, { renderer, controller });
+  // Ensure all petals start hidden (defensive) and let progress drive reveal.
+  petalMeshes.forEach((entry) => { entry.mesh.visible = false; });
+  if (typeof window.KYROLLL_FLOWER_PROGRESS === 'function') {
+    // Non-preloader flowers get a brief auto-build-in when they become ready.
+    let auto = 0;
+    const buildIn = () => {
+      auto += 0.018;
+      if (auto > 1) auto = 1;
+      if (window.KYROLLL_FLOWER_PROGRESS) window.KYROLLL_FLOWER_PROGRESS(auto);
+      if (auto < 1) requestAnimationFrame(buildIn);
+      else setTimeout(() => { if (window.KYROLLL_FLOWER_PROGRESS) window.KYROLLL_FLOWER_PROGRESS(1); }, 120);
+    };
+    buildIn();
+  }
 }
 
 // The preloader's flower exists only to make page load feel deliberate. Once
 // the overlay has faded (preloader.js dispatches this), stop its render loop
 // and hand the WebGL context back so the page keeps just the hero flower.
 document.addEventListener('kyrolll:preloader-done', () => {
+  if (window.KYROLLL_FLOWER_PROGRESS) window.KYROLLL_FLOWER_PROGRESS(1);
+  flowerControllers.clear();
   document.querySelectorAll('#preloader .logo-stage').forEach((stage) => {
     const instance = instances.get(stage);
     if (!instance) return;

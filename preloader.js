@@ -39,10 +39,19 @@
     if (done) return;
     const elapsed = performance.now() - started;
     if (elapsed < MIN_MS) return;
+    // Drive a smooth bottom-up build for the preloader flower. Start from 0 and
+    // creep toward completion as the page settles, hitting 1.0 at finish.
+    if (typeof window.KYROLLL_FLOWER_PROGRESS === 'function') {
+      const t = Math.min(1, (elapsed - MIN_MS) / Math.max(900, HARD_CAP_MS * 0.5));
+      window.KYROLLL_FLOWER_PROGRESS(Math.min(0.98, t * 0.9));
+    }
     // Hide once the flower has painted its first frame (the scene build is the
     // last heavy thing the page boots), or once every resource has loaded, and
     // never wait past the hard cap.
-    if (flowerReady() || pageSettled() || elapsed > HARD_CAP_MS) finish();
+    if (flowerReady() || pageSettled() || elapsed > HARD_CAP_MS) {
+      if (typeof window.KYROLLL_FLOWER_PROGRESS === 'function') window.KYROLLL_FLOWER_PROGRESS(1);
+      finish();
+    }
   }
 
   const stage = overlay.querySelector(".logo-stage");
