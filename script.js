@@ -3,13 +3,13 @@ const ACTIVE_TITLE = "[FREE] DON TOLIVER TYPE BEAT - FLESH";
 
 // The catalog is shared by every page (catalog.js) so the store, the library
 // and the checkout all read the same beats, tiers and Storage object paths.
-const CATALOG = window.KYROLLL_CATALOG || [];
+const CATALOG = window.KYROlll_CATALOG || [];
 
 const $ = (id) => document.getElementById(id);
 
-const account = () => window.KYROLLL_ACCOUNT;
-const esc = (value) => (window.KYROLLL_ACCOUNT
-  ? window.KYROLLL_ACCOUNT.escapeHTML(value)
+const account = () => window.KYROlll_ACCOUNT;
+const esc = (value) => (window.KYROlll_ACCOUNT
+  ? window.KYROlll_ACCOUNT.escapeHTML(value)
   : String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char])));
 const beatById = (id) => CATALOG.find((beat) => beat.id === id) || null;
 

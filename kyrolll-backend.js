@@ -4,10 +4,10 @@
  * (Auth, Storage and Postgres) and exposes a stable promise API used by every
  * page:
  *
- *   KYROLLL_BACKEND.auth.signInWithOtp / verifyOtp / signOut / ready /
+ *   KYROlll_BACKEND.auth.signInWithOtp / verifyOtp / signOut / ready /
  *                          currentUser / updateProfile
- *   KYROLLL_BACKEND.licenses.list / add
- *   KYROLLL_BACKEND.storage.download / signedUrl / uploadAvatar
+ *   KYROlll_BACKEND.licenses.list / add
+ *   KYROlll_BACKEND.storage.download / signedUrl / uploadAvatar
  *
  * When `supabase-config.js` has no project URL/key the client transparently
  * falls back to a browser-local implementation (accounts and libraries in
@@ -19,7 +19,7 @@
 (function () {
   "use strict";
 
-  const CONFIG = window.KYROLLL_SUPABASE || {};
+  const CONFIG = window.KYROlll_SUPABASE || {};
   const SESSION_KEY = "kyrolll_sb_session";
   const USERS_KEY = "kyrolll_users";
   const LOCAL_SESSION_KEY = "kyrolll_current_user";
@@ -489,7 +489,7 @@
     }
   }
 
-  window.KYROLLL_BACKEND = {
+  window.KYROlll_BACKEND = {
     configured: CONFIGURED,
     mode: CONFIGURED ? "supabase" : "local",
     otpLength: OTP_LENGTH,

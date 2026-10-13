@@ -4,14 +4,14 @@
  * the live "NEW DROP" lines and the studio counts that marquee.js derives from
  * the catalog at runtime — so the ticker always reflects what is actually in
  * the shop without anyone editing it. To post a new update, drop a string into
- * KYROLLL_MARQUEE and save; nothing else to do.
+ * KYROlll_MARQUEE and save; nothing else to do.
  *
  * Tips:
  *  - Keep headlines short; the strip is one long continuous scroll.
  *  - Use " — " to separate ideas inside one headline.
  *  - Comment a line out (//) to retire an update without deleting it.
  */
-window.KYROLLL_MARQUEE = [
+window.KYROlll_MARQUEE = [
   "KYROlll — ORIGINAL SOUND — BEATS, LEASES & STUDIO SESSIONS",
   "STUDIO UPDATE — NEW TONES IN THE WORKSHOP — MASTERING FRESH OUT OF THE OVEN",
   "NEWS — EXCLUSIVE LEASES INCLUDE TRACKED STEMS ON REQUEST",

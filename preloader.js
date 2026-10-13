@@ -29,15 +29,19 @@
     bar.style.transform = "scaleX(" + v + ")";
   }
   function setFlower(p) {
-    if (typeof window.KYROLLL_FLOWER_PROGRESS === "function") {
-      window.KYROLLL_FLOWER_PROGRESS(p);
+    if (typeof window.KYROlll_FLOWER_PROGRESS === "function") {
+      window.KYROlll_FLOWER_PROGRESS(p);
     }
   }
 
+  // The sign-in page is a utility screen: its form has to be usable the instant
+  // it has painted, so its veil lifts on DOM-ready (never on the heavy WebGL
+  // flower) and only lingers for a beat.
+  const fastPage = !!document.getElementById("auth-page");
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const MIN_MS = reduceMotion ? 450 : 1150; // deliberate minimum on screen
-  const HARD_CAP_MS = 6000; // never wait past this for a "ready" signal
-  const HOLD_MS = reduceMotion ? 200 : 700; // stable pause once at 100%
+  const MIN_MS = fastPage ? (reduceMotion ? 250 : 320) : (reduceMotion ? 450 : 1150);
+  const HARD_CAP_MS = fastPage ? 2400 : 6000; // never wait past this for a "ready" signal
+  const HOLD_MS = fastPage ? 120 : (reduceMotion ? 200 : 700); // stable pause once at 100%
   const FADE_MS = 550; // keep in step with .preloader opacity transition
   const CREEP_MAX = 0.9; // where the bar sits while the page is still working
   const CREEP_MS = reduceMotion ? 500 : 1900; // time to ease out to CREEP_MAX
@@ -54,7 +58,9 @@
   setBar(0);
 
   const flowerReady = () => !!overlay.querySelector(".logo-stage.is-ready");
-  const pageSettled = () => document.readyState === "complete";
+  // On the fast page "settled" means the DOM is interactive, not that every
+  // last image has finished — the login card is already painted by then.
+  const pageSettled = () => document.readyState === "complete" || (fastPage && document.readyState !== "loading");
 
   /* Smooth, monotonic climb toward 90% that never snaps: a cubic ease-out over
    * CREEP_MS, then a flat hold at CREEP_MAX until the page reports ready. */

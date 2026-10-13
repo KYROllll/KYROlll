@@ -4,22 +4,22 @@
  * account controls, the downward-only license dropdown, the dedicated auth /
  * dashboard / library pages and the post-checkout success screen. All data
  * access (Supabase Auth + Storage + Postgres, or the local demo fallback) goes
- * through `window.KYROLLL_BACKEND`, so nothing here holds a secret. */
+ * through `window.KYROlll_BACKEND`, so nothing here holds a secret. */
 (function () {
   "use strict";
 
   const PENDING_KEY = "kyrolll_pending_purchase";
 
-  const backend = () => window.KYROLLL_BACKEND || null;
-  const helpers = () => window.KYROLLL_HELPERS || null;
+  const backend = () => window.KYROlll_BACKEND || null;
+  const helpers = () => window.KYROlll_HELPERS || null;
   const escapeHTML = (value) =>
     helpers()
       ? helpers().escapeHTML(value)
       : String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({
           "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
         }[char]));
-  const licenseFor = (id) => (window.KYROLLL_LICENSES || []).find((license) => license.id === id) || null;
-  const beatById = (id) => (window.KYROLLL_CATALOG || []).find((beat) => beat.id === id) || null;
+  const licenseFor = (id) => (window.KYROlll_LICENSES || []).find((license) => license.id === id) || null;
+  const beatById = (id) => (window.KYROlll_CATALOG || []).find((beat) => beat.id === id) || null;
   const getCurrentUser = () => {
     const b = backend();
     return b ? b.auth.currentUser() : null;
@@ -86,6 +86,14 @@
   /* ---------------------------------------------------------- license menu */
 
   let activeMenu = null;
+  // A scroll closes the fixed menu so it can never drift away from its button.
+  // The tail of the menu's own opening scroll must not count as the user
+  // scrolling, so events are ignored for a moment after the menu reveals.
+  let scrollGuardUntil = 0;
+  function guardMenuScroll() {
+    if (performance.now() < scrollGuardUntil) return;
+    closeLicenseMenu();
+  }
 
   function openLicenseMenu(anchor, beat) {
     if (!anchor || !beat) { closeLicenseMenu(); return; }
@@ -102,8 +110,8 @@
         '<span class="license-menu__kicker">SELECT LICENSE</span>' +
         '<span class="license-menu__beat">' + escapeHTML(beat.title) + "</span>" +
       "</div>" +
-      (window.KYROLLL_LICENSES || []).map((license) =>
-        '<button type="button" class="license-tier" role="menuitem" data-license-id="' + license.id + '">' +
+      (window.KYROlll_LICENSES || []).map((license, index) =>
+        '<button type="button" class="license-tier" role="menuitem" style="--tier-i:' + index + '" data-license-id="' + license.id + '">' +
           '<span class="license-tier__top">' +
             '<span class="license-tier__name">' + escapeHTML(license.name) + "</span>" +
             '<span class="license-tier__price">' + escapeHTML(license.price) + "</span>" +
@@ -134,11 +142,14 @@
     const reveal = () => {
       if (!activeMenu || activeMenu.el !== menu) return;
       positionLicenseMenu();
+      // Ignore the tail of the opening scroll so the close-on-scroll guard can
+      // never shut the menu in the same breath it opened.
+      scrollGuardUntil = performance.now() + 260;
       // Next frame so the menu transitions up from its hidden start state.
       requestAnimationFrame(() => {
         if (activeMenu && activeMenu.el === menu) menu.classList.add("is-open");
       });
-      window.addEventListener("scroll", closeLicenseMenu, true);
+      window.addEventListener("scroll", guardMenuScroll, true);
       window.addEventListener("resize", closeLicenseMenu, true);
       document.addEventListener("keydown", handleMenuKey);
       setTimeout(() => document.addEventListener("click", handleMenuOutside, true), 0);
@@ -161,18 +172,29 @@
     let finished = false;
     let settle = 0;
     let ceiling = 0;
+    let sawScroll = false;
+    const supportsScrollEnd = "onscrollend" in window;
     function finish() {
       if (finished) return;
       finished = true;
       window.removeEventListener("scroll", onScroll, true);
+      if (supportsScrollEnd) window.removeEventListener("scrollend", finish);
       clearTimeout(settle);
       clearTimeout(ceiling);
       done();
     }
-    const onScroll = () => { clearTimeout(settle); settle = setTimeout(finish, 100); };
+    function onScroll() {
+      sawScroll = true;
+      if (supportsScrollEnd) return; // scrollend is the precise "stopped" signal
+      clearTimeout(settle);
+      settle = setTimeout(finish, 140);
+    }
     window.addEventListener("scroll", onScroll, true);
-    settle = setTimeout(finish, 120);
-    ceiling = setTimeout(finish, 900);
+    if (supportsScrollEnd) window.addEventListener("scrollend", finish);
+    // If the page is already at rest nothing scrolls — open straight away.
+    settle = setTimeout(() => { if (!sawScroll) finish(); }, 260);
+    // Last-resort guard if the settle signal never arrives.
+    ceiling = setTimeout(finish, 2600);
   }
 
   // Always opens downward: pinned just under the button, and if the viewport is
@@ -208,7 +230,7 @@
     if (activeMenu.anchor) activeMenu.anchor.setAttribute("aria-expanded", "false");
     activeMenu.el.remove();
     activeMenu = null;
-    window.removeEventListener("scroll", closeLicenseMenu, true);
+    window.removeEventListener("scroll", guardMenuScroll, true);
     window.removeEventListener("resize", closeLicenseMenu, true);
     document.removeEventListener("keydown", handleMenuKey);
     document.removeEventListener("click", handleMenuOutside, true);
@@ -664,8 +686,8 @@
           button.textContent = "UNAVAILABLE";
         }
         setTimeout(() => { button.textContent = original; button.disabled = false; }, 2200);
-      } else if (window.KYROLLL_LICENSE_PDF) {
-        window.KYROLLL_LICENSE_PDF.download(license, getCurrentUser() || {});
+      } else if (window.KYROlll_LICENSE_PDF) {
+        window.KYROlll_LICENSE_PDF.download(license, getCurrentUser() || {});
       }
     });
 
@@ -893,8 +915,8 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 
-  window.KYROLLL_ACCOUNT = {
-    LICENSES: window.KYROLLL_LICENSES || [],
+  window.KYROlll_ACCOUNT = {
+    LICENSES: window.KYROlll_LICENSES || [],
     escapeHTML,
     beatById,
     licenseFor,

@@ -9,7 +9,7 @@
 
   // The three official tiers and their NOWPayments hosted invoices. `rights`
   // is the plain-language grant printed onto the generated PDF license.
-  window.KYROLLL_LICENSES = [
+  window.KYROlll_LICENSES = [
     {
       id: "mp3",
       name: "MP3 LEASE",
@@ -60,7 +60,7 @@
   // `files` maps a tier to its Supabase Storage object (`path`), the filename a
   // buyer downloads (`name`) and a same-origin `fallback` used in local demo
   // mode or if the bucket object is missing.
-  window.KYROLLL_CATALOG = [
+  window.KYROlll_CATALOG = [
     {
       id: "flesh",
       title: "[FREE] DON TOLIVER TYPE BEAT - FLESH",
@@ -89,7 +89,7 @@
     }
   ];
 
-  window.KYROLLL_HELPERS = {
+  window.KYROlll_HELPERS = {
     escapeHTML(value) {
       return String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({
         "&": "&amp;",
@@ -100,13 +100,13 @@
       }[char]));
     },
     beatById(id) {
-      return window.KYROLLL_CATALOG.find((beat) => beat.id === id) || null;
+      return window.KYROlll_CATALOG.find((beat) => beat.id === id) || null;
     },
     licenseById(id) {
-      return window.KYROLLL_LICENSES.find((license) => license.id === id) || null;
+      return window.KYROlll_LICENSES.find((license) => license.id === id) || null;
     },
     fileFor(beatId, tierId) {
-      const beat = window.KYROLLL_HELPERS.beatById(beatId);
+      const beat = window.KYROlll_HELPERS.beatById(beatId);
       return (beat && beat.files && beat.files[tierId]) || null;
     }
   };

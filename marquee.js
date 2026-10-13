@@ -6,7 +6,7 @@
  *   2. Studio intelligence derived from the same catalog: how many releases are
  *      live and which one is freshest out the workshop, so the feed stays
  *      accurate with no manual editing.
- *   3. The hand-written updates in marquee-items.js (window.KYROLLL_MARQUEE).
+ *   3. The hand-written updates in marquee-items.js (window.KYROlll_MARQUEE).
  *
  * The strip keeps its seamless double-copy scroll. Every CYCLE_MS it quietly
  * fades, cycles the headline order and re-renders, so the feed reads as a
@@ -14,8 +14,6 @@
  */
 (function () {
   "use strict";
-
-  const CYCLE_MS = 24000;
 
   const banner = document.querySelector(".marquee-banner");
   const track = document.querySelector(".marquee-track");
@@ -27,7 +25,7 @@
 
   // Newest catalog beat first; older releases follow in reverse catalog order.
   function headlineItems() {
-    const catalog = window.KYROLLL_CATALOG || [];
+    const catalog = window.KYROlll_CATALOG || [];
     const drops = catalog.slice().reverse().map((beat) =>
       "NEW DROP — " + beat.title + " — " + beat.bpm + " BPM // " + beat.key + " — IN THE CRATE"
     );
@@ -45,49 +43,48 @@
         studio.push("FRESHEST OUT THE STUDIO — " + newest.title + " — " + newest.bpm + " BPM // " + newest.key);
       }
     }
-    const news = (window.KYROLLL_MARQUEE || []).filter((item) => item && item.trim());
+    const news = (window.KYROlll_MARQUEE || []).filter((item) => item && item.trim());
     return drops.concat(studio, news);
   }
 
   function restartAnimation() {
-    // Toggle the stylesheet animation off and back on so the seamless loop
-    // restarts from a fresh -50% cycle instead of jumping from the old layout.
+    // Used only for the very first paint: toggle the stylesheet animation off
+    // and back on so it starts from a clean translateX(0).
     track.style.animation = "none";
     void track.offsetWidth; // force reflow
     track.style.animation = "";
   }
 
   let rotation = 0;
-  function render() {
+
+  // One "copy" of the ticker: the LIVE badge plus every headline. The track is
+  // exactly two copies, so translateX(-50%) lands on the start of the second
+  // copy and the loop is seamless. Spacing lives on the children (style.css)
+  // rather than a flex `gap`: a gap would leave the two halves a half-gap
+  // apart and pop at the wrap — the old visible reset point.
+  function copyHTML() {
     const items = headlineItems();
-    if (!items.length) {
-      track.innerHTML = "<span>KYROlll — ORIGINAL SOUND</span>";
-      return;
-    }
-    // Cycle the headline order (first item moves to the back) so the strip and
-    // the "latest" slot keep rotating through the feed.
+    if (!items.length) return "<span>KYROlll — ORIGINAL SOUND</span>";
     const ordered = items.map((_, index) => items[(index + rotation) % items.length]);
-    const spans = ordered.concat(ordered).map((text) => "<span>" + esc(text) + "</span>");
-    track.innerHTML =
-      '<span class="marquee-live"><span class="marquee-live__dot"></span>LIVE FEED</span>' + spans.join("");
-    restartAnimation();
+    return '<span class="marquee-live"><span class="marquee-live__dot"></span>LIVE FEED</span>' +
+      ordered.map((text) => "<span>" + esc(text) + "</span>").join("");
   }
 
-  let fading = false;
-  function refresh() {
-    if (fading) return;
-    fading = true;
-    // A quick dim-and-back reads as the ticker fetching the next batch of
-    // headlines rather than content silently swapping out from under the reader.
-    banner.classList.add("is-rotating");
-    setTimeout(() => {
-      rotation = (rotation + 1) % Math.max(1, headlineItems().length);
-      render();
-      banner.classList.remove("is-rotating");
-      fading = false;
-    }, 220);
+  function paint(animate) {
+    const copy = copyHTML();
+    track.innerHTML = copy + copy;
+    if (animate) restartAnimation();
   }
 
-  render();
-  setInterval(refresh, CYCLE_MS);
+  paint(true);
+
+  // Rotate the headline order exactly as a cycle completes. There the track is
+  // back at translateX(0), so swapping the copy is invisible: the feed keeps
+  // rolling with no jump, no reset and no re-triggered animation.
+  track.addEventListener("animationiteration", () => {
+    const count = headlineItems().length;
+    if (count > 1) rotation = (rotation + 1) % count;
+    const copy = copyHTML();
+    track.innerHTML = copy + copy;
+  });
 })();

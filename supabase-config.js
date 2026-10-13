@@ -12,10 +12,10 @@
  * with no Supabase project attached. As soon as both values are set every page
  * switches to Supabase Auth (with emailed one-time codes), Storage and Postgres.
  *
- * Optional: set `window.KYROLLL_SUPABASE` before this script to override any
+ * Optional: set `window.KYROlll_SUPABASE` before this script to override any
  * value without editing the file (e.g. from a build step).
  */
-window.KYROLLL_SUPABASE = Object.assign({
+window.KYROlll_SUPABASE = Object.assign({
   url: "https://vuryglxywrqdnvnbelvp.supabase.co",
   anonKey: "sb_publishable_18muoQ1bmxrySKBpY9uI5g_CqvDrQWw",
   // Storage buckets. `beats` holds the downloadable masters; `avatars` holds
@@ -30,4 +30,4 @@ window.KYROLLL_SUPABASE = Object.assign({
   // renders exactly this many digits in the code input and the OTP request
   // asks for it.
   otpLength: 8
-}, window.KYROLLL_SUPABASE || {});
+}, window.KYROlll_SUPABASE || {});

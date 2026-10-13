@@ -4,7 +4,14 @@ import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 // Every `.logo-stage` on the page mounts its own flower: the hero, the account
 // flower, the page-load preloader. Prior versions only ever styled and mounted
 // the first stage, so a second stage (the preloader) silently got nothing.
-const hosts = Array.from(document.querySelectorAll('.logo-stage'));
+//
+// On the sign-in page the temporary preloader veil sits directly on top of an
+// already full hero flower, so that stage is skipped: building a second WebGL
+// flower only to hide it a moment later is the main cost that made login feel
+// slow. The still image covers the brief veil while the real flower comes up.
+const hosts = Array.from(document.querySelectorAll('.logo-stage')).filter(
+  (host) => !(document.body.classList.contains('auth-body') && host.closest('#preloader'))
+);
 const motion = matchMedia('(prefers-reduced-motion: reduce)');
 const pause = document.querySelector('.motion-toggle');
 let paused = motion.matches;
@@ -17,7 +24,7 @@ function setFlowerProgress(progress) {
   const p = Math.max(0, Math.min(1, progress));
   flowerControllers.forEach((controller) => { try { controller.setProgress(p); } catch (error) { /* ignore */ } });
 }
-window.KYROLLL_FLOWER_PROGRESS = setFlowerProgress;
+window.KYROlll_FLOWER_PROGRESS = setFlowerProgress;
 
 function renderStillAll() {
   stillRenderers.forEach((render) => { try { render(); } catch (error) { /* ignore */ } });
@@ -229,15 +236,15 @@ async function init(host) {
   instances.set(host, { renderer, controller });
   // Ensure all petals start hidden (defensive) and let progress drive reveal.
   petalMeshes.forEach((entry) => { entry.mesh.visible = false; });
-  if (typeof window.KYROLLL_FLOWER_PROGRESS === 'function') {
+  if (typeof window.KYROlll_FLOWER_PROGRESS === 'function') {
     // Non-preloader flowers get a brief auto-build-in when they become ready.
     let auto = 0;
     const buildIn = () => {
       auto += 0.018;
       if (auto > 1) auto = 1;
-      if (window.KYROLLL_FLOWER_PROGRESS) window.KYROLLL_FLOWER_PROGRESS(auto);
+      if (window.KYROlll_FLOWER_PROGRESS) window.KYROlll_FLOWER_PROGRESS(auto);
       if (auto < 1) requestAnimationFrame(buildIn);
-      else setTimeout(() => { if (window.KYROLLL_FLOWER_PROGRESS) window.KYROLLL_FLOWER_PROGRESS(1); }, 120);
+      else setTimeout(() => { if (window.KYROlll_FLOWER_PROGRESS) window.KYROlll_FLOWER_PROGRESS(1); }, 120);
     };
     buildIn();
   }
@@ -247,7 +254,7 @@ async function init(host) {
 // the overlay has faded (preloader.js dispatches this), stop its render loop
 // and hand the WebGL context back so the page keeps just the hero flower.
 document.addEventListener('kyrolll:preloader-done', () => {
-  if (window.KYROLLL_FLOWER_PROGRESS) window.KYROLLL_FLOWER_PROGRESS(1);
+  if (window.KYROlll_FLOWER_PROGRESS) window.KYROlll_FLOWER_PROGRESS(1);
   flowerControllers.clear();
   document.querySelectorAll('#preloader .logo-stage').forEach((stage) => {
     const instance = instances.get(stage);

@@ -20,7 +20,7 @@
       window.alert("PDF license engine is unavailable.");
       return;
     }
-    const tier = (window.KYROLLL_HELPERS && window.KYROLLL_HELPERS.licenseById(license.tierId)) || {};
+    const tier = (window.KYROlll_HELPERS && window.KYROlll_HELPERS.licenseById(license.tierId)) || {};
     const doc = new lib.jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
     const W = 210;
     const H = 297;
@@ -107,5 +107,5 @@
     doc.save("KYROlll-License-" + safeId + ".pdf");
   }
 
-  window.KYROLLL_LICENSE_PDF = { download };
+  window.KYROlll_LICENSE_PDF = { download };
 })();

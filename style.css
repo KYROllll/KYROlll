@@ -59,6 +59,18 @@ html, body, main, .viewport, .grid, .beat-detail, .beat-detail__content {
 
 .brand-name { text-transform: none; }
 
+/* Brand casing: the page uppercases by default, but the wordmark is always
+   written "KYROlll" — the all-caps form is never correct. Any label that spells
+   the brand opts out of the transform and authors its other words in caps. */
+.header-brand,
+.marquee-banner,
+.auth-flower__caption,
+.auth-card__kicker,
+.account-panel__title,
+.logout-modal__title,
+.beat-navigation a,
+.account-nav a { text-transform: none; }
+
 :focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
 
 ::selection { color: var(--black); background: var(--white); }
@@ -2261,18 +2273,23 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   font-weight: 800;
   font-size: 11px;
   letter-spacing: 0.25em;
-  text-transform: uppercase;
+  /* The ticker itself is authored in caps; opting out of the transform keeps the
+     brand spelled "KYROlll" while every other headline still reads in caps. */
+  text-transform: none;
   position: relative;
   width: 100%;
 }
 .marquee-track {
   display: inline-flex;
-  gap: 80px;
+  /* No flex `gap`: spacing lives on each child, so one copy (every item plus
+     its own trailing space) is exactly half the track and translateX(-50%) is
+     a perfect seam. A gap would leave the halves a half-gap uneven and pop. */
   animation: marquee 28s linear infinite;
   will-change: transform;
   backface-visibility: hidden;
   transform: translateZ(0);
 }
+.marquee-track > * { padding-right: 80px; }
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
@@ -3070,7 +3087,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   .scroll-cue__arrow svg { width: 15px; height: 15px; }
   .buy-beat-btn { animation-duration: 9.5s; }
   .beat-preview { padding: 12px; border-radius: 14px; }
-  .marquee-track { gap: 48px; animation-duration: 22s; }
+  .marquee-track { animation-duration: 22s; }
+  .marquee-track > * { padding-right: 48px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3268,6 +3286,18 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .license-tier__name { font-size: 11px; font-weight: 800; letter-spacing: .1em; }
 .license-tier__price { font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .license-tier__blurb { font-size: 8px; letter-spacing: .06em; opacity: .6; }
+
+/* Each tier eases down a beat after the one above, so the panel lands like a
+   premium stack rather than appearing all at once. Compositor-only (opacity +
+   transform) so it never costs a layout while the page is still scrolling. */
+.license-menu.is-open .license-tier {
+  animation: license-tier-drop .42s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: calc(var(--tier-i, 0) * 55ms + 50ms);
+}
+@keyframes license-tier-drop {
+  from { opacity: 0; transform: translate3d(0, -10px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
 
 /* Shared store button */
 .kyrolll-btn {
@@ -3896,7 +3926,7 @@ html.auth-open { overflow: hidden; }
   font-weight: 800;
   letter-spacing: .5em;
   text-indent: .5em;
-  text-transform: none; /* keep the brand casing: KYROlll, never KYROLLL */
+  text-transform: none; /* keep the brand's exact casing: KYROlll */
   color: var(--white);
 }
 .preloader__tag {

@@ -26,7 +26,7 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   the checkout and run live from source. Wrangler is launched directly rather
   than through `npx`, so normal container shutdowns do not log an npm SIGTERM
   command failure.
-- `script.js` picks its backend URL from `window.KYROLLL_WORKER_URL` if it is
+- `script.js` picks its backend URL from `window.KYROlll_WORKER_URL` if it is
   set, otherwise localhost:8787, otherwise the deployed `*.workers.dev` URL.
   `server.mjs` serves `/config.js` and, **only when `BASE44_PREVIEW_MODE=1`**,
   sets that global to `https://8000-$BASE44_PUBLIC_HOST_SUFFIX` (the exposed
@@ -142,7 +142,7 @@ three files that every page loads (see the `<script>` order in `index.html`):
   no secrets. Filling both values switches every page to Supabase Auth + Storage
   + Postgres.
 - `kyrolll-backend.js` — a dependency-free Supabase REST client (Auth, Storage,
-  PostgREST) behind `window.KYROLLL_BACKEND`, with the same promise API in both
+  PostgREST) behind `window.KYROlll_BACKEND`, with the same promise API in both
   modes. Auth is passwordless email OTP: `auth.signInWithOtp` asks Supabase to
   mail an 8-digit code (creating the account on first use) and `auth.verifyOtp`
   exchanges that code for a session — the same two calls cover sign-up and login.
@@ -223,7 +223,7 @@ docker compose -f docker-compose.base44.yml up -d --build
 docker compose -f docker-compose.base44.yml ps
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/          # 200 storefront
 curl -s http://localhost:8000/api/catalog                                # {"sold":[]}
-curl -s http://localhost:3000/config.js                                  # sets KYROLLL_WORKER_URL
+curl -s http://localhost:3000/config.js                                  # sets KYROlll_WORKER_URL
 ```
 
 Tests that ship with the repo:
