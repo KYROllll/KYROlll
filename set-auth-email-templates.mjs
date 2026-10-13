@@ -9,17 +9,19 @@
  * for).
  *
  * This script PATCHes the auth config through the Management API to install the
- * KYROlll dark templates (the same ink as the storefront: #080809 page,
- * #101012 panel, #17171a code well, #a4a4aa labels, #927260 accent) and the
- * matching subjects. The #080809 canvas is FORCED at every layer — the scheme
- * metas plus `:root { color-scheme: dark only }`, `!important` background CSS,
- * `bgcolor` fallbacks and the Outlook.com `[data-ogsc]`/`[data-ogsb]` hooks — so
- * a client in light mode cannot lighten it. Each mail opens on the storefront's
- * own 3D flower (`assets/kyrolll-flower-rest.png`, the still the hero
- * cross-fades in), centred above the header instead of a plain-text wordmark.
- * Every action template is code-only (`{{ .Token }}`); the one deliberate
- * exception is the invite, whose link IS the action, so it keeps
- * `{{ .ConfirmationURL }}` behind a worded button. Nothing else ships a link.
+ * KYROlll dark templates (the same ink as the storefront, pushed to pure black:
+ * #050505 body/wrapper/container, #17171a code well, #a4a4aa labels, #927260
+ * accent) and the matching subjects. The #050505 canvas is FORCED at every layer
+ * — the scheme metas plus `:root { color-scheme: dark only }`, `!important`
+ * background CSS (also re-asserted inside the light `prefers-color-scheme`
+ * query), `bgcolor` and `<html>`/`<body>` fallbacks and the Outlook.com
+ * `[data-ogsc]`/`[data-ogsb]` hooks — so a client in light mode cannot lighten
+ * it or wrap the message in white. Each mail opens on the storefront's own 3D
+ * flower (`assets/kyrolll-flower-rest.png`, the still the hero cross-fades in),
+ * centred above the header instead of a plain-text wordmark. Every action
+ * template is code-only (`{{ .Token }}`); the one deliberate exception is the
+ * invite, whose link IS the action, so it keeps `{{ .ConfirmationURL }}` behind
+ * a worded button. Nothing else ships a link.
  *
  * Idempotent: only fields that differ from what the project already has are
  * PATCHed, so re-running prints "already up to date" and changes nothing.
@@ -46,8 +48,12 @@ const ROOT = dirname(fileURLToPath(import.meta.url));
 const API = "https://api.supabase.com/v1";
 
 // The storefront palette. Keep in step with style.css / BRAND-DESIGN.md.
-const PAGE_BG = "#080809";
-const PANEL_BG = "#101012";
+// Mail is pushed one step deeper than the site: the body, the outer wrapper and
+// the content container are all forced to pure black so a light-mode client
+// (Apple Mail, Gmail) cannot paint a white gutter, border or wrapper around the
+// message. The code well stays lifted so the digits keep their contrast.
+const PAGE_BG = "#050505";
+const PANEL_BG = "#050505";
 const WELL_BG = "#17171a";
 const BORDER = "#38383e";
 const LABEL = "#a4a4aa";
@@ -110,16 +116,18 @@ function logoUrl() {
 
 // One dark, inline-styled shell for every auth message: presentation tables for
 // Outlook, a hidden preheader, a brown hairline, the 3D flower, a tracked label,
-// then the message body. The #080809 canvas is forced at every layer the client
-// could repaint — scheme metas, `:root` color-scheme, `!important` CSS, `bgcolor`
-// fallbacks and the Outlook.com `[data-ogsc]`/`[data-ogsb]` hooks — so light
-// mode cannot lighten it. The only remote asset is the flower, and it carries
-// alt text so the header still reads with images blocked.
+// then the message body. The pure-black #050505 canvas is forced at every layer
+// the client could repaint — scheme metas, `<html>`/`<body>` inline backgrounds,
+// `:root` color-scheme, `!important` CSS (re-asserted in the light media query),
+// `bgcolor` fallbacks and the Outlook.com `[data-ogsc]`/`[data-ogsb]` hooks — so
+// light mode cannot lighten it or wrap the message in white. The only remote
+// asset is the flower, and it carries alt text so the header still reads with
+// images blocked.
 function shell({ title, preheader, eyebrow, heading, lead, body, footer }) {
   const note = footer ||
     "If you didn&#39;t request this, you can safely ignore this email &mdash; nothing on your account changed.";
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="background-color:${PAGE_BG} !important;">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -133,13 +141,21 @@ html, body { background-color: ${PAGE_BG} !important; background: ${PAGE_BG} !im
 body { margin: 0 !important; padding: 0 !important; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
 table { border-collapse: collapse; }
 img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+/* A client in light mode still lightens an unstyled surface, so re-assert the
+   black canvas inside the light query too instead of trusting one scheme meta. */
+@media (prefers-color-scheme: light) {
+  html, body { background-color: ${PAGE_BG} !important; }
+  .kyro-page, .kyro-panel { background-color: ${PAGE_BG} !important; }
+  .kyro-well { background-color: ${WELL_BG} !important; }
+}
+[data-ogsc] html, [data-ogsb] html,
 [data-ogsc] body, [data-ogsb] body,
 [data-ogsc] .kyro-page, [data-ogsb] .kyro-page { background-color: ${PAGE_BG} !important; }
 [data-ogsc] .kyro-panel, [data-ogsb] .kyro-panel { background-color: ${PANEL_BG} !important; }
 [data-ogsc] .kyro-well, [data-ogsb] .kyro-well { background-color: ${WELL_BG} !important; }
 </style>
 </head>
-<body class="kyro-page" style="margin:0;padding:0;background-color:${PAGE_BG} !important;">
+<body class="kyro-page" bgcolor="${PAGE_BG}" style="margin:0;padding:0;background-color:${PAGE_BG} !important;">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:${PAGE_BG};font-size:1px;line-height:1px;">${esc(preheader)}</div>
 <table role="presentation" class="kyro-page" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${PAGE_BG}" style="background-color:${PAGE_BG} !important;">
 <tr>

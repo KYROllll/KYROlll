@@ -247,11 +247,15 @@ To attach a real project:
    so re-running is a no-op. `kyrolll-backend.js` sends no `email_redirect_to`,
    so a code-only login never mints a magic link in the first place.
 
-   The `#080809` canvas is **forced**, not merely set: the scheme metas plus
-   `:root { color-scheme: dark only }`, `!important` background CSS, `bgcolor`
-   fallbacks and the Outlook.com `[data-ogsc]`/`[data-ogsb]` hooks repaint every
-   layer a light-mode client would otherwise lighten (`.kyro-page`,
-   `.kyro-panel`, `.kyro-well`). Each mail opens on the storefront's own 3D
+   The `#050505` canvas is **forced**, not merely set: the scheme metas plus
+   `:root { color-scheme: dark only }`, inline `background-color` on `<html>`
+   and `<body>` (with a `bgcolor` attribute as the CSS-less fallback),
+   `!important` background CSS re-asserted inside the `prefers-color-scheme:
+   light` query, and the Outlook.com `[data-ogsc]`/`[data-ogsb]` hooks repaint
+   every layer a light-mode client would otherwise lighten or wrap in white —
+   the wrapper, body and content container are all pure black (`.kyro-page`,
+   `.kyro-panel`), with only the code well (`.kyro-well`, `#17171a`) lifted to
+   keep the digits legible. Each mail opens on the storefront's own 3D
    flower — `assets/kyrolll-flower-rest.png`, the captured resting pose the hero
    cross-fades in — **linked, not embedded**, so the message stays tiny while
    the mark stays crisp at 88px. It needs a public host: the script reads the

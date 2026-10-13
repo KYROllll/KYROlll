@@ -45,18 +45,23 @@ test("installs dark, code-only KYROlll templates with branded subjects", async (
   assert.equal(body.mailer_subjects_magic_link, "Your KYROlll sign-in code");
   const magic = body.mailer_templates_magic_link_content;
   assert.match(magic, /\{\{ \.Token \}\}/, "shows the one-time code");
-  assert.match(magic, /#080809/, "uses the KYROlll page background");
+  assert.match(magic, /#050505/, "uses the pure-black page background");
   assert.match(magic, /ONE-TIME CODE/);
   assert.doesNotMatch(magic, /ConfirmationURL/, "no stray Supabase magic link");
   assert.doesNotMatch(magic, /Supabase/i, "no Supabase branding");
   assert.doesNotMatch(magic, /localhost:3000/, "no placeholder site URL");
   assert.doesNotMatch(magic, /\{\{ \.SiteURL \}\}\/auth/, "no GoTrue callback path");
 
-  // The dark canvas is forced at every layer a light-mode client could repaint.
+  // The pure-black canvas is forced at every layer a light-mode client could
+  // repaint or wrap in white: wrapper, body, container and the page itself.
+  assert.match(magic, /<html[^>]+style="background-color:#050505 !important;"/, "inline background on <html>");
+  assert.match(magic, /<body[^>]+bgcolor="#050505"/, "bgcolor on <body> for clients that drop CSS");
   assert.match(magic, /color-scheme:\s*dark only/, "pins the scheme in CSS");
-  assert.match(magic, /background-color:\s*#080809\s*!important/, "!important on the page background");
-  assert.match(magic, /bgcolor="#080809"/, "bgcolor fallback for clients that drop CSS");
-  assert.match(magic, /\[data-ogsc\][^{]*\.kyro-panel[^{]*\{[^}]*#101012\s*!important/, "Outlook.com dark-mode hook repaints the panel");
+  assert.match(magic, /@media \(prefers-color-scheme: light\)\s*\{[^}]*background-color:\s*#050505\s*!important/, "re-asserts black inside the light query");
+  assert.match(magic, /max-width:520px;background-color:#050505 !important/, "the content container is pure black too");
+  assert.match(magic, /\[data-ogsc\][^{]*\.kyro-panel[^{]*\{[^}]*#050505\s*!important/, "Outlook.com dark-mode hook repaints the container");
+  assert.doesNotMatch(magic, /background-color:\s*#(?:fff|ffffff)\s*!important/i, "no forced white surface");
+  assert.doesNotMatch(magic, /#080809|#101012/, "the old lighter page/panel greys are gone");
 
   // The header opens on the storefront's own 3D flower, not a text wordmark.
   assert.match(magic, /<img[^>]+src="https:\/\/[^"]+\/assets\/kyrolll-flower-rest\.png"/, "linked 3D flower logo on a public host");
