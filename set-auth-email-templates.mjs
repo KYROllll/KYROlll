@@ -16,12 +16,15 @@
  * background CSS (also re-asserted inside the light `prefers-color-scheme`
  * query), `bgcolor` and `<html>`/`<body>` fallbacks and the Outlook.com
  * `[data-ogsc]`/`[data-ogsb]` hooks — so a client in light mode cannot lighten
- * it or wrap the message in white. Each mail opens on the storefront's own 3D
- * flower (`assets/kyrolll-flower-rest.png`, the still the hero cross-fades in),
- * centred above the header instead of a plain-text wordmark. Every action
- * template is code-only (`{{ .Token }}`); the one deliberate exception is the
- * invite, whose link IS the action, so it keeps `{{ .ConfirmationURL }}` behind
- * a worded button. Nothing else ships a link.
+ * it or wrap the message in white. Because a client paints HTML attributes
+ * before it applies `<style>`, EVERY structural table and cell also carries its
+ * own `bgcolor` and an inline `background-color: #050505 !important`, so the
+ * first frame of the initial load is black instead of a white flash. Each mail
+ * opens on the storefront's own 3D flower (`assets/kyrolll-flower-rest.png`, the
+ * still the hero cross-fades in), centred above the header instead of a
+ * plain-text wordmark. Every action template is code-only (`{{ .Token }}`); the
+ * one deliberate exception is the invite, whose link IS the action, so it keeps
+ * `{{ .ConfirmationURL }}` behind a worded button. Nothing else ships a link.
  *
  * Idempotent: only fields that differ from what the project already has are
  * PATCHed, so re-running prints "already up to date" and changes nothing.
@@ -119,10 +122,12 @@ function logoUrl() {
 // then the message body. The pure-black #050505 canvas is forced at every layer
 // the client could repaint — scheme metas, `<html>`/`<body>` inline backgrounds,
 // `:root` color-scheme, `!important` CSS (re-asserted in the light media query),
-// `bgcolor` fallbacks and the Outlook.com `[data-ogsc]`/`[data-ogsb]` hooks — so
-// light mode cannot lighten it or wrap the message in white. The only remote
-// asset is the flower, and it carries alt text so the header still reads with
-// images blocked.
+// `bgcolor` fallbacks and the Outlook.com `[data-ogsc]`/`[data-ogsb]` hooks — and
+// every structural table and cell repeats the background as a `bgcolor`
+// attribute plus an inline `!important`, so the parse-then-style gap that shows
+// as a white flash during loading is black on the very first frame. The only
+// remote asset is the flower, and it carries alt text so the header still reads
+// with images blocked.
 function shell({ title, preheader, eyebrow, heading, lead, body, footer }) {
   const note = footer ||
     "If you didn&#39;t request this, you can safely ignore this email &mdash; nothing on your account changed.";
@@ -155,18 +160,18 @@ img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: b
 [data-ogsc] .kyro-well, [data-ogsb] .kyro-well { background-color: ${WELL_BG} !important; }
 </style>
 </head>
-<body class="kyro-page" bgcolor="${PAGE_BG}" style="margin:0;padding:0;background-color:${PAGE_BG} !important;">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:${PAGE_BG};font-size:1px;line-height:1px;">${esc(preheader)}</div>
-<table role="presentation" class="kyro-page" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${PAGE_BG}" style="background-color:${PAGE_BG} !important;">
+<body class="kyro-page" bgcolor="${PAGE_BG}" style="margin:0;padding:0;background-color:${PAGE_BG} !important;background:${PAGE_BG} !important;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:${PAGE_BG};background-color:${PAGE_BG};font-size:1px;line-height:1px;">${esc(preheader)}</div>
+<table role="presentation" class="kyro-page" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${PAGE_BG}" style="width:100%;background-color:${PAGE_BG} !important;">
 <tr>
-<td align="center" style="padding:36px 16px;">
+<td class="kyro-page" align="center" valign="top" width="100%" bgcolor="${PAGE_BG}" style="padding:36px 16px;background-color:${PAGE_BG} !important;">
 <table role="presentation" class="kyro-panel" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${PANEL_BG}" style="width:100%;max-width:520px;background-color:${PANEL_BG} !important;border:1px solid ${BORDER};">
-<tr><td style="height:3px;background-color:${ACCENT};font-size:0;line-height:0;">&nbsp;</td></tr>
+<tr><td bgcolor="${ACCENT}" style="height:3px;background-color:${ACCENT} !important;font-size:0;line-height:0;">&nbsp;</td></tr>
 <tr>
-<td style="padding:34px 34px 30px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<td class="kyro-panel" bgcolor="${PANEL_BG}" style="padding:34px 34px 30px;background-color:${PANEL_BG} !important;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${PANEL_BG}" style="background-color:${PANEL_BG} !important;">
 <tr>
-<td align="center" style="padding:0 0 22px;line-height:0;">
+<td align="center" bgcolor="${PANEL_BG}" style="padding:0 0 22px;line-height:0;background-color:${PANEL_BG} !important;">
 <a href="{{ .SiteURL }}" style="text-decoration:none;border:0;"><img src="${logoUrl()}" alt="KYROlll" width="88" height="88" style="display:block;width:88px;height:88px;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;"></a>
 </td>
 </tr>
@@ -178,7 +183,7 @@ ${body}
 </td>
 </tr>
 <tr>
-<td style="padding:20px 34px 26px;border-top:1px solid #26262b;">
+<td class="kyro-panel" bgcolor="${PANEL_BG}" style="padding:20px 34px 26px;border-top:1px solid #26262b;background-color:${PANEL_BG} !important;">
 <p style="margin:0 0 8px;font-family:${SANS};font-size:12px;line-height:19px;color:${DIM};">${note}</p>
 <p style="margin:0;font-family:${SANS};font-size:12px;line-height:19px;color:${DIM};">Support: <a href="mailto:${esc(supportEmail())}" style="color:${LABEL};text-decoration:underline;">${esc(supportEmail())}</a></p>
 </td>
@@ -206,9 +211,9 @@ function codeWell(label) {
 }
 
 function button(href, label) {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px;">
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" bgcolor="${PAGE_BG}" style="margin:4px 0 18px;background-color:${PAGE_BG} !important;">
 <tr>
-<td style="background-color:#ffffff;">
+<td bgcolor="#ffffff" style="background-color:#ffffff;">
 <a href="${href}" style="display:inline-block;padding:14px 26px;font-family:${MONO};font-size:11px;font-weight:700;letter-spacing:2px;color:${PAGE_BG};text-decoration:none;">${esc(label)}</a>
 </td>
 </tr>

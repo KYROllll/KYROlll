@@ -255,7 +255,11 @@ To attach a real project:
    every layer a light-mode client would otherwise lighten or wrap in white —
    the wrapper, body and content container are all pure black (`.kyro-page`,
    `.kyro-panel`), with only the code well (`.kyro-well`, `#17171a`) lifted to
-   keep the digits legible. Each mail opens on the storefront's own 3D
+   keep the digits legible. Every structural `<table>` and `<td>` also repeats
+   the background as a `bgcolor` attribute plus an inline `background-color:
+   #050505 !important`: a client paints attributes before it applies `<style>`,
+   and that parse-then-style gap is exactly what shows as a white flash while
+   the message loads. Each mail opens on the storefront's own 3D
    flower — `assets/kyrolll-flower-rest.png`, the captured resting pose the hero
    cross-fades in — **linked, not embedded**, so the message stays tiny while
    the mark stays crisp at 88px. It needs a public host: the script reads the

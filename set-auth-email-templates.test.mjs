@@ -63,6 +63,29 @@ test("installs dark, code-only KYROlll templates with branded subjects", async (
   assert.doesNotMatch(magic, /background-color:\s*#(?:fff|ffffff)\s*!important/i, "no forced white surface");
   assert.doesNotMatch(magic, /#080809|#101012/, "the old lighter page/panel greys are gone");
 
+  // No-white-flash: the parser paints attributes before it applies <style>, so
+  // every structural table and cell in every template must carry its own
+  // background, both as a bgcolor attribute and as an inline `!important`
+  // background. (The button lives only in the invite template, hence checking
+  // the whole payload rather than just the sign-in mail.)
+  assert.match(magic, /<td class="kyro-page"[^>]*bgcolor="#050505"/, "the outer gutter cell is black");
+  let tableCount = 0;
+  let cellCount = 0;
+  Object.entries(buildPayload()).forEach(([field, value]) => {
+    if (!field.startsWith("mailer_templates_")) return;
+    (value.match(/<table[^>]*>/g) || []).forEach((t) => {
+      tableCount += 1;
+      assert.match(t, /bgcolor="#[0-9a-f]{6}"/i, `${field}: table without a bgcolor fallback: ${t}`);
+      assert.match(t, /background-color:\s*#[0-9a-f]{6}\s*!important/i, `${field}: table without an inline !important background: ${t}`);
+    });
+    (value.match(/<td[^>]*>/g) || []).forEach((c) => {
+      cellCount += 1;
+      assert.match(c, /bgcolor="#[0-9a-f]{6}"/i, `${field}: cell without a bgcolor fallback: ${c}`);
+    });
+  });
+  assert.ok(tableCount >= 4, "the wrapper/panel/logo/button tables are all covered");
+  assert.ok(cellCount >= 5, "the structural cells are all covered");
+
   // The header opens on the storefront's own 3D flower, not a text wordmark.
   assert.match(magic, /<img[^>]+src="https:\/\/[^"]+\/assets\/kyrolll-flower-rest\.png"/, "linked 3D flower logo on a public host");
   assert.match(magic, /alt="KYROlll"/, "alt text keeps the brand readable with images off");
