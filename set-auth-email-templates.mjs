@@ -26,7 +26,7 @@
  *
  * The project ref is read from supabase-config.js by default, exactly like
  * set-otp-length.mjs. The template length must keep matching that project's
- * Email OTP Length (the code input shows `otpLength` digits, default 8).
+ * Email OTP Length (the code input shows `otpLength` digits, default 6).
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";

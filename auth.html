@@ -70,7 +70,7 @@
             <p class="auth-error" id="login-error" role="alert" hidden></p>
             <button type="button" class="auth-textlink auth-guide" id="login-guide-signup" hidden>SIGN UP INSTEAD &rarr;</button>
             <button type="submit" class="auth-submit">SEND LOGIN CODE</button>
-            <p class="auth-note">No password needed &mdash; we email an 8-digit code to log you in.</p>
+            <p class="auth-note">No password needed &mdash; we email a 6-digit code to log you in.</p>
           </form>
 
           <form class="auth-form" id="signup-form" novalidate hidden>
@@ -84,14 +84,14 @@
             </label>
             <p class="auth-error" id="signup-error" role="alert" hidden></p>
             <button type="submit" class="auth-submit">SEND SIGN-UP CODE</button>
-            <p class="auth-note">We email an 8-digit code that both confirms your address and signs you in.</p>
+            <p class="auth-note">We email a 6-digit code that both confirms your address and signs you in.</p>
           </form>
 
           <form class="auth-form" id="confirm-form" novalidate hidden>
-            <p class="auth-note" id="confirm-copy">Enter the 8-digit code we sent to <strong id="confirm-email"></strong>.</p>
+            <p class="auth-note" id="confirm-copy">Enter the 6-digit code we sent to <strong id="confirm-email"></strong>.</p>
             <label class="auth-field">
               <span class="auth-field__label">CONFIRMATION CODE</span>
-              <input class="auth-input auth-input--code" id="confirm-code" name="token" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="00000000" spellcheck="false">
+              <input class="auth-input auth-input--code" id="confirm-code" name="token" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" spellcheck="false">
             </label>
             <p class="auth-error" id="confirm-error" role="alert" hidden></p>
             <p class="auth-info" id="confirm-info" role="status" hidden>THE CODE IS ON ITS WAY.</p>
@@ -120,10 +120,10 @@
     <p class="auth-success__label" id="auth-success-label">WELCOME BACK</p>
   </div>
 
-  <script src="supabase-config.js?v=4"></script>
+  <script src="supabase-config.js?v=5"></script>
   <script src="catalog.js?v=2"></script>
-  <script src="kyrolll-backend.js?v=7"></script>
-  <script src="account.js?v=10"></script>
+  <script src="kyrolll-backend.js?v=8"></script>
+  <script src="account.js?v=11"></script>
   <script type="module" src="assets/brand-logo.min.js?v=18"></script>
   <script src="preloader.js?v=7"></script>
 </body>

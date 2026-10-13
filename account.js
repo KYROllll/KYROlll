@@ -347,7 +347,7 @@
     const demoCodeEl = document.getElementById("confirm-demo");
     const loginGuide = document.getElementById("login-guide-signup");
     const b = backend();
-    const otpLength = (b && b.otpLength) || 8;
+    const otpLength = (b && b.otpLength) || 6;
     let pending = null;      // { email, username, createUser } for the last code sent
     let origin = "login";    // which tab to return to from the code step
     let verified = false;    // true once a code is accepted — the success overlay is playing

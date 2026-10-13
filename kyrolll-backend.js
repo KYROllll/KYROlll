@@ -13,7 +13,7 @@
  * falls back to a browser-local implementation (accounts and libraries in
  * localStorage) so the storefront stays fully usable in preview.
  *
- * Auth is passwordless: `signInWithOtp` asks Supabase to email an 8-digit code
+ * Auth is passwordless: `signInWithOtp` asks Supabase to email a 6-digit code
  * (creating the account on first use) and `verifyOtp` exchanges that code for a
  * session — the same two calls cover both signing up and logging in. */
 (function () {
@@ -27,9 +27,9 @@
   const SOLD_KEY = "kyrolll_exclusive_sold";
   const OTP_KEY = "kyrolll_local_otp";
   // Number of digits in the emailed code. Mirrors the project's "Email OTP
-  // Length" (brand-new projects default to 8); also drives how many digits the
-  // auth page's code input accepts.
-  const OTP_LENGTH = Math.min(Math.max(parseInt(CONFIG.otpLength, 10) || 8, 4), 10);
+  // Length" — KYROlll pins 6 (`set-otp-length.mjs`); brand-new projects default
+  // to 8 — and also drives how many digits the auth page's code input accepts.
+  const OTP_LENGTH = Math.min(Math.max(parseInt(CONFIG.otpLength, 10) || 6, 4), 10);
 
   const CONFIGURED = !!(
     CONFIG.url &&

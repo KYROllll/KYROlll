@@ -25,9 +25,9 @@ window.KYROlll_SUPABASE = Object.assign({
   tables: { licenses: "licenses" },
   // Digits in the emailed one-time code. Keep it in step with the project's
   // "Email OTP Length" (Supabase dashboard → Authentication → Providers →
-  // Email, env `GOTRUE_MAILER_OTP_LENGTH`). Brand-new projects default to 8 —
-  // which is why this is 8 — so no dashboard change is needed. The auth page
-  // renders exactly this many digits in the code input and the OTP request
-  // asks for it.
-  otpLength: 8
+  // Email, env `GOTRUE_MAILER_OTP_LENGTH`). Brand-new projects default to 8;
+  // KYROlll pins its project to 6 with `set-otp-length.mjs`, which defaults to
+  // 6 to match. The auth page renders exactly this many digits in the code
+  // input and the OTP request asks for it.
+  otpLength: 6
 }, window.KYROlll_SUPABASE || {});

@@ -203,12 +203,12 @@ three files that every page loads (see the `<script>` order in `index.html`):
 - `kyrolll-backend.js` — a dependency-free Supabase REST client (Auth, Storage,
   PostgREST) behind `window.KYROlll_BACKEND`, with the same promise API in both
   modes. Auth is passwordless email OTP: `auth.signInWithOtp` asks Supabase to
-  mail an 8-digit code (creating the account on first use) and `auth.verifyOtp`
+  mail a 6-digit code (creating the account on first use) and `auth.verifyOtp`
   exchanges that code for a session — the same two calls cover sign-up and login.
 - `catalog.js` — shared beats, the three tiers, and each tier's Storage object
   `path` + `name` + same-origin `fallback`.
 
-Pages: `auth.html` (dedicated passwordless login/sign-up with a single 8-digit
+Pages: `auth.html` (dedicated passwordless login/sign-up with a single 6-digit
 code input, the live 3D flower and white fields), `dashboard.html` (username +
 profile picture), `library.html` (audio download + PDF license), plus
 `index.html` and `success.html`. The BUY dropdown always opens downward (clamped
@@ -221,11 +221,12 @@ To attach a real project:
    `{{ .Token }}` placeholder so the code the code input asks for is actually
    sent. The code length is the project's **Email OTP Length** setting
    (GoTrue env `GOTRUE_MAILER_OTP_LENGTH`), **not** something the `/auth/v1/otp`
-   request can set. Brand-new projects default the email OTP to 8, and
-   `supabase-config.js` carries `otpLength: 8` to match, so the storefront and
-   the emailed code already agree. If you ever change `otpLength`, bring the
-   dashboard field in step: `SUPABASE_ACCESS_TOKEN=… node set-otp-length.mjs`
-   (defaults to 8, honours `OTP_LENGTH`; token from
+   request can set. Brand-new projects default the email OTP to 8; KYROlll pins
+   its project to **6**, and `supabase-config.js` carries `otpLength: 6` to
+   match, so the storefront and the emailed code agree. Whenever you change
+   `otpLength`, bring the project field in step:
+   `SUPABASE_ACCESS_TOKEN=… node set-otp-length.mjs`
+   (defaults to 6, honours `OTP_LENGTH`; token from
    https://supabase.com/dashboard/account/tokens, Owner/Administrator — the
    Management API auth-config endpoint requires at least Admin; the script reads
    the project ref from `supabase-config.js`, GETs the current

@@ -5,16 +5,17 @@
  * Authentication → Providers → Email → "Email OTP Length"). It cannot be set
  * from the storefront or from the `/auth/v1/otp` request body — GoTrue's OTP
  * handler has no `otp_length` field and ignores unknown ones. Brand-new
- * projects default to 8 digits, and the auth page's code input asks for 8, so
- * this script defaults to 8 — run it to verify or pin `mailer_otp_length` so
- * the `{{ .Token }}` in the email template renders exactly the digits the code
- * input asks for (pass `OTP_LENGTH` to choose a different length).
+ * projects default to 8 digits; KYROlll pins its project to 6, and the auth
+ * page's code input asks for 6, so this script defaults to 6 — run it to verify
+ * or pin `mailer_otp_length` so the `{{ .Token }}` in the email template renders
+ * exactly the digits the code input asks for (pass `OTP_LENGTH` to choose a
+ * different length).
  *
  * Usage (token from https://supabase.com/dashboard/account/tokens, Owner or
  * Administrator — this endpoint needs at least Admin):
  *
  *   SUPABASE_ACCESS_TOKEN=sb_pat_… node set-otp-length.mjs
- *   PROJECT_REF=… SUPABASE_ACCESS_TOKEN=… OTP_LENGTH=8 node set-otp-length.mjs
+ *   PROJECT_REF=… SUPABASE_ACCESS_TOKEN=… OTP_LENGTH=6 node set-otp-length.mjs
  *
  * The project ref is read from supabase-config.js by default. Only prints the
  * change; re-running is idempotent.
@@ -51,7 +52,7 @@ async function main() {
     "SUPABASE_ACCESS_TOKEN is required — create a personal access token at " +
     "https://supabase.com/dashboard/account/tokens (Owner or Administrator role)."
   );
-  const length = Number.isInteger(LENGTH) && LENGTH >= 4 && LENGTH <= 10 ? LENGTH : 8;
+  const length = Number.isInteger(LENGTH) && LENGTH >= 4 && LENGTH <= 10 ? LENGTH : 6;
   const ref = projectRef();
 
   const headers = {
