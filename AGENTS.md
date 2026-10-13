@@ -246,6 +246,19 @@ To attach a real project:
    reads the ref from `supabase-config.js`, and only PATCHes fields that differ,
    so re-running is a no-op. `kyrolll-backend.js` sends no `email_redirect_to`,
    so a code-only login never mints a magic link in the first place.
+
+   The `#080809` canvas is **forced**, not merely set: the scheme metas plus
+   `:root { color-scheme: dark only }`, `!important` background CSS, `bgcolor`
+   fallbacks and the Outlook.com `[data-ogsc]`/`[data-ogsb]` hooks repaint every
+   layer a light-mode client would otherwise lighten (`.kyro-page`,
+   `.kyro-panel`, `.kyro-well`). Each mail opens on the storefront's own 3D
+   flower — `assets/kyrolll-flower-rest.png`, the captured resting pose the hero
+   cross-fades in — **linked, not embedded**, so the message stays tiny while
+   the mark stays crisp at 88px. It needs a public host: the script reads the
+   repo's `CNAME` (`www.kyrolll.store`) and falls back to GoTrue's own
+   `{{ .SiteURL }}`; a fork on another domain overrides it with
+   `ASSET_BASE=https://…`. The `<img>` carries `alt="KYROlll"`, so the header
+   still reads with images blocked.
 2. **Storage** — create a private bucket `BEATS` for the masters and an
    `avatars` bucket for profile pictures (rename in `supabase-config.js` if you
    differ). Upload each tier's object to the path named in `catalog.js`.

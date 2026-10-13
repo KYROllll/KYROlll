@@ -11,8 +11,14 @@
  * This script PATCHes the auth config through the Management API to install the
  * KYROlll dark templates (the same ink as the storefront: #080809 page,
  * #101012 panel, #17171a code well, #a4a4aa labels, #927260 accent) and the
- * matching subjects. Every action template is code-only (`{{ .Token }}`); the
- * one deliberate exception is the invite, whose link IS the action, so it keeps
+ * matching subjects. The #080809 canvas is FORCED at every layer — the scheme
+ * metas plus `:root { color-scheme: dark only }`, `!important` background CSS,
+ * `bgcolor` fallbacks and the Outlook.com `[data-ogsc]`/`[data-ogsb]` hooks — so
+ * a client in light mode cannot lighten it. Each mail opens on the storefront's
+ * own 3D flower (`assets/kyrolll-flower-rest.png`, the still the hero
+ * cross-fades in), centred above the header instead of a plain-text wordmark.
+ * Every action template is code-only (`{{ .Token }}`); the one deliberate
+ * exception is the invite, whose link IS the action, so it keeps
  * `{{ .ConfirmationURL }}` behind a worded button. Nothing else ships a link.
  *
  * Idempotent: only fields that differ from what the project already has are
@@ -27,6 +33,10 @@
  * The project ref is read from supabase-config.js by default, exactly like
  * set-otp-length.mjs. The template length must keep matching that project's
  * Email OTP Length (the code input shows `otpLength` digits, default 6).
+ *
+ * The flower is linked, not embedded, so the mail body stays tiny; it needs a
+ * public host, which is read from the repo's CNAME file (www.kyrolll.store) and
+ * can be overridden with ASSET_BASE=https://… (a fork on another domain).
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -73,10 +83,38 @@ function supportEmail() {
 
 /* --------------------------------------------------------------- the shell */
 
+// The storefront's own 3D flower, captured at its resting pose — the same still
+// the hero cross-fades in over the live WebGL flower (see AGENTS.md "Logo
+// hand-off"). Mail has no WebGL, so the header opens on this PNG: linked, not
+// embedded, which keeps the message itself tiny and stays crisp at 88px on
+// high-density screens.
+const LOGO_PATH = "/assets/kyrolll-flower-rest.png";
+
+// The flower is fetched by the recipient's client, so it needs a real public
+// host rather than whatever URL the site happens to be previewed from. Prefer an
+// explicit ASSET_BASE, then the deployed host in the repo's CNAME file, and only
+// fall back to GoTrue's own `{{ .SiteURL }}` when neither is available.
+function assetBase() {
+  const override = String(process.env.ASSET_BASE || "").trim();
+  if (override) return override.replace(/\/+$/, "");
+  try {
+    const host = readFileSync(join(ROOT, "CNAME"), "utf8").trim();
+    if (host) return "https://" + host.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  } catch (err) { /* no CNAME in this checkout — use the project's site url */ }
+  return "{{ .SiteURL }}";
+}
+
+function logoUrl() {
+  return assetBase() + LOGO_PATH;
+}
+
 // One dark, inline-styled shell for every auth message: presentation tables for
-// Outlook, a hidden preheader, a brown hairline, the wordmark, a tracked label,
-// then the message body. Remote fonts/images are deliberately avoided so the
-// mail renders identically with images blocked.
+// Outlook, a hidden preheader, a brown hairline, the 3D flower, a tracked label,
+// then the message body. The #080809 canvas is forced at every layer the client
+// could repaint — scheme metas, `:root` color-scheme, `!important` CSS, `bgcolor`
+// fallbacks and the Outlook.com `[data-ogsc]`/`[data-ogsb]` hooks — so light
+// mode cannot lighten it. The only remote asset is the flower, and it carries
+// alt text so the header still reads with images blocked.
 function shell({ title, preheader, eyebrow, heading, lead, body, footer }) {
   const note = footer ||
     "If you didn&#39;t request this, you can safely ignore this email &mdash; nothing on your account changed.";
@@ -87,18 +125,36 @@ function shell({ title, preheader, eyebrow, heading, lead, body, footer }) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark">
 <meta name="supported-color-schemes" content="dark">
+<meta name="x-apple-disable-message-reformatting">
 <title>${esc(title)}</title>
+<style>
+:root { color-scheme: dark only; }
+html, body { background-color: ${PAGE_BG} !important; background: ${PAGE_BG} !important; }
+body { margin: 0 !important; padding: 0 !important; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+table { border-collapse: collapse; }
+img { border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; }
+[data-ogsc] body, [data-ogsb] body,
+[data-ogsc] .kyro-page, [data-ogsb] .kyro-page { background-color: ${PAGE_BG} !important; }
+[data-ogsc] .kyro-panel, [data-ogsb] .kyro-panel { background-color: ${PANEL_BG} !important; }
+[data-ogsc] .kyro-well, [data-ogsb] .kyro-well { background-color: ${WELL_BG} !important; }
+</style>
 </head>
-<body style="margin:0;padding:0;background-color:${PAGE_BG};">
+<body class="kyro-page" style="margin:0;padding:0;background-color:${PAGE_BG} !important;">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:${PAGE_BG};font-size:1px;line-height:1px;">${esc(preheader)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${PAGE_BG};">
+<table role="presentation" class="kyro-page" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${PAGE_BG}" style="background-color:${PAGE_BG} !important;">
 <tr>
 <td align="center" style="padding:36px 16px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:520px;background-color:${PANEL_BG};border:1px solid ${BORDER};">
+<table role="presentation" class="kyro-panel" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${PANEL_BG}" style="width:100%;max-width:520px;background-color:${PANEL_BG} !important;border:1px solid ${BORDER};">
 <tr><td style="height:3px;background-color:${ACCENT};font-size:0;line-height:0;">&nbsp;</td></tr>
 <tr>
 <td style="padding:34px 34px 30px;">
-<p style="margin:0 0 4px;font-family:${SANS};font-size:20px;font-weight:700;letter-spacing:1px;"><a href="{{ .SiteURL }}" style="color:#ffffff;text-decoration:none;">KYROlll</a></p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="center" style="padding:0 0 22px;line-height:0;">
+<a href="{{ .SiteURL }}" style="text-decoration:none;border:0;"><img src="${logoUrl()}" alt="KYROlll" width="88" height="88" style="display:block;width:88px;height:88px;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;"></a>
+</td>
+</tr>
+</table>
 <p style="margin:0 0 24px;font-family:${MONO};font-size:10px;font-weight:700;letter-spacing:2px;color:${LABEL};">${esc(eyebrow)}</p>
 <h1 style="margin:0 0 10px;font-family:${SANS};font-size:22px;line-height:29px;font-weight:700;letter-spacing:1px;color:#ffffff;">${esc(heading)}</h1>
 <p style="margin:0 0 20px;font-family:${SANS};font-size:14px;line-height:22px;color:${LABEL};">${esc(lead)}</p>
@@ -127,7 +183,7 @@ function paragraph(text) {
 // The one-time code, set large in the monospace face the storefront uses for
 // technical labels. `label` names the code for the flow it belongs to.
 function codeWell(label) {
-  return `<div style="margin:6px 0 18px;padding:20px 16px;background-color:${WELL_BG};border:1px solid ${BORDER};text-align:center;">
+  return `<div class="kyro-well" style="margin:6px 0 18px;padding:20px 16px;background-color:${WELL_BG} !important;border:1px solid ${BORDER};text-align:center;">
 <p style="margin:0 0 10px;font-family:${MONO};font-size:10px;font-weight:700;letter-spacing:2px;color:${LABEL};">${esc(label)}</p>
 <p style="margin:0;font-family:${MONO};font-size:30px;line-height:38px;font-weight:700;letter-spacing:6px;color:#ffffff;word-break:break-all;">{{ .Token }}</p>
 </div>`;

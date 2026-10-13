@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 function importScript() {
   delete process.env.SUPABASE_ACCESS_TOKEN;
   delete process.env.SUPPORT_EMAIL;
+  delete process.env.ASSET_BASE;
   return import("./set-auth-email-templates.mjs");
 }
 
@@ -50,6 +51,18 @@ test("installs dark, code-only KYROlll templates with branded subjects", async (
   assert.doesNotMatch(magic, /Supabase/i, "no Supabase branding");
   assert.doesNotMatch(magic, /localhost:3000/, "no placeholder site URL");
   assert.doesNotMatch(magic, /\{\{ \.SiteURL \}\}\/auth/, "no GoTrue callback path");
+
+  // The dark canvas is forced at every layer a light-mode client could repaint.
+  assert.match(magic, /color-scheme:\s*dark only/, "pins the scheme in CSS");
+  assert.match(magic, /background-color:\s*#080809\s*!important/, "!important on the page background");
+  assert.match(magic, /bgcolor="#080809"/, "bgcolor fallback for clients that drop CSS");
+  assert.match(magic, /\[data-ogsc\][^{]*\.kyro-panel[^{]*\{[^}]*#101012\s*!important/, "Outlook.com dark-mode hook repaints the panel");
+
+  // The header opens on the storefront's own 3D flower, not a text wordmark.
+  assert.match(magic, /<img[^>]+src="https:\/\/[^"]+\/assets\/kyrolll-flower-rest\.png"/, "linked 3D flower logo on a public host");
+  assert.match(magic, /alt="KYROlll"/, "alt text keeps the brand readable with images off");
+  assert.match(magic, /href="\{\{ \.SiteURL \}\}"/, "logo still links to the site");
+  assert.doesNotMatch(magic, />KYROlll<\/a>/, "the plain-text wordmark is gone");
 
   // Every field the Management API accepts is present.
   ["confirmation", "recovery", "email_change", "reauthentication", "invite",
@@ -102,4 +115,16 @@ test("surfaces the API error with role guidance on a 403", async () => {
   process.env.SUPABASE_ACCESS_TOKEN = "sb_pat_test";
   await assert.rejects(main(), /Owner or Administrator/);
   delete globalThis.fetch;
+});
+
+test("honours ASSET_BASE for the logo host (fork on another domain)", async () => {
+  const { buildPayload } = await importScript();
+  process.env.ASSET_BASE = "https://staging.example.com/";
+  const magic = buildPayload().mailer_templates_magic_link_content;
+  assert.match(
+    magic,
+    /src="https:\/\/staging\.example\.com\/assets\/kyrolll-flower-rest\.png"/,
+    "trailing slash is trimmed and the override wins"
+  );
+  delete process.env.ASSET_BASE;
 });
