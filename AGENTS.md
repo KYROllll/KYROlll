@@ -301,6 +301,19 @@ To attach a real project:
    to write first, so re-running never duplicates them. Without the service key
    it prints the equivalent SQL for the SQL editor.
 
+   The library read (`kyrolll-backend.js` → `licenses.list`) filters on
+   `user_id=eq.<id>` on top of RLS, and a failed read is *recorded*
+   (`licenses.diagnose()`) rather than swallowed — `account.js` turns that into a
+   "LIBRARY UNREACHABLE" banner carrying the HTTP status, the query URL and the
+   signed-in user id, so an empty library is never mistaken for an empty
+   account. `diagnose-licenses.sql` is the SQL-editor counterpart: it checks the
+   table exists, whether RLS is on and which policies/grants apply, whether the
+   seeded rows belong to the account that signs in, and — inside a rolled-back
+   transaction — what the `authenticated` role actually sees for that account's
+   JWT claims. Rows are written **without** an `id` so the table's `uuid` default
+   owns it; the local `lic_…` id is not a uuid, so sending it was rejected with
+   `22P02` and the purchase never reached the table.
+
 `assets/jspdf.min.js` is a vendored UMD build of jsPDF (2.5.2) exposing
 `window.jspdf.jsPDF`; `license-pdf.js` turns a purchased tier into a branded
 certificate. The storefront itself still needs no external CDN at runtime.

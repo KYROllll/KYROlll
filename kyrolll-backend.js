@@ -331,6 +331,12 @@
   function localList(userId) { return readJSON(lsGet(libraryKey(userId)), []) || []; }
   function localSave(userId, list) { lsSet(libraryKey(userId), list); }
 
+  // Why the last remote read failed, when it did. The library page reads this
+  // so an unreachable table is never mistaken for "no licenses": a missing
+  // table, an expired token and a missing RLS policy all looked the same when
+  // the catch simply returned the (empty) local cache.
+  let licensesError = null;
+
   /* A beat sold on an exclusive license is off the market for everyone, so that
    * fact cannot live only inside one buyer's library: this browser remembers the
    * beats it has seen taken, and the `licenses` table is asked for the rest. The
@@ -366,15 +372,28 @@
     };
   }
 
+  /* Read the licenses for the signed-in user. The `user_id` filter is explicit
+   * even though RLS already pins rows to `auth.uid() = user_id`: it states the
+   * intent, and it is what keeps another account's rows out if the SELECT
+   * policy is ever loosened or absent. A failure is recorded (and warned once)
+   * rather than swallowed, so the library can say *why* it is empty. */
   async function listLicenses() {
     const user = currentUser();
     if (!user) return [];
     const local = localList(user.id);
-    if (!CONFIGURED || !session || !session.accessToken) return local;
+    if (!CONFIGURED || !session || !session.accessToken) {
+      licensesError = null;
+      return local;
+    }
     try {
-      const rows = await request("GET", "/rest/v1/" + LICENSES_TABLE + "?select=*&order=purchased_at.desc", {
-        token: session.accessToken
-      });
+      const rows = await request(
+        "GET",
+        "/rest/v1/" + LICENSES_TABLE +
+          "?select=*&user_id=eq." + encodeURIComponent(user.id) +
+          "&order=purchased_at.desc",
+        { token: session.accessToken }
+      );
+      licensesError = null;
       const remote = (rows || []).map(fromRow);
       // Merge: remote wins on id, local cache fills anything the table missed.
       const byId = new Map();
@@ -383,8 +402,30 @@
       localSave(user.id, merged);
       return merged;
     } catch (err) {
+      licensesError = {
+        status: (err && err.status) || 0,
+        code: (err && err.code) || "",
+        message: String((err && err.message) || err)
+      };
+      console.warn("KYROlll: licenses read failed", licensesError);
       return local;
     }
+  }
+
+  /* A snapshot of everything that decides whether the library can list
+   * licenses — surfaced by the library page when the list comes back empty so
+   * a broken read is not silently presented as an empty library. */
+  function licensesDiagnostic() {
+    const user = currentUser();
+    return {
+      configured: CONFIGURED,
+      signedIn: !!(session && session.accessToken),
+      table: LICENSES_TABLE,
+      project: base,
+      userId: (user && user.id) || "",
+      email: (user && user.email) || "",
+      error: licensesError
+    };
   }
 
   async function addLicense(input) {
@@ -409,11 +450,14 @@
     localSave(user.id, [license].concat(list));
     if (CONFIGURED && session && session.accessToken) {
       try {
-        await request("POST", "/rest/v1/" + LICENSES_TABLE, {
+        // No `id` in the body: the table's uuid default owns it. Sending the
+        // local "lic_…" id would be rejected by a uuid column (22P02) and the
+        // row would never reach the table — the purchase would live only in
+        // this browser.
+        const created = await request("POST", "/rest/v1/" + LICENSES_TABLE, {
           token: session.accessToken,
           headers: { Prefer: "return=representation" },
           body: {
-            id: license.id,
             user_id: user.id,
             beat_id: license.beatId,
             beat_title: license.beatTitle,
@@ -423,7 +467,19 @@
             purchased_at: license.purchasedAt
           }
         });
-      } catch (err) { /* local cache already holds it; table may not exist yet */ }
+        // Adopt the server's id so the local copy and the row de-dupe on the
+        // next read instead of showing the same purchase twice.
+        const row = Array.isArray(created) ? created[0] : created;
+        if (row && row.id) {
+          license.id = row.id;
+          localSave(user.id, localList(user.id).map((item) =>
+            item.beatId === license.beatId && item.tierId === license.tierId ? license : item
+          ));
+        }
+      } catch (err) {
+        // Local cache already holds it; the table may not exist yet.
+        console.warn("KYROlll: license write failed", { status: err && err.status, message: String((err && err.message) || err) });
+      }
     }
     return license;
   }
@@ -536,7 +592,7 @@
       refreshUser,
       updateProfile
     },
-    licenses: { list: listLicenses, add: addLicense, soldExclusive },
+    licenses: { list: listLicenses, add: addLicense, soldExclusive, diagnose: licensesDiagnostic },
     storage: { signedUrl, download, uploadAvatar, publicUrl, triggerDownload }
   };
 

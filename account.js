@@ -648,7 +648,7 @@
     "</li>";
   }
 
-  function libraryHTML(user, items) {
+  function libraryHTML(user, items, diagnostic) {
     const head =
       '<header class="library-head">' +
         '<div class="library-head__id">' +
@@ -662,11 +662,25 @@
           '<button type="button" class="auth-link" data-auth-action="logout">LOG OUT</button>' +
         "</div>" +
       "</header>";
+    // An empty list is only trustworthy if the read actually succeeded. When it
+    // failed the backend hands back the reason, and the page shows it rather
+    // than pretending the account owns nothing.
+    const broken = diagnostic && diagnostic.error;
     const body = items.length
       ? '<ul class="library-list">' + items.map((item) => libraryItemHTML(user, item)).join("") + "</ul>"
-      : '<div class="library-empty">' +
-          '<span class="library-empty__title">NO LICENSES YET</span>' +
-          "<p>WHEN YOU SECURE A BEAT IT LANDS HERE PERMANENTLY — WITH ITS DOWNLOAD AND LICENSE.</p>" +
+      : '<div class="library-empty' + (broken ? " library-empty--error" : "") + '">' +
+          "<span class=\"library-empty__title\">" + (broken ? "LIBRARY UNREACHABLE" : "NO LICENSES YET") + "</span>" +
+          (broken
+            ? '<p class="library-empty__error">YOUR LICENSES COULD NOT BE READ FROM SUPABASE' +
+                (diagnostic.error.status ? " (HTTP " + escapeHTML(String(diagnostic.error.status)) + ")" : "") +
+                " — " + escapeHTML(diagnostic.error.message) + ".</p>" +
+              '<p class="library-empty__code">' +
+                escapeHTML("GET " + diagnostic.project + "/rest/v1/" + diagnostic.table + "?user_id=eq." + diagnostic.userId) +
+              "</p>" +
+              "<p>CHECK THAT THE TABLE EXISTS, THAT ITS ROW LEVEL SECURITY POLICY ALLOWS <em>SELECT</em>, " +
+                "AND THAT YOU ARE SIGNED IN AS THE ACCOUNT THE ROWS BELONG TO" +
+                (diagnostic.userId ? " (USER " + escapeHTML(diagnostic.userId) + ")" : "") + ".</p>"
+            : "<p>WHEN YOU SECURE A BEAT IT LANDS HERE PERMANENTLY — WITH ITS DOWNLOAD AND LICENSE.</p>") +
           '<a class="kyrolll-btn" href="index.html#catalog">BROWSE BEATS →</a>' +
         "</div>";
     return '<article class="library-view">' + head + body +
@@ -705,7 +719,8 @@
       }
       const current = getCurrentUser();
       if (!current) { root.innerHTML = lockedHTML(); return; }
-      root.innerHTML = libraryHTML(current, items);
+      const diagnostic = b.licenses.diagnose ? b.licenses.diagnose() : null;
+      root.innerHTML = libraryHTML(current, items, diagnostic);
     }
 
     root.addEventListener("click", async (event) => {
