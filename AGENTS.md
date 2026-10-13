@@ -291,6 +291,16 @@ To attach a real project:
    If the table is missing the client keeps licenses in `localStorage`, so the
    library still works while you set things up.
 
+   To eyeball the library with real rows, `seed-test-licenses.mjs` writes the
+   catalog's three tiers onto one account: RLS pins every license to
+   `auth.uid() = user_id`, so it cannot use the anon key and instead needs the
+   **service_role** key to find the account by email (GoTrue admin API) and
+   write the rows (PostgREST) —
+   `SEED_EMAIL=… SUPABASE_SERVICE_ROLE_KEY=… node seed-test-licenses.mjs`
+   (`--remove` takes the seeded rows back out). It deletes the tiers it is about
+   to write first, so re-running never duplicates them. Without the service key
+   it prints the equivalent SQL for the SQL editor.
+
 `assets/jspdf.min.js` is a vendored UMD build of jsPDF (2.5.2) exposing
 `window.jspdf.jsPDF`; `license-pdf.js` turns a purchased tier into a branded
 certificate. The storefront itself still needs no external CDN at runtime.
