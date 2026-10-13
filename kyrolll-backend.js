@@ -24,6 +24,7 @@
   const USERS_KEY = "kyrolll_users";
   const LOCAL_SESSION_KEY = "kyrolll_current_user";
   const LIBRARY_PREFIX = "kyrolll_library_";
+  const SOLD_KEY = "kyrolll_exclusive_sold";
   const OTP_KEY = "kyrolll_local_otp";
   // Number of digits in the emailed code. Mirrors the project's "Email OTP
   // Length" (brand-new projects default to 8); also drives how many digits the
@@ -323,6 +324,28 @@
   function localList(userId) { return readJSON(lsGet(libraryKey(userId)), []) || []; }
   function localSave(userId, list) { lsSet(libraryKey(userId), list); }
 
+  /* A beat sold on an exclusive license is off the market for everyone, so that
+   * fact cannot live only inside one buyer's library: this browser remembers the
+   * beats it has seen taken, and the `licenses` table is asked for the rest. The
+   * query is best-effort — a project whose RLS exposes only a buyer's own rows
+   * still answers from the local record, and it is skipped entirely while the
+   * store runs unconfigured. */
+  function localSold() { return readJSON(lsGet(SOLD_KEY), []) || []; }
+  function rememberExclusive(beatId) {
+    if (!beatId) return;
+    const sold = localSold();
+    if (!sold.includes(beatId)) lsSet(SOLD_KEY, sold.concat(beatId));
+  }
+  async function soldExclusive() {
+    const ids = new Set(localSold());
+    if (!CONFIGURED) return Array.from(ids);
+    try {
+      const rows = await request("GET", "/rest/v1/" + LICENSES_TABLE + "?select=beat_id&tier_id=eq.exclusive");
+      (rows || []).forEach((row) => { if (row.beat_id) ids.add(row.beat_id); });
+    } catch (err) { /* not readable here — the local answer still stands */ }
+    return Array.from(ids);
+  }
+
   function fromRow(row) {
     return {
       id: row.id,
@@ -360,6 +383,9 @@
   async function addLicense(input) {
     const user = currentUser();
     if (!user) return null;
+    // An exclusive sale takes the beat off the market for everyone, whatever
+    // tiers this buyer already holds.
+    if (input.tierId === "exclusive") rememberExclusive(input.beatId);
     const list = localList(user.id);
     const duplicate = list.find((item) => item.beatId === input.beatId && item.tierId === input.tierId);
     if (duplicate) return duplicate;
@@ -503,7 +529,7 @@
       refreshUser,
       updateProfile
     },
-    licenses: { list: listLicenses, add: addLicense },
+    licenses: { list: listLicenses, add: addLicense, soldExclusive },
     storage: { signedUrl, download, uploadAvatar, publicUrl, triggerDownload }
   };
 

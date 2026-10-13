@@ -23,6 +23,38 @@ const previewPlayer = new BeatPreviewPlayer(grid);
 let vinylTimer = 0;
 window.addEventListener("pagehide", () => previewPlayer.stop());
 
+// Beats whose exclusive rights have been assigned. The BUY button locks and the
+// cover art carries the SOLD EXCLUSIVE seal, on the catalog tile and on the beat
+// page, wherever that beat appears.
+let soldBeats = new Set();
+
+function applySoldState() {
+  grid.querySelectorAll("[id^='card-']").forEach((card) => {
+    const sold = soldBeats.has(card.id.slice("card-".length));
+    card.classList.toggle(card.classList.contains("catalog-tile") ? "catalog-tile--sold" : "beat-detail--sold", sold);
+    const buy = card.querySelector(".buy-beat-btn");
+    if (buy) {
+      buy.disabled = sold;
+      buy.classList.toggle("buy-beat-btn--sold", sold);
+      buy.setAttribute("aria-haspopup", sold ? "false" : "true");
+      buy.setAttribute("aria-label", sold ? "Sold exclusive — no longer available" : "Buy");
+    }
+    const hint = card.querySelector(".buy-hint");
+    if (hint) hint.textContent = sold ? "EXCLUSIVE RIGHTS ASSIGNED" : "MP3 · WAV · EXCLUSIVE";
+  });
+}
+
+// Ask the account layer which beats have gone exclusive, then re-mark whatever is
+// on screen. The answer is instant locally and one best-effort query in Supabase
+// mode; the locked state simply stays off if it cannot be read.
+function loadSoldState() {
+  const acc = account();
+  if (!acc || typeof acc.soldExclusive !== "function") return;
+  Promise.resolve(acc.soldExclusive())
+    .then((ids) => { soldBeats = new Set(ids || []); applySoldState(); })
+    .catch(() => {});
+}
+
 function specLine(beat) {
   return `${beat.bpm} BPM // ${beat.key}`;
 }
@@ -55,7 +87,8 @@ function previewHTML(beat) {
 function buyButtonHTML(beat) {
   const attr = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
   return `<button type="button" class="buy-beat-btn" data-beat-id="${attr(beat.id)}" aria-haspopup="true" aria-expanded="false">
-          BUY<span class="buy-beat-btn__caret" aria-hidden="true">▾</span>
+          <span class="buy-beat-btn__label">BUY</span><span class="buy-beat-btn__caret" aria-hidden="true">▾</span>
+          <span class="sold-seal buy-beat-btn__sold" aria-hidden="true">SOLD EXCLUSIVE</span>
         </button>
         <span class="buy-hint">MP3 · WAV · EXCLUSIVE</span>`;
 }
@@ -84,6 +117,7 @@ function beatDetailInner(beat) {
       </div>
       <figure class="beat-detail__artwork">
         <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" decoding="async" fetchpriority="high">
+        <span class="cover-sold" aria-hidden="true"><span class="sold-seal">SOLD EXCLUSIVE</span></span>
       </figure>
     </div>`;
 }
@@ -146,7 +180,7 @@ function buildGrid() {
     } else {
       card.className = "catalog-tile";
       card.innerHTML = `<a class="catalog-tile__link" href="index.html?beat=${encodeURIComponent(beat.id)}" aria-label="View ${beat.title}">
-        <span class="catalog-tile__art"><img src="${beat.img}" alt="" loading="lazy" decoding="async"></span>
+        <span class="catalog-tile__art"><img src="${beat.img}" alt="" loading="lazy" decoding="async"><span class="cover-sold" aria-hidden="true"><span class="sold-seal">SOLD EXCLUSIVE</span></span></span>
         <span class="catalog-tile__title">${beat.title}</span>
       </a>`;
     }
@@ -163,6 +197,7 @@ function buildGrid() {
     // Land directly on the beat card instead of the top of the page.
     landOnBeatDetail();
   }
+  applySoldState();
 }
 
 function beatFromAnchor(anchor) {
@@ -202,6 +237,7 @@ window.addEventListener("DOMContentLoaded", () => {
     console.error("Catalog init error:", err);
     buildGrid();
   }
+  loadSoldState();
 });
 window.addEventListener("load", () => {
   if (new URLSearchParams(location.search).has("beat")) landOnBeatDetail();
@@ -217,6 +253,9 @@ grid.addEventListener("click", (e) => {
   const buy = e.target.closest(".buy-beat-btn");
   if (buy) {
     e.preventDefault();
+    // A beat sold exclusively is locked: the seal sits over the button and no
+    // license menu can open, however the click lands.
+    if (buy.disabled || buy.classList.contains("buy-beat-btn--sold")) return;
     const beat = beatById(buy.getAttribute("data-beat-id"));
     if (beat && account()) account().openLicenseMenu(buy, beat);
     return;

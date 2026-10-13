@@ -47,6 +47,65 @@ if (pause) pause.addEventListener('click', () => { paused = !paused; syncMotion(
 motion.addEventListener('change', () => { paused = motion.matches; syncMotion(); });
 syncMotion();
 
+/* One shared clock and one render loop drive every flower on the page, so the
+ * flower under the preloader veil and the hero flower are always at exactly the
+ * same angle: the pose the veil lifts off is the pose the hero carries on from —
+ * no jump, no half-turn and no drift between the two. The clock only starts once
+ * every flower on the page has painted its first frame (plus the still → canvas
+ * settle), so no flower is ever caught mid-angle while its canvas replaces the
+ * resting still image it was showing. */
+const REVEAL_DELAY_MS = 450; // hold the resting pose while the still hands off
+const X_AXIS = new THREE.Vector3(1, 0, 0);
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
+const rotatingFlowers = new Set();
+let awaitingFirstPaint = hosts.length;
+let rotationStart = 0; // wall-clock ms; 0 while the flowers are still coming up
+let elapsed = 0; // shared rotation time in seconds — identical for every flower
+let previous = 0;
+let looping = false;
+
+// A flower is built: once the last one has painted, the whole page starts
+// turning together from that instant.
+function stagePainted() {
+  awaitingFirstPaint = Math.max(0, awaitingFirstPaint - 1);
+  if (!awaitingFirstPaint && !rotationStart) rotationStart = performance.now() + REVEAL_DELAY_MS;
+}
+
+function paintFlower(flower, seconds) {
+  flower.spin.setFromAxisAngle(Y_AXIS, seconds * Math.PI * 2 / 24);
+  flower.tumble.setFromAxisAngle(X_AXIS, seconds * Math.PI * 2 / 72);
+  flower.roll.setFromAxisAngle(Z_AXIS, seconds * Math.PI * 2 / 144);
+  flower.object.quaternion.copy(flower.restingPose).multiply(flower.roll).multiply(flower.tumble).multiply(flower.spin);
+  // The light drift starts from the resting pose's own light, and only once the
+  // rotation does, so the still → canvas hand-off changes nothing at all.
+  if (seconds > 0) {
+    flower.rim.position.x = Math.cos(seconds * .3) * 4;
+    flower.rim.position.y = 1 + Math.sin(seconds * .2) * 2;
+  }
+  flower.renderer.render(flower.scene, flower.camera);
+}
+
+function flowerLoop(now) {
+  const dt = Math.min((now - previous) / 1000, 1 / 30); // clamp across tab stalls
+  previous = now;
+  // Pausing, or a hidden tab, freezes the shared clock: every flower holds the
+  // same frozen pose and they all resume together.
+  if (!paused && !document.hidden) {
+    if (rotationStart && now >= rotationStart) elapsed += dt;
+    rotatingFlowers.forEach((flower) => { if (flower.visible) paintFlower(flower, elapsed); });
+  }
+  if (rotatingFlowers.size) requestAnimationFrame(flowerLoop);
+  else looping = false;
+}
+
+function startFlowerLoop() {
+  if (looping || !rotatingFlowers.size) return;
+  looping = true;
+  previous = performance.now();
+  requestAnimationFrame(flowerLoop);
+}
+
 // Shared across instances: the silhouette file is fetched once, never per stage.
 let contoursPromise = null;
 function getContours() {
@@ -60,11 +119,9 @@ function getContours() {
 }
 
 async function init(host) {
-  // The veil's flower is a still product shot, not a spinning showpiece: it is
-  // pinned to the resting display pose (fully open, turned to face the viewer)
-  // for as long as the page-load overlay is up. Only the hero flower keeps its
-  // slow drift, so nothing about the preloader logo ever moves.
-  const preloaderFlower = !!host.closest('#preloader');
+  // Every stage builds the same flower, and they all turn on the same shared
+  // clock: the flower the veil lifts off is the hero flower's own pose, so the
+  // hand-off continues the rotation instead of restarting it.
   const { size, contours } = await getContours();
   const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -183,8 +240,6 @@ async function init(host) {
   let currentProgress = 1;
   object.rotation.set(.15, -.22, -.12);
   const restingPose = object.quaternion.clone();
-  const spin = new THREE.Quaternion(), tumble = new THREE.Quaternion(), roll = new THREE.Quaternion();
-  const xAxis = new THREE.Vector3(1, 0, 0), yAxis = new THREE.Vector3(0, 1, 0), zAxis = new THREE.Vector3(0, 0, 1);
   scene.add(object);
   const key = new THREE.DirectionalLight(0xe4edff, 1.4);
   key.position.set(-3, 4, 5); scene.add(key);
@@ -214,9 +269,11 @@ async function init(host) {
   // Show the WebGL flower over the still image now that it has painted a full,
   // correctly sized frame; the flower is already whole, so this is a silent swap.
   host.classList.add('is-ready');
-  const revealAt = performance.now() + 450;
-  let visible = true, elapsed = 0, previous = 0, lastDraw = 0;
-  new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }).observe(host);
+  const flower = {
+    renderer, scene, camera, object, restingPose, rim, visible: true,
+    spin: new THREE.Quaternion(), tumble: new THREE.Quaternion(), roll: new THREE.Quaternion()
+  };
+  new IntersectionObserver(([entry]) => { flower.visible = entry.isIntersecting; }).observe(host);
   stillRenderers.add(() => renderer.render(scene, camera));
   const controller = {
     setProgress(p) {
@@ -244,43 +301,31 @@ async function init(host) {
   };
   controller.setProgress(1);
   flowerControllers.add(controller);
-  // The veil flower is held completely still: it keeps the resting pose and the
-  // base light, so no spin, tumble or drift is ever visible under the preloader —
-  // only the progress bar moves. The single frame painted above is all it needs;
-  // a render loop here would only redraw that same still, so it is not started.
-  // The hero flower is the only one that keeps its slow drift.
-  if (!preloaderFlower) {
-    renderer.setAnimationLoop(time => {
-      const now = time || performance.now();
-      const dt = Math.min((now - previous) / 1000, 1 / 30);
-      previous = now;
-      if (now < revealAt || paused || !visible || document.hidden) return;
-      elapsed += dt;
-      spin.setFromAxisAngle(yAxis, elapsed * Math.PI * 2 / 24);
-      tumble.setFromAxisAngle(xAxis, elapsed * Math.PI * 2 / 72);
-      roll.setFromAxisAngle(zAxis, elapsed * Math.PI * 2 / 144);
-      object.quaternion.copy(restingPose).multiply(roll).multiply(tumble).multiply(spin);
-      rim.position.x = Math.cos(elapsed * .3) * 4;
-      rim.position.y = 1 + Math.sin(elapsed * .2) * 2;
-      renderer.render(scene, camera);
-    });
-  }
-  instances.set(host, { renderer, controller });
-  // The flower is already whole (every petal visible since the first paint) and
-  // pinned there: there is no build-in to run, so no page can reveal the flower
-  // assembling itself.
+  // Join the shared loop. The preloader's flower turns exactly like the hero's —
+  // same axes, same periods, same clock — so the veil lifts onto the hero flower
+  // already at the angle the veil was showing, and neither flower can ever jitter
+  // against the other. The preloader's is released when the veil goes.
+  rotatingFlowers.add(flower);
+  startFlowerLoop();
+  instances.set(host, { renderer, controller, flower });
+  // Only now does this stage count as painted. The shared rotation clock starts
+  // once the last flower on the page has reached this point, so every canvas
+  // hands off from the resting pose its still image was showing.
+  stagePainted();
+  // The flower is already whole (every petal visible since the first paint): there
+  // is no build-in to run, so no page can reveal the flower assembling itself.
 }
 
 // The preloader's flower exists only to make page load feel deliberate. Once
-// the overlay has faded (preloader.js dispatches this), stop any render loop and
-// hand the WebGL context back so the page keeps just the hero flower.
+// the overlay has faded (preloader.js dispatches this), drop it from the shared
+// loop and hand the WebGL context back so the page keeps just the hero flower.
 document.addEventListener('kyrolll:preloader-done', () => {
   if (window.KYROlll_FLOWER_PROGRESS) window.KYROlll_FLOWER_PROGRESS(1);
   flowerControllers.clear();
   document.querySelectorAll('#preloader .logo-stage').forEach((stage) => {
     const instance = instances.get(stage);
     if (!instance) return;
-    instance.renderer.setAnimationLoop(null);
+    rotatingFlowers.delete(instance.flower);
     try { instance.renderer.dispose(); } catch (error) { /* ignore */ }
     instances.delete(stage);
   });
@@ -295,6 +340,8 @@ if (hosts.length) {
       // Tell the preloader this stage is never coming, so its veil can lift
       // onto the static flower image instead of waiting out the hard cap.
       host.dataset.flower = 'failed';
+      // A stage that never paints must not hold the shared rotation clock back.
+      stagePainted();
     }
   });
   Promise.all(failures);
