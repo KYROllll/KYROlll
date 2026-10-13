@@ -1209,18 +1209,22 @@ button {
   line-height: 1.7;
 }
 
-/* Support contact: a solid black button with clean white text rather than a
+/* Support contact: a solid dark button with clean white text rather than a
    bare hyperlink, so the footer's one call to action reads as a deliberate
-   control against the dark page. Matches the .wallet-btn treatment. */
+   control against the dark page. Echoes the .wallet-btn treatment, but on a
+   slightly lifted surface (#17171a) because the footer ground is already
+   --black, so a same-colour fill would only ever show its border. */
 .footer__support {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-width: 150px;
+  min-height: 38px;
   margin-top: 16px;
   padding: 11px 22px;
-  background: var(--black);
+  background: #17171a;
   color: var(--white);
-  border: 1px solid #444;
+  border: 1px solid #4a4a50;
   border-radius: 4px;
   font-size: 10px;
   font-weight: 800;
@@ -1231,7 +1235,7 @@ button {
   transition: background .15s ease, border-color .15s ease, color .15s ease;
 }
 .footer__support:hover {
-  background: #1b1b1e;
+  background: #242429;
   border-color: var(--white);
 }
 
@@ -3846,14 +3850,11 @@ html.auth-open { overflow: hidden; }
 .preloader__progress-bar {
   position: absolute;
   inset: 0;
-  /* Filled with transform (not width) so the compositor drives it without
-     layout. preloader.js animates this from a rAF loop; there is deliberately
-     no width transition here — one re-started on every tick is what made the
-     bar stutter and jump. */
   transform: scaleX(0);
   transform-origin: left center;
   will-change: transform;
   background: var(--white);
+  transition: transform .25s linear;
 }
 .preloader .preloader__flower {
   width: min(30vw, 216px);
