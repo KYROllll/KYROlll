@@ -232,6 +232,18 @@ To attach a real project:
    `mailer_otp_length`, PATCHes it, and prints the result). The auth page
    renders exactly `otpLength` digits in the code input and the OTP request
    sends `otp_length` so the UI and the emailed code can never drift apart.
+
+   The **look** of the mail is also server-owned: GoTrue renders it from the
+   project's email templates, so the stock "Supabase" copy and its default
+   `{{ .ConfirmationURL }}` magic link have to be replaced in the project, not
+   in the page. `SUPABASE_ACCESS_TOKEN=… node set-auth-email-templates.mjs`
+   PATCHes the branded KYROlll dark templates (storefront ink, `{{ .Token }}`
+   only, no stray link except the invite whose link is the action) plus the
+   matching subjects through the same Management API endpoint. It defaults the
+   support address to `kyrolll00@gmail.com` (`SUPPORT_EMAIL=…` to override),
+   reads the ref from `supabase-config.js`, and only PATCHes fields that differ,
+   so re-running is a no-op. `kyrolll-backend.js` sends no `email_redirect_to`,
+   so a code-only login never mints a magic link in the first place.
 2. **Storage** — create a private bucket `BEATS` for the masters and an
    `avatars` bucket for profile pictures (rename in `supabase-config.js` if you
    differ). Upload each tier's object to the path named in `catalog.js`.

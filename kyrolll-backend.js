@@ -195,6 +195,13 @@
   // user_metadata when the account is first created. `otp_length` asks for the
   // code length the UI shows; the authoritative length is still the project's
   // "Email OTP Length" setting in the Supabase dashboard.
+  //
+  // The email itself is rendered server-side by GoTrue, so its look is owned by
+  // the project's auth config, not by this request: `set-auth-email-templates.mjs`
+  // installs the branded KYROlll dark template and strips the default Supabase
+  // `{{ .ConfirmationURL }}` link so the mail carries only the code. This call
+  // deliberately sends no `email_redirect_to`, so no magic link is ever minted
+  // for a code-only login.
   async function signInWithOtp(fields) {
     const email = String(fields.email || "").trim().toLowerCase();
     const username = String(fields.username || "").trim();
