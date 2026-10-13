@@ -3819,10 +3819,15 @@ html.auth-open { overflow: hidden; }
 }
 .preloader__progress-bar {
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 0%;
+  inset: 0;
+  /* Filled with transform (not width) so the compositor drives it without
+     layout. preloader.js animates this from a rAF loop; there is deliberately
+     no width transition here — one re-started on every tick is what made the
+     bar stutter and jump. */
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
   background: var(--white);
-  transition: width .18s ease-out;
 }
 .preloader .preloader__flower {
   width: min(30vw, 216px);
@@ -3851,6 +3856,10 @@ html.auth-open { overflow: hidden; }
 @keyframes preloader-rise {
   from { opacity: 0; transform: translateY(10px) scale(.985); }
   to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .preloader { transition-duration: .01s; }
+  .preloader__stage { animation: none; }
 }
 
 /* ---------- Live marquee accent ------------------------------------------- */

@@ -7,6 +7,12 @@
  * stranded under the veil even if WebGL fails (the static flower image covers
  * that case). After the fade the veil is removed and the preloader flower's
  * render loop is released via the `kyrolll:preloader-done` event.
+ *
+ * The bar is driven from a single requestAnimationFrame loop that eases a
+ * displayed value toward a moving target, so it fills in one continuous motion
+ * instead of stepping once per timer tick. The matching `.preloader__progress-bar`
+ * carries no CSS width transition on purpose (see style.css): a transition
+ * re-started on every tick is what made the old bar stutter and jump.
  */
 (function () {
   "use strict";
@@ -14,73 +20,112 @@
   const overlay = document.getElementById("preloader");
   if (!overlay) return;
   const bar = document.getElementById("preloader-bar");
-  function setBar(p) { if (bar) bar.style.width = Math.round(Math.max(0, Math.min(100, p * 100))) + "%"; }
+
+  /* The bar is painted with `transform: scaleX()` rather than `width` so the
+   * compositor can move it without layout, and so no transition is needed. */
+  function setBar(p) {
+    if (!bar) return;
+    const v = Math.max(0, Math.min(1, p));
+    bar.style.transform = "scaleX(" + v + ")";
+  }
+  function setFlower(p) {
+    if (typeof window.KYROLLL_FLOWER_PROGRESS === "function") {
+      window.KYROLLL_FLOWER_PROGRESS(p);
+    }
+  }
+
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const MIN_MS = reduceMotion ? 450 : 1150; // deliberate minimum on screen
+  const HARD_CAP_MS = 6000; // never wait past this for a "ready" signal
+  const HOLD_MS = reduceMotion ? 300 : 1000; // stable pause once at 100%
+  const FADE_MS = 600; // keep in step with .preloader opacity transition
+  const CREEP_MAX = 0.9; // where the bar sits while the page is still working
+  const CREEP_MS = reduceMotion ? 500 : 1900; // time to ease out to CREEP_MAX
+  const EASE = 0.12; // per-60fps-frame approach toward the target
+
+  const started = performance.now();
+  let displayed = 0; // what the bar currently shows (0 → 1)
+  let target = 0; // where it is heading
+  let reachedAt = 0; // when it first hit 100%
+  let last = started;
+  let raf = 0;
+  let dismissing = false;
 
   setBar(0);
-  const started = performance.now();
-  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const MIN_MS = reduceMotion ? 450 : 1150;
-  const HARD_CAP_MS = 6000;
-  let done = false;
-  let timer = 0;
-  let progress = 0;
-  const targetProgress = () => {
-    const elapsed = performance.now() - started;
-    if (elapsed >= HARD_CAP_MS) return 1;
-    const t = Math.min(1, (elapsed - MIN_MS) / Math.max(800, HARD_CAP_MS * 0.35));
-    const p = Math.min(0.98, t * 0.92);
-    return p;
-  };
 
   const flowerReady = () => !!overlay.querySelector(".logo-stage.is-ready");
   const pageSettled = () => document.readyState === "complete";
 
-  function finish() {
-    if (done) return;
-    done = true;
-    clearInterval(timer);
+  /* Smooth, monotonic climb toward 90% that never snaps: a cubic ease-out over
+   * CREEP_MS, then a flat hold at CREEP_MAX until the page reports ready. */
+  function creepTarget(elapsed) {
+    const t = Math.min(1, elapsed / CREEP_MS);
+    const eased = 1 - Math.pow(1 - t, 3);
+    return CREEP_MAX * eased;
+  }
+
+  function dismiss() {
+    if (dismissing) return;
+    dismissing = true;
+    cancelAnimationFrame(raf);
+    // Land exactly on 100% before the veil goes, in case the last frame was a
+    // hair short (the loop snaps at 99.9%, but be defensive).
+    displayed = 1;
+    target = 1;
     setBar(1);
-    if (typeof window.KYROLLL_FLOWER_PROGRESS === 'function') window.KYROLLL_FLOWER_PROGRESS(1);
+    setFlower(1);
     overlay.classList.add("is-done"); // fades out via CSS
-    setTimeout(() => {
+
+    let removed = false;
+    const finish = () => {
+      if (removed) return;
+      removed = true;
+      if (overlay.parentNode) overlay.remove();
       document.dispatchEvent(new CustomEvent("kyrolll:preloader-done"));
-      overlay.remove();
-    }, 650);
+    };
+    // transitionend is the happy path; the timeout guarantees the veil leaves
+    // even if the event is missed (element hidden, transition disabled, ...).
+    overlay.addEventListener("transitionend", (event) => {
+      if (event.target === overlay && event.propertyName === "opacity") finish();
+    });
+    setTimeout(finish, FADE_MS + 250);
   }
 
-  function check() {
-    if (done) return;
-    const elapsed = performance.now() - started;
-    if (elapsed < MIN_MS) return;
-    // Drive a smooth bottom-up build for the preloader flower. Progressively
-    // advance toward completion as the page settles, holding near 100% briefly.
-    if (typeof window.KYROLLL_FLOWER_PROGRESS === 'function') {
-      progress = targetProgress();
-      window.KYROLLL_FLOWER_PROGRESS(progress);
-      setBar(progress);
-    }
-    // Hide once the flower has painted its first frame (the scene build is the
-    // last heavy thing the page boots), or once every resource has loaded, and
-    // never wait past the hard cap.
-    if (flowerReady() || pageSettled() || elapsed > HARD_CAP_MS) {
-      if (!done) progress = 1;
-      setBar(1);
-      if (typeof window.KYROLLL_FLOWER_PROGRESS === 'function') window.KYROLLL_FLOWER_PROGRESS(1);
-      if (!done) {
-        done = true;
-        clearInterval(timer);
-        setTimeout(finish, 1200);
+  function frame(now) {
+    if (dismissing) return;
+    const dt = Math.min(now - last, 100); // clamp across tab stalls
+    last = now;
+    const elapsed = now - started;
+
+    const ready = flowerReady() || pageSettled() || elapsed >= HARD_CAP_MS;
+    const goal = ready ? 1 : creepTarget(elapsed);
+    if (goal > target) target = goal; // monotonic: never step backwards
+
+    // Frame-rate independent approach toward the target.
+    const k = 1 - Math.pow(1 - EASE, dt / 16.667);
+    displayed += (target - displayed) * k;
+    if (displayed > 1) displayed = 1;
+    if (displayed >= 0.999) displayed = 1; // snap only the last sub-pixel
+
+    setBar(displayed);
+    setFlower(displayed);
+
+    if (displayed >= 1 && target >= 1) {
+      if (!reachedAt) reachedAt = now;
+      // Hold a stable moment at 100% (respecting the minimum display time)
+      // before reliably starting the fade-out.
+      if (now - reachedAt >= HOLD_MS && elapsed >= MIN_MS) {
+        dismiss();
+        return;
       }
-      return;
     }
+    raf = requestAnimationFrame(frame);
   }
+  raf = requestAnimationFrame(frame);
 
-  const stage = overlay.querySelector(".logo-stage");
-  if (stage && "MutationObserver" in window) {
-    new MutationObserver(check).observe(stage, { attributes: true, attributeFilter: ["class"] });
-  }
-  window.addEventListener("load", check);
-  document.addEventListener("DOMContentLoaded", check);
-  window.addEventListener("pageshow", (event) => { if (event.persisted) check(); });
-  timer = setInterval(check, 160);
+  // Belt and braces: if the render loop is starved (hidden tab, throttled rAF,
+  // a thrown error elsewhere), still dismiss well after the hard cap.
+  setTimeout(() => {
+    if (!dismissing) dismiss();
+  }, HARD_CAP_MS + MIN_MS + HOLD_MS + FADE_MS);
 })();
