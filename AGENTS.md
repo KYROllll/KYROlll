@@ -284,9 +284,21 @@ To attach a real project:
      purchased_at timestamptz not null default now()
    );
    alter table public.licenses enable row level security;
+   drop policy if exists "own licenses" on public.licenses;
    create policy "own licenses" on public.licenses
-     for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+     for all to authenticated
+     using (auth.uid() = user_id) with check (auth.uid() = user_id);
    ```
+
+   The same policy is committed on its own as
+   `migrations/0001_licenses_rls.sql` and can be applied without the dashboard:
+   `SUPABASE_ACCESS_TOKEN=… node set-licenses-policy.mjs` (the Management API's
+   `database/query` endpoint needs a token with the `database_read`/
+   `database_write` scopes). It is idempotent — it drops `"own licenses"` before
+   recreating it — and prints the migration for the SQL editor when no token is
+   set. RLS fails closed *silently*: with RLS on and no matching policy the select
+   returns zero rows and no error, so inserted licenses look missing rather than
+   forbidden — which is exactly what this policy fixes.
 
    If the table is missing the client keeps licenses in `localStorage`, so the
    library still works while you set things up.
