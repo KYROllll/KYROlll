@@ -64,7 +64,7 @@ mkdir -p /tmp/rebuild && cd /tmp/rebuild && cp /app/brand-logo.js . \
 ```
 
 Run on the **unmodified** `brand-logo.js` that command reproduces the committed bundle
-byte-for-byte (`cmp` silent, 572128 bytes), so the toolchain is exactly reproducible and a
+byte-for-byte (`cmp` silent, 574295 bytes), so the toolchain is exactly reproducible and a
 source edit can be shipped with confidence. Bump the `?v=N` query on the matching
 `<script>` tag in `index.html` afterwards — and remember `brand-logo.js` without a rebuild
 changes nothing. `npm run build:brand` is still the only thing that regenerates the
@@ -85,15 +85,63 @@ enough that the change reads as the material settling, not one image replacing a
 1.6s-delayed loop cannot pop a halo on. Keep those details in step if the logo changes.
 
 The flower is never shown assembling itself: every petal is visible from the renderer's
-very first frame, so the still → canvas hand-off swaps two identical resting flowers and
-only the preloader's progress bar moves. `brand-logo.js` still exposes a proportional
-`window.KYROlll_FLOWER_PROGRESS(p)` reveal for callers that want it, but nothing drives it
-during a load. Under the veil the flower is frozen outright: `init` leaves the
-preloader's `.logo-stage` without a render loop (so no spin/tumble/light drift), the
-shared `logoBreathe` glow and the still → canvas cross-fade are cancelled
-(`.preloader .logo-stage { animation: none }`, `.preloader .logo-fallback { transition: none }`),
-and `.preloader__stage` no longer rises. The flower, the wordmark and the copy all hold
-one still, stable pose while only the bar fills.
+very first frame, so the still → canvas hand-off swaps two resting flowers.
+`brand-logo.js` still exposes a proportional `window.KYROlll_FLOWER_PROGRESS(p)` reveal for
+callers that want it, but nothing drives it during a load.
+
+**Every flower on the page turns on one shared clock.** All stages — the preloader's flower and
+the hero's — are painted by a single rAF loop (`flowerLoop`) from one `elapsed` value, so they are
+always at exactly the same angle: the pose the veil lifts off is the pose the hero carries on
+with, with no jump, no half-turn and no drift between two independent render loops. The clock only
+starts once every stage has reported its first paint (`stagePainted()`, also called when a stage
+fails so one dead flower can never hold it back) plus a 450 ms hold; before that `elapsed` is 0,
+which is exactly the pose the still image shows. `paused` / `document.hidden` freeze the shared
+clock for every flower at once, and the drifting rim light only starts with the rotation, so the
+hand-off pixels do not move either. On the auth page the preloader's stage is deliberately not
+mounted at all (the filter at the top of `brand-logo.js`), so `hosts` there is just the login
+flower. The veil's `logoBreathe` glow stays cancelled (`.preloader .logo-stage { animation: none }`)
+and the still → canvas cross-fade stays cancelled for the veil flower
+(`.preloader .logo-stage canvas, .preloader .logo-fallback { transition: none }`) — the canvas
+joins at the resting pose, so that swap is invisible.
+
+The opening of that turn is eased. `paintFlower` reads its three angles through `easedRotation`
+instead of straight off the clock, so the flower leaves the resting pose from a standstill and
+eases up to full speed (rate `1 - e^(-t/1.2s)`, `START_RAMP_S`) — at full speed out of a still
+frame the flower lurched. `SPIN_SIGN = 1` sends the flower's near side to the right, the
+left-to-right direction the storefront's type reads in; the preloader's flower and the hero's
+share this one clock, so both open the same way. The resting pose is already angled a little to
+the left of face-on (`object.rotation.y = -.22`), so the opening sweeps that lean back through
+face-on (about 2s in) before turning past it; the flower therefore reads as near face-on for
+the first seconds and reaches edge-on around 8s. The pose at `elapsed` 0 is still exactly the
+resting pose, so this leaves the still → canvas hand-off and the captured
+`kyrolll-flower-rest.png` valid. Reversing `SPIN_SIGN` is the whole of the direction: if it is
+ever flipped back, re-check those two properties, since the mirrored turn reaches edge-on
+sooner.
+
+The preloader only lets its bar reach 100% once `complete()` holds: the page has finished loading
+AND the hero flower has reported ready and built (a failed or timed-out flower is written off, and
+`HARD_CAP_MS` remains the last-resort escape). Keep that in step with `.preloader__progress-bar`
+carrying no CSS transition — the bar is eased from the same `preloader.js` rAF loop.
+
+## Exclusive sales lock the beat ("SOLD EXCLUSIVE")
+
+`rememberExclusive()` inside `kyrolll-backend.js`'s `addLicense()` is what marks a beat taken: the
+first time a purchase is recorded on the `exclusive` tier the beat id is added to the
+`kyrolll_exclusive_sold` `localStorage` list. `licenses.soldExclusive()` returns that list plus
+whatever `GET /rest/v1/licenses?select=beat_id&tier_id=eq.exclusive` yields — best-effort, so with
+the documented owner-only RLS it only ever sees the signed-in buyer's own rows, and a public SELECT
+policy on `beat_id` is what would make the lock site-wide. `script.js` calls it once per page load
+(`loadSoldState()`) and marks every surface: `catalog-tile--sold` on the tile, `beat-detail--sold`
+on the beat page, `disabled` + `buy-beat-btn--sold` on the BUY button (the ghosted label is covered
+by the seal and the click handler refuses a sold button) and the angled `.sold-seal` over the cover
+art. The seal always sits in the markup and is hidden with `visibility` — never `opacity` alone,
+which would leak the words into `innerText` and the accessibility tree off a sold beat.
+
+To eyeball it without a real exclusive checkout, seed the local record and reload the storefront:
+
+```js
+localStorage.setItem('kyrolll_exclusive_sold', '["flesh"]'); // then clear it to undo
+```
 
 To re-capture the frame after the flower changes, serve a throwaway page from the repo
 root that mounts a wide `.logo-stage` plus a `.motion-toggle` button, loads

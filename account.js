@@ -944,6 +944,11 @@
     licenseFor,
     getCurrentUser,
     recordPurchase,
+    // Beats that have been sold on an exclusive license (BUY locks + cover seal).
+    soldExclusive: () => {
+      const b = backend();
+      return b && b.licenses.soldExclusive ? b.licenses.soldExclusive() : Promise.resolve([]);
+    },
     buildLicenseText,
     getPendingPurchase,
     setPendingPurchase,

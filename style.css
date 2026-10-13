@@ -3948,11 +3948,11 @@ html.preloader-armed { overflow-y: hidden; }
   backface-visibility: hidden;
   transform: translateZ(0);
 }
-/* The veil flower is a finished object, not a loading meter: hold its resting
-   pose and its own shadow, and cancel the shared `logoBreathe` glow and the
-   still → canvas cross-fade so nothing about the logo moves or changes while the
-   bar fills beneath it. brand-logo.js pins the WebGL flower itself, so it never
-   spins under the veil either. */
+/* The veil flower turns on brand-logo.js's shared rotation clock — the same
+   angle at the same instant as the hero flower it hands over to — while the
+   shared `logoBreathe` glow stays cancelled. The still → canvas hand-off is
+   instant on purpose: the canvas joins at the resting pose, so the swap is
+   invisible and only the rotation (plus the bar) moves. */
 .preloader .logo-stage { animation: none; }
 .preloader .logo-stage canvas,
 .preloader .logo-fallback { transition: none; }
@@ -4172,3 +4172,76 @@ html.logout-open { overflow: hidden; }
   .kyrolll-toast { transition: none; }
   .logout-hold.is-holding .logout-hold__fill { transition: none; }
 }
+
+/* ---------- SOLD EXCLUSIVE lock & seal ------------------------------------- */
+/* An exclusive sale takes the beat off the market: the BUY button locks and the
+   cover art carries the seal, on the catalog tile and on the beat page. The seal
+   is always in the markup but kept hidden with `visibility`, so off a sold beat
+   it is neither seen nor read out, and the button's own label is untouched. */
+.sold-seal {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 15px;
+  border: 1px solid rgba(243, 243, 241, .55);
+  background: linear-gradient(180deg, #1d1d21 0%, #0a0a0c 100%);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .62), inset 0 1px 0 rgba(255, 255, 255, .09);
+  color: var(--white);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .3em;
+  text-indent: .3em;
+  white-space: nowrap;
+}
+
+/* The accent diamond: the one spot of brand colour on the seal. */
+.sold-seal::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  box-shadow: 0 0 10px rgba(141, 102, 85, .95);
+  transform: rotate(45deg);
+}
+
+/* Over the BUY button: the label ghosts out and the seal takes the button. */
+.buy-beat-btn__sold {
+  position: absolute;
+  inset: 0;
+  justify-content: center;
+  border: 0;
+  box-shadow: none;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.buy-beat-btn--sold {
+  background: #101012;
+  border-color: var(--accent);
+  cursor: not-allowed;
+}
+
+.buy-beat-btn--sold:hover { background: #101012; color: var(--gray); }
+.buy-beat-btn--sold .buy-beat-btn__label { opacity: .16; }
+.buy-beat-btn--sold .buy-beat-btn__caret { display: none; }
+.buy-beat-btn--sold .buy-beat-btn__sold { opacity: 1; visibility: visible; }
+
+/* Over the cover art: a soft scrim keeps the seal legible on any artwork, and
+   the seal sits at an angle like a stamped certificate. */
+.cover-sold {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(72% 72% at 50% 50%, rgba(8, 8, 9, .12), rgba(8, 8, 9, .62));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.cover-sold .sold-seal { transform: rotate(-7deg); }
+.catalog-tile__art { position: relative; }
+.catalog-tile__art .sold-seal { font-size: 9px; padding: 8px 12px; letter-spacing: .2em; text-indent: .2em; }
+.catalog-tile--sold .cover-sold,
+.beat-detail--sold .cover-sold { opacity: 1; visibility: visible; }

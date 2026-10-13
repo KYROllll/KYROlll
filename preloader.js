@@ -1,17 +1,18 @@
 /* KYROlll — page-load preloader.
  *
  * The fixed veil covers the very first paint and shows the 3D flower (mounted
- * by brand-logo.min.js into its own .logo-stage) already fully open in its
- * final resting pose, facing the viewer. The flower is pinned there by
- * brand-logo.js: it never builds itself, spins, breathes or drifts under the
- * veil, and the "KYROlll" wordmark holds still too — only the white progress bar
- * moves beneath them until dismissal. The veil lifts once the page's own flower
- * reports that it is **ready** (its first frame has painted behind the still
- * image), **built** (every petal is on screen — instantaneous for the display
- * flower) and a settle beat has passed. The veil is opaque and the page behind
- * it is frozen (`html.preloader-armed`), so the hero can never pop in half-drawn.
- * After the fade the veil is removed and the preloader flower's resources are
- * released via the `kyrolll:preloader-done` event.
+ * by brand-logo.min.js into its own .logo-stage) already fully open and turning
+ * on the same shared clock as the hero flower, so the rotation the veil shows is
+ * the rotation the hero carries on with after the hand-off. The "KYROlll"
+ * wordmark holds still: beneath it only the white progress bar moves.
+ *
+ * The veil lifts at a true 100%: the bar only reaches the end once the page has
+ * finished loading, the flower has painted its first frame behind the still image
+ * and reported that it is **built** (every petal on screen — instantaneous for
+ * the display flower), and a settle beat has passed. The veil is opaque and the
+ * page behind it is frozen (`html.preloader-armed`), so the hero can never pop in
+ * half-drawn. After the fade the veil is removed and the preloader flower's
+ * resources are released via the `kyrolll:preloader-done` event.
  *
  * A minimum display time keeps the boot feeling deliberate rather than flickery;
  * a hard cap guarantees the site is never stranded under the veil even if WebGL
@@ -92,6 +93,14 @@
    * escape hatch — without it a WebGL-less browser would hold the veil forever. */
   const workReady = () => fastPage ? pageSettled() : (!heroStage ? pageSettled() : stageReady() || timedOut());
   const fullyBuilt = () => fastPage || !heroStage || stageBuilt() || timedOut();
+  const pageLoaded = () => document.readyState === "complete" || timedOut();
+
+  /* The bar is only allowed to reach 100% when nothing behind the veil is still
+   * half-drawn: the page has finished loading AND the flower has painted and
+   * reported itself built (a failed or timed-out flower is written off so the
+   * veil can never be stranded). Until then the bar holds at CREEP_MAX, so the
+   * last stretch of the fill is the page genuinely being ready. */
+  const complete = () => fastPage ? pageSettled() : (pageLoaded() && workReady() && fullyBuilt());
 
   /* Smooth, monotonic climb toward 90% that never snaps: a cubic ease-out over
    * CREEP_MS, then a flat hold at CREEP_MAX until the page reports ready. */
@@ -134,12 +143,12 @@
     last = now;
     const elapsed = now - started;
 
-    // The bar is allowed to finish exactly when the page's flower is ready. No
-    // early `pageSettled` shortcut: document "complete" routinely fires before
-    // the 3D flower has even started drawing, and lifting the veil then is the
-    // pop-in artifact. The flower itself is never driven from here — it holds its
-    // finished pose, so only this bar moves.
-    const ready = workReady();
+    // The bar is allowed to finish exactly when the whole page is ready: loaded,
+    // flower painted and built. No early shortcut — document "complete"
+    // routinely fires before the 3D flower has even started drawing, and lifting
+    // the veil then is the pop-in artifact. The flower is never driven from here;
+    // it turns on brand-logo.js's own shared clock, so only this bar is affected.
+    const ready = complete();
     const goal = ready ? 1 : creepTarget(elapsed);
     if (goal > target) target = goal; // monotonic: never step backwards
     if (ready && !readyAt) readyAt = now;
@@ -152,7 +161,7 @@
 
     setBar(displayed);
 
-    if (displayed >= 1 && target >= 1 && fullyBuilt() && readyAt && now - readyAt >= SETTLE_MS) {
+    if (displayed >= 1 && target >= 1 && complete() && readyAt && now - readyAt >= SETTLE_MS) {
       if (!reachedAt) reachedAt = now;
       // Hold a stable moment at 100% (respecting the minimum display time)
       // before reliably starting the fade-out.
