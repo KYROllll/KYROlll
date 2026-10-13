@@ -108,6 +108,45 @@ async function init(host) {
   // it is built. Each await hands the browser a frame to do that in, and the
   // crossfade only starts once the whole flower has painted.
   await nextFrame();
+  // Build the flower from the traced contours: each positive contour becomes an
+  // extruded, beveled petal mesh; negative contours (the two center cutouts)
+  // become holes. The contour JSON is fetched once and shared by every stage.
+  const object = new THREE.Group();
+  const point = ([x, y]) => new THREE.Vector2((x / size - .5) * 3, (.5 - y / size) * 3);
+  function contains(points, p) {
+    let inside = false;
+    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+      const a = points[i], b = points[j];
+      if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside;
+    }
+    return inside;
+  }
+  const material = new THREE.MeshPhysicalMaterial({ color: 0xf4f4f2, metalness: .12, roughness: .52, clearcoat: .35, clearcoatRoughness: .45, envMapIntensity: .55 });
+  for (const contour of contours.filter(c => c.area > 0)) {
+    const shape = new THREE.Shape(contour.points.map(point));
+    for (const hole of contours.filter(c => c.area < 0 && contains(contour.points, c.points[0]))) shape.holes.push(new THREE.Path(hole.points.map(point)));
+    // Inset the bevel: its widest edge stays on the imported silhouette.
+    const raw = new THREE.ExtrudeGeometry(shape, { depth: .13, bevelEnabled: true, bevelSegments: softwareRasteriser ? 2 : 5, steps: 1, bevelSize: .009, bevelOffset: -.009, bevelThickness: .024, curveSegments: 12 });
+    // Weld the traced segments so the bevel reads as polished metal rather
+    // than hundreds of disconnected, flat-shaded pixel-edge facets.
+    raw.deleteAttribute('normal'); raw.deleteAttribute('uv');
+    const geometry = mergeVertices(raw, .0001);
+    raw.dispose();
+    geometry.translate(0, 0, -.065);
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    const center = geometry.boundingBox.getCenter(new THREE.Vector3());
+    const positions = geometry.getAttribute('position'), normals = geometry.getAttribute('normal');
+    // A subtle convex normal field mimics the broad face of stamped silver,
+    // keeping every source outline and cutout in its original position.
+    for (let i = 0; i < normals.count; i++) {
+      if (Math.abs(positions.getZ(i)) < .0889) continue;
+      const n = new THREE.Vector3((positions.getX(i) - center.x) * .85, (positions.getY(i) - center.y) * .85, Math.sign(positions.getZ(i))).normalize();
+      normals.setXYZ(i, n.x, n.y, n.z);
+    }
+    object.add(new THREE.Mesh(geometry, material));
+    await nextFrame();
+  }
   // Track meshes for bottom-up reveal. Group by vertical position (bottom to top).
   const petalMeshes = [];
   for (const mesh of object.children) {

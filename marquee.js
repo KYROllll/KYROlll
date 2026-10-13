@@ -1,9 +1,12 @@
 /* KYROlll — live marquee ticker.
  *
- * Renders the white announcement strip under the hero from two sources:
- *   1. Every catalog beat (newest first) is turned into a "NEW BEAT DROP — …"
+ * Renders the white announcement strip under the hero from live sources:
+ *   1. Every catalog beat (newest first) is turned into a "NEW DROP — …"
  *      headline automatically — add a beat to catalog.js and it appears here.
- *   2. The hand-written updates in marquee-items.js (window.KYROLLL_MARQUEE).
+ *   2. Studio intelligence derived from the same catalog: how many releases are
+ *      live and which one is freshest out the workshop, so the feed stays
+ *      accurate with no manual editing.
+ *   3. The hand-written updates in marquee-items.js (window.KYROLLL_MARQUEE).
  *
  * The strip keeps its seamless double-copy scroll. Every CYCLE_MS it quietly
  * fades, cycles the headline order and re-renders, so the feed reads as a
@@ -26,10 +29,24 @@
   function headlineItems() {
     const catalog = window.KYROLLL_CATALOG || [];
     const drops = catalog.slice().reverse().map((beat) =>
-      "NEW BEAT DROP — " + beat.title + " — " + beat.bpm + " BPM // " + beat.key
+      "NEW DROP — " + beat.title + " — " + beat.bpm + " BPM // " + beat.key + " — IN THE CRATE"
     );
+    // Studio intelligence, computed from the catalog so the ticker never drifts
+    // from what the shop actually holds: the live release count plus the single
+    // freshest beat, worded like a studio note rather than a stock counter.
+    const studio = [];
+    if (catalog.length) {
+      studio.push(
+        "STUDIO UPDATE — " + catalog.length + (catalog.length === 1 ? " RELEASE LIVE" : " RELEASES LIVE") +
+        " — MASTERS & LEASES READY"
+      );
+      const newest = catalog[catalog.length - 1];
+      if (newest) {
+        studio.push("FRESHEST OUT THE STUDIO — " + newest.title + " — " + newest.bpm + " BPM // " + newest.key);
+      }
+    }
     const news = (window.KYROLLL_MARQUEE || []).filter((item) => item && item.trim());
-    return drops.concat(news);
+    return drops.concat(studio, news);
   }
 
   function restartAnimation() {

@@ -88,8 +88,11 @@
   let activeMenu = null;
 
   function openLicenseMenu(anchor, beat) {
+    if (!anchor || !beat) { closeLicenseMenu(); return; }
+    // A second click on the same BUY toggles the dropdown shut instead of
+    // re-opening it, so the button never appears to need a double click.
+    if (activeMenu && activeMenu.anchor === anchor) { closeLicenseMenu(); return; }
     closeLicenseMenu();
-    if (!anchor || !beat) return;
     const menu = document.createElement("div");
     menu.className = "license-menu";
     menu.setAttribute("role", "menu");
@@ -111,7 +114,6 @@
     document.body.appendChild(menu);
     activeMenu = { el: menu, anchor };
     anchor.setAttribute("aria-expanded", "true");
-    positionLicenseMenu();
 
     menu.addEventListener("click", (event) => {
       const tier = event.target.closest("[data-license-id]");
@@ -121,10 +123,56 @@
       if (license) beginPurchase(beat, license);
     });
 
-    window.addEventListener("scroll", closeLicenseMenu, true);
-    window.addEventListener("resize", closeLicenseMenu, true);
-    document.addEventListener("keydown", handleMenuKey);
-    setTimeout(() => document.addEventListener("click", handleMenuOutside, true), 0);
+    const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const rect = anchor.getBoundingClientRect();
+    const offscreen = rect.top < 12 || rect.bottom > window.innerHeight - 12;
+
+    // Position and reveal only once the BUY button is guaranteed on screen.
+    // Scrolling first — and arming the close-on-scroll listener only afterwards
+    // — is what removes the old bug where the programmatic scroll shut the menu
+    // the instant it opened (the reason BUY sometimes needed several clicks).
+    const reveal = () => {
+      if (!activeMenu || activeMenu.el !== menu) return;
+      positionLicenseMenu();
+      // Next frame so the menu transitions up from its hidden start state.
+      requestAnimationFrame(() => {
+        if (activeMenu && activeMenu.el === menu) menu.classList.add("is-open");
+      });
+      window.addEventListener("scroll", closeLicenseMenu, true);
+      window.addEventListener("resize", closeLicenseMenu, true);
+      document.addEventListener("keydown", handleMenuKey);
+      setTimeout(() => document.addEventListener("click", handleMenuOutside, true), 0);
+    };
+
+    if (offscreen && !reduceMotion) {
+      anchor.scrollIntoView({ block: "center", behavior: "smooth" });
+      waitForScrollSettle(reveal);
+    } else {
+      if (offscreen) anchor.scrollIntoView({ block: "center", behavior: "auto" });
+      requestAnimationFrame(reveal);
+    }
+  }
+
+  // Resolve when the page stops moving so the menu locks onto the button's
+  // final position. A debounced scroll plus a hard ceiling guards against a
+  // browser that never reports a settle, and against a page that cannot scroll
+  // (where no scroll event would ever fire).
+  function waitForScrollSettle(done) {
+    let finished = false;
+    let settle = 0;
+    let ceiling = 0;
+    function finish() {
+      if (finished) return;
+      finished = true;
+      window.removeEventListener("scroll", onScroll, true);
+      clearTimeout(settle);
+      clearTimeout(ceiling);
+      done();
+    }
+    const onScroll = () => { clearTimeout(settle); settle = setTimeout(finish, 100); };
+    window.addEventListener("scroll", onScroll, true);
+    settle = setTimeout(finish, 120);
+    ceiling = setTimeout(finish, 900);
   }
 
   // Always opens downward: pinned just under the button, and if the viewport is
@@ -680,16 +728,143 @@
     if (libBtn) libBtn.addEventListener("click", () => { window.location.href = "library.html"; });
   }
 
+  /* ------------------------------------------------------ secure logout UI */
+
+  // Logging out deliberately takes a sustained press: the red button only fires
+  // after LOGOUT_HOLD_MS of continuous holding, and any release, drag-away or
+  // key-up cancels it. That is the guard against an accidental tap ending the
+  // session, and it works from the header, the profile page and the library.
+  const LOGOUT_HOLD_MS = 1400;
+  let logoutEls = null;
+  let holdTimer = 0;
+  let holdActive = false;
+  let loggingOut = false;
+  let toastTimer = 0;
+
+  function buildLogoutModal() {
+    const modal = document.createElement("div");
+    modal.className = "logout-modal";
+    modal.hidden = true;
+    modal.innerHTML =
+      '<div class="logout-modal__backdrop" data-logout-dismiss></div>' +
+      '<div class="logout-modal__card" role="dialog" aria-modal="true" aria-labelledby="logout-title">' +
+        '<span class="logout-modal__kicker">SECURE SIGN-OUT</span>' +
+        '<h2 class="logout-modal__title" id="logout-title">LOG OUT OF KYROlll?</h2>' +
+        '<p class="logout-modal__copy">Your library stays saved to your account. Press and hold the red button to confirm — the hold stops accidental sign-outs.</p>' +
+        '<div class="logout-modal__actions">' +
+          '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-logout-dismiss>GO BACK</button>' +
+          '<button type="button" class="logout-hold" data-logout-hold aria-describedby="logout-hold-hint">' +
+            '<span class="logout-hold__fill" aria-hidden="true"></span>' +
+            '<span class="logout-hold__label">HOLD TO LOG OUT</span>' +
+          '</button>' +
+        '</div>' +
+        '<p class="logout-modal__hint" id="logout-hold-hint">Keep holding for a moment to sign out.</p>' +
+      "</div>";
+    document.body.appendChild(modal);
+
+    const hold = modal.querySelector("[data-logout-hold]");
+    hold.addEventListener("pointerdown", (event) => {
+      if (event.cancelable) event.preventDefault();
+      beginHold();
+    });
+    hold.addEventListener("pointerup", cancelHold);
+    hold.addEventListener("pointercancel", cancelHold);
+    hold.addEventListener("pointerleave", cancelHold);
+    hold.addEventListener("contextmenu", (event) => event.preventDefault());
+    hold.addEventListener("keydown", (event) => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      event.preventDefault();
+      if (!event.repeat) beginHold();
+    });
+    hold.addEventListener("keyup", (event) => {
+      if (event.key !== " " && event.key !== "Enter") return;
+      event.preventDefault();
+      cancelHold();
+    });
+    modal.querySelectorAll("[data-logout-dismiss]").forEach((el) =>
+      el.addEventListener("click", closeLogoutModal)
+    );
+    modal.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeLogoutModal();
+    });
+    return { modal, hold };
+  }
+
+  function openLogoutModal() {
+    if (!logoutEls) logoutEls = buildLogoutModal();
+    loggingOut = false;
+    holdActive = false;
+    logoutEls.hold.classList.remove("is-holding", "is-complete");
+    logoutEls.modal.hidden = false;
+    document.documentElement.classList.add("logout-open");
+    requestAnimationFrame(() => logoutEls.modal.classList.add("is-visible"));
+    const back = logoutEls.modal.querySelector("[data-logout-dismiss]");
+    setTimeout(() => { if (back) { try { back.focus(); } catch (err) { /* ignore */ } } }, 40);
+  }
+
+  function closeLogoutModal() {
+    cancelHold();
+    if (!logoutEls) return;
+    const modal = logoutEls.modal;
+    modal.classList.remove("is-visible");
+    document.documentElement.classList.remove("logout-open");
+    setTimeout(() => { if (!modal.classList.contains("is-visible")) modal.hidden = true; }, 260);
+  }
+
+  function beginHold() {
+    if (holdActive || loggingOut || !logoutEls) return;
+    holdActive = true;
+    const hold = logoutEls.hold;
+    hold.classList.add("is-holding");
+    hold.style.setProperty("--hold-ms", LOGOUT_HOLD_MS + "ms");
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(completeHold, LOGOUT_HOLD_MS);
+  }
+
+  function cancelHold() {
+    clearTimeout(holdTimer);
+    if (!holdActive || !logoutEls) { holdActive = false; return; }
+    holdActive = false;
+    logoutEls.hold.classList.remove("is-holding");
+  }
+
+  async function completeHold() {
+    if (loggingOut || !logoutEls) return;
+    clearTimeout(holdTimer);
+    holdActive = false;
+    loggingOut = true;
+    logoutEls.hold.classList.add("is-complete");
+    const b = backend();
+    try { if (b) await b.auth.signOut(); } catch (err) { /* clear locally regardless */ }
+    closeLogoutModal();
+    showToast("LOGGED OUT — SEE YOU SOON");
+  }
+
+  function showToast(message) {
+    let toast = document.querySelector(".kyrolll-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.className = "kyrolll-toast";
+      toast.setAttribute("role", "status");
+      toast.setAttribute("aria-live", "polite");
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    void toast.offsetWidth; // replay the entrance even on a repeated toast
+    toast.classList.add("is-visible");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 2600);
+  }
+
   /* ------------------------------------------------------------------- boot */
 
   document.addEventListener("click", (event) => {
     const action = event.target.closest("[data-auth-action]");
     if (!action) return;
     const name = action.getAttribute("data-auth-action");
-    const b = backend();
     if (name === "logout") {
       event.preventDefault();
-      if (b) b.auth.signOut();
+      openLogoutModal();
     } else if (name === "signup") {
       event.preventDefault();
       window.location.href = "auth.html?mode=signup";
@@ -733,6 +908,9 @@
     openLicenseMenu,
     closeLicenseMenu,
     renderHeaderAuth,
+    openLogoutModal,
+    closeLogoutModal,
+    showToast,
     openAuthModal: (options) => {
       const mode = options && options.mode === "signup" ? "signup" : "login";
       window.location.href = "auth.html?mode=" + mode;

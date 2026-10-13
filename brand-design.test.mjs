@@ -40,7 +40,9 @@ try {
   browser = await chromium.launch({ headless: true });
   const desktop = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await desktop.goto(url);
-  await desktop.locator('.logo-stage.is-ready').waitFor();
+  // The preloader's flower and the hero flower can become ready in the same
+  // frame (the veil is removed a moment later), so wait on the hero stage.
+  await desktop.locator('.brand-logo-container .logo-stage.is-ready').waitFor();
   await noOverflow(desktop);
   assert.equal(await desktop.locator('#grid .catalog-tile').count(), 1);
   assert.match(await desktop.locator('#card-flesh').innerText(), /FLESH/i);

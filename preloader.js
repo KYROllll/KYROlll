@@ -37,8 +37,8 @@
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const MIN_MS = reduceMotion ? 450 : 1150; // deliberate minimum on screen
   const HARD_CAP_MS = 6000; // never wait past this for a "ready" signal
-  const HOLD_MS = reduceMotion ? 300 : 1000; // stable pause once at 100%
-  const FADE_MS = 600; // keep in step with .preloader opacity transition
+  const HOLD_MS = reduceMotion ? 200 : 700; // stable pause once at 100%
+  const FADE_MS = 550; // keep in step with .preloader opacity transition
   const CREEP_MAX = 0.9; // where the bar sits while the page is still working
   const CREEP_MS = reduceMotion ? 500 : 1900; // time to ease out to CREEP_MAX
   const EASE = 0.12; // per-60fps-frame approach toward the target

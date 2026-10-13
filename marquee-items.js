@@ -1,10 +1,10 @@
 /* KYROlll — marquee ticker content.
  *
- * Every headline below scrolls across the white strip under the hero. To post a
- * new update, drop a string into KYROLLL_MARQUEE and save — nothing else to do.
- * Order below is the order they run; the newest catalog drop is always prepended
- * automatically (see marquee.js), so you usually never need to touch the "NEW
- * BEAT DROP" lines — they are generated from catalog.js at runtime.
+ * Every headline below scrolls across the white strip under the hero, alongside
+ * the live "NEW DROP" lines and the studio counts that marquee.js derives from
+ * the catalog at runtime — so the ticker always reflects what is actually in
+ * the shop without anyone editing it. To post a new update, drop a string into
+ * KYROLLL_MARQUEE and save; nothing else to do.
  *
  * Tips:
  *  - Keep headlines short; the strip is one long continuous scroll.
@@ -12,9 +12,9 @@
  *  - Comment a line out (//) to retire an update without deleting it.
  */
 window.KYROLLL_MARQUEE = [
-  "KYROlll — ORIGINAL SOUND — BEATS & BEATSTARS EXCLUSIVES",
-  "[FREE] DON TOLIVER TYPE BEAT - FLESH — 130 BPM // Am — PURCHASE ON BEATSTARS",
+  "KYROlll — ORIGINAL SOUND — BEATS, LEASES & STUDIO SESSIONS",
   "STUDIO UPDATE — NEW TONES IN THE WORKSHOP — MASTERING FRESH OUT OF THE OVEN",
   "NEWS — EXCLUSIVE LEASES INCLUDE TRACKED STEMS ON REQUEST",
+  "DROP ALERT — FOLLOW THE CRATE — EVERY NEW BEAT LANDS HERE FIRST",
   "KYROlll — EVERY DROP IS ORIGINAL PRODUCTION"
 ];

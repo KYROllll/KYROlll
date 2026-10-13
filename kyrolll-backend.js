@@ -134,6 +134,16 @@
     return data;
   }
 
+  // A refresh only ends the session when the server definitively rejects the
+  // refresh token (revoked, expired, wrong project). A dropped connection, a
+  // timeout, a 5xx or an offline moment must never log the visitor out — that
+  // is what made navigation feel like it randomly signed people out. On those
+  // transient failures we keep the stored session untouched and let the next
+  // navigation (or the focus/online wake below) try again.
+  function isDefinitiveAuthFailure(err) {
+    return !!(err && (err.status === 400 || err.status === 401 || err.status === 403));
+  }
+
   async function refreshSession() {
     if (!CONFIGURED || !session || !session.refreshToken) return null;
     try {
@@ -149,21 +159,27 @@
       emitAuthChange();
       return session;
     } catch (err) {
-      saveSession(null);
-      emitAuthChange();
+      if (isDefinitiveAuthFailure(err)) {
+        saveSession(null);
+        emitAuthChange();
+      }
       return null;
     }
   }
 
   // Resolve the active session, refreshing an expired access token when needed.
+  // Transient failures keep the user signed in: `currentUser()` still answers
+  // from the stored session, so the store stays stable across page loads.
   async function ready() {
     if (!CONFIGURED) {
       if (!currentUser()) return null;
       return currentUser();
     }
     if (!session) return null;
-    if (session.expiresAt && session.expiresAt - 30000 < Date.now()) {
-      await refreshSession();
+    if (session.expiresAt && session.expiresAt - 60000 < Date.now()) {
+      const refreshed = await refreshSession();
+      // One quiet retry smooths over a momentary blip before the user sees it.
+      if (!refreshed && session && session.refreshToken) await refreshSession();
     }
     return currentUser();
   }
@@ -490,6 +506,17 @@
     licenses: { list: listLicenses, add: addLicense },
     storage: { signedUrl, download, uploadAvatar, publicUrl, triggerDownload }
   };
+
+  // Keep the session warm: refresh when the tab wakes, regains focus or the
+  // network returns, and never let a transient failure drop the visitor. This
+  // is what keeps a signed-in visitor signed in as they move between pages.
+  function wakeSession() {
+    if (!CONFIGURED || document.hidden) return;
+    ready().catch(() => {});
+  }
+  document.addEventListener("visibilitychange", wakeSession);
+  window.addEventListener("focus", wakeSession);
+  window.addEventListener("online", wakeSession);
 
   // Kick off a background token refresh so headers render with a live session.
   if (CONFIGURED) ready().catch(() => {});
