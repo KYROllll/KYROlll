@@ -345,7 +345,17 @@ To attach a real project:
    `user_id` write body are read back out of the *token being sent*
    (`jwtSubject()`) rather than trusted from the cached session user, so the
    value compared against `auth.uid()` is the same claim PostgREST will use —
-   a session refresh cannot leave the filter pointing at a superseded id.
+   a session refresh cannot leave the filter pointing at a superseded id. No id
+   is ever hardcoded: the only `user_id` in the query comes from that claim (the
+   cached id is used solely as the fallback for an opaque, non-JWT token), and
+   nothing in `account.js`/`library.html` builds a query — `account.js:678` only
+   *prints* `diagnose().userId` in the failure banner. Before the read,
+   `listLicenses()` awaits `ready()` and `alignSessionUser()`, which re-reads
+   `/auth/v1/user` (or adopts the token's `sub`) when the cached session user
+   disagrees with the token, so the filter, the `kyrolll_library_<uid>` cache key
+   and the banner all follow one identity. A stale `kyrolll_sb_session` left in
+   one browser is therefore the only way an old uuid could ever appear in that
+   request URL — and it is corrected on the next read.
 
 `assets/jspdf.min.js` is a vendored UMD build of jsPDF (2.5.2) exposing
 `window.jspdf.jsPDF`; `license-pdf.js` turns a purchased tier into a branded

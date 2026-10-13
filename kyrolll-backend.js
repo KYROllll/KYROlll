@@ -430,6 +430,33 @@
     }
   }
 
+  /* The stored session's `user` is only a cache; the access token is the
+   * authority, because `auth.uid()` is its `sub`. When the two disagree — a
+   * session carried over from an earlier sign-in, written by another tab, or one
+   * that outlived a refresh — pull the real user for *this* token so nothing
+   * downstream keeps using the old id. Everything the library does hangs off
+   * `currentUser()`: the `user_id=eq.…` filter, the `kyrolll_library_<uid>`
+   * cache key and the diagnostics banner. Best-effort: if the token is rejected
+   * the `sub` is still adopted straight from the token, with no round trip. */
+  async function alignSessionUser() {
+    if (!CONFIGURED || !session) return;
+    const sub = jwtSubject(session.accessToken);
+    if (!sub || (session.user && session.user.id === sub)) return;
+    try {
+      const data = await request("GET", "/auth/v1/user", { token: session.accessToken });
+      const next = normalizeUser(data);
+      if (next && next.id) {
+        session.user = next;
+        saveSession(session);
+        emitAuthChange();
+        return;
+      }
+    } catch (err) { /* opaque or rejected token — adopt the id from the claim */ }
+    session.user = Object.assign({}, session.user, { id: sub });
+    saveSession(session);
+    emitAuthChange();
+  }
+
   /* Read the licenses for the signed-in user. The `user_id` filter is explicit
    * even though RLS already pins rows to `auth.uid() = user_id`: it states the
    * intent, and it is what keeps another account's rows out if the SELECT
@@ -439,6 +466,13 @@
    * other. A failure is recorded (and warned once) rather than swallowed, so the
    * library can say *why* it is empty. */
   async function listLicenses() {
+    if (!currentUser()) return [];
+    // Resolve who is actually signed in before building the query: `ready()`
+    // refreshes a session that is at/near expiry (its response re-reads the
+    // user), and `alignSessionUser()` reconciles a cached user the token
+    // contradicts. Only then is the id safe to use as the filter and cache key.
+    await ready();
+    await alignSessionUser();
     const user = currentUser();
     if (!user) return [];
     const local = localList(user.id);
@@ -490,6 +524,10 @@
   }
 
   async function addLicense(input) {
+    if (!currentUser()) return null;
+    // Write as the identity the bearer will carry, so the row can only ever be
+    // this account's: `with check (auth.uid() = user_id)` rejects anything else.
+    await alignSessionUser();
     const user = currentUser();
     if (!user) return null;
     // An exclusive sale takes the beat off the market for everyone, whatever

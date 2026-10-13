@@ -342,3 +342,61 @@ test("the exclusive lookup stays an anonymous read when signed out", async () =>
   assert.equal(read.init.headers.Authorization, undefined, "no token to send, so no bearer");
 });
 
+test("a stale cached user is reconciled with the token before reading", async () => {
+  const token = jwt({ sub: "user-from-token" });
+  const calls = [];
+  const { backend, storage } = boot(async (url, init) => {
+    calls.push({ url, init });
+    if (url.includes("/auth/v1/user")) {
+      return {
+        ok: true, status: 200,
+        text: async () => JSON.stringify({
+          id: "user-from-token", email: "real@example.com", user_metadata: { username: "matan" }
+        })
+      };
+    }
+    return { ok: true, status: 200, text: async () => "[]" };
+  }, {
+    accessToken: token,
+    user: { id: "user-stale-uuid", email: "stale@example.com" }
+  });
+
+  await backend.licenses.list();
+
+  assert.equal(backend.auth.currentUser().id, "user-from-token", "the session follows the token");
+  assert.equal(backend.auth.currentUser().email, "real@example.com");
+  const whoami = calls.find((call) => call.url.includes("/auth/v1/user"));
+  assert.ok(whoami, "re-reads the user this token belongs to");
+  assert.equal(whoami.init.headers.Authorization, "Bearer " + token);
+  assert.equal(
+    storage.get("kyrolll_library_user-from-token"), "[]",
+    "the library cache is keyed by the token's id"
+  );
+  assert.equal(
+    storage.get("kyrolll_library_user-stale-uuid"), undefined,
+    "nothing is read or written under the stale id"
+  );
+});
+
+test("a stale cached user is reconciled before a write too", async () => {
+  const token = jwt({ sub: "user-from-token" });
+  const calls = [];
+  const { backend } = boot(async (url, init) => {
+    calls.push({ url, init });
+    if (url.includes("/auth/v1/user")) {
+      return { ok: true, status: 200, text: async () => JSON.stringify({ id: "user-from-token" }) };
+    }
+    return { ok: true, status: 201, text: async () => JSON.stringify([{ id: "row-9" }]) };
+  }, {
+    accessToken: token,
+    user: { id: "user-stale-uuid", email: "stale@example.com" }
+  });
+
+  await backend.licenses.add({
+    beatId: "flesh", beatTitle: "FLESH", tierId: "wav", tier: "STANDARD WAV LEASE", price: "$14.95"
+  });
+
+  const post = calls.find((call) => call.init.method === "POST");
+  assert.equal(JSON.parse(post.init.body).user_id, "user-from-token");
+});
+
