@@ -58,12 +58,12 @@ const REVEAL_DELAY_MS = 450; // hold the resting pose while the still hands off
 /* How the turn opens. The angles come from `easedRotation`, not from the raw
  * clock, so the flower leaves the resting pose from a standstill and eases up to
  * its full speed — starting at full speed out of a still frame read as a lurch.
- * And the turn carries the opposite sign to the one it used to: the flower now
- * turns the way the resting 3/4 pose is already angled, instead of unwinding back
- * through facing the viewer and out the other side, which read as a small turn to
- * one side and then the other. The pose at elapsed 0 is still exactly the resting
- * pose, so the still → canvas hand-off is untouched. */
-const SPIN_SIGN = -1; // the turn continues the resting pose's own 3/4 angle
+ * The spin is positive, so the flower's near side travels to the right — the
+ * left-to-right direction the storefront's type reads in. The preloader's flower
+ * and the hero's share this clock and these angles, so both open the same way. The
+ * pose at elapsed 0 is still exactly the resting pose, so the still → canvas
+ * hand-off is untouched. */
+const SPIN_SIGN = 1; // near side travels right — the page's own LTR reading direction
 const START_RAMP_S = 1.2; // seconds the rotation takes to reach its full speed
 // Speed 1 - e^(-t/R): zero at t = 0, full speed a few seconds in.
 function easedRotation(seconds) {
