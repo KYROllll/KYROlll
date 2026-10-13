@@ -55,6 +55,20 @@ syncMotion();
  * settle), so no flower is ever caught mid-angle while its canvas replaces the
  * resting still image it was showing. */
 const REVEAL_DELAY_MS = 450; // hold the resting pose while the still hands off
+/* How the turn opens. The angles come from `easedRotation`, not from the raw
+ * clock, so the flower leaves the resting pose from a standstill and eases up to
+ * its full speed — starting at full speed out of a still frame read as a lurch.
+ * And the turn carries the opposite sign to the one it used to: the flower now
+ * turns the way the resting 3/4 pose is already angled, instead of unwinding back
+ * through facing the viewer and out the other side, which read as a small turn to
+ * one side and then the other. The pose at elapsed 0 is still exactly the resting
+ * pose, so the still → canvas hand-off is untouched. */
+const SPIN_SIGN = -1; // the turn continues the resting pose's own 3/4 angle
+const START_RAMP_S = 1.2; // seconds the rotation takes to reach its full speed
+// Speed 1 - e^(-t/R): zero at t = 0, full speed a few seconds in.
+function easedRotation(seconds) {
+  return seconds <= 0 ? 0 : seconds - START_RAMP_S * (1 - Math.exp(-seconds / START_RAMP_S));
+}
 const X_AXIS = new THREE.Vector3(1, 0, 0);
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
@@ -73,15 +87,16 @@ function stagePainted() {
 }
 
 function paintFlower(flower, seconds) {
-  flower.spin.setFromAxisAngle(Y_AXIS, seconds * Math.PI * 2 / 24);
-  flower.tumble.setFromAxisAngle(X_AXIS, seconds * Math.PI * 2 / 72);
-  flower.roll.setFromAxisAngle(Z_AXIS, seconds * Math.PI * 2 / 144);
+  const turn = easedRotation(seconds);
+  flower.spin.setFromAxisAngle(Y_AXIS, SPIN_SIGN * turn * Math.PI * 2 / 24);
+  flower.tumble.setFromAxisAngle(X_AXIS, turn * Math.PI * 2 / 72);
+  flower.roll.setFromAxisAngle(Z_AXIS, turn * Math.PI * 2 / 144);
   flower.object.quaternion.copy(flower.restingPose).multiply(flower.roll).multiply(flower.tumble).multiply(flower.spin);
   // The light drift starts from the resting pose's own light, and only once the
   // rotation does, so the still → canvas hand-off changes nothing at all.
-  if (seconds > 0) {
-    flower.rim.position.x = Math.cos(seconds * .3) * 4;
-    flower.rim.position.y = 1 + Math.sin(seconds * .2) * 2;
+  if (turn > 0) {
+    flower.rim.position.x = Math.cos(turn * .3) * 4;
+    flower.rim.position.y = 1 + Math.sin(turn * .2) * 2;
   }
   flower.renderer.render(flower.scene, flower.camera);
 }

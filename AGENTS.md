@@ -104,6 +104,18 @@ and the still → canvas cross-fade stays cancelled for the veil flower
 (`.preloader .logo-stage canvas, .preloader .logo-fallback { transition: none }`) — the canvas
 joins at the resting pose, so that swap is invisible.
 
+The opening of that turn is eased, and it turns the other way round from how it first
+shipped. `paintFlower` reads its three angles through `easedRotation` instead of straight off
+the clock, so the flower leaves the resting pose from a standstill and eases up to full speed
+(rate `1 - e^(-t/1.2s)`, `START_RAMP_S`); `SPIN_SIGN = -1` makes the turn continue the resting
+3/4 pose's own angle instead of unwinding back through facing the viewer and out the other
+side. Both were visible defects: at full speed out of a still frame the flower lurched, and
+the old turn direction read as a small turn to one side and then the other the moment the veil
+was up. The pose at `elapsed` 0 is still exactly the resting pose, so this leaves the still →
+canvas hand-off and the captured `kyrolll-flower-rest.png` valid. Two properties worth
+re-checking if this is ever retuned: the flower stays face-on for the first seconds (edge-on
+around 6s, as before) and it never crosses its own facing on the way out of the resting pose.
+
 The preloader only lets its bar reach 100% once `complete()` holds: the page has finished loading
 AND the hero flower has reported ready and built (a failed or timed-out flower is written off, and
 `HARD_CAP_MS` remains the last-resort escape). Keep that in step with `.preloader__progress-bar`
