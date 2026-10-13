@@ -209,7 +209,8 @@ three files that every page loads (see the `<script>` order in `index.html`):
   `path` + `name` + same-origin `fallback`.
 
 Pages: `auth.html` (dedicated passwordless login/sign-up with a single 6-digit
-code input, the live 3D flower and white fields), `dashboard.html` (username +
+code input that verifies itself the moment the sixth digit lands, the live 3D
+flower and white fields), `dashboard.html` (username +
 profile picture), `library.html` (audio download + PDF license), plus
 `index.html` and `success.html`. The BUY dropdown always opens downward (clamped
 to the space below and scrollable) so it can never cover the header or footer.

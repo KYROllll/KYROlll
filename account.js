@@ -351,6 +351,7 @@
     let pending = null;      // { email, username, createUser } for the last code sent
     let origin = "login";    // which tab to return to from the code step
     let verified = false;    // true once a code is accepted — the success overlay is playing
+    let verifying = false;   // true while a verify round-trip is in flight
 
     if (demo && b && b.mode === "local") demo.hidden = false;
 
@@ -392,9 +393,23 @@
       codeInput.placeholder = "0".repeat(Math.max(otpLength, 0));
       codeInput.addEventListener("input", () => {
         codeInput.value = codeInput.value.replace(/\D/g, "").slice(0, otpLength);
+        maybeAutoSubmit();
       });
     }
     function codeValue() { return codeInput ? codeInput.value.replace(/\D/g, "").slice(0, otpLength) : ""; }
+
+    // The moment the last digit lands the code is complete, so verify without
+    // making the visitor reach for "VERIFY & CONTINUE". Guarded so a resend, an
+    // in-flight check, or an already-accepted code can never double-submit.
+    function maybeAutoSubmit() {
+      if (!confirmForm || verified || verifying || !pending) return;
+      if (codeValue().length !== otpLength) return;
+      // requestSubmit() runs the form's submit listeners synchronously; the
+      // dispatchEvent fallback keeps older engines working. Both are trusted
+      // form submissions, so the handler's `event.preventDefault()` still holds.
+      if (typeof confirmForm.requestSubmit === "function") confirmForm.requestSubmit();
+      else confirmForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    }
     function clearCode() { if (codeInput) codeInput.value = ""; }
     function focusCode() { if (codeInput) setTimeout(() => { try { codeInput.focus(); } catch (err) { /* ignore */ } }, 60); }
 
@@ -489,12 +504,13 @@
 
     if (confirmForm) confirmForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (verified) return;
+      if (verified || verifying) return;
       const token = codeValue();
       setError("confirm-error", "");
       setInfo("confirm-info", false);
       if (!new RegExp("^\\d{" + otpLength + "}$").test(token)) return setError("confirm-error", "ENTER THE " + otpLength + "-DIGIT CODE FROM YOUR EMAIL");
       const button = confirmForm.querySelector(".auth-submit");
+      verifying = true;
       button.disabled = true;
       try {
         await b.auth.verifyOtp({ email: pending && pending.email, token, type: "email" });
@@ -506,6 +522,7 @@
         focusCode();
       } finally {
         button.disabled = false;
+        verifying = false;
       }
     });
 
