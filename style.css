@@ -3442,7 +3442,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .auth-input::placeholder { color: #9a9aa2; }
 .auth-input:focus { outline: none; border-color: #ffffff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .3); }
 .auth-input[readonly] { background: #d9d9de; color: #55555c; }
-.auth-input--code { text-align: center; font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 20px; letter-spacing: .5em; padding-left: .5em; }
+.auth-input--code { text-align: center; font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 20px; letter-spacing: .5em; padding-left: .5em; caret-color: transparent; }
 
 .auth-demo-code {
   margin: 4px 0 12px;
