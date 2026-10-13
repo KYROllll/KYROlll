@@ -43,6 +43,11 @@ try {
   // The preloader's flower and the hero flower can become ready in the same
   // frame (the veil is removed a moment later), so wait on the hero stage.
   await desktop.locator('.brand-logo-container .logo-stage.is-ready').waitFor();
+  // The veil must not lift until the hero flower is fully built — wait for it to
+  // go, then confirm the flower stayed built (is-built is a permanent marker).
+  await desktop.locator('#preloader').waitFor({ state: 'detached' });
+  assert.equal(await desktop.locator('.brand-logo-container .logo-stage.is-built').count(), 1);
+  assert.equal(await desktop.evaluate(() => document.documentElement.classList.contains('preloader-armed')), false);
   await noOverflow(desktop);
   assert.equal(await desktop.locator('#grid .catalog-tile').count(), 1);
   assert.match(await desktop.locator('#card-flesh').innerText(), /FLESH/i);

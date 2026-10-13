@@ -8,9 +8,18 @@
  *      accurate with no manual editing.
  *   3. The hand-written updates in marquee-items.js (window.KYROlll_MARQUEE).
  *
- * The strip keeps its seamless double-copy scroll. Every CYCLE_MS it quietly
- * fades, cycles the headline order and re-renders, so the feed reads as a
- * newsroom ticker that rotates through the latest news.
+ * Motion is driven here, not by a CSS percentage keyframe. The strip is two
+ * identical copies of one measured unit and the scroll is an exact pixel
+ * translate handed to the Web Animations API, so it runs on the compositor
+ * thread at a true 60fps even while the main thread is busy building the 3D
+ * flower. `translateX(-50%)` had to be re-resolved from the element's width
+ * every single frame and could land on a fractional device pixel, which is what
+ * made the old strip shimmer and pop a hair at every wrap. Constant px/s speed
+ * also means a longer feed rolls for longer instead of racing past.
+ *
+ * The headline order only rotates while the strip is off-screen: rebuilding the
+ * track is the one operation that could drop a frame, so it is always done
+ * where nobody can see it.
  */
 (function () {
   "use strict";
@@ -44,47 +53,144 @@
       }
     }
     const news = (window.KYROlll_MARQUEE || []).filter((item) => item && item.trim());
-    return drops.concat(studio, news);
+    const items = drops.concat(studio, news);
+    return items.length ? items : ["KYROlll — ORIGINAL SOUND"];
   }
 
-  function restartAnimation() {
-    // Used only for the very first paint: toggle the stylesheet animation off
-    // and back on so it starts from a clean translateX(0).
-    track.style.animation = "none";
-    void track.offsetWidth; // force reflow
-    track.style.animation = "";
-  }
+  // Linear travel speed in CSS pixels per second — constant no matter how many
+  // headlines the feed holds.
+  const SPEED = 64;
+  const MAX_REPEATS = 4; // fill very wide viewports without an absurd DOM
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
   let rotation = 0;
+  let copyWidth = 0;
+  let cycleMs = 0;
+  let animation = null;
+  let rotateTimer = 0;
+  let resizeFrame = 0;
+  let visible = true;
+  let manuallyPaused = false;
 
-  // One "copy" of the ticker: the LIVE badge plus every headline. The track is
-  // exactly two copies, so translateX(-50%) lands on the start of the second
-  // copy and the loop is seamless. Spacing lives on the children (style.css)
-  // rather than a flex `gap`: a gap would leave the two halves a half-gap
-  // apart and pop at the wrap — the old visible reset point.
-  function copyHTML() {
+  // One copy of the ticker: the LIVE badge plus the rotated headline set,
+  // repeated `repeats` times. Spacing lives on the children (style.css) rather
+  // than a flex `gap`, so a copy is self-contained and the seam between the two
+  // copies is flush.
+  function copyHTML(repeats) {
     const items = headlineItems();
-    if (!items.length) return "<span>KYROlll — ORIGINAL SOUND</span>";
     const ordered = items.map((_, index) => items[(index + rotation) % items.length]);
-    return '<span class="marquee-live"><span class="marquee-live__dot"></span>LIVE FEED</span>' +
-      ordered.map((text) => "<span>" + esc(text) + "</span>").join("");
+    const headlines = ordered.map((text) => "<span>" + esc(text) + "</span>").join("");
+    return '<span class="marquee-copy">' +
+      '<span class="marquee-live"><span class="marquee-live__dot"></span>LIVE FEED</span>' +
+      headlines.repeat(repeats) +
+      "</span>";
   }
 
-  function paint(animate) {
-    const copy = copyHTML();
-    track.innerHTML = copy + copy;
-    if (animate) restartAnimation();
+  function measure() {
+    const copy = track.firstElementChild;
+    // Round to whole CSS pixels so the wrap lands on a stable pixel instead of a
+    // sub-pixel the compositor has to resample.
+    copyWidth = copy ? Math.round(copy.getBoundingClientRect().width) : 0;
   }
 
-  paint(true);
+  // Build two identical copies, widening the unit until a single copy spans the
+  // banner so a wrap can never reveal a gap on an ultra-wide display.
+  function renderContent() {
+    let repeats = 1;
+    track.innerHTML = copyHTML(repeats) + copyHTML(repeats);
+    while (track.children[0].getBoundingClientRect().width < banner.clientWidth && repeats < MAX_REPEATS) {
+      repeats += 1;
+      track.innerHTML = copyHTML(repeats) + copyHTML(repeats);
+    }
+    measure();
+  }
 
-  // Rotate the headline order exactly as a cycle completes. There the track is
-  // back at translateX(0), so swapping the copy is invisible: the feed keeps
-  // rolling with no jump, no reset and no re-triggered animation.
-  track.addEventListener("animationiteration", () => {
-    const count = headlineItems().length;
-    if (count > 1) rotation = (rotation + 1) % count;
-    const copy = copyHTML();
-    track.innerHTML = copy + copy;
+  function stopAnimation() {
+    if (animation) {
+      try { animation.cancel(); } catch (error) { /* ignore */ }
+      animation = null;
+    }
+    track.classList.remove("is-scrolling");
+    track.style.removeProperty("--marquee-shift");
+    track.style.removeProperty("--marquee-duration");
+  }
+
+  // Fraction is the position within a cycle (0 → 1) worth resuming from, kept
+  // across a rebuild so a resize or rotation never snaps the ticker to zero.
+  function startAnimation(fraction) {
+    stopAnimation();
+    if (reduceMotion.matches || copyWidth <= 0) return;
+    cycleMs = Math.max(6000, (copyWidth / SPEED) * 1000);
+    if (typeof track.animate === "function") {
+      // Explicit pixel keyframes keep the animation on the compositor thread.
+      animation = track.animate(
+        [{ transform: "translate3d(0, 0, 0)" }, { transform: "translate3d(" + (-copyWidth) + "px, 0, 0)" }],
+        { duration: cycleMs, iterations: Infinity, easing: "linear" }
+      );
+    } else {
+      // Fallback for engines without the Web Animations API: the same measured
+      // shift, applied through a plain keyframe animation.
+      track.style.setProperty("--marquee-shift", (-copyWidth) + "px");
+      track.style.setProperty("--marquee-duration", cycleMs + "ms");
+      track.classList.add("is-scrolling");
+    }
+    if (animation && fraction) animation.currentTime = (fraction % 1) * cycleMs;
+    applyPlayState();
+  }
+
+  function applyPlayState() {
+    if (!animation) return;
+    if (reduceMotion.matches || manuallyPaused || !visible || document.hidden) animation.pause();
+    else animation.play();
+  }
+
+  function refresh() {
+    const fraction = animation && cycleMs
+      ? ((Number(animation.currentTime) || 0) % cycleMs) / cycleMs
+      : 0;
+    renderContent();
+    startAnimation(fraction);
+    scheduleRotation();
+  }
+
+  // Cycle the headline order after each full loop — but only while the strip is
+  // off-screen, where rebuilding the track cannot be seen. If it is on screen we
+  // simply wait and try again, so the scroll never visibly hitches.
+  function scheduleRotation() {
+    clearTimeout(rotateTimer);
+    if (reduceMotion.matches) return;
+    rotateTimer = setTimeout(() => {
+      if (visible) { scheduleRotation(); return; }
+      rotation += 1;
+      refresh();
+    }, Math.max(1000, cycleMs));
+  }
+
+  renderContent();
+  startAnimation(0);
+  scheduleRotation();
+
+  // Watch visibility so the rebuild-while-hidden rule can be honoured, and so an
+  // off-screen strip stops burning compositor time while the page is busy.
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver((entries) => {
+      visible = entries[entries.length - 1].isIntersecting;
+      applyPlayState();
+    }).observe(banner);
+  }
+
+  addEventListener("resize", () => {
+    if (resizeFrame) return;
+    resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; refresh(); });
+  }, { passive: true });
+
+  // Web fonts change the measured width; re-measure once they have landed.
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => refresh());
+
+  document.addEventListener("visibilitychange", applyPlayState);
+  document.addEventListener("motion-toggle", (event) => {
+    manuallyPaused = !!(event.detail && event.detail.paused);
+    applyPlayState();
   });
+  reduceMotion.addEventListener("change", () => refresh());
 })();

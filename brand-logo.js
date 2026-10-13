@@ -20,6 +20,10 @@ const stillRenderers = new Set();
 // overlay leaves the screen (see the `kyrolll:preloader-done` listener below).
 const instances = new Map();
 const flowerControllers = new Set();
+// True once the page-load veil has gone. A flower whose geometry finishes after
+// the fade still has to reveal itself then (see the end of `init`), otherwise a
+// slow build would leave it with every petal hidden.
+let preloaderDone = false;
 function setFlowerProgress(progress) {
   const p = Math.max(0, Math.min(1, progress));
   flowerControllers.forEach((controller) => { try { controller.setProgress(p); } catch (error) { /* ignore */ } });
@@ -215,6 +219,18 @@ async function init(host) {
       for (let i = 0; i < petalMeshes.length; i++) {
         petalMeshes[i].mesh.visible = i <= revealCount;
       }
+      // Report "built" only after every petal is on screen AND one more frame has
+      // painted, so whoever is waiting (the preloader) never lifts the veil on a
+      // flower that is still growing in. `dataset.flower` is the shared contract
+      // the preloader reads; the class mirrors it for styling/debugging.
+      if (p >= 1 && host.dataset.flower !== 'built') {
+        requestAnimationFrame(() => {
+          if (host.dataset.flower === 'built') return;
+          host.dataset.flower = 'built';
+          host.classList.add('is-built');
+          document.dispatchEvent(new CustomEvent('kyrolll:flower-built', { detail: { stage: host } }));
+        });
+      }
     }
   };
   controller.setProgress(0);
@@ -236,17 +252,21 @@ async function init(host) {
   instances.set(host, { renderer, controller });
   // Ensure all petals start hidden (defensive) and let progress drive reveal.
   petalMeshes.forEach((entry) => { entry.mesh.visible = false; });
-  if (typeof window.KYROlll_FLOWER_PROGRESS === 'function') {
-    // Non-preloader flowers get a brief auto-build-in when they become ready.
+  // Reveal this flower. While a page-load preloader is on screen it owns the
+  // build-in: preloader.js drives every flower from its loading bar, so the hero
+  // is already whole the instant the veil lifts. Only when there is no veil — or
+  // one that has already gone (an init that finished after the fade) — does the
+  // flower reveal itself, so a slow build is never left with every petal hidden.
+  const needsSelfReveal = () => preloaderDone || !document.getElementById('preloader');
+  if (needsSelfReveal()) {
     let auto = 0;
     const buildIn = () => {
-      auto += 0.018;
+      auto += 0.02;
       if (auto > 1) auto = 1;
-      if (window.KYROlll_FLOWER_PROGRESS) window.KYROlll_FLOWER_PROGRESS(auto);
+      controller.setProgress(auto);
       if (auto < 1) requestAnimationFrame(buildIn);
-      else setTimeout(() => { if (window.KYROlll_FLOWER_PROGRESS) window.KYROlll_FLOWER_PROGRESS(1); }, 120);
     };
-    buildIn();
+    requestAnimationFrame(buildIn);
   }
 }
 
@@ -254,6 +274,7 @@ async function init(host) {
 // the overlay has faded (preloader.js dispatches this), stop its render loop
 // and hand the WebGL context back so the page keeps just the hero flower.
 document.addEventListener('kyrolll:preloader-done', () => {
+  preloaderDone = true;
   if (window.KYROlll_FLOWER_PROGRESS) window.KYROlll_FLOWER_PROGRESS(1);
   flowerControllers.clear();
   document.querySelectorAll('#preloader .logo-stage').forEach((stage) => {
@@ -271,6 +292,9 @@ if (hosts.length) {
       await init(host);
     } catch (error) {
       console.warn('Using static metallic logo:', error.message);
+      // Tell the preloader this stage is never coming, so its veil can lift
+      // onto the static flower image instead of waiting out the hard cap.
+      host.dataset.flower = 'failed';
     }
   });
   Promise.all(failures);

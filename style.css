@@ -2279,31 +2279,35 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   position: relative;
   width: 100%;
 }
+/* Two identical copies of one measured unit. The scroll is a pixel-exact
+   translate driven from marquee.js, not a percentage keyframe:
+   `translateX(-50%)` re-resolved from the element's width every frame, could
+   land on a fractional device pixel and popped a hair at every wrap. Only the
+   track carries a transform layer — the items are never promoted — so the whole
+   strip stays one composited surface. */
 .marquee-track {
   display: inline-flex;
-  /* No flex `gap`: spacing lives on each child, so one copy (every item plus
-     its own trailing space) is exactly half the track and translateX(-50%) is
-     a perfect seam. A gap would leave the halves a half-gap uneven and pop.
-     Using `isolation: isolate` stabilizes transform composition and reduces
-     text-layer jumps on some GPUs. */
-  isolation: isolate;
-  contain: layout paint;
-  animation: marquee 28s linear infinite;
   will-change: transform;
+  transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
-  transform: translateZ(0);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
-.marquee-track > * {
-  padding-right: 80px;
-  flex: 0 0 auto;
-  backface-visibility: hidden;
-  transform: translateZ(0);
+/* Fallback for engines without the Web Animations API: the same shift the JS
+   measured, applied through a plain keyframe animation. */
+.marquee-track.is-scrolling {
+  animation: marquee-scroll var(--marquee-duration, 28s) linear infinite;
 }
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+.marquee-copy { display: inline-flex; }
+.marquee-copy > * {
+  /* Spacing lives on each item (never a flex `gap`), so a copy is
+     self-contained and the seam between the two copies is flush. */
+  flex: 0 0 auto;
+  padding-right: 80px;
+}
+@keyframes marquee-scroll {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(var(--marquee-shift, -50%), 0, 0); }
 }
 
 /* Scroll Storytelling & Hero Entrance Animations */
@@ -3034,6 +3038,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 
 /* ---------- 7. Motion control --------------------------------------------- */
 
+.motion-paused .marquee-track,
 .motion-paused .logo-stage,
 .motion-paused .scroll-cue__arrow,
 .motion-paused .vinyl-record__label,
@@ -3098,8 +3103,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   .scroll-cue__arrow svg { width: 15px; height: 15px; }
   .buy-beat-btn { animation-duration: 9.5s; }
   .beat-preview { padding: 12px; border-radius: 14px; }
-  .marquee-track { animation-duration: 22s; }
-  .marquee-track > * { padding-right: 48px; }
+  .marquee-copy > * { padding-right: 48px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3884,6 +3888,11 @@ html.auth-open { overflow: hidden; }
 }
 
 /* ---------- Page-load preloader ------------------------------------------- */
+/* While the veil is armed the page behind it is frozen: no scrolling under a
+   cover that hides half-built content. The class is added before the first paint
+   (inline head script) and removed once the veil has gone (preloader.js). */
+html.preloader-armed { overflow-y: hidden; }
+
 /* A dark veil over the first paint, holding the 3D flower until it has drawn
    its first frame. Placed last so it out-specifies the page-scoped
    `.logo-stage` width rules (`.beat-page`, `.flower-frame`, breakpoints). */
@@ -3964,8 +3973,7 @@ html.auth-open { overflow: hidden; }
 }
 
 /* ---------- Live marquee accent ------------------------------------------- */
-.marquee-banner { transition: opacity .2s ease; will-change: opacity; }
-.marquee-banner.is-rotating { opacity: .38; }
+.marquee-banner { transition: opacity .2s ease; }
 .marquee-live { display: inline-flex; align-items: center; gap: 9px; }
 .marquee-live__dot {
   width: 7px;
