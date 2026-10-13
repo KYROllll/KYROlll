@@ -1209,6 +1209,32 @@ button {
   line-height: 1.7;
 }
 
+/* Support contact: a solid black button with clean white text rather than a
+   bare hyperlink, so the footer's one call to action reads as a deliberate
+   control against the dark page. Matches the .wallet-btn treatment. */
+.footer__support {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+  padding: 11px 22px;
+  background: var(--black);
+  color: var(--white);
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: .14em;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.footer__support:hover {
+  background: #1b1b1e;
+  border-color: var(--white);
+}
+
 .cartbar {
   position: fixed;
   left: 0;
