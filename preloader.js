@@ -1,15 +1,17 @@
 /* KYROlll — page-load preloader.
  *
  * The fixed veil covers the very first paint and shows the 3D flower (mounted
- * by brand-logo.min.js into its own .logo-stage) already in its final, closed,
- * fully-built resting pose. The flower never builds itself in here: only the
- * white progress bar moves beneath it. The veil lifts once the page's own
- * flower reports that it is **ready** (its first frame has painted behind the
- * still image), **built** (every petal is on screen — instantaneous for the
- * display flower) and a settle beat has passed. The veil is opaque and the page
- * behind it is frozen (`html.preloader-armed`), so the hero can never pop in
- * half-drawn. After the fade the veil is removed and the preloader flower's
- * render loop is released via the `kyrolll:preloader-done` event.
+ * by brand-logo.min.js into its own .logo-stage) already fully open in its
+ * final resting pose, facing the viewer. The flower is pinned there by
+ * brand-logo.js: it never builds itself, spins, breathes or drifts under the
+ * veil, and the "KYROlll" wordmark holds still too — only the white progress bar
+ * moves beneath them until dismissal. The veil lifts once the page's own flower
+ * reports that it is **ready** (its first frame has painted behind the still
+ * image), **built** (every petal is on screen — instantaneous for the display
+ * flower) and a settle beat has passed. The veil is opaque and the page behind
+ * it is frozen (`html.preloader-armed`), so the hero can never pop in half-drawn.
+ * After the fade the veil is removed and the preloader flower's resources are
+ * released via the `kyrolll:preloader-done` event.
  *
  * A minimum display time keeps the boot feeling deliberate rather than flickery;
  * a hard cap guarantees the site is never stranded under the veil even if WebGL

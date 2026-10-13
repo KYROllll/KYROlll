@@ -88,9 +88,12 @@ The flower is never shown assembling itself: every petal is visible from the ren
 very first frame, so the still → canvas hand-off swaps two identical resting flowers and
 only the preloader's progress bar moves. `brand-logo.js` still exposes a proportional
 `window.KYROlll_FLOWER_PROGRESS(p)` reveal for callers that want it, but nothing drives it
-during a load. The veil's own flower also cancels the shared `logoBreathe` glow
-(`.preloader .logo-stage { animation: none }`) so it holds one still, stable pose while
-the bar fills.
+during a load. Under the veil the flower is frozen outright: `init` leaves the
+preloader's `.logo-stage` without a render loop (so no spin/tumble/light drift), the
+shared `logoBreathe` glow and the still → canvas cross-fade are cancelled
+(`.preloader .logo-stage { animation: none }`, `.preloader .logo-fallback { transition: none }`),
+and `.preloader__stage` no longer rises. The flower, the wordmark and the copy all hold
+one still, stable pose while only the bar fills.
 
 To re-capture the frame after the flower changes, serve a throwaway page from the repo
 root that mounts a wide `.logo-stage` plus a `.motion-toggle` button, loads

@@ -60,6 +60,11 @@ function getContours() {
 }
 
 async function init(host) {
+  // The veil's flower is a still product shot, not a spinning showpiece: it is
+  // pinned to the resting display pose (fully open, turned to face the viewer)
+  // for as long as the page-load overlay is up. Only the hero flower keeps its
+  // slow drift, so nothing about the preloader logo ever moves.
+  const preloaderFlower = !!host.closest('#preloader');
   const { size, contours } = await getContours();
   const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -239,20 +244,27 @@ async function init(host) {
   };
   controller.setProgress(1);
   flowerControllers.add(controller);
-  renderer.setAnimationLoop(time => {
-    const now = time || performance.now();
-    const dt = Math.min((now - previous) / 1000, 1 / 30);
-    previous = now;
-    if (now < revealAt || paused || !visible || document.hidden) return;
-    elapsed += dt;
-    spin.setFromAxisAngle(yAxis, elapsed * Math.PI * 2 / 24);
-    tumble.setFromAxisAngle(xAxis, elapsed * Math.PI * 2 / 72);
-    roll.setFromAxisAngle(zAxis, elapsed * Math.PI * 2 / 144);
-    object.quaternion.copy(restingPose).multiply(roll).multiply(tumble).multiply(spin);
-    rim.position.x = Math.cos(elapsed * .3) * 4;
-    rim.position.y = 1 + Math.sin(elapsed * .2) * 2;
-    renderer.render(scene, camera);
-  });
+  // The veil flower is held completely still: it keeps the resting pose and the
+  // base light, so no spin, tumble or drift is ever visible under the preloader —
+  // only the progress bar moves. The single frame painted above is all it needs;
+  // a render loop here would only redraw that same still, so it is not started.
+  // The hero flower is the only one that keeps its slow drift.
+  if (!preloaderFlower) {
+    renderer.setAnimationLoop(time => {
+      const now = time || performance.now();
+      const dt = Math.min((now - previous) / 1000, 1 / 30);
+      previous = now;
+      if (now < revealAt || paused || !visible || document.hidden) return;
+      elapsed += dt;
+      spin.setFromAxisAngle(yAxis, elapsed * Math.PI * 2 / 24);
+      tumble.setFromAxisAngle(xAxis, elapsed * Math.PI * 2 / 72);
+      roll.setFromAxisAngle(zAxis, elapsed * Math.PI * 2 / 144);
+      object.quaternion.copy(restingPose).multiply(roll).multiply(tumble).multiply(spin);
+      rim.position.x = Math.cos(elapsed * .3) * 4;
+      rim.position.y = 1 + Math.sin(elapsed * .2) * 2;
+      renderer.render(scene, camera);
+    });
+  }
   instances.set(host, { renderer, controller });
   // The flower is already whole (every petal visible since the first paint) and
   // pinned there: there is no build-in to run, so no page can reveal the flower
@@ -260,8 +272,8 @@ async function init(host) {
 }
 
 // The preloader's flower exists only to make page load feel deliberate. Once
-// the overlay has faded (preloader.js dispatches this), stop its render loop
-// and hand the WebGL context back so the page keeps just the hero flower.
+// the overlay has faded (preloader.js dispatches this), stop any render loop and
+// hand the WebGL context back so the page keeps just the hero flower.
 document.addEventListener('kyrolll:preloader-done', () => {
   if (window.KYROlll_FLOWER_PROGRESS) window.KYROlll_FLOWER_PROGRESS(1);
   flowerControllers.clear();
