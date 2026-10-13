@@ -2283,16 +2283,27 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   display: inline-flex;
   /* No flex `gap`: spacing lives on each child, so one copy (every item plus
      its own trailing space) is exactly half the track and translateX(-50%) is
-     a perfect seam. A gap would leave the halves a half-gap uneven and pop. */
+     a perfect seam. A gap would leave the halves a half-gap uneven and pop.
+     Using `isolation: isolate` stabilizes transform composition and reduces
+     text-layer jumps on some GPUs. */
+  isolation: isolate;
+  contain: layout paint;
   animation: marquee 28s linear infinite;
   will-change: transform;
   backface-visibility: hidden;
   transform: translateZ(0);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
-.marquee-track > * { padding-right: 80px; }
+.marquee-track > * {
+  padding-right: 80px;
+  flex: 0 0 auto;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
 @keyframes marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }
 
 /* Scroll Storytelling & Hero Entrance Animations */

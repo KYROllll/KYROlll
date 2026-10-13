@@ -319,7 +319,27 @@
 
   function initAuthPage() {
     const params = new URLSearchParams(location.search);
-    const loginForm = document.getElementById("login-form");
+    const backBtn = document.querySelector("[data-auth-back]");
+    if (backBtn) {
+      try {
+        const paramsBack = new URLSearchParams(location.search);
+        let target = paramsBack.get("back");
+        if (!target) {
+          const ref = document.referrer;
+          if (ref && /^https?:\/\/[^/]+/.test(ref)) {
+            try {
+              const r = new URL(ref, location.origin);
+              if (r.origin === location.origin) target = r.pathname + r.search + r.hash;
+            } catch (e) { target = null; }
+          }
+        }
+        if (target) {
+          // keep relative/safe paths
+          if (target.startsWith("http://") || target.startsWith("https://")) target = null;
+        }
+        if (target) backBtn.setAttribute("href", target);
+      } catch (e) { /* ignore */ }
+    }    const loginForm = document.getElementById("login-form");
     const signupForm = document.getElementById("signup-form");
     const confirmForm = document.getElementById("confirm-form");
     const tabsEl = document.querySelector(".auth-tabs");
