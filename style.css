@@ -3698,6 +3698,9 @@ html.auth-open { overflow: hidden; }
   object-fit: contain;
   filter: drop-shadow(0 14px 36px rgba(255, 255, 255, .14));
   animation: flower-spin 14s linear infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 @keyframes flower-spin { to { transform: rotate(360deg); } }
 .flower-loader__text {
@@ -3809,6 +3812,9 @@ html.auth-open { overflow: hidden; }
 .preloader .preloader__flower {
   width: min(30vw, 216px);
   filter: drop-shadow(0 18px 46px rgba(0, 0, 0, .55));
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 .preloader__name {
   margin: 0;

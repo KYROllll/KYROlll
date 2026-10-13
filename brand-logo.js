@@ -15,6 +15,8 @@ const instances = new Map();
 
 function renderStillAll() {
   stillRenderers.forEach((render) => { try { render(); } catch (error) { /* ignore */ } });
+  // Prefer stable 60fps for the smoothest rotation. Elapsed time-based rather
+  // than rAF deltas alone keeps the motion refresh-rate independent.
 }
 function syncMotion() {
   document.documentElement.classList.toggle('motion-paused', paused);
@@ -47,9 +49,9 @@ function getContours() {
 async function init(host) {
   const { size, contours } = await getContours();
   const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.setClearColor(0x000000, 0);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
   // Software rasterisers (SwiftShader, llvmpipe — what a machine without a GPU
   // falls back to) spend far longer on this pearl material than a GPU does.
   // There the flower is built from a slightly coarser bevel, a smaller
@@ -172,22 +174,19 @@ async function init(host) {
   new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }).observe(host);
   stillRenderers.add(() => renderer.render(scene, camera));
   renderer.setAnimationLoop(time => {
-    const dt = Math.min((time - previous) / 1000, .05); previous = time;
-    if (time < revealAt || paused || !visible || document.hidden) return;
-    // Elapsed time accumulates on every frame, so a capped cadence only changes
-    // how often the flower is redrawn, never how fast it turns.
-    if (softwareRasteriser && time - lastDraw < 32) return;
-    lastDraw = time;
+    const now = time || performance.now();
+    const dt = Math.min((now - previous) / 1000, 1 / 30);
+    previous = now;
+    if (now < revealAt || paused || !visible || document.hidden) return;
     elapsed += dt;
-    // Slow, continuous full turns on three axes, composed as quaternions to
-    // avoid Euler-angle snapping. Delta time makes the motion refresh-rate
-    // independent and keeps the rotation gentle and easy on the eyes.
-    spin.setFromAxisAngle(yAxis, elapsed * Math.PI * 2 / 26);
-    tumble.setFromAxisAngle(xAxis, elapsed * Math.PI * 2 / 78);
-    roll.setFromAxisAngle(zAxis, elapsed * Math.PI * 2 / 156);
+    // Smooth quaternion rotation: adjust axes/slowness for fluidity without
+    // adding per-instance overhead. Preloader gets the same silky spin.
+    spin.setFromAxisAngle(yAxis, elapsed * Math.PI * 2 / 24);
+    tumble.setFromAxisAngle(xAxis, elapsed * Math.PI * 2 / 72);
+    roll.setFromAxisAngle(zAxis, elapsed * Math.PI * 2 / 144);
     object.quaternion.copy(restingPose).multiply(roll).multiply(tumble).multiply(spin);
-    rim.position.x = Math.cos(elapsed * .35) * 4;
-    rim.position.y = 1 + Math.sin(elapsed * .25) * 2;
+    rim.position.x = Math.cos(elapsed * .3) * 4;
+    rim.position.y = 1 + Math.sin(elapsed * .2) * 2;
     renderer.render(scene, camera);
   });
   renderer.domElement.addEventListener('webglcontextlost', event => {
