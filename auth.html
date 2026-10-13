@@ -52,11 +52,16 @@
             <span>Add your Supabase URL and publishable key in <code>supabase-config.js</code> to switch on real email codes. Until then accounts stay in this browser and the one-time code is shown on screen.</span>
           </div>
 
+          <div class="auth-card__topbar">
+            <a class="auth-back" href="index.html" aria-label="Back to homepage">
+              <span class="auth-back__arrow" aria-hidden="true">←</span>
+              <span class="auth-back__label">BACK</span>
+            </a>
+          </div>
           <div class="auth-tabs" role="tablist">
             <button type="button" class="auth-tab is-active" data-auth-tab="login" role="tab">LOG IN</button>
             <button type="button" class="auth-tab" data-auth-tab="signup" role="tab">SIGN UP</button>
           </div>
-
           <form class="auth-form" id="login-form" novalidate>
             <label class="auth-field">
               <span class="auth-field__label">EMAIL</span>

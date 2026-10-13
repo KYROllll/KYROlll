@@ -155,7 +155,9 @@
       setTimeout(() => document.addEventListener("click", handleMenuOutside, true), 0);
     };
 
-    if (offscreen && !reduceMotion) {
+    if (!reduceMotion) {
+      // Always attempt a buttery, animated scroll into view so the BUY
+      // interaction feels premium whether the button is scrolled up or down.
       anchor.scrollIntoView({ block: "center", behavior: "smooth" });
       waitForScrollSettle(reveal);
     } else {

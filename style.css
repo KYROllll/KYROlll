@@ -3291,11 +3291,12 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    premium stack rather than appearing all at once. Compositor-only (opacity +
    transform) so it never costs a layout while the page is still scrolling. */
 .license-menu.is-open .license-tier {
-  animation: license-tier-drop .42s cubic-bezier(.16, 1, .3, 1) both;
-  animation-delay: calc(var(--tier-i, 0) * 55ms + 50ms);
+  animation: license-tier-drop .48s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: calc(var(--tier-i, 0) * 60ms + 40ms);
+  will-change: transform, opacity;
 }
 @keyframes license-tier-drop {
-  from { opacity: 0; transform: translate3d(0, -10px, 0); }
+  from { opacity: 0; transform: translate3d(0, -14px, 0); }
   to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
@@ -3383,6 +3384,11 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .auth-card__close:hover { color: var(--white); }
 
 .auth-card__kicker { display: block; font-size: 8px; font-weight: 800; letter-spacing: .34em; color: var(--gray); }
+.auth-card__topbar { display: flex; justify-content: flex-start; margin-top: 6px; margin-bottom: 8px; }
+.auth-back { display: inline-flex; align-items: center; gap: 6px; font-size: 8px; font-weight: 800; letter-spacing: .34em; text-transform: uppercase; color: var(--gray); text-decoration: none; transition: color .2s ease; }
+.auth-back:hover,
+.auth-back:focus-visible { color: var(--white); outline: none; }
+.auth-back__arrow { font-size: 9px; line-height: 1; transform: translateY(-1px); }
 .auth-card__title { margin-top: 8px; font-size: 17px; font-weight: 800; letter-spacing: .14em; }
 .auth-card__sub { margin: 8px auto 0; max-width: 34ch; font-size: 9px; line-height: 1.7; letter-spacing: .08em; color: var(--gray); }
 
