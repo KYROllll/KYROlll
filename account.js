@@ -720,21 +720,37 @@
     if (!root) return;
     const b = backend();
     let items = [];
+    let loading = false;   // re-entrancy guard — breaks the fetch→emit→render loop
+    let fetchedFor = null; // user id whose licenses are currently in `items`
 
     async function render() {
-      console.log("KYROlll: initLibraryPage render() called");
+      // An auth event fired while a fetch is already in flight must never start
+      // a second one: `listLicenses()` -> `alignSessionUser()`/`ready()` emit
+      // `kyrolll:auth`, which would otherwise re-enter here forever.
+      if (loading) return;
       const user = getCurrentUser();
-      if (!user) { root.innerHTML = lockedHTML(); return; }
+      if (!user) { items = []; fetchedFor = null; root.innerHTML = lockedHTML(); return; }
+      // Already resolved this user's licenses — repaint from memory, never
+      // re-fetch. The library check runs strictly once per user per mount.
+      if (fetchedFor === user.id) {
+        const diagnostic = b && b.licenses.diagnose ? b.licenses.diagnose() : null;
+        root.innerHTML = libraryHTML(user, items, diagnostic);
+        return;
+      }
+      loading = true;
       root.innerHTML = '<div class="flower-loader">' +
         '<img class="flower-loader__flower" src="assets/kyrolll-flower-rest.png" alt="" width="208" height="208">' +
         '<p class="flower-loader__text">LOADING YOUR LIBRARY…</p>' +
         '</div>';
       try {
-        console.log("KYROlll: fetching licenses...");
+        console.log("KYROlll: fetching licenses (once)...");
         items = await b.licenses.list();
         console.log("KYROlll: licenses fetched, count:", (items || []).length);
       } catch (err) {
         items = [];
+      } finally {
+        loading = false;
+        fetchedFor = user.id;
       }
       const current = getCurrentUser();
       console.log("KYROlll: render after fetch — current user:", current ? current.id : null, "items:", items.length);

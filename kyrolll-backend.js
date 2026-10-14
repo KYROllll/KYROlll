@@ -589,6 +589,18 @@
    * other. A failure is recorded (and warned once) rather than swallowed, so the
    * library can say *why* it is empty. */
   async function listLicenses() {
+    // Coalesce concurrent calls: while a read is in flight, every caller shares
+    // the same promise instead of firing another request. This is the second
+    // half of the loop guard (the first lives in the library page's render) —
+    // an auth event emitted mid-read can never start a competing fetch.
+    if (licensesInflight) return licensesInflight;
+    licensesInflight = listLicensesOnce().finally(() => { licensesInflight = null; });
+    return licensesInflight;
+  }
+
+  let licensesInflight = null;
+
+  async function listLicensesOnce() {
     if (!currentUser()) return [];
     // Resolve who is actually signed in before building the query: `ready()`
     // refreshes a session that is at/near expiry (its response re-reads the
