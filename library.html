@@ -58,5 +58,15 @@
   <script src="account.js?v=13"></script>
   <script type="module" src="assets/brand-logo.min.js?v=18"></script>
   <script src="preloader.js?v=7"></script>
+  <script>
+    console.log("KYROlll: library.html loaded — checking auth/state for library render");
+    window.addEventListener("load", function() {
+      const root = document.getElementById("library-root");
+      console.log("KYROlll: library-root element present?", !!root);
+      const b = window.KYROlll_BACKEND || null;
+      const user = b ? b.auth.currentUser() : null;
+      console.log("KYROlll: library.html auth state — currentUser:", user ? { id: user.id, email: user.email } : null);
+    });
+  </script>
 </body>
 </html>

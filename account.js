@@ -664,6 +664,7 @@
   }
 
   function libraryHTML(user, items, diagnostic) {
+    console.log("KYROlll: libraryHTML rendering", { count: (items || []).length, userId: user ? user.id : null, broken: !!(diagnostic && diagnostic.error) });
     const head =
       '<header class="library-head">' +
         '<div class="library-head__id">' +
@@ -721,6 +722,7 @@
     let items = [];
 
     async function render() {
+      console.log("KYROlll: initLibraryPage render() called");
       const user = getCurrentUser();
       if (!user) { root.innerHTML = lockedHTML(); return; }
       root.innerHTML = '<div class="flower-loader">' +
@@ -728,11 +730,14 @@
         '<p class="flower-loader__text">LOADING YOUR LIBRARY…</p>' +
         '</div>';
       try {
+        console.log("KYROlll: fetching licenses...");
         items = await b.licenses.list();
+        console.log("KYROlll: licenses fetched, count:", (items || []).length);
       } catch (err) {
         items = [];
       }
       const current = getCurrentUser();
+      console.log("KYROlll: render after fetch — current user:", current ? current.id : null, "items:", items.length);
       if (!current) { root.innerHTML = lockedHTML(); return; }
       const diagnostic = b.licenses.diagnose ? b.licenses.diagnose() : null;
       root.innerHTML = libraryHTML(current, items, diagnostic);

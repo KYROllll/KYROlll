@@ -550,7 +550,8 @@
    * other. A failure is recorded (and warned once) rather than swallowed, so the
    * library can say *why* it is empty. */
   async function listLicenses() {
-    if (!currentUser()) return [];
+    console.log("KYROlll: listLicenses() start", { configured: CONFIGURED, session: !!session });
+    if (!currentUser()) { console.log("KYROlll: listLicenses() — no current user, returning []"); return []; }
     // Resolve who is actually signed in before building the query: `ready()`
     // refreshes a session that is at/near expiry (its response re-reads the
     // user), and `alignSessionUser()` reconciles a cached user the token
@@ -558,7 +559,8 @@
     await ready();
     await alignSessionUser();
     const user = currentUser();
-    if (!user) return [];
+    console.log("KYROlll: listLicenses() user resolved", { userId: user ? user.id : null, email: user ? user.email : null });
+    if (!user) { console.log("KYROlll: listLicenses() — user lost after align, returning []"); return []; }
     const local = localList(user.id);
     try {
       const rows = await withSession((token) => {
@@ -574,12 +576,15 @@
         );
       });
       licensesError = null;
+      console.log("KYROlll: listLicenses() remote rows returned:", (rows || []).length);
       const remote = (rows || []).map(fromRow);
       // Merge: remote wins on id, local cache fills anything the table missed.
       const byId = new Map();
       remote.concat(local).forEach((item) => { if (item && item.id && !byId.has(item.id)) byId.set(item.id, item); });
       const merged = Array.from(byId.values());
+      console.log("KYROlll: listLicenses() merged licenses (local + remote)", merged.length);
       localSave(user.id, merged);
+      console.log("KYROlll: listLicenses() returning merged array, length:", merged.length);
       return merged;
     } catch (err) {
       // Auth failure — silence it, forget the stale identity cleanly (only
@@ -594,6 +599,7 @@
       }
       licensesError = null; // recovered — never surface crash screen
       console.warn("KYROlll: licenses read failed (recovered)", { status: err && err.status, message: String((err && err.message) || err) });
+      console.log("KYROlll: listLicenses() returning local fallback after recovery, count:", (afterLocal || []).length);
       // After a refused session the user may now be null; still attempt to
       // return the cache that belongs to whatever identity remains.
       const afterUser = currentUser();
