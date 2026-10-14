@@ -332,6 +332,34 @@ To attach a real project:
    and no error, so a missing policy looks like an empty library rather than a
    forbidden one — which is exactly what `"read own licenses"` fixes.
 
+   That owner-only state can be undone *after* 0003 ran — a permissive policy
+   added from the dashboard (the "quick" policy templates are named things like
+   *"Allow global secure license read"* / *"Enable read access for all users"*),
+   a hand-written permissive policy, or RLS left disabled. Because the anon /
+   publishable key ships in the browser, any of those makes the table
+   world-readable: `GET /rest/v1/licenses?select=*` with that key alone returns
+   every customer's rows. `migrations/0004_licenses_owner_only_select.sql` closes
+   it and is **non-destructive** — it turns RLS on, drops *every* policy on the
+   table by name (enumerated from `pg_policies`, so an unknown permissive policy
+   cannot survive), re-creates the owner-only SELECT, and never drops the table,
+   so it is safe on a live project that already holds licenses. Apply it by
+   pointing the existing script at it:
+
+   ```bash
+   MIGRATION=migrations/0004_licenses_owner_only_select.sql \
+     SUPABASE_ACCESS_TOKEN=… node set-licenses-policy.mjs
+   ```
+
+   (`set-licenses-policy.mjs` defaults to 0003, which recreates the table and
+   therefore must not be used for a policy-only fix.) Verify with the publishable
+   key only — no bearer — the read must be `200 []`, never a list of rows
+   (`<publishable-key>` is `anonKey` from `supabase-config.js`):
+
+   ```bash
+   curl -s "https://vuryglxywrqdnvnbelvp.supabase.co/rest/v1/licenses?select=*" \
+     -H "apikey: <publishable-key>"
+   ```
+
    If the tables are missing the client keeps licenses in `localStorage`, so the
    library still works while you set things up.
 

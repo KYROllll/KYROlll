@@ -64,3 +64,47 @@ test("explains a missing database_write scope on a 403", async () => {
   await assert.rejects(main(), /database_write/);
   delete globalThis.fetch;
 });
+
+/* 0004 closes a public-read leak on a LIVE table without destroying it. It must
+ * drop every policy (the permissive one may have any name) and re-install the
+ * owner-only SELECT, and it must never drop the table — that is 0003's job. */
+test("0004 closes the public read without dropping the table", async () => {
+  const { migrationSql } = await importScript();
+  process.env.MIGRATION = "migrations/0004_licenses_owner_only_select.sql";
+  const sql = migrationSql();
+
+  assert.match(sql, /alter table public\.licenses enable row level security;/,
+    "turns RLS on even if it had been left off");
+  assert.match(sql, /from pg_policies/,
+    "enumerates the existing policies so a permissive one cannot survive by name");
+  assert.match(sql, /create policy "read own licenses" on public\.licenses\s+for select to authenticated\s+using \(auth\.uid\(\) = user_id\);/,
+    "installs exactly the owner-only policy");
+  assert.match(sql, /grant select on public\.licenses to authenticated;/);
+  assert.doesNotMatch(sql, /drop table/i, "must not destroy the live table (that is 0003)");
+  assert.doesNotMatch(sql, /for insert/i, "buyers still cannot mint a license");
+
+  delete process.env.MIGRATION;
+});
+
+test("MIGRATION selects which SQL is applied", async () => {
+  process.env.MIGRATION = "migrations/0004_licenses_owner_only_select.sql";
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, init });
+    return { status: 201, text: async () => "" };
+  };
+
+  const { main, migrationSql, migrationFile } = await importScript();
+  process.env.SUPABASE_ACCESS_TOKEN = "sb_pat_test";
+
+  assert.match(migrationFile(), /0004_licenses_owner_only_select\.sql$/);
+
+  await main();
+  assert.equal(calls.length, 1);
+  const query = JSON.parse(calls[0].init.body).query;
+  assert.equal(query, migrationSql(), "sends the selected migration verbatim");
+  assert.match(query, /from pg_policies/);
+
+  delete globalThis.fetch;
+  delete process.env.MIGRATION;
+});

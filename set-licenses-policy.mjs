@@ -18,8 +18,14 @@
  * either the SQL editor or the Management API's query endpoint, which requires a
  * personal access token carrying `database_read`/`database_write`.
  *
- * The old `licenses` table is DROPPED and recreated by the migration — export it
- * first if it holds rows you care about.
+ * The default migration (0003) DROPS and recreates the `licenses` table — export
+ * it first if it holds rows you care about. To close a public-read leak on a
+ * live table WITHOUT touching its rows, point the script at the non-destructive
+ * 0004 migration instead (it drops every policy and re-installs the owner-only
+ * one):
+ *
+ *   MIGRATION=migrations/0004_licenses_owner_only_select.sql \
+ *     SUPABASE_ACCESS_TOKEN=sb_pat_… node set-licenses-policy.mjs
  *
  * Usage (token from https://supabase.com/dashboard/account/tokens; the query
  * endpoint needs the `database_read`/`database_write` scopes, so grant both or
@@ -28,17 +34,27 @@
  *   SUPABASE_ACCESS_TOKEN=sb_pat_… node set-licenses-policy.mjs
  *   PROJECT_REF=… SUPABASE_ACCESS_TOKEN=… node set-licenses-policy.mjs
  *
- * The project ref is read from supabase-config.js by default. Without a token it
- * prints the migration to paste into the SQL editor instead. Re-running is
- * idempotent.
+ * The project ref is read from supabase-config.js by default, and `MIGRATION`
+ * (a path relative to the repo root, or absolute) selects the SQL to apply,
+ * defaulting to `migrations/0003_licenses_webhook.sql`. Without a token it prints
+ * the migration to paste into the SQL editor instead. Re-running is idempotent.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, relative } from "node:path";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const API = "https://api.supabase.com/v1";
-const MIGRATION = join(ROOT, "migrations", "0003_licenses_webhook.sql");
+const DEFAULT_MIGRATION = join(ROOT, "migrations", "0003_licenses_webhook.sql");
+
+/* The SQL to apply. `MIGRATION=…` selects a different file (relative to the repo
+ * root, or absolute) so a policy-only fix like 0004 can reuse this script
+ * instead of dropping and rebuilding the table. */
+function migrationFile() {
+  const chosen = process.env.MIGRATION && process.env.MIGRATION.trim();
+  if (!chosen) return DEFAULT_MIGRATION;
+  return isAbsolute(chosen) ? chosen : join(ROOT, chosen);
+}
 
 function projectRef() {
   if (process.env.PROJECT_REF) return process.env.PROJECT_REF.trim();
@@ -49,7 +65,7 @@ function projectRef() {
 }
 
 function migrationSql() {
-  return readFileSync(MIGRATION, "utf8");
+  return readFileSync(migrationFile(), "utf8");
 }
 
 async function call(path, init) {
@@ -96,9 +112,8 @@ async function main() {
   }
 
   console.log(
-    `project ${ref}: created public.beats + public.licenses (payment shape) with the ` +
-    "SELECT-only owner policy. Buyers can read only their own rows; the nowpayments-webhook " +
-    "function is the only writer. Re-running is idempotent."
+    `project ${ref}: applied ${relative(ROOT, migrationFile())}. ` +
+    "Buyers can read only their own rows; the nowpayments-webhook function is the only writer."
   );
 }
 
@@ -110,4 +125,4 @@ if (isMain) {
   });
 }
 
-export { main, projectRef, migrationSql };
+export { main, projectRef, migrationSql, migrationFile };
