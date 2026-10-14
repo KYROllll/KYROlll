@@ -24,6 +24,10 @@ nowpayments-webhook ── verifies the HMAC, and on payment_status "finished"
    │                    inserts the row with the service_role key
    ▼
 public.licenses ── RLS on, no policy: no browser can read or write it
+   │
+   ▼
+Resend ── emails the buyer a 60-minute signed link to the beat in the
+          BEATS bucket plus a link to the license.html certificate
 ```
 
 ## 1. Schema
@@ -59,11 +63,24 @@ The seed uuid in the migration is the same uuid as the `flesh` entry in
 ```bash
 supabase secrets set \
   NOWPAYMENTS_API_KEY=…          `# create-payment: creates the invoice` \
-  NOWPAYMENTS_IPN_SECRET=…       `# nowpayments-webhook: verifies x-nowpayments-sig`
+  NOWPAYMENTS_IPN_SECRET=…       `# nowpayments-webhook: verifies x-nowpayments-sig` \
+  RESEND_API_KEY=…               `# nowpayments-webhook: sends the delivery email`
 # Optional:
-#   SITE_URL=https://www.kyrolll.store   (success/cancel redirects)
-#   ALLOWED_ORIGIN=https://www.kyrolll.store   (defaults to *)
+#   RESEND_FROM="KYROlll <orders@kyrolll.store>"   (default: KYROlll <onboarding@resend.dev>)
+#   SUPPORT_EMAIL=kyrolll00@gmail.com              (reply-to + address in the mail)
+#   SITE_URL=https://www.kyrolll.store             (success/cancel redirects, license link)
+#   LICENSE_TEMPLATE_URL=https://…/license.html    (default: <SITE_URL>/license.html)
+#   ALLOWED_ORIGIN=https://www.kyrolll.store       (defaults to *)
+#   BEATS_BUCKET=BEATS                             (Storage bucket for the masters)
 ```
+
+**Resend sender:** Resend can only send *from* a domain you have verified — a
+gmail.com address cannot be a `from`. Until `kyrolll.store` is verified in Resend
+(add its DKIM/SPF records), leave `RESEND_FROM` unset and the function uses
+Resend's `onboarding@resend.dev`, which **only delivers to the Resend account
+owner's own address** — fine for a smoke test, not for real buyers. Once the
+domain verifies, set `RESEND_FROM="KYROlll <orders@kyrolll.store>"`. Replies go to
+`SUPPORT_EMAIL` either way.
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected
 by the platform — do not set them by hand.

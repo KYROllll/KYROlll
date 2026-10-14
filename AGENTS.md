@@ -219,7 +219,10 @@ Pages: `index.html` (home + catalog + beat page) and `success.html` (post-paymen
 confirmation). `library.html` is now a static notice — "No account needed — your beat
 will be sent to your email after purchase…" — kept so old `?view=library` links and
 bookmarks land somewhere sensible, and `support.html` is a static `mailto:` panel.
-`auth.html` and `dashboard.html` are **deleted**. The BUY dropdown always opens
+`license.html` is the static certificate template the delivery email links to: it reads
+`?beat&tier&id&price&email`, prints the order and renders the PDF through the existing
+`license-pdf.js` + `assets/jspdf.min.js`. `auth.html` and `dashboard.html` are
+**deleted**. The BUY dropdown always opens
 downward (clamped to the space below and scrollable) so it can never cover the header
 or footer.
 
@@ -342,19 +345,31 @@ The BUY flow is `create-payment` → hosted invoice → `nowpayments-webhook` �
 - The `beat_id` uuid a checkout carries is the catalog's `id` (it has to match
   `public.beats.id`, or the webhook insert would fail the foreign key). The catalog keeps
   `slug` only so old `?beat=flesh` links still resolve.
-- **Email delivery is the next hook**: nothing sends the beat or the PDF license yet.
-  The webhook logs the buyer's `email` (or `null` when NOWPayments collected it) on the
-  finished payment; a follow-up step (Resend or Make.com) reads that row and mails the
-  links. The storefront never lists download links — see "Deliberate behaviour".
+- **Delivery is wired** (Resend): once the row is written the webhook looks the beat up
+  in `public.beats` (title + slug), signs a **60-minute** URL for the purchased tier's
+  object in the `BEATS` bucket, and emails the buyer the beat link plus a link to
+  `license.html`. The buyer address is `order.email`, falling back to
+  `payload.customer_email` (what NOWPayments collected when the buyer skipped our step).
+  The Storage object for a tier is duplicated in the function's `BEAT_FILES` map (keyed
+  by slug) because a Deno function cannot read `catalog.js` — keep it in step when a
+  beat is added; an unknown slug falls back to a storefront link, never a dead signed
+  URL. The mail is best-effort: the license row is the record of the sale, so a Resend
+  failure (or a missing `RESEND_API_KEY`) is logged and the handler still returns `200`,
+  which stops NOWPayments replaying an IPN for a payment that was already recorded.
+  `RESEND_FROM` must be a Resend-verified domain — gmail.com cannot be a sender — and
+  until one is verified it defaults to Resend's test sender, which only reaches the
+  account owner. `SUPPORT_EMAIL` (default `kyrolll00@gmail.com`) is the reply-to and the
+  address printed in the mail's footer. The storefront never lists download links — see
+  "Deliberate behaviour".
 
 ### Leftover auth tooling
 
 `set-auth-email-templates.mjs` and `set-otp-length.mjs` (and their tests) date from the
 removed Supabase Auth: they branded the `{{ .Token }}` login emails and pinned the OTP
 length. No page signs in and no auth email is ever sent now, so they are **unused** —
-left in place, not deleted. `assets/jspdf.min.js` and `license-pdf.js` are likewise
-unreferenced: the browser no longer renders a license certificate, and the emailed PDF
-is produced by the delivery side.
+left in place, not deleted. `assets/jspdf.min.js` and `license-pdf.js` are no longer
+loaded by the store pages — the only page that pulls them in is `license.html`, the
+static certificate the delivery email links to.
 
 The storefront itself still needs no external CDN at runtime.
 
