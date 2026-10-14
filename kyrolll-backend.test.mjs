@@ -49,7 +49,9 @@ function makeClock(start) {
 function boot(fetchImpl, sessionOverride, clock) {
   const now = clock ? clock.get() : Date.now();
   const session = sessionOverride === null ? null : Object.assign({
-    accessToken: "jwt-abc",
+    // Longer than request()'s "too short to be a session" bearer guard (> 10),
+    // so the stub is attached instead of silently sent anonymously.
+    accessToken: "jwt-abc-0123456789",
     refreshToken: "refresh-abc",
     expiresAt: now + 3600000,
     user: USER
@@ -113,7 +115,7 @@ test("lists only the signed-in user's rows, with a valid api key and JWT", async
     SERVER + "/rest/v1/licenses?select=*&user_id=eq.user-123&order=created_at.desc",
     "filters explicitly by the signed-in user"
   );
-  assert.equal(calls[0].init.headers.Authorization, "Bearer jwt-abc");
+  assert.equal(calls[0].init.headers.Authorization, "Bearer jwt-abc-0123456789");
   assert.equal(calls[0].init.headers.apikey, ANON);
   assert.equal(items.length, 1);
   assert.equal(items[0].tierId, "mp3");
@@ -211,7 +213,7 @@ test("refreshes a token that is about to expire before reading", async () => {
     if (url.includes("/auth/v1/token?grant_type=refresh_token")) {
       return {
         ok: true, status: 200,
-        text: async () => JSON.stringify({ access_token: "jwt-fresh", refresh_token: "refresh-2", expires_in: 3600, user: USER })
+        text: async () => JSON.stringify({ access_token: "jwt-fresh-0000", refresh_token: "refresh-2", expires_in: 3600, user: USER })
       };
     }
     return { ok: true, status: 200, text: async () => "[]" };
@@ -224,7 +226,7 @@ test("refreshes a token that is about to expire before reading", async () => {
 
   const read = calls[calls.length - 1];
   assert.match(read.url, /\/rest\/v1\/licenses\?/);
-  assert.equal(read.init.headers.Authorization, "Bearer jwt-fresh", "reads with the refreshed token");
+  assert.equal(read.init.headers.Authorization, "Bearer jwt-fresh-0000", "reads with the refreshed token");
   assert.ok(calls.some((call) => call.url.includes("grant_type=refresh_token")), "refreshed first");
 });
 
@@ -236,7 +238,7 @@ test("a 401 on the read refreshes the token and retries once", async () => {
     if (url.includes("/auth/v1/token?grant_type=refresh_token")) {
       return {
         ok: true, status: 200,
-        text: async () => JSON.stringify({ access_token: "jwt-fresh", refresh_token: "refresh-2", expires_in: 3600, user: USER })
+        text: async () => JSON.stringify({ access_token: "jwt-fresh-0000", refresh_token: "refresh-2", expires_in: 3600, user: USER })
       };
     }
     reads += 1;
@@ -257,8 +259,8 @@ test("a 401 on the read refreshes the token and retries once", async () => {
   assert.equal(backend.licenses.diagnose().error, null, "a successful retry clears the error");
   const attempts = calls.filter((call) => /\/rest\/v1\/licenses\?/.test(call.url));
   assert.equal(attempts.length, 2, "one 401, then one retry");
-  assert.equal(attempts[0].init.headers.Authorization, "Bearer jwt-abc");
-  assert.equal(attempts[1].init.headers.Authorization, "Bearer jwt-fresh");
+  assert.equal(attempts[0].init.headers.Authorization, "Bearer jwt-abc-0123456789");
+  assert.equal(attempts[1].init.headers.Authorization, "Bearer jwt-fresh-0000");
   assert.ok(calls.some((call) => call.url.includes("grant_type=refresh_token")), "refreshed between attempts");
 });
 
@@ -322,7 +324,7 @@ test("the exclusive lookup is authenticated when signed in", async () => {
   assert.deepEqual(Array.from(sold), ["6c56eda2-df4a-45b0-b9b7-68f8efdbb1af"]);
   const read = calls.find((call) => call.url.includes("license_type=eq.exclusive"));
   assert.ok(read, "asks the table");
-  assert.equal(read.init.headers.Authorization, "Bearer jwt-abc", "the user's bearer, not anonymous");
+  assert.equal(read.init.headers.Authorization, "Bearer jwt-abc-0123456789", "the user's bearer, not anonymous");
   assert.equal(read.init.headers.apikey, ANON);
 });
 
@@ -541,5 +543,54 @@ test("a live session written by another tab revives an expired one", async () =>
   const read = calls.find((call) => /\/rest\/v1\/licenses\?/.test(call.url));
   assert.ok(read, "reads the table again");
   assert.equal(read.init.headers.Authorization, "Bearer jwt-other-tab", "with the other tab's live token");
+});
+
+/* The stored session has one shape — the key `kyrolll_sb_session` (three L's:
+ * k-y-r-o-l-l-l) holding camelCase `accessToken` / `refreshToken` / `expiresAt`.
+ * This round-trips it through the real write path ("sign in") and then a fresh
+ * module over the same bytes ("next page load"), so a rename of the key or a
+ * switch to the snake_case Supabase field names cannot slip through unnoticed. */
+test("a signed-in session round-trips through one key and camelCase fields", async () => {
+  const token = jwt({ sub: USER.id, email: USER.email });
+  const verifyReply = {
+    ok: true, status: 200,
+    text: async () => JSON.stringify({
+      access_token: token,
+      refresh_token: "refresh-roundtrip",
+      expires_in: 3600,
+      user: { id: USER.id, email: USER.email, created_at: "2026-10-01T00:00:00Z" }
+    })
+  };
+  const { backend, storage } = boot(async (url) => {
+    assert.match(url, /\/auth\/v1\/verify$/, "the OTP exchange is the only write path here");
+    return verifyReply;
+  }, null);
+
+  await backend.auth.verifyOtp({ email: USER.email, token: "123456" });
+
+  const raw = storage.get("kyrolll_sb_session");
+  assert.ok(raw, "signing in writes the one shared session key");
+
+  const stored = JSON.parse(raw);
+  assert.equal(stored.accessToken, token, "stores the bearer as camelCase `accessToken`");
+  assert.equal(stored.refreshToken, "refresh-roundtrip", "stores the refresh token as camelCase `refreshToken`");
+  assert.equal(typeof stored.expiresAt, "number", "stores `expiresAt` as a number");
+  assert.equal(stored.access_token, undefined, "never writes snake_case `access_token`");
+  assert.equal(stored.refresh_token, undefined, "never writes snake_case `refresh_token`");
+  assert.equal(stored.user.id, USER.id, "keeps the signed-in identity under `user`");
+
+  // Read it back the way the next page load does: a fresh module over the same
+  // bytes must see the visitor as signed in and read with that bearer.
+  const reads = [];
+  const next = boot(async (url, init) => {
+    reads.push({ url, init });
+    return { ok: true, status: 200, text: async () => "[]" };
+  }, stored);
+
+  assert.equal(next.backend.auth.currentUser().id, USER.id, "a fresh load resolves the stored session");
+  await next.backend.licenses.list();
+  const read = reads.find((call) => /\/rest\/v1\/licenses\?/.test(call.url));
+  assert.ok(read, "the session is usable without a re-login");
+  assert.equal(read.init.headers.Authorization, "Bearer " + token, "reads with the stored bearer");
 });
 
