@@ -148,6 +148,15 @@
       body = JSON.stringify(body);
     }
     Object.assign(headers, opts.headers || {});
+    // Debug: log the exact request with sensitive tokens masked.
+    console.log("KYROlll: request() →", method, base + path, {
+      headers: Object.fromEntries(Object.entries(headers).map(([k, v]) => {
+        if (/^(authorization|apikey)$/i.test(k) && typeof v === "string") {
+          return [k, v.replace(/(Bearer\s+)?(.{6}).*(.{4})/, "$1$2…$3")];
+        }
+        return [k, v];
+      }))
+    });
     let response;
     try {
       response = await fetch(base + path, { method, headers, body });
@@ -163,10 +172,14 @@
     const text = await response.text();
     if (text) data = readJSON(text, text);
     if (!response.ok) {
+      // Debug: surface the exact error body Supabase returned.
+      console.error("KYROlll: request() ← HTTP", response.status, response.statusText, "for", method, base + path);
+      console.error("KYROlll: request() error body:", text || "(empty response body)");
       const message = (data && (data.msg || data.message || data.error_description || data.error || data.hint)) || response.statusText;
       const error = new Error(String(message || "Request failed"));
       error.status = response.status;
       error.code = data && (data.error_code || data.code);
+      error.body = text;
       throw error;
     }
     return data;
@@ -576,9 +589,7 @@
    * other. A failure is recorded (and warned once) rather than swallowed, so the
    * library can say *why* it is empty. */
   async function listLicenses() {
-    console.log("KYROlll: listLicenses() called");
-    if (!CONFIGURED) { console.log("KYROlll: listLicenses() — unconfigured (demo), returning []"); return []; }
-    if (!currentUser()) { console.log("KYROlll: listLicenses() — unauthenticated, returning [] safely"); return []; }
+    if (!currentUser()) return [];
     // Resolve who is actually signed in before building the query: `ready()`
     // refreshes a session that is at/near expiry (its response re-reads the
     // user), and `alignSessionUser()` reconciles a cached user the token
@@ -586,8 +597,7 @@
     await ready();
     await alignSessionUser();
     const user = currentUser();
-    console.log("KYROlll: listLicenses() user resolved", { userId: user ? user.id : null, email: user ? user.email : null });
-    if (!user) { console.log("KYROlll: listLicenses() — user lost after align, returning []"); return []; }
+    if (!user) return [];
     const local = localList(user.id);
     try {
       const rows = await withSession((token) => {
@@ -607,7 +617,6 @@
         );
       });
       licensesError = null;
-      console.log("KYROlll: listLicenses() remote rows returned:", (rows || []).length);
       const remote = (rows || []).map(fromRow);
       // Merge: remote wins on id, local cache fills anything the table missed.
       const byId = new Map();
