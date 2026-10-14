@@ -140,7 +140,9 @@
     // makes an authenticated read look like an empty table.
     const headers = { apikey: CONFIG.anonKey, Accept: "application/json" };
     let body = opts.body;
-    if (opts.token) headers.Authorization = "Bearer " + opts.token;
+    if (opts.token && typeof opts.token === "string" && opts.token.trim().length > 10) {
+      headers.Authorization = "Bearer " + opts.token.trim();
+    }
     if (body !== undefined && !(body instanceof FormData) && !(body instanceof Blob) && !(body instanceof File)) {
       headers["Content-Type"] = "application/json";
       body = JSON.stringify(body);
@@ -177,7 +179,10 @@
   // transient failures we keep the stored session untouched and let the next
   // navigation (or the focus/online wake below) try again.
   function isDefinitiveAuthFailure(err) {
-    return !!(err && (err.status === 400 || err.status === 401 || err.status === 403));
+    // 400/401/403 = server refused; 500/520 = server-side failure often from
+    // an invalid/corrupted JWT that the gateway cannot parse. Both clear the
+    // session so nothing leaks across an unparseable token.
+    return !!(err && (err.status === 400 || err.status === 401 || err.status === 403 || err.status === 500 || err.status === 520));
   }
 
   async function refreshSession() {
@@ -440,11 +445,27 @@
     try {
       return await perform(token);
     } catch (err) {
-      if (!err || err.status !== 401) throw err;
-      if (!(session && session.refreshToken)) {
-        // Nothing to renew it with, so the session the server just refused is
-        // the end of the line. Mark it: the caller forgets it and falls back to
-        // signed-out rather than showing an error the customer cannot act on.
+      // 401 = expired token → try silent renewal.
+      // 500/520 = server-side failure often triggered by an invalid/corrupt JWT
+      // (gateway cannot parse the bearer). Treat as a definitive refusal so the
+      // user never sees an unhandled server crash.
+      const isDefinitive = !err || (err.status !== 401 && err.status !== 0 && !err.network);
+      if (!err || (err.status === 401 && !(session && session.refreshToken))) {
+        err.sessionRefused = true;
+        throw err;
+      }
+      if (err.status === 500 || err.status === 520) {
+        err.sessionRefused = true;
+        if (session && session.refreshToken) {
+          const refreshed = await refreshSession();
+          const next = refreshed && refreshed.accessToken;
+          if (next) return await perform(next);
+        }
+        // If refresh fails or no refresh token, the corrupt session is dead.
+        forgetRefusedSession();
+        throw err;
+      }
+      if (isDefinitive || !(session && session.refreshToken)) {
         err.sessionRefused = true;
         throw err;
       }
@@ -452,9 +473,6 @@
       const refreshed = await refreshSession();
       const next = refreshed && refreshed.accessToken;
       if (!next) {
-        // A *definitive* refusal has already cleared the session. A transient
-        // one (offline, 5xx, timeout) leaves it in place and must never be read
-        // as a dead session, or a flaky connection would sign the customer out.
         err.sessionRefused = !session;
         throw err;
       }
@@ -478,77 +496,67 @@
   // The access token the cached session user was last confirmed against.
   let verifiedToken = "";
 
-  /* Resolve who the live token actually belongs to, from the server. `auth.uid()`
-   * is the token's `sub` and RLS enforces it server-side, but `session.user` is
+  /* Reconcile the cached session user with the live token. `auth.uid()` is
+   * the token's `sub` and RLS enforces it server-side, but `session.user` is
    * only a client-side hint: a session carried over from an earlier sign-in,
    * written by another tab or left over from a refresh can disagree with the
-   * token. This asks `/auth/v1/user` with the current bearer (through
-   * `withSession`, so an expired token is renewed first), adopts the answer and
-   * drops the cache keyed to a contradicted id. It runs once per token per page
-   * (`verifiedToken`), keeping the round trip off repeated reads.
+   * token. The JWT itself is checked first — its `sub` is the exact claim
+   * `auth.uid()` resolves, so when it already names the cached user (or is
+   * opaque and carries no claim that could contradict the cache) no server
+   * round trip is needed. When the token claims a *different* identity than
+   * the cache, this asks `/auth/v1/user` with the current bearer (through
+   * `withSession`, so an expired token is renewed first), adopts the server's
+   * answer and drops the cache keyed to the contradicted id. It runs once per
+   * token per page (`verifiedToken`), keeping the round trip off repeated
+   * reads.
    *
-   * Never throws. A refused session is forgotten and reported as null so callers
-   * fall back to the signed-out state; a transient failure falls back to the
-   * cached user and lets the caller's own request decide. */
-  async function verifySession(force) {
-    if (!CONFIGURED || !session) return null;
-    if (!force && verifiedToken && verifiedToken === session.accessToken) return currentUser();
-    try {
-      const data = await withSession((token) => token
-        ? request("GET", "/auth/v1/user", { token: token })
-        : null);
-      const verified = normalizeUser(data);
-      if (!verified || !verified.id) return currentUser();
-      const claimed = session && session.user && session.user.id;
-      session.user = verified;
-      saveSession(session);
-      if (claimed && claimed !== verified.id) lsDel(libraryKey(claimed));
-      verifiedToken = session.accessToken;
-      emitAuthChange();
-      return currentUser();
-    } catch (err) {
-      if (err && err.sessionRefused) { forgetRefusedSession(); return null; }
-      return currentUser();
-    }
-  }
-
-  /* Reconcile the cached session user with the live token's `sub`. Called
-   * before every authenticated read/write so the `user_id` filter and the
-   * library cache key always follow the identity the server will enforce
-   * (`auth.uid()` = token `sub`), never a leftover client hint. If the token
-   * and the cached user disagree, the server's answer wins and the stale
-   * library cache for the old id is dropped safely — only that named key,
-   * never a blanket clear. Never throws: a refused session is forgotten and
-   * the caller falls back to signed-out. */
+   * Never throws. A refused session is forgotten and reported as null so
+   * callers fall back to the signed-out state; a transient failure falls back
+   * to the cached user and lets the caller's own request decide. */
   async function alignSessionUser() {
     if (!CONFIGURED || !session || !session.accessToken) return null;
+    if (verifiedToken === session.accessToken) return currentUser();
+    const claimed = session.user && session.user.id;
+    const tokenSub = jwtSubject(session.accessToken);
+    // The live token itself is the verification: nothing can be wrong when
+    // there is no cached identity to contradict it, or when its own `sub`
+    // already names the cached user. Trust the JWT, not the other way around.
+    if (!claimed || !tokenSub || tokenSub === claimed) {
+      verifiedToken = session.accessToken;
+      return currentUser();
+    }
+    // The live token claims a different identity than the cached user — ask
+    // the server who this bearer actually belongs to and adopt its answer.
     try {
       const data = await withSession((token) => token
         ? request("GET", "/auth/v1/user", { token: token })
         : null);
       const verified = normalizeUser(data);
       if (!verified || !verified.id) return currentUser();
-      const claimed = session && session.user && session.user.id;
-      const tokenSub = jwtSubject(session.accessToken) || verified.id;
-      if (claimed && (claimed !== verified.id || claimed !== tokenSub)) {
-        lsDel(libraryKey(claimed));
-      }
-      if (!session.user || session.user.id !== verified.id) {
-        session.user = verified;
-        saveSession(session);
-        emitAuthChange();
-      }
-      // Confirm the token's sub matches the adopted user; if not, treat as
-      // mismatch and drop the session so nothing can leak across identities.
-      const adoptedSub = jwtSubject(session.accessToken) || (verified && verified.id);
-      if (verified && verified.id && adoptedSub && adoptedSub !== verified.id) {
-        // Token claims a different identity — forget everything cleanly.
+      // Drop the cache written under the contradicted id — only that named
+      // key — and let the session follow the server's answer.
+      lsDel(libraryKey(claimed));
+      session.user = verified;
+      saveSession(session);
+      // The token's `sub` must agree with the adopted user; if it still claims
+      // someone else the record is corrupt — forget it so nothing can leak
+      // across identities.
+      const adoptedSub = jwtSubject(session.accessToken);
+      if (adoptedSub && adoptedSub !== verified.id) {
         forgetRefusedSession();
         return null;
       }
       verifiedToken = session.accessToken;
+      emitAuthChange();
       return currentUser();
     } catch (err) {
+      // 500/520 from /auth/v1/user = server-side token parsing failure (corrupt JWT).
+      // Treat as a refused session so nothing leaks across an invalid identity.
+      if (err && (err.status === 500 || err.status === 520)) {
+        err.sessionRefused = true;
+        forgetRefusedSession();
+        return null;
+      }
       if (err && err.sessionRefused) {
         forgetRefusedSession();
         return null;
@@ -584,8 +592,12 @@
     try {
       const rows = await withSession((token) => {
         if (!token) return [];
-        const owner = jwtSubject(token); // strict: verified auth.uid() from JWT, never cached
-        if (!owner) return [];
+        // The filter comes from the *token being sent*, so it is the same
+        // `sub` PostgREST resolves as `auth.uid()` and RLS enforces — never
+        // blindly the cached user. (The cached id is only the fallback for an
+        // opaque token with no readable claim, where RLS still enforces the
+        // live token server-side.)
+        const owner = jwtSubject(token) || user.id;
         return request(
           "GET",
           "/rest/v1/" + LICENSES_TABLE +
@@ -601,29 +613,39 @@
       const byId = new Map();
       remote.concat(local).forEach((item) => { if (item && item.id && !byId.has(item.id)) byId.set(item.id, item); });
       const merged = Array.from(byId.values());
-      console.log("KYROlll: listLicenses() merged licenses (local + remote)", merged.length);
       localSave(user.id, merged);
-      console.log("KYROlll: listLicenses() returning merged array, length:", merged.length);
       return merged;
     } catch (err) {
-      // Auth failure — silence it, forget the stale identity cleanly (only
-      // the named library key is removed, never a blanket localStorage.clear()),
-      // try one silent refresh, and fall back to the local cache so the user
-      // never sees "Library Unreachable". After recovery attempt, clear the
-      // diagnostic error so account.js renders the clean empty state.
-      const isAuth = !!(err && (err.status === 401 || err.status === 403 || err.status === 400 || err.sessionRefused));
+      // Stale or refused credentials (401/403, or a session the server refused
+      // outright). `withSession` has already renewed the token and replayed
+      // the read once by the time we land here, so the identity is
+      // unrecoverable this session — forget it cleanly (only the named keys,
+      // never a blanket localStorage.clear()) and fall back to whatever local
+      // cache remains. The recovery stays silent and unrecorded: a stale token
+      // must never surface as the "LIBRARY UNREACHABLE" crash screen — the
+      // page simply re-renders signed-out (or with the cached rows) instead.
+      const isAuth = !!(err && (err.status === 401 || err.status === 403 || err.sessionRefused));
       if (isAuth) {
-        try { forgetRefusedSession(); } catch (e) { /* ignore */ }
-        try { await ready(); } catch (e) { /* ignore */ }
+        try { forgetRefusedSession(); } catch (ignore) { /* ignore */ }
+        licensesError = null;
+        console.warn("KYROlll: licenses read failed (stale session recovered)", {
+          status: err && err.status, message: String((err && err.message) || err)
+        });
+        // After a refused session the user may now be null; still return the
+        // cache that belongs to whatever identity remains.
+        const afterUser = currentUser();
+        return afterUser ? localList(afterUser.id) : [];
       }
-      licensesError = null; // recovered — never surface crash screen
-      console.warn("KYROlll: licenses read failed (recovered)", { status: err && err.status, message: String((err && err.message) || err) });
-      console.log("KYROlll: listLicenses() returning local fallback after recovery, count:", (afterLocal || []).length);
-      // After a refused session the user may now be null; still attempt to
-      // return the cache that belongs to whatever identity remains.
-      const afterUser = currentUser();
-      const afterLocal = afterUser ? localList(afterUser.id) : [];
-      return afterLocal;
+      // Any other failure (missing table, network down, 5xx) is still recorded
+      // (and warned once) rather than swallowed, so the library can say *why*
+      // it is empty instead of pretending the account owns nothing.
+      licensesError = {
+        status: (err && err.status) || 0,
+        code: (err && err.code) || "",
+        message: String((err && err.message) || err)
+      };
+      console.warn("KYROlll: licenses read failed", licensesError);
+      return local;
     }
   }
 
