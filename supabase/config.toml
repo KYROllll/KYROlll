@@ -5,14 +5,15 @@
 
 project_id = "kyroll-store"
 
-# NOWPayments cannot present a Supabase JWT, so the IPN callback MUST be
-# deployed without JWT verification — otherwise every callback is rejected at
-# the gateway with 401 before the signature check ever runs. The handler
-# authenticates each request itself with the `x-nowpayments-sig` HMAC.
-[functions.nowpayments-webhook]
+# The store has no accounts, so there is no Supabase JWT for the browser to
+# present. Both functions are public: `create-payment` prices the order
+# server-side and never trusts a client-supplied price, and the webhook
+# authenticates itself with the `x-nowpayments-sig` HMAC.
+[functions.create-payment]
 verify_jwt = false
 
-# The buyer's own access token IS the auth for this one, so it keeps the
-# default JWT verification on.
-[functions.create-payment]
-verify_jwt = true
+# NOWPayments cannot present a Supabase token, so the IPN callback MUST be
+# deployed without JWT verification — otherwise every callback is rejected at
+# the gateway with 401 before the signature check ever runs.
+[functions.nowpayments-webhook]
+verify_jwt = false

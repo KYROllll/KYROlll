@@ -97,9 +97,9 @@ starts once every stage has reported its first paint (`stagePainted()`, also cal
 fails so one dead flower can never hold it back) plus a 450 ms hold; before that `elapsed` is 0,
 which is exactly the pose the still image shows. `paused` / `document.hidden` freeze the shared
 clock for every flower at once, and the drifting rim light only starts with the rotation, so the
-hand-off pixels do not move either. On the auth page the preloader's stage is deliberately not
-mounted at all (the filter at the top of `brand-logo.js`), so `hosts` there is just the login
-flower. The veil's `logoBreathe` glow stays cancelled (`.preloader .logo-stage { animation: none }`)
+hand-off pixels do not move either. A `.logo-stage` inside `#preloader` is deliberately skipped when
+`body.auth-body` is set (the filter at the top of `brand-logo.js`), a guard from the removed sign-in
+page: no page carries `auth-body` any more, so every stage now mounts. The veil's `logoBreathe` glow stays cancelled (`.preloader .logo-stage { animation: none }`)
 and the still → canvas cross-fade stays cancelled for the veil flower
 (`.preloader .logo-stage canvas, .preloader .logo-fallback { transition: none }`) — the canvas
 joins at the resting pose, so that swap is invisible.
@@ -125,16 +125,14 @@ carrying no CSS transition — the bar is eased from the same `preloader.js` rAF
 
 ## Exclusive sales lock the beat ("SOLD EXCLUSIVE")
 
-`rememberExclusive()` inside `kyrolll-backend.js`'s `addLicense()` is what marks a beat taken: the
-first time a purchase is recorded on the `exclusive` tier the beat id is added to the
-`kyrolll_exclusive_sold` `localStorage` list. `licenses.soldExclusive()` returns that list plus
-whatever `GET /rest/v1/licenses?select=beat_id&license_type=eq.exclusive&status=eq.active` yields —
-best-effort, so with
-the documented owner-only RLS it only ever sees the signed-in buyer's own rows, and a public SELECT
-policy on `beat_id` is what would make the lock site-wide. That read goes out **as the signed-in
-buyer** when there is a session (the bearer is what makes PostgREST resolve `auth.uid()`; `apikey`
-alone is the anonymous `anon` role and `auth.uid()` null), and stays a plain anonymous read when
-signed out so a public SELECT policy is still what the site-wide lock would need. `script.js` calls
+Nothing in the browser marks a beat taken any more — the `nowpayments-webhook` is the only writer of
+`licenses` and it runs server-side — so the local `kyrolll_exclusive_sold` `localStorage` list is
+the *whole* answer today: `licenses.soldExclusive()` returns that list plus whatever an
+**anonymous** `GET /rest/v1/licenses?select=beat_id&license_type=eq.exclusive&status=eq.active`
+yields. That read carries the publishable key as `apikey` only, with **no bearer** (there is no
+session any more), so under the 0005 RLS (on, no policy) it returns zero rows and only the local
+list matters. The query is kept as a best-effort so a project that ever adds a public `beat_id`
+SELECT policy lights the site-wide lock up with no code change. `script.js` calls
 it once per page load
 (`loadSoldState()`) and marks every surface: `catalog-tile--sold` on the tile, `beat-detail--sold`
 on the beat page, `disabled` + `buy-beat-btn--sold` on the BUY button (the ghosted label is covered
@@ -194,261 +192,171 @@ reads — the active-uniform query still forces the link. An environment several
 than this one can therefore still trip the platform's fresh-load smoke check
 (`page_unresponsive`). Trim the material last, not the page structure.
 
-## Supabase accounts, storage & licenses
+## Supabase (account-less store)
 
-Accounts, the permanent library and licensing run through Supabase, wired in
-three files that every page loads (see the `<script>` order in `index.html`):
+There are **no accounts**. A visitor browses, picks a license, optionally leaves an
+email, and pays on a hosted NOWPayments invoice; the beat and its PDF license are
+delivered by email. Supabase is used for exactly three things: the public `beats`
+catalog, the `licenses` audit table (written only by the webhook) and the private
+`BEATS` storage bucket that holds the masters.
 
-- `supabase-config.js` — project URL, anon key and bucket/table names. **While
-  `url`/`anonKey` are empty the store runs in "local demo" mode**: accounts are
-  kept in `localStorage`, libraries are local, and no request leaves the browser
-  (the emailed one-time code is shown on screen instead). The preview boots with
-  no secrets. Filling both values switches every page to Supabase Auth + Storage
-  + Postgres.
-- `kyrolll-backend.js` — a dependency-free Supabase REST client (Auth, Storage,
-  PostgREST) behind `window.KYROlll_BACKEND`, with the same promise API in both
-  modes. Auth is passwordless email OTP: `auth.signInWithOtp` asks Supabase to
-  mail a 6-digit code (creating the account on first use) and `auth.verifyOtp`
-  exchanges that code for a session — the same two calls cover sign-up and login.
-- `catalog.js` — shared beats, the three tiers, and each tier's Storage object
-  `path` + `name` + same-origin `fallback`.
+Three files every page loads (see the `<script>` order in `index.html`):
 
-Pages: `auth.html` (dedicated passwordless login/sign-up with a single 6-digit
-code input that verifies itself the moment the sixth digit lands, the live 3D
-flower and white fields), `dashboard.html` (username +
-profile picture), `library.html` (audio download + PDF license), plus
-`index.html` and `success.html`. The BUY dropdown always opens downward (clamped
-to the space below and scrollable) so it can never cover the header or footer.
+- `supabase-config.js` — project URL, anon/publishable key and bucket/table names.
+  **While `url`/`anonKey` are empty the store runs in "local demo" mode**: no request
+  leaves the browser and the checkout falls back to the static invoice links in
+  `catalog.js`. The preview boots with no secrets.
+- `kyrolll-backend.js` — a dependency-free Supabase REST client behind
+  `window.KYROlll_BACKEND` exposing only `payments.createInvoice`
+  (`POST /functions/v1/create-payment`, **no bearer** — the storefront is public) and
+  `licenses.soldExclusive()` (a best-effort anonymous `beat_id` read). There is no
+  Auth, no session, no token and no local-demo account branch: the anon key is sent as
+  `apikey` only, which PostgREST resolves as the `anon` role.
+- `catalog.js` — shared beats, the three tiers, and each tier's Storage object `path` +
+  `name` + same-origin `fallback`.
 
-To attach a real project:
+Pages: `index.html` (home + catalog + beat page) and `success.html` (post-payment
+confirmation). `library.html` is now a static notice — "No account needed — your beat
+will be sent to your email after purchase…" — kept so old `?view=library` links and
+bookmarks land somewhere sensible, and `support.html` is a static `mailto:` panel.
+`auth.html` and `dashboard.html` are **deleted**. The BUY dropdown always opens
+downward (clamped to the space below and scrollable) so it can never cover the header
+or footer.
 
-1. **Auth** — Authentication → Providers → Email → make sure email sign-in is
-   enabled so `signInWithOtp` can send codes. The email template must include the
-   `{{ .Token }}` placeholder so the code the code input asks for is actually
-   sent. The code length is the project's **Email OTP Length** setting
-   (GoTrue env `GOTRUE_MAILER_OTP_LENGTH`), **not** something the `/auth/v1/otp`
-   request can set. Brand-new projects default the email OTP to 8; KYROlll pins
-   its project to **6**, and `supabase-config.js` carries `otpLength: 6` to
-   match, so the storefront and the emailed code agree. Whenever you change
-   `otpLength`, bring the project field in step:
-   `SUPABASE_ACCESS_TOKEN=… node set-otp-length.mjs`
-   (defaults to 6, honours `OTP_LENGTH`; token from
-   https://supabase.com/dashboard/account/tokens, Owner/Administrator — the
-   Management API auth-config endpoint requires at least Admin; the script reads
-   the project ref from `supabase-config.js`, GETs the current
-   `mailer_otp_length`, PATCHes it, and prints the result). The auth page
-   renders exactly `otpLength` digits in the code input and the OTP request
-   sends `otp_length` so the UI and the emailed code can never drift apart.
+### The BUY flow
 
-   The **look** of the mail is also server-owned: GoTrue renders it from the
-   project's email templates, so the stock "Supabase" copy and its default
-   `{{ .ConfirmationURL }}` magic link have to be replaced in the project, not
-   in the page. `SUPABASE_ACCESS_TOKEN=… node set-auth-email-templates.mjs`
-   PATCHes the branded KYROlll dark templates (storefront ink, `{{ .Token }}`
-   only, no stray link except the invite whose link is the action) plus the
-   matching subjects through the same Management API endpoint. It defaults the
-   support address to `kyrolll00@gmail.com` (`SUPPORT_EMAIL=…` to override),
-   reads the ref from `supabase-config.js`, and only PATCHes fields that differ,
-   so re-running is a no-op. `kyrolll-backend.js` sends no `email_redirect_to`,
-   so a code-only login never mints a magic link in the first place.
+`tile → BUY → license tier → optional email → invoice`
 
-   The `#050505` canvas is **forced**, not merely set: the scheme metas plus
-   `:root { color-scheme: dark only }`, inline `background-color` on `<html>`
-   and `<body>` (with a `bgcolor` attribute as the CSS-less fallback),
-   `!important` background CSS re-asserted inside the `prefers-color-scheme:
-   light` query, and the Outlook.com `[data-ogsc]`/`[data-ogsb]` hooks repaint
-   every layer a light-mode client would otherwise lighten or wrap in white —
-   the wrapper, body and content container are all pure black (`.kyro-page`,
-   `.kyro-panel`), with only the code well (`.kyro-well`, `#17171a`) lifted to
-   keep the digits legible. Every structural `<table>` and `<td>` also repeats
-   the background as a `bgcolor` attribute plus an inline `background-color:
-   #050505 !important`: a client paints attributes before it applies `<style>`,
-   and that parse-then-style gap is exactly what shows as a white flash while
-   the message loads. Each mail opens on the storefront's own 3D
-   flower — `assets/kyrolll-flower-rest.png`, the captured resting pose the hero
-   cross-fades in — **linked, not embedded**, so the message stays tiny while
-   the mark stays crisp at 88px. It needs a public host: the script reads the
-   repo's `CNAME` (`www.kyrolll.store`) and falls back to GoTrue's own
-   `{{ .SiteURL }}`; a fork on another domain overrides it with
-   `ASSET_BASE=https://…`. The `<img>` carries `alt="KYROlll"`, so the header
-   still reads with images blocked.
-2. **Storage** — create a private bucket `BEATS` for the masters and an
-   `avatars` bucket for profile pictures (rename in `supabase-config.js` if you
-   differ). Upload each tier's object to the path named in `catalog.js`.
-3. **Tables** — `beats` (the catalog's uuids) and `licenses`, locked down so
-   only the payment webhook can write a license:
+1. `script.js` opens the license menu (`account.js:openLicenseMenu`); choosing a tier
+   runs `beginPurchase()`, which records the pending purchase in `localStorage`
+   (`kyrolll_pending_purchase`).
+2. `promptCheckoutEmail()` shows the email step inside the (already styled)
+   `.logout-modal` shell: an optional `.auth-input` email field, plus SKIP and CONTINUE
+   TO PAYMENT. A malformed address is refused there; skipping is a first-class path, and
+   NOWPayments then asks for an email on its own page.
+3. `startPayment()` calls `payments.createInvoice({beatId, licenseType, email})` and
+   sends the browser to the returned hosted invoice URL. In local-demo mode it falls
+   back to the tier's static `url` in `catalog.js`.
+4. `success.html` reads the pending purchase (title / tier / price / email) to fill the
+   confirmation card.
 
-   ```sql
-   create table if not exists public.beats (
-     id uuid primary key default gen_random_uuid(),
-     slug text unique not null,
-     title text not null,
-     created_at timestamptz not null default now()
-   );
-   alter table public.beats enable row level security;
-   drop policy if exists "beats are public" on public.beats;
-   create policy "beats are public" on public.beats
-     for select to anon, authenticated using (true);
-   insert into public.beats (id, slug, title)
-     values ('6c56eda2-df4a-45b0-b9b7-68f8efdbb1af', 'flesh', '[FREE] DON TOLIVER TYPE BEAT - FLESH')
-     on conflict (slug) do nothing;
+### Tables & RLS
 
-   create table public.licenses (
-     id uuid primary key default gen_random_uuid(),
-     user_id uuid not null references auth.users(id) on delete cascade,
-     beat_id uuid not null references public.beats(id) on delete restrict,
-     license_type text not null check (license_type in ('mp3','wav','exclusive')),
-     price numeric(10,2) not null check (price >= 0),
-     payment_id text unique,
-     status text not null default 'active',
-     created_at timestamptz not null default now()
-   );
-   alter table public.licenses enable row level security;
-   drop policy if exists "read own licenses" on public.licenses;
-   create policy "read own licenses" on public.licenses
-     for select to authenticated
-     using (auth.uid() = user_id);
-   grant select on public.licenses to authenticated;
-   ```
+`migrations/0003_licenses_webhook.sql` creates `beats` and `licenses`;
+`migrations/0005_licenses_email_nullable_user.sql` then reshapes `licenses` for the
+account-less flow. The current expected shape is:
 
-   The whole thing is committed as `migrations/0003_licenses_webhook.sql` and
-   can be applied without the dashboard:
-   `SUPABASE_ACCESS_TOKEN=… node set-licenses-policy.mjs` (the Management API's
-   `database/query` endpoint needs a token with the `database_read`/
-   `database_write` scopes). It is idempotent, prints the migration for the SQL
-   editor when no token is set, and **replaces** the original
-   `migrations/0001_licenses_rls.sql` — which had a text `beat_id`, `tier_id`/
-   `purchased_at` columns, and a `for all` policy that also let a browser
-   INSERT. Do not re-apply 0001. It also folds in (and supersedes)
-   `migrations/0002_licenses_foreign_key.sql`, whose
-   `licenses.user_id → auth.users(id)` foreign key is declared inline on the
-   recreated table; running 0002 first is harmless.
+```sql
+create table if not exists public.beats (
+  id uuid primary key default gen_random_uuid(),
+  slug text unique not null,
+  title text not null,
+  created_at timestamptz not null default now()
+);
+alter table public.beats enable row level security;
+drop policy if exists "beats are public" on public.beats;
+create policy "beats are public" on public.beats
+  for select to anon, authenticated using (true);
+insert into public.beats (id, slug, title)
+  values ('6c56eda2-df4a-45b0-b9b7-68f8efdbb1af', 'flesh', '[FREE] DON TOLIVER TYPE BEAT - FLESH')
+  on conflict (slug) do nothing;
+grant select on public.beats to anon, authenticated;
 
-   The `licenses` policy is **SELECT only, and only the owner's**. There is
-   deliberately no INSERT/UPDATE/DELETE policy: the browser cannot mint a
-   license, and the only writer is the `nowpayments-webhook` Edge Function
-   using the service_role key (which bypasses RLS). RLS still fails closed
-   *silently*: with RLS on and no matching policy the select returns zero rows
-   and no error, so a missing policy looks like an empty library rather than a
-   forbidden one — which is exactly what `"read own licenses"` fixes.
+-- After migrations/0005_licenses_email_nullable_user.sql. There are no accounts,
+-- so a row carries the buyer's optional email and a NULLABLE user_id (kept only
+-- for historical rows; the auth.users foreign key is dropped).
+create table public.licenses (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid,                              -- nullable; no auth.users FK
+  email text,                                -- the buyer's address, optional
+  beat_id uuid not null references public.beats(id) on delete restrict,
+  license_type text not null check (license_type in ('mp3','wav','exclusive')),
+  price numeric(10,2) not null check (price >= 0),
+  payment_id text unique,
+  status text not null default 'active',
+  created_at timestamptz not null default now()
+);
+alter table public.licenses enable row level security;  -- ON, with NO policy
+```
 
-   That owner-only state can be undone *after* 0003 ran — a permissive policy
-   added from the dashboard (the "quick" policy templates are named things like
-   *"Allow global secure license read"* / *"Enable read access for all users"*),
-   a hand-written permissive policy, or RLS left disabled. Because the anon /
-   publishable key ships in the browser, any of those makes the table
-   world-readable: `GET /rest/v1/licenses?select=*` with that key alone returns
-   every customer's rows. `migrations/0004_licenses_owner_only_select.sql` closes
-   it and is **non-destructive** — it turns RLS on, drops *every* policy on the
-   table by name (enumerated from `pg_policies`, so an unknown permissive policy
-   cannot survive), re-creates the owner-only SELECT, and never drops the table,
-   so it is safe on a live project that already holds licenses. Apply it by
-   pointing the existing script at it:
+The migration chain (all under `migrations/`, applied with
+`MIGRATION=… SUPABASE_ACCESS_TOKEN=… node set-licenses-policy.mjs`, whose
+`database/query` endpoint needs a token with the `database_read`/`database_write`
+scopes; it prints the SQL for the editor when no token is set):
 
-   ```bash
-   MIGRATION=migrations/0004_licenses_owner_only_select.sql \
-     SUPABASE_ACCESS_TOKEN=… node set-licenses-policy.mjs
-   ```
+- `0001_licenses_rls.sql` — the original `for all` policy that also let a browser
+  INSERT. **Superseded; do not re-apply.**
+- `0002_licenses_foreign_key.sql` — added the `user_id → auth.users(id)` FK.
+  **Superseded** (0005 drops it).
+- `0003_licenses_webhook.sql` — the table in the payment shape + `beats`. The script's
+  **default**; it DROPs and recreates `licenses`, so it must not be used on a live
+  table with rows you care about.
+- `0004_licenses_owner_only_select.sql` — non-destructive: turns RLS on, drops *every*
+  policy on `licenses` (enumerated from `pg_policies`) and re-creates the owner-only
+  SELECT. Written to close a public-read leak; 0005 now supersedes its policy.
+- `0005_licenses_email_nullable_user.sql` — non-destructive: adds nullable `email`,
+  makes `user_id` nullable, drops any FK to `auth.users`, and drops every policy,
+  leaving RLS on with **none**.
 
-   (`set-licenses-policy.mjs` defaults to 0003, which recreates the table and
-   therefore must not be used for a policy-only fix.) Verify with the publishable
-   key only — no bearer — the read must be `200 []`, never a list of rows
-   (`<publishable-key>` is `anonKey` from `supabase-config.js`):
+With RLS on and no policy the publishable key (which ships in the browser) reads zero
+`licenses` rows — never a customer list — and the only writer is the
+`nowpayments-webhook` Edge Function, using the service_role key (which bypasses RLS).
+Verify with the publishable key only — no bearer — the read must be `200 []`, never a
+list of rows (`<publishable-key>` is `anonKey` from `supabase-config.js`):
 
-   ```bash
-   curl -s "https://vuryglxywrqdnvnbelvp.supabase.co/rest/v1/licenses?select=*" \
-     -H "apikey: <publishable-key>"
-   ```
+```bash
+curl -s "https://vuryglxywrqdnvnbelvp.supabase.co/rest/v1/licenses?select=*" \
+  -H "apikey: <publishable-key>"
+```
 
-   If the tables are missing the client keeps licenses in `localStorage`, so the
-   library still works while you set things up.
+The browser never writes `licenses` at all. `seed-test-licenses.mjs` and
+`diagnose-licenses.sql` are legacy DB tools kept from the account era; the seed still
+works (it writes via the service_role key) but a row's `user_id` may now be empty.
 
-4. **Payments (NOWPayments via Edge Functions)** — the BUY flow is
-   `create-payment` → hosted invoice → `nowpayments-webhook` → `licenses` row:
+### Payments (NOWPayments via Edge Functions)
 
-   - `supabase/functions/create-payment/index.ts` takes
-     `{beat_id, license_type}` from the **verified** bearer (it re-reads the
-     user through `/auth/v1/user`, so `user_id` comes from the token, never the
-     body), prices the order server-side (`PRICES`, kept in step with
-     `catalog.js`), checks the beat exists in `public.beats`, and calls
-     `POST https://api.nowpayments.io/v1/invoice` with
-     `order_description = JSON.stringify({user_id, beat_id, license_type,
-     price})`. It returns `{ url }` and `account.js`'s `startPayment()` sends
-     the browser there. No price, no user id and no license is trusted from the
-     client.
-   - `supabase/functions/nowpayments-webhook/index.ts` verifies the
-     `x-nowpayments-sig` header (HMAC-SHA512 over the key-sorted body, per
-     NOWPayments' IPN scheme) and — only on `payment_status === "finished"` —
-     inserts the row with the service_role key. `payment_id` is unique and the
-     insert uses `resolution=ignore-duplicates`, so a retried IPN is a no-op.
-     Any other status is acknowledged and ignored. A `500` here is deliberate:
-     it asks NOWPayments to retry.
-   - The webhook **must** be deployed with JWT verification off (NOWPayments
-     has no Supabase token); `create-payment` keeps it on. `supabase/config.toml`
-     pins both. Secrets: `NOWPAYMENTS_API_KEY` (create-payment) and
-     `NOWPAYMENTS_IPN_SECRET` (webhook). Full deploy/verify steps, plus a curl
-     to seed a test license for the test account:
-     `supabase/README.md`.
-   - The `beat_id` uuid a checkout carries is the catalog's `id` (it has to
-     match `public.beats.id`, or the webhook insert would fail the foreign
-     key). The catalog keeps `slug` only so old `?beat=flesh` links still
-     resolve.
+The BUY flow is `create-payment` → hosted invoice → `nowpayments-webhook` →
+`licenses` row:
 
-   To eyeball the library with real rows, `seed-test-licenses.mjs` writes the
-   catalog's three tiers onto one account: RLS pins every license to
-   `auth.uid() = user_id`, so it cannot use the anon key and instead needs the
-   **service_role** key to find the account by email (GoTrue admin API) and
-   write the rows (PostgREST) —
-   `SEED_EMAIL=… SUPABASE_SERVICE_ROLE_KEY=… node seed-test-licenses.mjs`
-   (`--remove` takes the seeded rows back out). It deletes the tiers it is about
-   to write first, so re-running never duplicates them. Without the service key
-   it prints the equivalent SQL for the SQL editor.
+- `supabase/functions/create-payment/index.ts` is **public** (no bearer to verify — the
+  browser sends none). It takes `{beat_id, license_type, email?}`, prices the order
+  server-side (`PRICES`, kept in step with `catalog.js`), checks the beat exists in
+  `public.beats`, and calls `POST https://api.nowpayments.io/v1/invoice` with
+  `order_description = JSON.stringify({email, beat_id, license_type, price})` and, when
+  an email was given, `customer_email`. It returns `{ url }` and `account.js`'s
+  `startPayment()` sends the browser there. No price and no license is trusted from the
+  client. The email is optional and a malformed one is a `400`, never silently dropped.
+- `supabase/functions/nowpayments-webhook/index.ts` verifies the `x-nowpayments-sig`
+  header (HMAC-SHA512 over the key-sorted body, per NOWPayments' IPN scheme) and — only
+  on `payment_status === "finished"` — inserts the row with the service_role key:
+  `{email, beat_id, license_type, price, payment_id, status}`, with no `user_id`.
+  `payment_id` is unique and the insert uses `resolution=ignore-duplicates`, so a
+  retried IPN is a no-op. Any other status is acknowledged and ignored. A `500` here is
+  deliberate: it asks NOWPayments to retry.
+- **Both** functions deploy with JWT verification **off** (`supabase/config.toml` pins
+  `verify_jwt = false` for each): NOWPayments has no Supabase token, and the storefront
+  has no session to present. `create-payment` authenticates nothing — its only guards
+  are the server-side price list and the beat-existence check — so nothing sensitive may
+  be added to its response. Secrets: `NOWPAYMENTS_API_KEY` (create-payment) and
+  `NOWPAYMENTS_IPN_SECRET` (webhook). Full deploy/verify steps: `supabase/README.md`.
+- The `beat_id` uuid a checkout carries is the catalog's `id` (it has to match
+  `public.beats.id`, or the webhook insert would fail the foreign key). The catalog keeps
+  `slug` only so old `?beat=flesh` links still resolve.
+- **Email delivery is the next hook**: nothing sends the beat or the PDF license yet.
+  The webhook logs the buyer's `email` (or `null` when NOWPayments collected it) on the
+  finished payment; a follow-up step (Resend or Make.com) reads that row and mails the
+  links. The storefront never lists download links — see "Deliberate behaviour".
 
-   The library read (`kyrolll-backend.js` → `licenses.list`) filters on
-   `user_id=eq.<id>` on top of RLS, and a failed read is *recorded*
-   (`licenses.diagnose()`) rather than swallowed — `account.js` turns that into a
-   "LIBRARY UNREACHABLE" banner carrying the HTTP status, the query URL and the
-   signed-in user id, so an empty library is never mistaken for an empty
-   account. `diagnose-licenses.sql` is the SQL-editor counterpart: it checks the
-   table exists, whether RLS is on and which policies/grants apply, whether the
-   seeded rows belong to the account that signs in, and — inside a rolled-back
-   transaction — what the `authenticated` role actually sees for that account's
-   JWT claims. The browser never writes to the table at all — `licenses.add()`
-   only updates the local cache — so there is no frontend INSERT to diagnose: a
-   row only ever arrives from the webhook, and the library shows the remote row
-   merged over the local cache (same beat + tier = one entry, remote wins). Every
-   authenticated call —
-   the library read, the exclusive-sold lookup, the signed Storage URL
-   and the avatar upload — goes through `withSession()`, the dependency-free
-   equivalent of `supabase.auth.getSession()`: it awaits `ready()` — which
-   refreshes a session that is within a minute of expiring — and retries once on
-   a 401 after a refresh, so the call carries a *current*
-   `Authorization: Bearer <token>` rather than a stale one (a stale token is the
-   usual reason a read 401s).
+### Leftover auth tooling
 
-   That bearer is also the only thing that makes PostgREST assume the
-   `authenticated` role: `apikey` merely selects the project, and the client
-   never falls back to `Authorization: Bearer <apikey>` (which would silently
-   downgrade every request to `anon`, where `auth.uid()` is null and the
-   owner-only policy matches nothing). The `user_id=eq.…` filter is read back
-   out of the *token being sent*
-   (`jwtSubject()`) rather than trusted from the cached session user, so the
-   value compared against `auth.uid()` is the same claim PostgREST will use —
-   a session refresh cannot leave the filter pointing at a superseded id. No id
-   is ever hardcoded: the only `user_id` in the query comes from that claim (the
-   cached id is used solely as the fallback for an opaque, non-JWT token), and
-   nothing in `account.js`/`library.html` builds a query — `account.js:678` only
-   *prints* `diagnose().userId` in the failure banner. Before the read,
-   `listLicenses()` awaits `ready()` and `alignSessionUser()`, which re-reads
-   `/auth/v1/user` (or adopts the token's `sub`) when the cached session user
-   disagrees with the token, so the filter, the `kyrolll_library_<uid>` cache key
-   and the banner all follow one identity. A stale `kyrolll_sb_session` left in
-   one browser is therefore the only way an old uuid could ever appear in that
-   request URL — and it is corrected on the next read.
+`set-auth-email-templates.mjs` and `set-otp-length.mjs` (and their tests) date from the
+removed Supabase Auth: they branded the `{{ .Token }}` login emails and pinned the OTP
+length. No page signs in and no auth email is ever sent now, so they are **unused** —
+left in place, not deleted. `assets/jspdf.min.js` and `license-pdf.js` are likewise
+unreferenced: the browser no longer renders a license certificate, and the emailed PDF
+is produced by the delivery side.
 
-`assets/jspdf.min.js` is a vendored UMD build of jsPDF (2.5.2) exposing
-`window.jspdf.jsPDF`; `license-pdf.js` turns a purchased tier into a branded
-certificate. The storefront itself still needs no external CDN at runtime.
+The storefront itself still needs no external CDN at runtime.
 
 ## Secrets
 
@@ -486,12 +394,12 @@ Tests that ship with the repo:
 
 ## Deliberate behaviour worth knowing
 
-Order delivery is **email-only**: the payscreen and the success modal never list
-download links or license files (see `showSuccessModal` / `completeFreeOrder` in
-`script.js`). Everything — links, PDF/TXT licenses — goes out through the
-Worker's branded Resend email. That email cannot send until `RESEND_API_KEY` and
-`RESEND_FROM` are set, so an un-configured preview legitimately reports
-"EMAIL DELIVERY PENDING".
+Order delivery is **email-only**: neither the payscreen nor `success.html` ever
+lists download links or license files — `initSuccessPage()` in `account.js` only
+prints the beat, tier and price it remembered in `localStorage`. Everything —
+links, PDF/TXT licenses — is meant to go out by email from the payment webhook's
+finished-payment hook (see "Payments"). Nothing sends that mail yet, so for now
+the storefront collects the optional address and hands the buyer to NOWPayments.
 
 `index.html` pre-renders the active release's beat card so a direct beat link
 (`?beat=…`) paints without a flash; `script.js` replaces the grid contents right after

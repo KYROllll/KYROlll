@@ -7,12 +7,17 @@
  *   2. when `payment_status === "finished"`, inserts the license row into
  *      `public.licenses` with the **service_role** key.
  *
- * The service_role key is what makes this the single writer: the table has a
- * SELECT-only RLS policy (migrations/0003_licenses_webhook.sql), so no browser
- * can insert a license, and service_role bypasses RLS. The row's `user_id` and
- * `beat_id` come from the `order_description` JSON that `create-payment` put on
- * the invoice — which itself was built from a verified JWT, never from the
- * client's request body.
+ * The store has no accounts, so a row carries no `user_id` (the column is
+ * nullable — migrations/0005_licenses_email_nullable_user.sql) and instead
+ * stores the buyer's `email`, taken from the `order_description` JSON that
+ * `create-payment` put on the invoice. The email is optional: when the buyer
+ * skipped it the row records `null` and the address lives only on the
+ * NOWPayments payment — this is the hook where the beat + PDF license are later
+ * emailed out.
+ *
+ * The service_role key is what makes this the single writer: `licenses` has RLS
+ * on with no policy, so no browser can read or write it, and service_role
+ * bypasses RLS.
  *
  * Deploy WITHOUT JWT verification, because NOWPayments cannot present a
  * Supabase token (see supabase/config.toml):
@@ -102,7 +107,7 @@ function json(body: unknown, status = 200): Response {
 }
 
 type OrderDescription = {
-  user_id?: string;
+  email?: string | null;
   beat_id?: string;
   license_type?: string;
   price?: number;
@@ -114,7 +119,7 @@ function parseOrder(description: unknown, orderId: unknown): OrderDescription | 
     if (typeof candidate !== "string") continue;
     try {
       const parsed = JSON.parse(candidate);
-      if (parsed && typeof parsed === "object" && parsed.user_id && parsed.beat_id) {
+      if (parsed && typeof parsed === "object" && parsed.beat_id && parsed.license_type) {
         return parsed as OrderDescription;
       }
     } catch {
@@ -126,7 +131,9 @@ function parseOrder(description: unknown, orderId: unknown): OrderDescription | 
 
 async function insertLicense(order: OrderDescription, paymentId: string, priceAmount: unknown): Promise<void> {
   const row = {
-    user_id: order.user_id,
+    // No account: `user_id` is nullable and stays empty. The buyer's email (when
+    // they gave one) is what lets support find the order.
+    email: typeof order.email === "string" && order.email ? order.email : null,
     beat_id: order.beat_id,
     license_type: order.license_type,
     price: typeof order.price === "number" ? order.price : Number(order.price),
@@ -155,6 +162,7 @@ async function insertLicense(order: OrderDescription, paymentId: string, priceAm
     payment_id: paymentId,
     beat_id: order.beat_id,
     license_type: order.license_type,
+    email: typeof order.email === "string" && order.email ? order.email : null,
     // `price_amount` is what the invoice asked for in USD.
     invoiced: priceAmount,
   });
@@ -200,7 +208,7 @@ Deno.serve(async (request) => {
   }
 
   const order = parseOrder(payload.order_description, payload.order_id);
-  if (!order || !order.user_id || !order.beat_id || !order.license_type) {
+  if (!order || !order.beat_id || !order.license_type) {
     console.error("KYROlll webhook: could not read the order JSON off the payment.", { payment_id: paymentId });
     return json({ error: "MISSING ORDER" }, 400);
   }

@@ -86,6 +86,36 @@ test("0004 closes the public read without dropping the table", async () => {
   delete process.env.MIGRATION;
 });
 
+/* 0005 reshapes `licenses` for the account-less checkout. It must be
+ * non-destructive (no drop table / no drop column), make the row buyable
+ * without a user (nullable user_id, no auth.users FK, a new email column) and
+ * leave RLS on with NO policy — so the publishable key reads zero rows and only
+ * the service_role webhook can write. */
+test("0005 makes licenses account-less without destroying the table", async () => {
+  const { migrationSql } = await importScript();
+  process.env.MIGRATION = "migrations/0005_licenses_email_nullable_user.sql";
+  const sql = migrationSql();
+
+  assert.match(sql, /add column if not exists email text/,
+    "adds the buyer email column");
+  assert.match(sql, /alter column user_id drop not null/,
+    "a row no longer needs a user");
+  assert.match(sql, /confrelid = 'auth\.users'::regclass/,
+    "drops the user_id → auth.users foreign key by target, not by name");
+  assert.match(sql, /from pg_policies/,
+    "enumerates the existing policies so an auth.uid() one cannot survive");
+  assert.doesNotMatch(sql, /create policy[^;]*on public\.licenses/i,
+    "leaves RLS on with no licenses policy");
+  assert.doesNotMatch(sql, /drop table/i, "must not destroy the live table");
+  assert.doesNotMatch(sql, /drop column/i, "must not drop a column");
+  const code = sql.split("\n").filter((line) => !line.trim().startsWith("--")).join("\n");
+  assert.doesNotMatch(code, /auth\.uid\(\)/, "no auth.uid() dependency survives in the SQL");
+  assert.match(sql, /create policy "beats are public" on public\.beats/,
+    "keeps the catalog world-readable for the checkout's beat lookup");
+
+  delete process.env.MIGRATION;
+});
+
 test("MIGRATION selects which SQL is applied", async () => {
   process.env.MIGRATION = "migrations/0004_licenses_owner_only_select.sql";
   const calls = [];

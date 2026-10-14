@@ -1,25 +1,31 @@
-/* KYROlll — create a NOWPayments invoice for the signed-in buyer (Supabase Edge
- * Function).
+/* KYROlll — create a NOWPayments invoice (Supabase Edge Function).
  *
- * The storefront calls this after the buyer picks a tier:
+ * The storefront is account-less, so this endpoint is public: the visitor picks
+ * a tier, optionally types a delivery email, and this function mints the hosted
+ * invoice. There is no bearer to verify any more.
  *
  *   POST /functions/v1/create-payment
- *   Authorization: Bearer <user access token>
- *   { "beat_id": "<uuid>", "license_type": "mp3" | "wav" | "exclusive" }
+ *   { "beat_id": "<uuid>", "license_type": "mp3" | "wav" | "exclusive", "email": "buyer@example.com" }
  *
- * It verifies the caller's token against GoTrue (`/auth/v1/user`) to learn the
- * real `user_id`, resolves the price **server-side**, and asks NOWPayments for a
- * hosted invoice. The returned `invoice_url` is where the browser goes.
+ * It resolves the price **server-side** (a price sent from the browser is never
+ * trusted), checks the beat exists, and asks NOWPayments for a hosted invoice.
+ * The returned `invoice_url` is where the browser goes.
  *
  * The order identity is embedded in `order_description` as a JSON string —
- * exactly the shape the `nowpayments-webhook` function expects back:
+ * exactly the shape the `nowpayments-webhook` function reads back:
  *
- *   {"user_id":"…","beat_id":"…","license_type":"mp3","price":9.95}
+ *   {"email":"buyer@example.com","beat_id":"…","license_type":"mp3","price":9.95}
+ *
+ * `email` is optional: when the buyer skips the step it is `null` here and
+ * NOWPayments collects one on its own page. When present it is also sent as
+ * `customer_email` so the invoice is pre-filled, and the webhook stores it on
+ * the license row so support can find the order.
  *
  * This function never touches `licenses`; the webhook is the only writer.
  *
- * Deploy (JWT verification ON — the buyer's token is the auth):
- *   supabase functions deploy create-payment
+ * Deploy WITHOUT JWT verification — there is no signed-in user to present a
+ * token (see supabase/config.toml):
+ *   supabase functions deploy create-payment --no-verify-jwt
  *   supabase secrets set NOWPAYMENTS_API_KEY=…
  *
  * Optional secrets: SITE_URL (success/cancel redirects, defaults to the
@@ -41,6 +47,7 @@ const PRICES: Record<string, number> = {
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "*";
 
@@ -70,22 +77,9 @@ Deno.serve(async (request) => {
     return json({ error: "PAYMENTS NOT CONFIGURED" }, 500);
   }
 
-  // 1. Who is buying? Resolve the token against GoTrue — the id used on the
-  //    invoice comes from the verified user, never from the request body.
-  const bearer = (request.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
-  if (!bearer) return json({ error: "NOT SIGNED IN" }, 401);
-  const userResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { apikey: ANON_KEY, Authorization: `Bearer ${bearer}` },
-  });
-  if (!userResponse.ok) {
-    return json({ error: "NOT SIGNED IN" }, 401);
-  }
-  const user = await userResponse.json();
-  const userId = user && user.id;
-  if (!userId) return json({ error: "NOT SIGNED IN" }, 401);
-
-  // 2. What are they buying?
-  let body: { beat_id?: unknown; license_type?: unknown };
+  // 1. What are they buying? Everything comes from the request body — there is
+  //    no signed-in user; the price is resolved below, never read from here.
+  let body: { beat_id?: unknown; license_type?: unknown; email?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -93,14 +87,18 @@ Deno.serve(async (request) => {
   }
   const beatId = typeof body.beat_id === "string" ? body.beat_id : "";
   const licenseType = typeof body.license_type === "string" ? body.license_type : "";
+  const email = typeof body.email === "string" ? body.email.trim() : "";
   if (!UUID_RE.test(beatId)) return json({ error: "INVALID BEAT ID" }, 400);
   if (!Object.prototype.hasOwnProperty.call(PRICES, licenseType)) {
     return json({ error: "INVALID LICENSE TYPE" }, 400);
   }
+  // The email is optional, but a *malformed* one is rejected rather than
+  // silently dropped, so the buyer never thinks delivery is on when it is not.
+  if (email && !EMAIL_RE.test(email)) return json({ error: "INVALID EMAIL" }, 400);
 
   const price = PRICES[licenseType];
 
-  // 3. The beat must exist — `licenses.beat_id` references `public.beats`, so
+  // 2. The beat must exist — `licenses.beat_id` references `public.beats`, so
   //    selling a beat that is not in the table could only produce a failed
   //    webhook insert later.
   const beatResponse = await fetch(
@@ -114,17 +112,29 @@ Deno.serve(async (request) => {
     }
   }
 
-  // 4. Create the hosted invoice. `order_description` is the JSON the webhook
-  //    reads back (exactly the order identity). `order_id` stays short and uses
-  //    only the characters NOWPayments documents (alphanumerics and `-`) — it
-  //    just labels the invoice in the dashboard, and the webhook falls back to
-  //    it only if `order_description` is unreadable.
+  // 3. Create the hosted invoice. `order_description` is the JSON the webhook
+  //    reads back (exactly the order identity). `customer_email` pre-fills the
+  //    invoice when the buyer gave us one. `order_id` stays short and uses only
+  //    the characters NOWPayments documents (alphanumerics and `-`) — it just
+  //    labels the invoice in the dashboard, and the webhook falls back to it
+  //    only if `order_description` is unreadable.
   const description = JSON.stringify({
-    user_id: userId,
+    email: email || null,
     beat_id: beatId,
     license_type: licenseType,
     price,
   });
+
+  const invoiceBody: Record<string, unknown> = {
+    price_amount: price,
+    price_currency: "USD",
+    order_id: `${beatId}-${licenseType}`,
+    order_description: description,
+    ipn_callback_url: `${SUPABASE_URL}/functions/v1/nowpayments-webhook`,
+    success_url: `${SITE_URL}/success.html`,
+    cancel_url: `${SITE_URL}/index.html`,
+  };
+  if (email) invoiceBody.customer_email = email;
 
   const invoiceResponse = await fetch("https://api.nowpayments.io/v1/invoice", {
     method: "POST",
@@ -132,15 +142,7 @@ Deno.serve(async (request) => {
       "x-api-key": NOWPAYMENTS_API_KEY,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      price_amount: price,
-      price_currency: "USD",
-      order_id: `${beatId}-${licenseType}`,
-      order_description: description,
-      ipn_callback_url: `${SUPABASE_URL}/functions/v1/nowpayments-webhook`,
-      success_url: `${SITE_URL}/success.html`,
-      cancel_url: `${SITE_URL}/index.html`,
-    }),
+    body: JSON.stringify(invoiceBody),
   });
 
   const invoiceText = await invoiceResponse.text();

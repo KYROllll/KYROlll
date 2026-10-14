@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#080809">
-  <meta name="description" content="Your permanent KYROlll library — download leased audio and official PDF licenses.">
+  <meta name="description" content="No account needed — your KYROlll beat and license are sent to your email after purchase.">
   <meta name="robots" content="noindex">
   <title>MY LIBRARY — KYROlll</title>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
@@ -28,45 +28,33 @@
 
     <header class="header">
       <a class="header-brand" href="index.html">KYROlll</a>
-      <div class="header-auth" id="header-auth"></div>
     </header>
 
     <main class="account-page" id="library-page">
       <nav class="account-nav" aria-label="Account">
         <a href="index.html">← KYROlll STORE</a>
-        <div class="account-nav__links">
-          <a href="dashboard.html">PROFILE</a>
-          <a class="is-active" href="library.html">MY LIBRARY</a>
-        </div>
       </nav>
 
-      <div id="library-root"></div>
+      <article class="library-view library-view--locked">
+        <div class="library-locked">
+          <span class="library-locked__kicker">MY LIBRARY</span>
+          <h1 class="library-locked__title">NO ACCOUNT NEEDED</h1>
+          <p class="library-locked__text">Your beat will be sent to your email after purchase. If you have a question, contact <a href="mailto:support@kyroll.store">support@kyroll.store</a>.</p>
+          <div class="library-locked__actions">
+            <a class="kyrolll-btn" href="index.html#catalog">BROWSE BEATS →</a>
+          </div>
+        </div>
+      </article>
     </main>
 
     <footer class="footer">
       <img class="footer__logo" src="assets/kyrolll-secondary.png" alt="KYROlll with brown X" width="1490" height="453" loading="lazy">
       <p><span class="brand-name">KYROlll</span> &copy; 2026</p>
-      <a class="footer__support" href="mailto:kyrolll00@gmail.com">SUPPORT</a>
+      <a class="footer__support" href="mailto:support@kyroll.store">SUPPORT</a>
     </footer>
   </div>
 
-  <script src="supabase-config.js?v=5"></script>
-  <script src="catalog.js?v=3"></script>
-  <script src="kyrolll-backend.js?v=17"></script>
-  <script src="assets/jspdf.min.js"></script>
-  <script src="license-pdf.js?v=1"></script>
-  <script src="account.js?v=15"></script>
   <script type="module" src="assets/brand-logo.min.js?v=18"></script>
   <script src="preloader.js?v=7"></script>
-  <script>
-    console.log("KYROlll: library.html loaded — checking auth/state for library render");
-    window.addEventListener("load", function() {
-      const root = document.getElementById("library-root");
-      console.log("KYROlll: library-root element present?", !!root);
-      const b = window.KYROlll_BACKEND || null;
-      const user = b ? b.auth.currentUser() : null;
-      console.log("KYROlll: library.html auth state — currentUser:", user ? { id: user.id, email: user.email } : null);
-    });
-  </script>
 </body>
 </html>

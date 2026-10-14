@@ -22,9 +22,12 @@
  * it first if it holds rows you care about. To close a public-read leak on a
  * live table WITHOUT touching its rows, point the script at the non-destructive
  * 0004 migration instead (it drops every policy and re-installs the owner-only
- * one):
+ * one). To reshape `licenses` for the account-less checkout — make `user_id`
+ * nullable, drop its `auth.users` foreign key, add the buyer `email` column and
+ * remove the now-dead `auth.uid()` policies — apply the 0005 migration the same
+ * way (see AGENTS.md):
  *
- *   MIGRATION=migrations/0004_licenses_owner_only_select.sql \
+ *   MIGRATION=migrations/0005_licenses_email_nullable_user.sql \
  *     SUPABASE_ACCESS_TOKEN=sb_pat_… node set-licenses-policy.mjs
  *
  * Usage (token from https://supabase.com/dashboard/account/tokens; the query
@@ -113,7 +116,7 @@ async function main() {
 
   console.log(
     `project ${ref}: applied ${relative(ROOT, migrationFile())}. ` +
-    "Buyers can read only their own rows; the nowpayments-webhook function is the only writer."
+    "The nowpayments-webhook function (service_role) is the only writer of licenses."
   );
 }
 

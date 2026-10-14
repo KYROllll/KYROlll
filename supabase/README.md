@@ -1,17 +1,20 @@
 # KYROlll payments — Supabase setup
 
 The purchase path is: **BUY → `create-payment` → NOWPayments invoice →
-`nowpayments-webhook` → `licenses` row → library**.
+`nowpayments-webhook` → `licenses` row → delivery email**.
 
-The browser never writes a license. The table has a SELECT-only RLS policy, and
-the webhook is the single writer (service_role).
+There are no accounts. The browser never writes a license, and it never reads
+one either: `licenses` has RLS on with no policy, so the anon/publishable key
+matches no rows, and the webhook is the single writer (service_role bypasses
+RLS).
 
 ```
 storefront BUY
-   │  POST /functions/v1/create-payment   (Bearer: buyer's token)
+   │  POST /functions/v1/create-payment   (no bearer — the storefront is public)
+   │    { beat_id, license_type, email? }
    ▼
-create-payment  ── verifies the token, resolves the price, builds
-   │               order_description = {user_id, beat_id, license_type, price}
+create-payment  ── resolves the price server-side, builds
+   │               order_description = {email, beat_id, license_type, price}
    │  POST https://api.nowpayments.io/v1/invoice
    ▼
 NOWPayments hosted invoice  ── redirects the browser to success_url
@@ -20,7 +23,7 @@ NOWPayments hosted invoice  ── redirects the browser to success_url
 nowpayments-webhook ── verifies the HMAC, and on payment_status "finished"
    │                    inserts the row with the service_role key
    ▼
-public.licenses ── RLS: the buyer may SELECT only their own rows
+public.licenses ── RLS on, no policy: no browser can read or write it
 ```
 
 ## 1. Schema
@@ -32,8 +35,21 @@ SUPABASE_ACCESS_TOKEN=sb_pat_… node set-licenses-policy.mjs
 ```
 
 It creates `public.beats`, recreates `public.licenses` in the payment shape, and
-installs the SELECT-only owner policy. **It drops the old `licenses` table** —
-export any rows first.
+installs the (now superseded) owner policy. **It drops the old `licenses` table**
+— export any rows first.
+
+Then reshape `licenses` for the account-less store (non-destructive — it keeps
+the rows):
+
+```bash
+MIGRATION=migrations/0005_licenses_email_nullable_user.sql \
+  SUPABASE_ACCESS_TOKEN=sb_pat_… node set-licenses-policy.mjs
+```
+
+0005 adds a nullable `email`, makes `user_id` nullable, drops the
+`user_id → auth.users(id)` foreign key, and drops every policy (RLS stays on with
+none). On a project that already has rows, that order matters: 0003 first only if
+you are starting clean.
 
 The seed uuid in the migration is the same uuid as the `flesh` entry in
 `catalog.js`. Keep the two in step when you add beats.
@@ -63,30 +79,35 @@ invoice, so the dashboard value is only a fallback.)
 
 ## 3. Deploy
 
+Both functions are public — the storefront has no session, and NOWPayments has no
+Supabase token — so each deploys with JWT verification off:
+
 ```bash
-supabase functions deploy create-payment
+supabase functions deploy create-payment --no-verify-jwt
 supabase functions deploy nowpayments-webhook --no-verify-jwt
 ```
 
-The `--no-verify-jwt` flag matters: NOWPayments has no Supabase token to send,
-so the gateway would otherwise 401 every callback. `supabase/config.toml` pins
-the same setting for a plain `supabase functions deploy`.
+`supabase/config.toml` pins `verify_jwt = false` for both, so a plain
+`supabase functions deploy` does the same. `create-payment` authenticates
+nothing: its only guards are the server-side price list and the beat-existence
+check, so never put anything sensitive in its response.
 
 ## 4. Verify
 
-Signed-in browser console (storefront on the same project):
+Browser console on the storefront (no sign-in needed):
 
 ```js
 // Ask for an invoice; expect { url: "https://nowpayments.io/payment/?iid=…" }
 await window.KYROlll_BACKEND.payments.createInvoice({
   beatId: "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af",
-  licenseType: "mp3"
+  licenseType: "mp3",
+  email: "buyer@example.com"   // optional — omit to let NOWPayments collect it
 });
 ```
 
-With no real payment, insert a test license as the service_role (bypasses RLS)
-and confirm the library lists it for the test account
-`51e2c961-c95b-4dad-8a9b-ac30e6728ee5`:
+With no real payment, insert a test row as the service_role (bypasses RLS) to
+exercise the delivery hook. There is no user to tie it to, so `user_id` is left
+empty and the buyer's address goes in `email`:
 
 ```bash
 curl -s "$SUPABASE_URL/rest/v1/licenses" \
@@ -94,11 +115,10 @@ curl -s "$SUPABASE_URL/rest/v1/licenses" \
   -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
   -H "Content-Type: application/json" \
   -H "Prefer: return=representation" \
-  -d '{"user_id":"51e2c961-c95b-4dad-8a9b-ac30e6728ee5",
-       "beat_id":"6c56eda2-df4a-45b0-b9b7-68f8efdbb1af",
+  -d '{"beat_id":"6c56eda2-df4a-45b0-b9b7-68f8efdbb1af",
+       "email":"buyer@example.com",
        "license_type":"mp3","price":9.95,"payment_id":"test-manual-1"}'
 ```
 
-Then sign in as that user and open `library.html`. The same row read with the
-anon key (no bearer) must return `[]` — that is RLS proving the browser cannot
-read or write anyone else's licenses.
+The same read with the anon key alone (no bearer) must return `[]` — that is RLS
+(on, no policy) proving the browser cannot read anyone's licenses.
