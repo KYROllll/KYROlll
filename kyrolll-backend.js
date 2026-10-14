@@ -114,6 +114,16 @@
     if (session) lsSet(SESSION_KEY, session); else lsDel(SESSION_KEY);
   }
 
+  /* The stored session can appear *after* this module parsed — a login that
+   * resolves in another tab, or a write that lands late — so every
+   * authenticated entry point adopts it before concluding the visitor is
+   * signed out. Without this, a fetch that runs off the in-memory copy could go
+   * out with no bearer even though `kyrolll_sb_session` is in localStorage. */
+  function adoptStoredSession() {
+    if (CONFIGURED && !session) loadSession();
+    return session;
+  }
+
   function currentUser() {
     if (CONFIGURED) return session && session.user ? session.user : null;
     if (!localUser) return null;
@@ -241,7 +251,7 @@
       if (!currentUser()) return null;
       return currentUser();
     }
-    if (!session) return null;
+    if (!adoptStoredSession()) return null;
     if (session.expiresAt && session.expiresAt - 60000 < Date.now()) {
       const refreshed = await refreshSession();
       // One quiet retry smooths over a momentary blip before the user sees it.
@@ -482,7 +492,8 @@
    * `Authorization: Bearer <token>` and never a stale one — a stale token is the
    * usual reason the library read came back 401. */
   async function withSession(perform) {
-    if (!CONFIGURED || !session) return perform(null);
+    if (!CONFIGURED) return perform(null);
+    if (!adoptStoredSession()) return perform(null);
     await ready();
     let token = session && session.accessToken;
     if (!token) return perform(null);
@@ -630,6 +641,9 @@
   let licensesInflight = null;
 
   async function listLicensesOnce() {
+    // Adopt a session written after this module parsed (another tab, or a late
+    // write) before the signed-out gate below drops the read.
+    adoptStoredSession();
     if (!currentUser()) return [];
     // Resolve who is actually signed in before building the query: `ready()`
     // refreshes a session that is at/near expiry (its response re-reads the
@@ -910,6 +924,17 @@
   document.addEventListener("visibilitychange", wakeSession);
   window.addEventListener("focus", wakeSession);
   window.addEventListener("online", wakeSession);
+
+  // localStorage is shared between tabs, but the in-memory session above is not.
+  // Re-read it when the key changes so a sign-in or sign-out in one tab is
+  // honoured by the fetch path in the others immediately, instead of that tab
+  // continuing to read with the identity it happened to load with.
+  window.addEventListener("storage", (event) => {
+    if (!CONFIGURED) return;
+    if (event.key && event.key !== SESSION_KEY && event.key !== LOCAL_SESSION_KEY) return;
+    loadSession();
+    emitAuthChange();
+  });
 
   // Kick off a background token refresh so headers render with a live session.
   if (CONFIGURED) ready().catch(() => {});
