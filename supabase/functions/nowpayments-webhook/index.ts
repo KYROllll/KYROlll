@@ -15,6 +15,7 @@
  * skipped it the row records `null` and the address lives only on the
  * NOWPayments payment (in which case delivery falls back to whatever address
  * NOWPayments collected for the invoice).
+ *
  * The service_role key is what makes this the single writer: `licenses` has RLS
  * on with no policy, so no browser can read or write it, and service_role
  * bypasses RLS.
