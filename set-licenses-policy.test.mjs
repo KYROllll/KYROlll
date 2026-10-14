@@ -16,8 +16,10 @@ test("the migration grants owners their own rows", async () => {
   const sql = migrationSql();
 
   assert.match(sql, /alter table public\.licenses enable row level security;/);
-  assert.match(sql, /for all\s+to authenticated\s+using \(auth\.uid\(\) = user_id\)\s+with check \(auth\.uid\(\) = user_id\);/);
-  assert.match(sql, /drop policy if exists "own licenses" on public\.licenses;/, "is idempotent");
+  assert.match(sql, /create policy "read own licenses" on public\.licenses\s+for select to authenticated\s+using \(auth\.uid\(\) = user_id\);/);
+  assert.doesNotMatch(sql, /for all\s+to authenticated/, "no owner-writable policy survives");
+  assert.doesNotMatch(sql, /for insert/, "buyers cannot insert a license — only the service_role webhook may");
+  assert.match(sql, /drop policy if exists "read own licenses" on public\.licenses;/, "is idempotent");
   assert.match(sql, /notify pgrst, 'reload schema';/, "refreshes the PostgREST schema cache");
 });
 
@@ -25,7 +27,7 @@ test("refuses to run without a management token, and hands over the SQL", async 
   const { main } = await importScript();
   await assert.rejects(main(), (err) => {
     assert.match(err.message, /SUPABASE_ACCESS_TOKEN is required/);
-    assert.match(err.message, /create policy "own licenses"/);
+    assert.match(err.message, /create policy "read own licenses"/);
     return true;
   });
 });

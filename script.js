@@ -11,7 +11,7 @@ const account = () => window.KYROlll_ACCOUNT;
 const esc = (value) => (window.KYROlll_ACCOUNT
   ? window.KYROlll_ACCOUNT.escapeHTML(value)
   : String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char])));
-const beatById = (id) => CATALOG.find((beat) => beat.id === id) || null;
+const beatById = (id) => CATALOG.find((beat) => beat.id === id || beat.slug === id) || null;
 
 function unlockScroll() {
   document.body.style.cssText = '';
@@ -150,7 +150,7 @@ function buildGrid() {
   const params = new URLSearchParams(location.search);
   const id = params.get("beat");
   const detail = id !== null;
-  const list = detail ? CATALOG.filter((beat) => beat.id === id) : [...CATALOG].sort(byNewest);
+  const list = detail ? CATALOG.filter((beat) => beat.id === id || beat.slug === id) : [...CATALOG].sort(byNewest);
   document.documentElement.classList.toggle("beat-page", detail);
   grid.classList.toggle("grid--detail", detail);
   const beatNav = $("beat-navigation");
@@ -202,7 +202,7 @@ function buildGrid() {
 
 function beatFromAnchor(anchor) {
   const clean = String(anchor || "").replace(/^#/, "");
-  const direct = CATALOG.find((beat) => beat.id === clean || `card-${beat.id}` === clean);
+  const direct = CATALOG.find((beat) => beat.id === clean || beat.slug === clean || `card-${beat.id}` === clean);
   if (direct) return direct.id;
   return null;
 }

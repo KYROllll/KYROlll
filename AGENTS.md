@@ -128,7 +128,8 @@ carrying no CSS transition — the bar is eased from the same `preloader.js` rAF
 `rememberExclusive()` inside `kyrolll-backend.js`'s `addLicense()` is what marks a beat taken: the
 first time a purchase is recorded on the `exclusive` tier the beat id is added to the
 `kyrolll_exclusive_sold` `localStorage` list. `licenses.soldExclusive()` returns that list plus
-whatever `GET /rest/v1/licenses?select=beat_id&tier_id=eq.exclusive` yields — best-effort, so with
+whatever `GET /rest/v1/licenses?select=beat_id&license_type=eq.exclusive&status=eq.active` yields —
+best-effort, so with
 the documented owner-only RLS it only ever sees the signed-in buyer's own rows, and a public SELECT
 policy on `beat_id` is what would make the lock site-wide. That read goes out **as the signed-in
 buyer** when there is a session (the bearer is what makes PostgREST resolve `auth.uid()`; `apikey`
@@ -144,7 +145,7 @@ which would leak the words into `innerText` and the accessibility tree off a sol
 To eyeball it without a real exclusive checkout, seed the local record and reload the storefront:
 
 ```js
-localStorage.setItem('kyrolll_exclusive_sold', '["flesh"]'); // then clear it to undo
+localStorage.setItem('kyrolll_exclusive_sold', '["6c56eda2-df4a-45b0-b9b7-68f8efdbb1af"]'); // then clear it to undo
 ```
 
 To re-capture the frame after the flower changes, serve a throwaway page from the repo
@@ -274,38 +275,96 @@ To attach a real project:
 2. **Storage** — create a private bucket `BEATS` for the masters and an
    `avatars` bucket for profile pictures (rename in `supabase-config.js` if you
    differ). Upload each tier's object to the path named in `catalog.js`.
-3. **Table** — create `licenses` and lock it to the owner with RLS:
+3. **Tables** — `beats` (the catalog's uuids) and `licenses`, locked down so
+   only the payment webhook can write a license:
 
    ```sql
+   create table if not exists public.beats (
+     id uuid primary key default gen_random_uuid(),
+     slug text unique not null,
+     title text not null,
+     created_at timestamptz not null default now()
+   );
+   alter table public.beats enable row level security;
+   drop policy if exists "beats are public" on public.beats;
+   create policy "beats are public" on public.beats
+     for select to anon, authenticated using (true);
+   insert into public.beats (id, slug, title)
+     values ('6c56eda2-df4a-45b0-b9b7-68f8efdbb1af', 'flesh', '[FREE] DON TOLIVER TYPE BEAT - FLESH')
+     on conflict (slug) do nothing;
+
    create table public.licenses (
      id uuid primary key default gen_random_uuid(),
      user_id uuid not null references auth.users(id) on delete cascade,
-     beat_id text not null,
-     beat_title text not null,
-     tier_id text not null,
-     tier text not null,
-     price text,
-     purchased_at timestamptz not null default now()
+     beat_id uuid not null references public.beats(id) on delete restrict,
+     license_type text not null check (license_type in ('mp3','wav','exclusive')),
+     price numeric(10,2) not null check (price >= 0),
+     payment_id text unique,
+     status text not null default 'active',
+     created_at timestamptz not null default now()
    );
    alter table public.licenses enable row level security;
-   drop policy if exists "own licenses" on public.licenses;
-   create policy "own licenses" on public.licenses
-     for all to authenticated
-     using (auth.uid() = user_id) with check (auth.uid() = user_id);
+   drop policy if exists "read own licenses" on public.licenses;
+   create policy "read own licenses" on public.licenses
+     for select to authenticated
+     using (auth.uid() = user_id);
+   grant select on public.licenses to authenticated;
    ```
 
-   The same policy is committed on its own as
-   `migrations/0001_licenses_rls.sql` and can be applied without the dashboard:
+   The whole thing is committed as `migrations/0003_licenses_webhook.sql` and
+   can be applied without the dashboard:
    `SUPABASE_ACCESS_TOKEN=… node set-licenses-policy.mjs` (the Management API's
    `database/query` endpoint needs a token with the `database_read`/
-   `database_write` scopes). It is idempotent — it drops `"own licenses"` before
-   recreating it — and prints the migration for the SQL editor when no token is
-   set. RLS fails closed *silently*: with RLS on and no matching policy the select
-   returns zero rows and no error, so inserted licenses look missing rather than
-   forbidden — which is exactly what this policy fixes.
+   `database_write` scopes). It is idempotent, prints the migration for the SQL
+   editor when no token is set, and **replaces** the original
+   `migrations/0001_licenses_rls.sql` — which had a text `beat_id`, `tier_id`/
+   `purchased_at` columns, and a `for all` policy that also let a browser
+   INSERT. Do not re-apply 0001. It also folds in (and supersedes)
+   `migrations/0002_licenses_foreign_key.sql`, whose
+   `licenses.user_id → auth.users(id)` foreign key is declared inline on the
+   recreated table; running 0002 first is harmless.
 
-   If the table is missing the client keeps licenses in `localStorage`, so the
+   The `licenses` policy is **SELECT only, and only the owner's**. There is
+   deliberately no INSERT/UPDATE/DELETE policy: the browser cannot mint a
+   license, and the only writer is the `nowpayments-webhook` Edge Function
+   using the service_role key (which bypasses RLS). RLS still fails closed
+   *silently*: with RLS on and no matching policy the select returns zero rows
+   and no error, so a missing policy looks like an empty library rather than a
+   forbidden one — which is exactly what `"read own licenses"` fixes.
+
+   If the tables are missing the client keeps licenses in `localStorage`, so the
    library still works while you set things up.
+
+4. **Payments (NOWPayments via Edge Functions)** — the BUY flow is
+   `create-payment` → hosted invoice → `nowpayments-webhook` → `licenses` row:
+
+   - `supabase/functions/create-payment/index.ts` takes
+     `{beat_id, license_type}` from the **verified** bearer (it re-reads the
+     user through `/auth/v1/user`, so `user_id` comes from the token, never the
+     body), prices the order server-side (`PRICES`, kept in step with
+     `catalog.js`), checks the beat exists in `public.beats`, and calls
+     `POST https://api.nowpayments.io/v1/invoice` with
+     `order_description = JSON.stringify({user_id, beat_id, license_type,
+     price})`. It returns `{ url }` and `account.js`'s `startPayment()` sends
+     the browser there. No price, no user id and no license is trusted from the
+     client.
+   - `supabase/functions/nowpayments-webhook/index.ts` verifies the
+     `x-nowpayments-sig` header (HMAC-SHA512 over the key-sorted body, per
+     NOWPayments' IPN scheme) and — only on `payment_status === "finished"` —
+     inserts the row with the service_role key. `payment_id` is unique and the
+     insert uses `resolution=ignore-duplicates`, so a retried IPN is a no-op.
+     Any other status is acknowledged and ignored. A `500` here is deliberate:
+     it asks NOWPayments to retry.
+   - The webhook **must** be deployed with JWT verification off (NOWPayments
+     has no Supabase token); `create-payment` keeps it on. `supabase/config.toml`
+     pins both. Secrets: `NOWPAYMENTS_API_KEY` (create-payment) and
+     `NOWPAYMENTS_IPN_SECRET` (webhook). Full deploy/verify steps, plus a curl
+     to seed a test license for the test account:
+     `supabase/README.md`.
+   - The `beat_id` uuid a checkout carries is the catalog's `id` (it has to
+     match `public.beats.id`, or the webhook insert would fail the foreign
+     key). The catalog keeps `slug` only so old `?beat=flesh` links still
+     resolve.
 
    To eyeball the library with real rows, `seed-test-licenses.mjs` writes the
    catalog's three tiers onto one account: RLS pins every license to
@@ -326,10 +385,12 @@ To attach a real project:
    table exists, whether RLS is on and which policies/grants apply, whether the
    seeded rows belong to the account that signs in, and — inside a rolled-back
    transaction — what the `authenticated` role actually sees for that account's
-   JWT claims. Rows are written **without** an `id` so the table's `uuid` default
-   owns it; the local `lic_…` id is not a uuid, so sending it was rejected with
-   `22P02` and the purchase never reached the table. Every authenticated call —
-   the library read and write, the exclusive-sold lookup, the signed Storage URL
+   JWT claims. The browser never writes to the table at all — `licenses.add()`
+   only updates the local cache — so there is no frontend INSERT to diagnose: a
+   row only ever arrives from the webhook, and the library shows the remote row
+   merged over the local cache (same beat + tier = one entry, remote wins). Every
+   authenticated call —
+   the library read, the exclusive-sold lookup, the signed Storage URL
    and the avatar upload — goes through `withSession()`, the dependency-free
    equivalent of `supabase.auth.getSession()`: it awaits `ready()` — which
    refreshes a session that is within a minute of expiring — and retries once on
@@ -341,8 +402,8 @@ To attach a real project:
    `authenticated` role: `apikey` merely selects the project, and the client
    never falls back to `Authorization: Bearer <apikey>` (which would silently
    downgrade every request to `anon`, where `auth.uid()` is null and the
-   owner-only policy matches nothing). The `user_id=eq.…` filter and the
-   `user_id` write body are read back out of the *token being sent*
+   owner-only policy matches nothing). The `user_id=eq.…` filter is read back
+   out of the *token being sent*
    (`jwtSubject()`) rather than trusted from the cached session user, so the
    value compared against `auth.uid()` is the same claim PostgREST will use —
    a session refresh cannot leave the filter pointing at a superseded id. No id

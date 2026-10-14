@@ -1,16 +1,25 @@
-/* KYROlll — install the `licenses` owner-only row level security policy.
+/* KYROlll — install the `licenses` schema and its row level security policy.
+ *
+ * This sends `migrations/0003_licenses_webhook.sql` through the Management
+ * API's query endpoint — the SQL lives in the migration file, so there is one
+ * source of truth and this script can never drift from what you would paste by
+ * hand. It creates `public.beats`, recreates `public.licenses` in the payment
+ * shape, and installs the SELECT-only owner policy.
+ *
+ * NOTE: `migrations/0001_licenses_rls.sql` (the original `for all` policy, which
+ * also granted INSERT) is superseded — a buyer writing their own license row is
+ * no longer possible. `migrations/0002_licenses_foreign_key.sql`'s
+ * `user_id → auth.users(id)` foreign key is folded into the recreated table, so
+ * it too is superseded (running it first is harmless). The only writer is the
+ * `nowpayments-webhook` Edge Function, using the service_role key. Do not
+ * re-apply 0001.
  *
  * A policy is Postgres DDL, so it cannot be set from the storefront: it needs
  * either the SQL editor or the Management API's query endpoint, which requires a
- * personal access token carrying `database_read`/`database_write`. This script
- * sends `migrations/0001_licenses_rls.sql` through that endpoint — the SQL lives
- * in the migration file, so there is one source of truth and this script can
- * never drift from what you would paste by hand.
+ * personal access token carrying `database_read`/`database_write`.
  *
- * This is the fix for "inserted licenses do not show up": with RLS enabled and
- * no matching policy Postgres returns zero rows and no error, so the library
- * looks empty. The policy makes `auth.uid() = user_id` true for the buyer's own
- * rows (and is what grants the SELECT the library issues).
+ * The old `licenses` table is DROPPED and recreated by the migration — export it
+ * first if it holds rows you care about.
  *
  * Usage (token from https://supabase.com/dashboard/account/tokens; the query
  * endpoint needs the `database_read`/`database_write` scopes, so grant both or
@@ -21,7 +30,7 @@
  *
  * The project ref is read from supabase-config.js by default. Without a token it
  * prints the migration to paste into the SQL editor instead. Re-running is
- * idempotent (the migration drops the policy before recreating it).
+ * idempotent.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -29,7 +38,7 @@ import { dirname, join } from "node:path";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const API = "https://api.supabase.com/v1";
-const MIGRATION = join(ROOT, "migrations", "0001_licenses_rls.sql");
+const MIGRATION = join(ROOT, "migrations", "0003_licenses_webhook.sql");
 
 function projectRef() {
   if (process.env.PROJECT_REF) return process.env.PROJECT_REF.trim();
@@ -87,8 +96,9 @@ async function main() {
   }
 
   console.log(
-    `project ${ref}: installed the owner-only RLS policy on public.licenses ` +
-    "(authenticated may read and write only their own rows). Re-running is idempotent."
+    `project ${ref}: created public.beats + public.licenses (payment shape) with the ` +
+    "SELECT-only owner policy. Buyers can read only their own rows; the nowpayments-webhook " +
+    "function is the only writer. Re-running is idempotent."
   );
 }
 

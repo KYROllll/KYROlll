@@ -57,21 +57,21 @@ test("finds the user, clears the seeded tiers, then writes all three", async () 
   assert.equal(del.init.method, "DELETE");
   assert.match(del.url, /^https:\/\/[a-z0-9]{20,}\.supabase\.co\/rest\/v1\/licenses\?/, "uses the real project host, not the doc placeholder");
   assert.doesNotMatch(del.url, /YOUR-PROJECT/);
-  assert.match(del.url, /\/rest\/v1\/licenses\?user_id=eq\.user-123&beat_id=eq\.flesh&tier_id=in\.\(mp3,wav,exclusive\)$/);
+  assert.match(del.url, /\/rest\/v1\/licenses\?user_id=eq\.user-123&beat_id=eq\.6c56eda2-df4a-45b0-b9b7-68f8efdbb1af&license_type=in\.\(mp3,wav,exclusive\)$/);
 
   assert.equal(insert.init.method, "POST");
   assert.equal(insert.init.headers.Prefer, "return=representation");
   const rows = JSON.parse(insert.init.body);
   assert.equal(rows.length, 3);
-  assert.deepEqual(rows.map((r) => r.tier_id), ["mp3", "wav", "exclusive"]);
-  assert.deepEqual(rows.map((r) => r.tier), ["MP3 LEASE", "STANDARD WAV LEASE", "EXCLUSIVE LEASE"]);
-  assert.deepEqual(rows.map((r) => r.price), ["$9.95", "$14.95", "$299.95"]);
+  assert.deepEqual(rows.map((r) => r.license_type), ["mp3", "wav", "exclusive"]);
+  assert.deepEqual(rows.map((r) => r.price), [9.95, 14.95, 299.95], "price is numeric, not a display string");
+  assert.deepEqual(rows.map((r) => r.status), ["active", "active", "active"]);
   rows.forEach((row) => {
     assert.equal(row.user_id, "user-123");
-    assert.equal(row.beat_id, "flesh");
-    assert.equal(row.beat_title, "[FREE] DON TOLIVER TYPE BEAT - FLESH");
+    assert.equal(row.beat_id, "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af");
+    assert.match(row.payment_id, /^seed-user-123-(mp3|wav|exclusive)$/, "deterministic unique payment id");
     assert.ok(!("id" in row), "lets the table default the uuid");
-    assert.match(row.purchased_at, /^\d{4}-\d{2}-\d{2}T/);
+    assert.match(row.created_at, /^\d{4}-\d{2}-\d{2}T/);
   });
 
   delete globalThis.fetch;

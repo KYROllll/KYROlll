@@ -19,7 +19,7 @@
           "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
         }[char]));
   const licenseFor = (id) => (window.KYROlll_LICENSES || []).find((license) => license.id === id) || null;
-  const beatById = (id) => (window.KYROlll_CATALOG || []).find((beat) => beat.id === id) || null;
+  const beatById = (id) => (window.KYROlll_CATALOG || []).find((beat) => beat.id === id || beat.slug === id) || null;
   const getCurrentUser = () => {
     const b = backend();
     return b ? b.auth.currentUser() : null;
@@ -50,13 +50,19 @@
     const holder = (user && user.username) || "—";
     const email = (user && user.email) || "—";
     const tier = licenseFor(item.tierId) || {};
+    // The table no longer stores the beat title or the tier's display name —
+    // only `beat_id` and `license_type` — so resolve them from the catalog when
+    // the item does not already carry them.
+    const beat = helpers() ? helpers().beatById(item.beatId) : null;
+    const beatTitle = item.beatTitle || (beat && beat.title) || item.beatId || "";
+    const tierName = item.tier || tier.name || item.tierId || "";
     const rights = (tier.rights || []).map((line) => "  - " + line).join("\n");
     return [
       "KYROlll — OFFICIAL LICENSE CERTIFICATE",
       "======================================",
       "LICENSE ID : " + (item.id || ""),
-      "BEAT       : " + (item.beatTitle || ""),
-      "TIER       : " + (item.tier || ""),
+      "BEAT       : " + beatTitle,
+      "TIER       : " + tierName,
       "PRICE      : " + (item.price || ""),
       "LICENSEE   : " + holder,
       "EMAIL      : " + email,
@@ -65,8 +71,8 @@
       "GRANT OF RIGHTS",
       rights || "  - License granted as described at checkout.",
       "",
-      "This certifies that the licensee named above has secured the " + (item.tier || "license") + " for",
-      "\"" + (item.beatTitle || "") + "\" from KYROlll.",
+      "This certifies that the licensee named above has secured the " + (tierName || "license") + " for",
+      "\"" + beatTitle + "\" from KYROlll.",
       "",
       "This license is non-transferable. All rights not expressly granted remain",
       "the property of KYROlll. A signed PDF copy is delivered to the email on file.",
@@ -238,8 +244,9 @@
     document.removeEventListener("click", handleMenuOutside, true);
   }
 
-  // A tier was chosen: remember it, then either send the buyer to NOWPayments
-  // or (when signed out) to the auth page, which resumes checkout afterwards.
+  // A tier was chosen: remember it, then either hand the buyer to the
+  // `create-payment` Edge Function (which mints the NOWPayments invoice) or —
+  // when signed out — to the auth page, which resumes checkout afterwards.
   function beginPurchase(beat, license) {
     const file = helpers() ? helpers().fileFor(beat.id, license.id) : null;
     setPendingPurchase({
@@ -255,7 +262,39 @@
     if (!getCurrentUser()) {
       window.location.href = "auth.html?next=checkout&reason=purchase";
     } else {
+      startPayment(beat, license);
+    }
+  }
+
+  // Ask Supabase's `create-payment` function for a NOWPayments invoice, then
+  // send the browser to the hosted URL it returns. The function verifies the
+  // buyer's token, prices the order server-side and returns `{ url }`; the
+  // license row itself is written only by `nowpayments-webhook`, with the
+  // service_role key, once the payment is finished. The static invoice links in
+  // `catalog.js` are the local-demo fallback, used only when no Supabase project
+  // is attached.
+  let paymentInFlight = false;
+  async function startPayment(beat, license) {
+    if (!beat || !license) return;
+    const b = backend();
+    if (!b || !b.configured || !b.payments || !b.payments.createInvoice) {
       window.location.assign(license.url);
+      return;
+    }
+    if (paymentInFlight) return;
+    paymentInFlight = true;
+    showToast("CREATING YOUR INVOICE…");
+    try {
+      const invoice = await b.payments.createInvoice({ beatId: beat.id, licenseType: license.id });
+      const url = invoice && (invoice.url || invoice.invoice_url);
+      if (!url) throw new Error("NO INVOICE URL");
+      window.location.assign(url);
+      return;
+    } catch (err) {
+      console.warn("KYROlll: create-payment failed", err);
+      showToast("CHECKOUT UNAVAILABLE — TRY AGAIN");
+    } finally {
+      paymentInFlight = false;
     }
   }
 
@@ -308,7 +347,9 @@
     if (next === "checkout" || params.get("reason") === "purchase") {
       const pending = getPendingPurchase();
       const license = pending && licenseFor(pending.tierId);
-      if (license) { window.location.assign(license.url); return; }
+      const beat = (pending && helpers() && helpers().beatById(pending.beatId)) ||
+        (pending && { id: pending.beatId, title: pending.beatTitle });
+      if (license) { startPayment(beat, license); return; }
     }
     if (next === "support") {
       window.location.assign("support.html");
@@ -646,14 +687,21 @@
   function libraryItemHTML(user, item) {
     const beat = beatById(item.beatId);
     const art = (beat && beat.img) || "assets/flesh.png";
+    // `beat_title` and `tier` are no longer columns — resolve the display names
+    // from the catalog by `beat_id` / `license_type`.
+    const tier = licenseFor(item.tierId) || {};
+    const title = item.beatTitle || (beat && beat.title) || item.beatId || "—";
+    const tierName = item.tier || tier.name || item.tierId || "—";
+    const status = String(item.status || "").toUpperCase();
     return '<li class="library-item">' +
       '<div class="library-item__art"><img src="' + escapeHTML(art) + '" alt="" loading="lazy" decoding="async"></div>' +
       '<div class="library-item__body">' +
         '<div class="library-item__row">' +
-          '<h2 class="library-item__title">' + escapeHTML(item.beatTitle) + "</h2>" +
-          '<span class="library-item__tier">' + escapeHTML(item.tier) + "</span>" +
+          '<h2 class="library-item__title">' + escapeHTML(title) + "</h2>" +
+          '<span class="library-item__tier">' + escapeHTML(tierName) + "</span>" +
         "</div>" +
-        '<p class="library-item__meta">' + escapeHTML(item.price) + " · SECURED " + escapeHTML(item.date) + " · " + escapeHTML(item.id) + "</p>" +
+        '<p class="library-item__meta">' + escapeHTML(item.price) + " · SECURED " + escapeHTML(item.date) +
+          (status ? " · " + escapeHTML(status) : "") + " · " + escapeHTML(item.id) + "</p>" +
         '<p class="library-item__help">Download your leased master straight to this device, or open the official KYROlll PDF license for this purchase.</p>' +
         '<div class="library-item__actions">' +
           '<button type="button" class="kyrolll-btn" data-download data-license-id="' + escapeHTML(item.id) + '">DOWNLOAD AUDIO</button>' +
@@ -809,12 +857,14 @@
 
   function initSuccessPage() {
     const pending = getPendingPurchase();
+    const fallbackBeat = (window.KYROlll_CATALOG || [])[0] || {};
+    const fallbackTier = licenseFor("mp3") || {};
     const purchase = pending || {
-      beatId: "flesh",
-      beatTitle: "[FREE] DON TOLIVER TYPE BEAT - FLESH",
+      beatId: fallbackBeat.id,
+      beatTitle: fallbackBeat.title || "—",
       tierId: "mp3",
-      tier: "MP3 LEASE",
-      price: "$9.95"
+      tier: fallbackTier.name || "MP3 LEASE",
+      price: fallbackTier.price || "$9.95"
     };
     const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
     setText("det-title", purchase.beatTitle || "—");

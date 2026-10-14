@@ -9,9 +9,10 @@
  * PostgREST.
  *
  * It is idempotent: the tiers it is about to write are deleted first, so
- * re-running never stacks duplicates (the table has no unique constraint, and
- * the client de-dupes on beat + tier, so the seeder does too). Pass `--remove`
- * to take the seeded rows back out.
+ * re-running never stacks duplicates (and `payment_id` is unique, so a stray
+ * re-insert of the same seed is rejected rather than duplicated). Pass
+ * `--remove` to take the seeded rows back out. These rows stand in for what the
+ * `nowpayments-webhook` Edge Function writes after a real finished payment.
  *
  * Usage (service_role key: Supabase dashboard → Project Settings → API →
  * `service_role`; it must never ship to a browser):
@@ -32,13 +33,21 @@ import { dirname, join } from "node:path";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
-// The single catalog beat, and the three official tiers (catalog.js). `tier` is
-// the display name the library renders; `tier_id` is what resolves files/PDF.
-const BEAT = { id: "flesh", title: "[FREE] DON TOLIVER TYPE BEAT - FLESH" };
+// The single catalog beat, and the three official tiers (catalog.js). The beat's
+// `id` is its uuid — the same value catalog.js carries and public.beats holds,
+// since `licenses.beat_id` is a foreign key into that table. `license_type`
+// resolves files/PDF; the library resolves the display name from catalog.js.
+const BEAT = {
+  id: "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af",
+  slug: "flesh",
+  title: "[FREE] DON TOLIVER TYPE BEAT - FLESH"
+};
+// `price` is numeric (the table's column is numeric), not the "$9.95" display
+// string the storefront shows.
 const TIERS = [
-  { id: "mp3", name: "MP3 LEASE", price: "$9.95" },
-  { id: "wav", name: "STANDARD WAV LEASE", price: "$14.95" },
-  { id: "exclusive", name: "EXCLUSIVE LEASE", price: "$299.95" }
+  { id: "mp3", name: "MP3 LEASE", price: 9.95 },
+  { id: "wav", name: "STANDARD WAV LEASE", price: 14.95 },
+  { id: "exclusive", name: "EXCLUSIVE LEASE", price: 299.95 }
 ];
 
 function config() {
@@ -89,7 +98,7 @@ async function findUserId(base, key, email) {
 
 function seedFilter(userId, tierIds) {
   const tiers = tierIds.map(encodeURIComponent).join(",");
-  return `user_id=eq.${encodeURIComponent(userId)}&beat_id=eq.${encodeURIComponent(BEAT.id)}&tier_id=in.(${tiers})`;
+  return `user_id=eq.${encodeURIComponent(userId)}&beat_id=eq.${encodeURIComponent(BEAT.id)}&license_type=in.(${tiers})`;
 }
 
 async function removeRows(base, key, table, userId, tierIds) {
@@ -103,15 +112,18 @@ async function removeRows(base, key, table, userId, tierIds) {
 
 async function insertRows(base, key, table, userId) {
   const now = Date.now();
+  // `payment_id` is UNIQUE — it is what makes the webhook's insert idempotent —
+  // so the seeder writes a deterministic one per (account, tier): a re-run
+  // collides with itself, never with another account's seed.
   const body = TIERS.map((tier, index) => ({
     user_id: userId,
     beat_id: BEAT.id,
-    beat_title: BEAT.title,
-    tier_id: tier.id,
-    tier: tier.name,
+    license_type: tier.id,
     price: tier.price,
+    payment_id: `seed-${userId.slice(0, 8)}-${tier.id}`,
+    status: "active",
     // A different day per tier so the library's date column reads like a real history.
-    purchased_at: new Date(now - index * 86400000).toISOString()
+    created_at: new Date(now - index * 86400000).toISOString()
   }));
   const res = await api(base, key, `/rest/v1/${table}`, {
     method: "POST",
@@ -126,8 +138,10 @@ async function insertRows(base, key, table, userId) {
 // service_role key is at hand. Idempotent for the same reason: delete, then add.
 function sql(email) {
   const quoted = String(email).replace(/'/g, "''");
-  const values = TIERS.map((tier) => `('${tier.id}', '${tier.name}', '${tier.price}')`).join(",\n  ");
-  return `delete from public.licenses\n where user_id = (select id from auth.users where email = '${quoted}')\n   and beat_id = '${BEAT.id}'\n   and tier_id in (${TIERS.map((tier) => `'${tier.id}'`).join(", ")});\n\ninsert into public.licenses (user_id, beat_id, beat_title, tier_id, tier, price, purchased_at)\nselect u.id, '${BEAT.id}', '${BEAT.title}', t.tier_id, t.tier, t.price, now()\n  from auth.users u\n  cross join (values\n  ${values}\n) as t(tier_id, tier, price)\n where u.email = '${quoted}';`;
+  const values = TIERS.map((tier) =>
+    `('${tier.id}', ${tier.price}, 'seed-' || left(u.id::text, 8) || '-${tier.id}')`
+  ).join(",\n  ");
+  return `delete from public.licenses\n where user_id = (select id from auth.users where email = '${quoted}')\n   and beat_id = '${BEAT.id}'\n   and license_type in (${TIERS.map((tier) => `'${tier.id}'`).join(", ")});\n\ninsert into public.licenses (user_id, beat_id, license_type, price, payment_id, status, created_at)\nselect u.id, '${BEAT.id}', t.license_type, t.price, t.payment_id, 'active', now()\n  from auth.users u\n  cross join (values\n  ${values}\n) as t(license_type, price, payment_id)\n where u.email = '${quoted}';`;
 }
 
 async function main() {

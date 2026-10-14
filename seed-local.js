@@ -2,7 +2,7 @@
  * No service_role needed; writes into the browser's local library cache
  * (same format as addLicense()) so listLicenses() picks them up instantly.
  * Usage: open index.html (or library.html) and run in console:
- *   seedLocal({ beatId: 'flesh', tiers: ['mp3','wav','exclusive'] })
+ *   seedLocalLicenses({ beatId: '6c56eda2-df4a-45b0-b9b7-68f8efdbb1af', tiers: ['mp3','wav','exclusive'] })
  */
 (function () {
   "use strict";
@@ -12,9 +12,9 @@
     const b = window.KYROlll_BACKEND;
     if (!b || !b.licenses || !b.auth) { console.warn("KYROlll backend not loaded"); return; }
     const user = b.auth.currentUser();
-    const beatId = opts.beatId || "flesh";
+    const beatId = opts.beatId || ((window.KYROlll_CATALOG || [])[0] || {}).id;
     const tiers = opts.tiers || ["mp3", "wav", "exclusive"];
-    const beat = (window.KYROlll_CATALOG || []).find(function (c) { return c.id === beatId; }) || { id: beatId, title: beatId, img: "assets/flesh.png" };
+    const beat = (window.KYROlll_CATALOG || []).find(function (c) { return c.id === beatId || c.slug === beatId; }) || { id: beatId, title: beatId, img: "assets/flesh.png" };
     const tierDefs = (window.KYROlll_LICENSES || []).filter(function (t) { return tiers.indexOf(t.id) >= 0; });
     if (!user) { console.warn("Not signed in — seed requires an account to bind licenses to."); return; }
     const now = Date.now();

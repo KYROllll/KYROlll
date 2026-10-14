@@ -6,7 +6,8 @@
  *
  *   KYROlll_BACKEND.auth.signInWithOtp / verifyOtp / signOut / ready /
  *                          currentUser / updateProfile
- *   KYROlll_BACKEND.licenses.list / add
+ *   KYROlll_BACKEND.licenses.list / add / soldExclusive
+ *   KYROlll_BACKEND.payments.createInvoice
  *   KYROlll_BACKEND.storage.download / signedUrl / uploadAvatar
  *
  * When `supabase-config.js` has no project URL/key the client transparently
@@ -420,7 +421,7 @@
       // open up site-wide. Either way the local record still answers on failure.
       const rows = await withSession((token) => request(
         "GET",
-        "/rest/v1/" + LICENSES_TABLE + "?select=beat_id&tier_id=eq.exclusive",
+        "/rest/v1/" + LICENSES_TABLE + "?select=beat_id&license_type=eq.exclusive&status=eq.active",
         token ? { token: token } : undefined
       ));
       (rows || []).forEach((row) => { if (row.beat_id) ids.add(row.beat_id); });
@@ -428,16 +429,43 @@
     return Array.from(ids);
   }
 
+  function licenseTypeName(type) {
+    const tiers = window.KYROlll_LICENSES || [];
+    const tier = tiers.find((entry) => entry.id === type);
+    return tier ? tier.name : (type || "");
+  }
+
+  function beatTitleFor(beatId) {
+    const helpers = window.KYROlll_HELPERS;
+    const beat = helpers && helpers.beatById ? helpers.beatById(beatId) : null;
+    return beat ? beat.title : "";
+  }
+
+  function formatPrice(value) {
+    if (value == null || value === "") return "";
+    const number = Number(value);
+    return Number.isFinite(number) ? "$" + number.toFixed(2) : String(value);
+  }
+
+  /* Map a `licenses` row (payment shape: beat_id / license_type / price /
+   * payment_id / status / created_at) onto the UI shape the library and the
+   * PDF renderer use. The table stores no titles or tier names — those are
+   * resolved from the catalog — and `created_at` replaces the old
+   * `purchased_at`. */
   function fromRow(row) {
+    const type = row.license_type || row.tier_id || row.tierId || "";
+    const beatId = row.beat_id || row.beatId;
+    const createdAt = row.created_at || row.purchased_at || row.purchasedAt || null;
     return {
       id: row.id,
-      beatId: row.beat_id || row.beatId,
-      beatTitle: row.beat_title || row.beatTitle,
-      tierId: row.tier_id || row.tierId,
-      tier: row.tier,
-      price: row.price,
-      purchasedAt: row.purchased_at || row.purchasedAt,
-      date: new Date(row.purchased_at || row.purchasedAt || Date.now()).toLocaleDateString()
+      beatId: beatId,
+      beatTitle: row.beat_title || row.beatTitle || beatTitleFor(beatId),
+      tierId: type,
+      tier: row.tier || licenseTypeName(type),
+      price: formatPrice(row.price != null ? row.price : row.price_text),
+      status: row.status || "active",
+      purchasedAt: createdAt,
+      date: new Date(createdAt || Date.now()).toLocaleDateString()
     };
   }
 
@@ -624,16 +652,24 @@
           "GET",
           "/rest/v1/" + LICENSES_TABLE +
             "?select=*&user_id=eq." + encodeURIComponent(owner) +
-            "&order=purchased_at.desc",
+            "&order=created_at.desc",
           { token: token }
         );
       });
       licensesError = null;
       const remote = (rows || []).map(fromRow);
-      // Merge: remote wins on id, local cache fills anything the table missed.
-      const byId = new Map();
-      remote.concat(local).forEach((item) => { if (item && item.id && !byId.has(item.id)) byId.set(item.id, item); });
-      const merged = Array.from(byId.values());
+      // Merge: remote (webhook-written) rows win. A local copy of the *same*
+      // purchase — same beat + tier — is dropped so the row's server uuid and
+      // the browser's optimistic `lic_…` record never show up as two items.
+      const seen = new Set();
+      const merged = [];
+      remote.concat(local).forEach((item) => {
+        if (!item) return;
+        const key = (item.beatId || item.id) + "|" + (item.tierId || "");
+        if (seen.has(key)) return;
+        seen.add(key);
+        merged.push(item);
+      });
       localSave(user.id, merged);
       return merged;
     } catch (err) {
@@ -679,8 +715,8 @@
 
   async function addLicense(input) {
     if (!currentUser()) return null;
-    // Write as the identity the bearer will carry, so the row can only ever be
-    // this account's: `with check (auth.uid() = user_id)` rejects anything else.
+    // Cache under the identity the session resolves to, so a local record can
+    // only ever be filed against this account.
     await alignSessionUser();
     const user = currentUser();
     if (!user) return null;
@@ -711,46 +747,35 @@
       date: new Date(input.purchasedAt || Date.now()).toLocaleDateString()
     };
     localSave(user.id, [license].concat(list));
-    if (CONFIGURED && session) {
-      try {
-        // No `id` in the body: the table's uuid default owns it. Sending the
-        // local "lic_…" id would be rejected by a uuid column (22P02) and the
-        // row would never reach the table — the purchase would live only in
-        // this browser. `withSession` refreshes a stale token first, so a long
-        // checkout cannot fail the write on a 401.
-        const created = await withSession((token) => {
-          if (!token) return null;
-          const verifiedUid = jwtSubject(token); // strict auth.uid() — never cached
-          if (!verifiedUid) throw new Error("NO VERIFIED AUTH UID");
-          return request("POST", "/rest/v1/" + LICENSES_TABLE, {
-              token: token,
-              headers: { Prefer: "return=representation" },
-              body: {
-                user_id: verifiedUid,
-                beat_id: license.beatId,
-                beat_title: license.beatTitle,
-                tier_id: license.tierId,
-                tier: license.tier,
-                price: license.price,
-                purchased_at: license.purchasedAt
-              }
-            });
-        });
-        // Adopt the server's id so the local copy and the row de-dupe on the
-        // next read instead of showing the same purchase twice.
-        const row = Array.isArray(created) ? created[0] : created;
-        if (row && row.id) {
-          license.id = row.id;
-          localSave(user.id, localList(user.id).map((item) =>
-            item.beatId === license.beatId && item.tierId === license.tierId ? license : item
-          ));
-        }
-      } catch (err) {
-        // Local cache already holds it; the table may not exist yet.
-        console.warn("KYROlll: license write failed", { status: err && err.status, message: String((err && err.message) || err) });
-      }
-    }
+    // The license ROW is never written from the browser: `licenses` has a
+    // SELECT-only RLS policy, and the only writer is the `nowpayments-webhook`
+    // Edge Function using the service_role key. What lives here is the local
+    // cache (and the whole store in local-demo mode) — the library read merges
+    // it with the remote rows and the webhook's row wins for the same purchase.
     return license;
+  }
+
+  /* --------------------------------------------------------------- payments */
+
+  /* Ask the `create-payment` Edge Function for a NOWPayments invoice for the
+   * signed-in buyer. The function verifies the bearer, prices the order
+   * server-side and returns `{ url }` — the hosted invoice page. The browser
+   * never builds the order or the price, and it never writes a license: the
+   * `nowpayments-webhook` function does that with the service_role key. */
+  async function createInvoice(input) {
+    if (!CONFIGURED) throw new Error("SUPABASE NOT CONFIGURED");
+    const beatId = input && input.beatId;
+    const licenseType = input && input.licenseType;
+    if (!beatId || !licenseType) throw new Error("MISSING LICENSE SELECTION");
+    if (!currentUser()) throw new Error("NOT SIGNED IN");
+    await ready();
+    return withSession((token) => {
+      if (!token) throw new Error("NOT SIGNED IN");
+      return request("POST", "/functions/v1/create-payment", {
+        token: token,
+        body: { beat_id: beatId, license_type: licenseType }
+      });
+    });
   }
 
   /* ---------------------------------------------------------------- storage */
@@ -870,6 +895,7 @@
       updateProfile
     },
     licenses: { list: listLicenses, add: addLicense, soldExclusive, diagnose: licensesDiagnostic },
+    payments: { createInvoice },
     storage: { signedUrl, download, uploadAvatar, publicUrl, triggerDownload }
   };
 

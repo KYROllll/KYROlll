@@ -100,7 +100,7 @@ test("lists only the signed-in user's rows, with a valid api key and JWT", async
     return {
       ok: true, status: 200,
       text: async () => JSON.stringify([
-        { id: "row-1", beat_id: "flesh", beat_title: "FLESH", tier_id: "mp3", tier: "MP3 LEASE", price: "$9.95", purchased_at: "2026-10-01T00:00:00Z" }
+        { id: "row-1", beat_id: "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af", license_type: "mp3", price: 9.95, payment_id: "pay-1", status: "active", created_at: "2026-10-01T00:00:00Z" }
       ])
     };
   });
@@ -110,14 +110,16 @@ test("lists only the signed-in user's rows, with a valid api key and JWT", async
   assert.equal(calls.length, 1, "one read, no unexpected request");
   assert.equal(
     calls[0].url,
-    SERVER + "/rest/v1/licenses?select=*&user_id=eq.user-123&order=purchased_at.desc",
+    SERVER + "/rest/v1/licenses?select=*&user_id=eq.user-123&order=created_at.desc",
     "filters explicitly by the signed-in user"
   );
   assert.equal(calls[0].init.headers.Authorization, "Bearer jwt-abc");
   assert.equal(calls[0].init.headers.apikey, ANON);
   assert.equal(items.length, 1);
   assert.equal(items[0].tierId, "mp3");
-  assert.equal(items[0].beatId, "flesh");
+  assert.equal(items[0].beatId, "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af");
+  assert.equal(items[0].price, "$9.95", "numeric price is rendered for the library");
+  assert.equal(items[0].status, "active");
 
   const diagnostic = backend.licenses.diagnose();
   assert.equal(diagnostic.error, null, "a clean read records no error");
@@ -155,7 +157,7 @@ test("a failed read is recorded, not silently shown as an empty library", async 
   assert.ok(warn.lines.some((line) => /licenses read failed/.test(line)), "warns once with the reason");
 });
 
-test("a write lets the table own the id and adopts the server's", async () => {
+test("adding a license never writes to the table — only the webhook may", async () => {
   const calls = [];
   const { backend, storage } = boot(async (url, init) => {
     calls.push({ url, init });
@@ -163,37 +165,42 @@ test("a write lets the table own the id and adopts the server's", async () => {
   });
 
   const license = await backend.licenses.add({
-    beatId: "flesh", beatTitle: "FLESH", tierId: "wav", tier: "STANDARD WAV LEASE", price: "$14.95"
+    beatId: "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af", beatTitle: "FLESH", tierId: "wav", tier: "STANDARD WAV LEASE", price: "$14.95"
   });
 
-  const post = calls.find((call) => call.init.method === "POST");
-  assert.ok(post, "posts the purchase");
-  assert.match(post.url, /\/rest\/v1\/licenses$/);
-  const body = JSON.parse(post.init.body);
-  assert.ok(!("id" in body), "omits id so a uuid column accepts the row");
-  assert.equal(body.user_id, "user-123");
-  assert.equal(body.beat_id, "flesh");
-  assert.equal(body.tier_id, "wav");
-
-  assert.equal(license.id, "server-uuid", "adopts the server id so the next read de-dupes");
+  const writes = calls.filter((call) => call.init && call.init.method === "POST");
+  assert.equal(writes.length, 0, "the browser must not INSERT: licenses has a SELECT-only policy");
+  assert.ok(license && license.id, "the local cache still records the purchase");
   const cached = JSON.parse(storage.get("kyrolll_library_user-123"));
-  assert.equal(cached[0].id, "server-uuid");
+  assert.equal(cached[0].tierId, "wav");
 });
 
-test("a write that fails keeps the local copy and explains itself", async () => {
-  const warn = captureWarn();
-  const { backend } = boot(async () => ({
-    ok: false, status: 400,
-    text: async () => JSON.stringify({ message: 'invalid input syntax for type uuid: "lic_x"' })
-  }));
+test("createInvoice calls the payment function with the bearer and the selection", async () => {
+  const calls = [];
+  // A realistic-length token: request() refuses to attach a bearer it deems
+  // too short to be a session, so a stub like "jwt-abc" would be sent anonymously.
+  const token = "jwt-abcdefghijklmnop";
+  const { backend } = boot(async (url, init) => {
+    calls.push({ url, init });
+    if (url.includes("/functions/v1/create-payment")) {
+      return { ok: true, status: 200, text: async () => JSON.stringify({ url: "https://nowpayments.io/payment/?iid=1" }) };
+    }
+    return { ok: true, status: 200, text: async () => "[]" };
+  }, { accessToken: token });
 
-  const license = await backend.licenses.add({
-    beatId: "flesh", beatTitle: "FLESH", tierId: "mp3", tier: "MP3 LEASE", price: "$9.95"
+  const invoice = await backend.payments.createInvoice({
+    beatId: "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af", licenseType: "mp3"
   });
-  warn.restore();
 
-  assert.ok(license && license.id, "the optimistic local copy survives");
-  assert.ok(warn.lines.some((line) => /license write failed/.test(line)));
+  assert.equal(invoice.url, "https://nowpayments.io/payment/?iid=1", "returns the hosted invoice URL");
+  const post = calls.find((call) => call.url.includes("/functions/v1/create-payment"));
+  assert.ok(post, "calls the function");
+  assert.equal(post.init.method, "POST");
+  assert.equal(post.init.headers.Authorization, "Bearer " + token, "sends the buyer's token");
+  assert.deepEqual(JSON.parse(post.init.body), {
+    beat_id: "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af",
+    license_type: "mp3"
+  });
 });
 
 test("refreshes a token that is about to expire before reading", async () => {
@@ -239,7 +246,7 @@ test("a 401 on the read refreshes the token and retries once", async () => {
     return {
       ok: true, status: 200,
       text: async () => JSON.stringify([
-        { id: "row-1", beat_id: "flesh", tier_id: "mp3", purchased_at: "2026-10-01T00:00:00Z" }
+        { id: "row-1", beat_id: "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af", license_type: "mp3", created_at: "2026-10-01T00:00:00Z" }
       ])
     };
   });
@@ -292,36 +299,28 @@ test("filters the read by the token's sub, so it matches auth.uid()", async () =
   assert.doesNotMatch(read.url, /user-stale/, "never filters on the stale cached id");
 });
 
-test("writes the token's sub as user_id so `with check` passes", async () => {
-  const calls = [];
-  const { backend } = boot(async (url, init) => {
-    calls.push({ url, init });
-    return { ok: true, status: 201, text: async () => JSON.stringify([{ id: "row-1" }]) };
-  }, {
-    accessToken: jwt({ sub: "user-from-token" }),
-    user: { id: "user-stale", email: "matan@example.com" }
-  });
+test("an exclusive purchase marks the beat sold in the local record", async () => {
+  const { backend } = boot(async () => ({ ok: true, status: 200, text: async () => "[]" }));
 
   await backend.licenses.add({
-    beatId: "flesh", beatTitle: "FLESH", tierId: "mp3", tier: "MP3 LEASE", price: "$9.95"
+    beatId: "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af", beatTitle: "FLESH", tierId: "exclusive", tier: "EXCLUSIVE LEASE", price: "$299.95"
   });
 
-  const post = calls.find((call) => call.init.method === "POST");
-  assert.ok(post, "posts the purchase");
-  assert.equal(JSON.parse(post.init.body).user_id, "user-from-token");
+  const sold = await backend.licenses.soldExclusive();
+  assert.ok(Array.from(sold).includes("6c56eda2-df4a-45b0-b9b7-68f8efdbb1af"), "the local record locks the beat");
 });
 
 test("the exclusive lookup is authenticated when signed in", async () => {
   const calls = [];
   const { backend } = boot(async (url, init) => {
     calls.push({ url, init });
-    return { ok: true, status: 200, text: async () => JSON.stringify([{ beat_id: "flesh" }]) };
+    return { ok: true, status: 200, text: async () => JSON.stringify([{ beat_id: "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af" }]) };
   });
 
   const sold = await backend.licenses.soldExclusive();
 
-  assert.deepEqual(Array.from(sold), ["flesh"]);
-  const read = calls.find((call) => call.url.includes("tier_id=eq.exclusive"));
+  assert.deepEqual(Array.from(sold), ["6c56eda2-df4a-45b0-b9b7-68f8efdbb1af"]);
+  const read = calls.find((call) => call.url.includes("license_type=eq.exclusive"));
   assert.ok(read, "asks the table");
   assert.equal(read.init.headers.Authorization, "Bearer jwt-abc", "the user's bearer, not anonymous");
   assert.equal(read.init.headers.apikey, ANON);
@@ -337,7 +336,7 @@ test("the exclusive lookup stays an anonymous read when signed out", async () =>
   const sold = await backend.licenses.soldExclusive();
 
   assert.equal(sold.length, 0, "the local record alone answers");
-  const read = calls.find((call) => call.url.includes("tier_id=eq.exclusive"));
+  const read = calls.find((call) => call.url.includes("license_type=eq.exclusive"));
   assert.ok(read, "still makes the request a public SELECT policy would serve");
   assert.equal(read.init.headers.Authorization, undefined, "no token to send, so no bearer");
 });
@@ -378,10 +377,10 @@ test("a stale cached user is reconciled with the token before reading", async ()
   );
 });
 
-test("a stale cached user is reconciled before a write too", async () => {
+test("a stale cached user is reconciled before a cached purchase too", async () => {
   const token = jwt({ sub: "user-from-token" });
   const calls = [];
-  const { backend } = boot(async (url, init) => {
+  const { backend, storage } = boot(async (url, init) => {
     calls.push({ url, init });
     if (url.includes("/auth/v1/user")) {
       return { ok: true, status: 200, text: async () => JSON.stringify({ id: "user-from-token" }) };
@@ -393,10 +392,18 @@ test("a stale cached user is reconciled before a write too", async () => {
   });
 
   await backend.licenses.add({
-    beatId: "flesh", beatTitle: "FLESH", tierId: "wav", tier: "STANDARD WAV LEASE", price: "$14.95"
+    beatId: "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af", beatTitle: "FLESH", tierId: "wav", tier: "STANDARD WAV LEASE", price: "$14.95"
   });
 
-  const post = calls.find((call) => call.init.method === "POST");
-  assert.equal(JSON.parse(post.init.body).user_id, "user-from-token");
+  assert.equal(
+    calls.filter((call) => call.init && call.init.method === "POST").length, 0,
+    "the browser never writes a license row — only the webhook may"
+  );
+  const cached = JSON.parse(storage.get("kyrolll_library_user-from-token"));
+  assert.equal(cached[0].tierId, "wav", "the cache follows the token's identity");
+  assert.equal(
+    storage.get("kyrolll_library_user-stale-uuid"), undefined,
+    "nothing is cached under the stale id"
+  );
 });
 

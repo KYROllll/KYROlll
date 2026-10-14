@@ -57,12 +57,18 @@
     }
   ];
 
+  // `id` is the beat's uuid and must match `public.beats.id` — a license's
+  // `beat_id` is a foreign key into that table, and the webhook writes whatever
+  // uuid the checkout carried. `slug` is the stable human handle kept for old
+  // links (`?beat=flesh`); the helpers resolve either.
+  //
   // `files` maps a tier to its Supabase Storage object (`path`), the filename a
   // buyer downloads (`name`) and a same-origin `fallback` used in local demo
   // mode or if the bucket object is missing.
   window.KYROlll_CATALOG = [
     {
-      id: "flesh",
+      id: "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af",
+      slug: "flesh",
       title: "[FREE] DON TOLIVER TYPE BEAT - FLESH",
       img: "assets/flesh.png",
       bpm: 130,
@@ -100,7 +106,8 @@
       }[char]));
     },
     beatById(id) {
-      return window.KYROlll_CATALOG.find((beat) => beat.id === id) || null;
+      const key = String(id == null ? "" : id);
+      return window.KYROlll_CATALOG.find((beat) => beat.id === key || beat.slug === key) || null;
     },
     licenseById(id) {
       return window.KYROlll_LICENSES.find((license) => license.id === id) || null;

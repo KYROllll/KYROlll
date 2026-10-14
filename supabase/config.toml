@@ -1,0 +1,18 @@
+# Supabase CLI project config for KYROlll.
+#
+# Only the two payment functions are pinned here; everything else uses the CLI
+# defaults. `supabase functions deploy` reads these flags.
+
+project_id = "kyroll-store"
+
+# NOWPayments cannot present a Supabase JWT, so the IPN callback MUST be
+# deployed without JWT verification — otherwise every callback is rejected at
+# the gateway with 401 before the signature check ever runs. The handler
+# authenticates each request itself with the `x-nowpayments-sig` HMAC.
+[functions.nowpayments-webhook]
+verify_jwt = false
+
+# The buyer's own access token IS the auth for this one, so it keeps the
+# default JWT verification on.
+[functions.create-payment]
+verify_jwt = true
