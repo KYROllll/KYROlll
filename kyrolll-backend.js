@@ -422,39 +422,76 @@
     try {
       return await perform(token);
     } catch (err) {
-      if (!err || err.status !== 401 || !(session && session.refreshToken)) throw err;
+      if (!err || err.status !== 401) throw err;
+      if (!(session && session.refreshToken)) {
+        // Nothing to renew it with, so the session the server just refused is
+        // the end of the line. Mark it: the caller forgets it and falls back to
+        // signed-out rather than showing an error the customer cannot act on.
+        err.sessionRefused = true;
+        throw err;
+      }
+      // Silent renewal: exchange the refresh token and replay the call once.
       const refreshed = await refreshSession();
       const next = refreshed && refreshed.accessToken;
-      if (!next) throw err;
+      if (!next) {
+        // A *definitive* refusal has already cleared the session. A transient
+        // one (offline, 5xx, timeout) leaves it in place and must never be read
+        // as a dead session, or a flaky connection would sign the customer out.
+        err.sessionRefused = !session;
+        throw err;
+      }
       return await perform(next);
     }
   }
 
-  /* The stored session's `user` is only a cache; the access token is the
-   * authority, because `auth.uid()` is its `sub`. When the two disagree — a
-   * session carried over from an earlier sign-in, written by another tab, or one
-   * that outlived a refresh — pull the real user for *this* token so nothing
-   * downstream keeps using the old id. Everything the library does hangs off
-   * `currentUser()`: the `user_id=eq.…` filter, the `kyrolll_library_<uid>`
-   * cache key and the diagnostics banner. Best-effort: if the token is rejected
-   * the `sub` is still adopted straight from the token, with no round trip. */
-  async function alignSessionUser() {
-    if (!CONFIGURED || !session) return;
-    const sub = jwtSubject(session.accessToken);
-    if (!sub || (session.user && session.user.id === sub)) return;
-    try {
-      const data = await request("GET", "/auth/v1/user", { token: session.accessToken });
-      const next = normalizeUser(data);
-      if (next && next.id) {
-        session.user = next;
-        saveSession(session);
-        emitAuthChange();
-        return;
-      }
-    } catch (err) { /* opaque or rejected token — adopt the id from the claim */ }
-    session.user = Object.assign({}, session.user, { id: sub });
-    saveSession(session);
+  /* Forget a session the server has refused, and with it the one cached library
+   * that belonged to the identity that session claimed — that cache was written
+   * for whichever account the stale record named, so leaving it behind is what
+   * lets a later read look like someone else's. Only the named keys go: a
+   * blanket localStorage.clear() would take unrelated app state with it. */
+  function forgetRefusedSession() {
+    const claimed = session && session.user && session.user.id;
+    if (claimed) lsDel(libraryKey(claimed));
+    saveSession(null);
+    verifiedToken = "";
     emitAuthChange();
+  }
+
+  // The access token the cached session user was last confirmed against.
+  let verifiedToken = "";
+
+  /* Resolve who the live token actually belongs to, from the server. `auth.uid()`
+   * is the token's `sub` and RLS enforces it server-side, but `session.user` is
+   * only a client-side hint: a session carried over from an earlier sign-in,
+   * written by another tab or left over from a refresh can disagree with the
+   * token. This asks `/auth/v1/user` with the current bearer (through
+   * `withSession`, so an expired token is renewed first), adopts the answer and
+   * drops the cache keyed to a contradicted id. It runs once per token per page
+   * (`verifiedToken`), keeping the round trip off repeated reads.
+   *
+   * Never throws. A refused session is forgotten and reported as null so callers
+   * fall back to the signed-out state; a transient failure falls back to the
+   * cached user and lets the caller's own request decide. */
+  async function verifySession(force) {
+    if (!CONFIGURED || !session) return null;
+    if (!force && verifiedToken && verifiedToken === session.accessToken) return currentUser();
+    try {
+      const data = await withSession((token) => token
+        ? request("GET", "/auth/v1/user", { token: token })
+        : null);
+      const verified = normalizeUser(data);
+      if (!verified || !verified.id) return currentUser();
+      const claimed = session && session.user && session.user.id;
+      session.user = verified;
+      saveSession(session);
+      if (claimed && claimed !== verified.id) lsDel(libraryKey(claimed));
+      verifiedToken = session.accessToken;
+      emitAuthChange();
+      return currentUser();
+    } catch (err) {
+      if (err && err.sessionRefused) { forgetRefusedSession(); return null; }
+      return currentUser();
+    }
   }
 
   /* Read the licenses for the signed-in user. The `user_id` filter is explicit
@@ -469,13 +506,13 @@
     if (!currentUser()) return [];
     // Resolve who is actually signed in before building the query: `ready()`
     // refreshes a session that is at/near expiry (its response re-reads the
-    // user), and `alignSessionUser()` reconciles a cached user the token
+    // user), and `verifySession()` reconciles a cached user the token
     // contradicts. Only then is the id safe to use as the filter and cache key.
     await ready();
-    await alignSessionUser();
+    await verifySession();
     const user = currentUser();
     if (!user) return [];
-    const local = localList(user.id);
+    let local = localList(user.id);
     try {
       const rows = await withSession((token) => {
         if (!token) return [];
@@ -497,6 +534,19 @@
       localSave(user.id, merged);
       return merged;
     } catch (err) {
+      // Auth failure (stale/mismatched token): clear stale library cache safely,
+      // rely solely on the live server-verified JWT token, and fall back clean.
+      if (err && (err.status === 401 || err.status === 403 || err.sessionRefused)) {
+        // Silent failure: clear stale local cache for this user and fall back.
+        if (user && user.id) lsDel(libraryKey(user.id));
+        licensesError = {
+          status: err.status || 403,
+          code: err.code || "AUTH_ERROR",
+          message: "Your session has expired or is invalid. Please sign in again."
+        };
+        console.warn("KYROlll: licenses read failed due to auth", licensesError);
+        return [];
+      }
       licensesError = {
         status: (err && err.status) || 0,
         code: (err && err.code) || "",
@@ -527,7 +577,7 @@
     if (!currentUser()) return null;
     // Write as the identity the bearer will carry, so the row can only ever be
     // this account's: `with check (auth.uid() = user_id)` rejects anything else.
-    await alignSessionUser();
+    await verifySession();
     const user = currentUser();
     if (!user) return null;
     // An exclusive sale takes the beat off the market for everyone, whatever
