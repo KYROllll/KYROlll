@@ -1,33 +1,28 @@
-/* KYROlll — backend bridge (account-less store).
+/* KYROlll — backend bridge (database-free storefront).
  *
  * One small, dependency-free client that talks to Supabase over its REST API
- * and exposes a stable promise API used by every page:
+ * to mint a hosted NOWPayments invoice, and exposes a stable promise API:
  *
  *   KYROlll_BACKEND.payments.createInvoice   — mint a NOWPayments invoice
- *   KYROlll_BACKEND.licenses.soldExclusive   — best-effort "sold exclusive" read
  *
- * There is no account, session or bearer token any more. The storefront is
- * public, the checkout is a hosted NOWPayments invoice, and the `licenses` row
- * is written only by the `nowpayments-webhook` Edge Function with the
- * service_role key — the browser never reads or writes the table beyond the
- * (currently empty) sold-exclusive lookup, and it never holds a secret.
+ * The storefront holds no account, session or bearer token, and never reads or
+ * writes a Supabase table. The checkout is a hosted NOWPayments invoice, and the
+ * order's audit row is written server-side only by the `nowpayments-webhook`
+ * Edge Function with the service_role key — the browser never holds a secret.
  *
  * When `supabase-config.js` has no project URL/key the client stays in
- * "local demo" mode: `createInvoice` reports that payments are unavailable and
- * `soldExclusive` answers from the local record, so the storefront still runs
- * in preview. */
+ * "local demo" mode: `createInvoice` reports that payments are unavailable, so
+ * the storefront falls back to the static invoice links in `catalog.js`. */
 (function () {
   "use strict";
 
   const CONFIG = window.KYROlll_SUPABASE || {};
-  const SOLD_KEY = "kyrolll_exclusive_sold";
 
   const CONFIGURED = !!(
     CONFIG.url &&
     CONFIG.anonKey &&
     !/YOUR-|PROJECT\.supabase|eyJhbGciOi\.\.\./.test(String(CONFIG.url) + String(CONFIG.anonKey))
   );
-  const LICENSES_TABLE = (CONFIG.tables && CONFIG.tables.licenses) || "licenses";
   const base = CONFIGURED ? String(CONFIG.url).replace(/\/+$/, "") : "";
 
   /* ------------------------------------------------------------------ utils */
@@ -40,14 +35,11 @@
     }
   }
 
-  function lsGet(key) { try { return localStorage.getItem(key); } catch (err) { return null; } }
-
   /* ----------------------------------------------------------- supabase rpc */
 
   // `apikey` only selects the project; with no Authorization header every
-  // request goes out as the anonymous `anon` role. That is deliberate: there is
-  // no session to send, and `licenses` has RLS on with no policy, so this role
-  // reads zero license rows.
+  // request goes out as the anonymous `anon` role. That is deliberate: the
+  // storefront has no session to send, and it never touches a table.
   async function request(method, path, options) {
     const opts = options || {};
     const headers = { apikey: CONFIG.anonKey, Accept: "application/json" };
@@ -85,28 +77,6 @@
     return data;
   }
 
-  /* --------------------------------------------------------------- licenses */
-
-  function localSold() { return readJSON(lsGet(SOLD_KEY), []) || []; }
-
-  /* Beats sold on an exclusive license. The local record is the whole answer
-   * today — `licenses` is locked down (RLS on, no policy), so the anonymous read
-   * returns zero rows — but the query is kept as a best-effort so a project that
-   * ever exposes a public `beat_id` policy lights the site-wide lock up with no
-   * code change. Never throws. */
-  async function soldExclusive() {
-    const ids = new Set(localSold());
-    if (!CONFIGURED) return Array.from(ids);
-    try {
-      const rows = await request(
-        "GET",
-        "/rest/v1/" + LICENSES_TABLE + "?select=beat_id&license_type=eq.exclusive&status=eq.active"
-      );
-      (rows || []).forEach((row) => { if (row.beat_id) ids.add(row.beat_id); });
-    } catch (err) { /* not readable here — the local answer still stands */ }
-    return Array.from(ids);
-  }
-
   /* --------------------------------------------------------------- payments */
 
   /* Ask the `create-payment` Edge Function for a NOWPayments invoice. The
@@ -129,7 +99,6 @@
   window.KYROlll_BACKEND = {
     configured: CONFIGURED,
     mode: CONFIGURED ? "supabase" : "local",
-    licenses: { soldExclusive },
     payments: { createInvoice }
   };
 })();

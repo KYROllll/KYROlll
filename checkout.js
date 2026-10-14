@@ -1,14 +1,18 @@
-/* KYROlll — account, checkout and success front-end (no sign-in).
+/* KYROlll — checkout and success front-end (database-free, no accounts).
  *
  * The UI layer that sits on top of `kyrolll-backend.js`: the downward-only
- * license dropdown, the optional email step of the BUY flow, the post-checkout
- * success screen and the toast. There is no account, session or library any
- * more — a purchase is an email and a hosted NOWPayments invoice, and the beat
- * plus its PDF license are delivered by email. */
+ * license dropdown, the email step of the BUY flow, the post-checkout success
+ * screen and the toast. A purchase is a buyer email and a hosted NOWPayments
+ * invoice, and the beat plus its PDF license are delivered by email. Nothing is
+ * stored in Supabase from the browser — the whole flow is local state plus a
+ * hand-off to the payment link. */
 (function () {
   "use strict";
 
   const PENDING_KEY = "kyrolll_pending_purchase";
+  // Beats whose exclusive rights were assigned. The record lives in the browser
+  // only; the payment webhook is the single writer of the server-side audit.
+  const SOLD_KEY = "kyrolll_exclusive_sold";
 
   const backend = () => window.KYROlll_BACKEND || null;
   const helpers = () => window.KYROlll_HELPERS || null;
@@ -223,7 +227,7 @@
     promptCheckoutEmail(beat, license);
   }
 
-  // Reuse the (already styled) logout-modal shell as the email step so this adds
+  // Reuse the (already styled) checkout-modal shell as the email step so this adds
   // no new visual language: same backdrop, card and buttons. Skipping is a
   // first-class path — NOWPayments asks for an email on its own page.
   let emailModal = null;
@@ -233,8 +237,8 @@
     const el = emailModal;
     emailModal = null;
     el.classList.remove("is-visible");
-    if (document.documentElement.classList.contains("logout-open")) {
-      document.documentElement.classList.remove("logout-open");
+    if (document.documentElement.classList.contains("checkout-open")) {
+      document.documentElement.classList.remove("checkout-open");
     }
     setTimeout(() => el.remove(), 260);
   }
@@ -242,26 +246,26 @@
   function promptCheckoutEmail(beat, license) {
     closeEmailModal();
     const modal = document.createElement("div");
-    modal.className = "logout-modal";
+    modal.className = "checkout-modal";
     modal.innerHTML =
-      '<div class="logout-modal__backdrop" data-email-cancel></div>' +
-      '<div class="logout-modal__card" role="dialog" aria-modal="true" aria-labelledby="checkout-email-title">' +
-        '<span class="logout-modal__kicker">' + escapeHTML(license.name) + " · " + escapeHTML(license.price) + "</span>" +
-        '<h2 class="logout-modal__title" id="checkout-email-title">' + escapeHTML(beat.title) + "</h2>" +
-        '<p class="logout-modal__copy">Where should we send your beat and PDF license? You can also skip this and add it on the payment page.</p>' +
-        '<label class="auth-field"><span class="auth-field__label">EMAIL (OPTIONAL)</span>' +
-          '<input class="auth-input" id="checkout-email" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="you@email.com">' +
+      '<div class="checkout-modal__backdrop" data-email-cancel></div>' +
+      '<div class="checkout-modal__card" role="dialog" aria-modal="true" aria-labelledby="checkout-email-title">' +
+        '<span class="checkout-modal__kicker">' + escapeHTML(license.name) + " · " + escapeHTML(license.price) + "</span>" +
+        '<h2 class="checkout-modal__title" id="checkout-email-title">' + escapeHTML(beat.title) + "</h2>" +
+        '<p class="checkout-modal__copy">Where should we send your beat and PDF license? You can also skip this and add it on the payment page.</p>' +
+        '<label class="checkout-field"><span class="checkout-field__label">EMAIL (OPTIONAL)</span>' +
+          '<input class="checkout-input" id="checkout-email" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="you@email.com">' +
         '</label>' +
-        '<p class="auth-error" id="checkout-email-error" role="alert" hidden></p>' +
-        '<div class="logout-modal__actions">' +
+        '<p class="checkout-error" id="checkout-email-error" role="alert" hidden></p>' +
+        '<div class="checkout-modal__actions">' +
           '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-email-skip>SKIP</button>' +
           '<button type="button" class="kyrolll-btn" data-email-continue>CONTINUE TO PAYMENT</button>' +
         '</div>' +
-        '<p class="logout-modal__hint">Paying with crypto — you will be taken to NOWPayments to finish.</p>' +
+        '<p class="checkout-modal__hint">Paying with crypto — you will be taken to NOWPayments to finish.</p>' +
       "</div>";
     document.body.appendChild(modal);
     emailModal = modal;
-    document.documentElement.classList.add("logout-open");
+    document.documentElement.classList.add("checkout-open");
     requestAnimationFrame(() => modal.classList.add("is-visible"));
 
     const input = modal.querySelector("#checkout-email");
@@ -374,29 +378,35 @@
     toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 2600);
   }
 
+  /* ------------------------------------------------------- exclusive lock */
+
+  // The beats already sold on an exclusive license, read from the browser-only
+  // record the storefront keeps. Never throws; an empty answer simply leaves the
+  // BUY button unlocked.
+  function soldExclusive() {
+    return readJSON(SOLD_KEY, []) || [];
+  }
+
   /* ------------------------------------------------------------------- boot */
 
   function boot() {
     try {
       if (document.querySelector(".success-page")) initSuccessPage();
     } catch (err) {
-      console.error("KYROlll account init error:", err);
+      console.error("KYROlll checkout init error:", err);
     }
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();
 
-  window.KYROlll_ACCOUNT = {
+  window.KYROlll_CHECKOUT = {
     LICENSES: window.KYROlll_LICENSES || [],
     escapeHTML,
     beatById,
     licenseFor,
     // Beats that have been sold on an exclusive license (BUY locks + cover seal).
-    soldExclusive: () => {
-      const b = backend();
-      return b && b.licenses && b.licenses.soldExclusive ? b.licenses.soldExclusive() : Promise.resolve([]);
-    },
+    soldExclusive,
     getPendingPurchase,
     setPendingPurchase,
     clearPendingPurchase,

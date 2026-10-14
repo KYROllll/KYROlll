@@ -1,17 +1,10 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
-// Every `.logo-stage` on the page mounts its own flower: the hero, the account
-// flower, the page-load preloader. Prior versions only ever styled and mounted
-// the first stage, so a second stage (the preloader) silently got nothing.
-//
-// On the sign-in page the temporary preloader veil sits directly on top of an
-// already full hero flower, so that stage is skipped: building a second WebGL
-// flower only to hide it a moment later is the main cost that made login feel
-// slow. The still image covers the brief veil while the real flower comes up.
-const hosts = Array.from(document.querySelectorAll('.logo-stage')).filter(
-  (host) => !(document.body.classList.contains('auth-body') && host.closest('#preloader'))
-);
+// Every `.logo-stage` on the page mounts its own flower: the hero and the
+// page-load preloader. Prior versions only ever styled and mounted the first
+// stage, so a second stage (the preloader) silently got nothing.
+const hosts = Array.from(document.querySelectorAll('.logo-stage'));
 const motion = matchMedia('(prefers-reduced-motion: reduce)');
 const pause = document.querySelector('.motion-toggle');
 let paused = motion.matches;
@@ -40,9 +33,9 @@ function syncMotion() {
   document.dispatchEvent(new CustomEvent('motion-toggle', { detail: { paused } }));
   renderStillAll();
 }
-// Not every account page carries the motion toggle (library / profile / success
-// do not), so guard its wiring; the pause state still propagates to the whole
-// page through the class and the shared event.
+// Not every page carries the motion toggle (the utility pages do not), so guard
+// its wiring; the pause state still propagates to the whole page through the
+// class and the shared event.
 if (pause) pause.addEventListener('click', () => { paused = !paused; syncMotion(); });
 motion.addEventListener('change', () => { paused = motion.matches; syncMotion(); });
 syncMotion();

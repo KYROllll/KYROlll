@@ -1,7 +1,7 @@
-/* Tests for kyrolll-backend.js — the account-less client: the anonymous
- * sold-exclusive lookup and the public create-payment invoice call. There is no
- * session to reason about any more, so there is no auth refresh path to test.
- * The module is a browser IIFE, so each test runs it in a fresh vm context with
+/* Tests for kyrolll-backend.js — the database-free client: the public
+ * create-payment invoice call. There is no session and no table read to reason
+ * about any more, so there is no auth or license-lookup path to test. The
+ * module is a browser IIFE, so each test runs it in a fresh vm context with
  * window/localStorage/fetch shims. No network. */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -15,7 +15,6 @@ const SOURCE = readFileSync(join(HERE, "kyrolll-backend.js"), "utf8");
 
 const SERVER = "https://abcdefghijklmnopqrst.supabase.co"; // 20-char ref, not the placeholder
 const ANON = "anon-key-123";
-const SOLD_KEY = "kyrolll_exclusive_sold";
 const BEAT = "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af";
 
 function memoryStorage(seed) {
@@ -35,7 +34,7 @@ function boot(fetchImpl, options) {
   const opts = options || {};
   const config = opts.config === null
     ? {}
-    : Object.assign({ url: SERVER, anonKey: ANON, tables: { licenses: "licenses" } }, opts.config || {});
+    : Object.assign({ url: SERVER, anonKey: ANON }, opts.config || {});
   const storage = memoryStorage(opts.storage || {});
   const win = {
     KYROlll_SUPABASE: config,
@@ -69,12 +68,12 @@ function boot(fetchImpl, options) {
 const ok = (body) => ({ ok: true, status: 200, text: async () => JSON.stringify(body) });
 const readCalls = (calls, needle) => calls.filter((call) => call.url.includes(needle));
 
-test("is configured from supabase-config and exposes only the account-less API", () => {
+test("is configured from supabase-config and exposes only the payments API", () => {
   const { backend } = boot(async () => ok([]));
   assert.equal(backend.configured, true);
   assert.equal(backend.mode, "supabase", "a filled project switches the store to Supabase mode");
   assert.equal(typeof backend.payments.createInvoice, "function");
-  assert.equal(typeof backend.licenses.soldExclusive, "function");
+  assert.equal(backend.licenses, undefined, "the browser never reads a Supabase table");
   assert.equal(backend.auth, undefined, "no auth namespace survives the account-less rewrite");
   assert.equal(backend.storage, undefined, "no storage namespace — files are emailed, not downloaded");
 });
@@ -85,54 +84,11 @@ test("an unconfigured project stays in local mode and makes no request", async (
   assert.equal(backend.configured, false);
   assert.equal(backend.mode, "local");
 
-  const sold = await backend.licenses.soldExclusive();
-  assert.deepEqual(Array.from(sold), [], "the local record alone answers");
-  assert.equal(called, 0, "nothing leaves the browser");
-
   await assert.rejects(
     () => backend.payments.createInvoice({ beatId: BEAT, licenseType: "mp3" }),
     /SUPABASE NOT CONFIGURED/
   );
-});
-
-test("the exclusive lookup sends only the anon key — never a bearer", async () => {
-  const calls = [];
-  const { backend } = boot(async (url, init) => { calls.push({ url, init }); return ok([]); });
-
-  await backend.licenses.soldExclusive();
-
-  const read = readCalls(calls, "license_type=eq.exclusive")[0];
-  assert.ok(read, "asks the table");
-  assert.equal(read.init.method, "GET");
-  assert.equal(read.init.headers.apikey, ANON, "the anon key is only the project key");
-  assert.equal(read.init.headers.Authorization, undefined, "there is no session, so no bearer");
-  assert.match(read.url, /select=beat_id/);
-});
-
-test("the exclusive lookup merges the local record with the remote rows", async () => {
-  const { backend } = boot(async () => ok([{ beat_id: "remote-beat" }]), {
-    storage: { [SOLD_KEY]: JSON.stringify(["local-beat"]) }
-  });
-
-  const sold = await backend.licenses.soldExclusive();
-
-  assert.deepEqual(Array.from(sold).sort(), ["local-beat", "remote-beat"]);
-});
-
-test("the exclusive lookup never throws — a failed read falls back to the local record", async () => {
-  const original = console.error;
-  console.error = () => {};
-  try {
-    const { backend } = boot(
-      async () => ({ ok: false, status: 401, text: async () => JSON.stringify({ message: "nope" }) }),
-      { storage: { [SOLD_KEY]: JSON.stringify(["local-beat"]) } }
-    );
-
-    const sold = await backend.licenses.soldExclusive();
-    assert.deepEqual(Array.from(sold), ["local-beat"]);
-  } finally {
-    console.error = original;
-  }
+  assert.equal(called, 0, "nothing leaves the browser");
 });
 
 test("createInvoice posts the selection, with no bearer", async () => {

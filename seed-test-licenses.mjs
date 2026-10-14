@@ -1,12 +1,11 @@
 /* KYROlll — seed test/purchased licenses into one account's library.
  *
- * The library page (`account.js` → `initLibraryPage`) reads the `licenses`
- * table through the signed-in user's session, and RLS pins every row to
- * `auth.uid() = user_id`. That is exactly why this seeder cannot use the anon
- * key: nothing may write a license the buyer does not own. So it needs the
- * project's **service_role** key, which bypasses RLS, to (a) find the account
- * by email through the GoTrue admin API and (b) write the rows through
- * PostgREST.
+ * Legacy from the account era: the (now removed) library page read the
+ * `licenses` table through the signed-in user's session, and RLS pinned every
+ * row to `auth.uid() = user_id`, so this seeder cannot use the anon key:
+ * nothing may write a license the buyer does not own. It needs the project's
+ * **service_role** key, which bypasses RLS, to (a) find the account by email
+ * through the GoTrue admin API and (b) write the rows through PostgREST.
  *
  * It is idempotent: the tiers it is about to write are deleted first, so
  * re-running never stacks duplicates (and `payment_id` is unique, so a stray

@@ -45,8 +45,8 @@
   }
 
   // The stage the veil is really waiting for: the page's own flower when it has
-  // one (the hero on the storefront, the login flower on auth), otherwise the
-  // preloader's own display flower (utility pages that carry only the veil).
+  // one (the hero on the storefront), otherwise the preloader's own display
+  // flower (utility pages that carry only the veil).
   // brand-logo.js publishes lifecycle onto each stage:
   //   - `is-ready`        — the WebGL canvas has painted its first frame
   //   - `is-built`        — every petal is on screen and a frame has settled
@@ -58,21 +58,18 @@
   const stageBuilt = () => !heroStage || heroStage.dataset.flower === "failed" ||
     heroStage.dataset.flower === "built" || heroStage.classList.contains("is-built");
 
-  // The sign-in page is a utility screen: its form has to be usable the instant
-  // it has painted, so its veil lifts on DOM-ready and only lingers for a beat.
-  const fastPage = !!document.getElementById("auth-page");
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const MIN_MS = fastPage ? (reduceMotion ? 250 : 320) : (reduceMotion ? 450 : 1150);
-  const HARD_CAP_MS = fastPage ? 2400 : 6000; // never wait past this for a "ready" signal
-  const HOLD_MS = fastPage ? 120 : (reduceMotion ? 200 : 700); // stable pause once at 100%
+  const MIN_MS = reduceMotion ? 450 : 1150;
+  const HARD_CAP_MS = 6000; // never wait past this for a "ready" signal
+  const HOLD_MS = reduceMotion ? 200 : 700; // stable pause once at 100%
   const FADE_MS = 550; // keep in step with .preloader opacity transition
   const CREEP_MAX = 0.9; // where the bar sits while the page is still working
   const CREEP_MS = reduceMotion ? 500 : 1900; // time to ease out to CREEP_MAX
   const EASE = 0.12; // per-60fps-frame approach toward the target
   // The still → canvas cross-fade in .logo-stage is .4s. Hold the veil past it
   // so the hand-off from image to render is never seen by the visitor. Reduced
-  // motion cancels that transition, and the fast pages skip the wait entirely.
-  const SETTLE_MS = fastPage || reduceMotion ? 0 : 480;
+  // motion cancels that transition.
+  const SETTLE_MS = reduceMotion ? 0 : 480;
 
   const started = performance.now();
   let displayed = 0; // what the bar currently shows (0 → 1)
@@ -85,14 +82,14 @@
 
   setBar(0);
 
-  const pageSettled = () => document.readyState === "complete" || (fastPage && document.readyState !== "loading");
+  const pageSettled = () => document.readyState === "complete";
   const timedOut = () => performance.now() - started >= HARD_CAP_MS;
 
   /* The page's work is done once its flower has painted (or a failed flower has
    * been written off, or there is no flower at all). The hard cap is the only
    * escape hatch — without it a WebGL-less browser would hold the veil forever. */
-  const workReady = () => fastPage ? pageSettled() : (!heroStage ? pageSettled() : stageReady() || timedOut());
-  const fullyBuilt = () => fastPage || !heroStage || stageBuilt() || timedOut();
+  const workReady = () => !heroStage ? pageSettled() : (stageReady() || timedOut());
+  const fullyBuilt = () => !heroStage || stageBuilt() || timedOut();
   const pageLoaded = () => document.readyState === "complete" || timedOut();
 
   /* The bar is only allowed to reach 100% when nothing behind the veil is still
@@ -100,7 +97,7 @@
    * reported itself built (a failed or timed-out flower is written off so the
    * veil can never be stranded). Until then the bar holds at CREEP_MAX, so the
    * last stretch of the fill is the page genuinely being ready. */
-  const complete = () => fastPage ? pageSettled() : (pageLoaded() && workReady() && fullyBuilt());
+  const complete = () => pageLoaded() && workReady() && fullyBuilt();
 
   /* Smooth, monotonic climb toward 90% that never snaps: a cubic ease-out over
    * CREEP_MS, then a flat hold at CREEP_MAX until the page reports ready. */

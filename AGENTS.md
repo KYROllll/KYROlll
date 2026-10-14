@@ -97,9 +97,9 @@ starts once every stage has reported its first paint (`stagePainted()`, also cal
 fails so one dead flower can never hold it back) plus a 450 ms hold; before that `elapsed` is 0,
 which is exactly the pose the still image shows. `paused` / `document.hidden` freeze the shared
 clock for every flower at once, and the drifting rim light only starts with the rotation, so the
-hand-off pixels do not move either. A `.logo-stage` inside `#preloader` is deliberately skipped when
-`body.auth-body` is set (the filter at the top of `brand-logo.js`), a guard from the removed sign-in
-page: no page carries `auth-body` any more, so every stage now mounts. The veil's `logoBreathe` glow stays cancelled (`.preloader .logo-stage { animation: none }`)
+hand-off pixels do not move either. Every `.logo-stage` on the page mounts; there is no
+skip filter any more (the `body.auth-body` guard dated from the removed sign-in page). The
+veil's `logoBreathe` glow stays cancelled (`.preloader .logo-stage { animation: none }`)
 and the still → canvas cross-fade stays cancelled for the veil flower
 (`.preloader .logo-stage canvas, .preloader .logo-fallback { transition: none }`) — the canvas
 joins at the resting pose, so that swap is invisible.
@@ -125,15 +125,12 @@ carrying no CSS transition — the bar is eased from the same `preloader.js` rAF
 
 ## Exclusive sales lock the beat ("SOLD EXCLUSIVE")
 
-Nothing in the browser marks a beat taken any more — the `nowpayments-webhook` is the only writer of
-`licenses` and it runs server-side — so the local `kyrolll_exclusive_sold` `localStorage` list is
-the *whole* answer today: `licenses.soldExclusive()` returns that list plus whatever an
-**anonymous** `GET /rest/v1/licenses?select=beat_id&license_type=eq.exclusive&status=eq.active`
-yields. That read carries the publishable key as `apikey` only, with **no bearer** (there is no
-session any more), so under the 0005 RLS (on, no policy) it returns zero rows and only the local
-list matters. The query is kept as a best-effort so a project that ever adds a public `beat_id`
-SELECT policy lights the site-wide lock up with no code change. `script.js` calls
-it once per page load
+Nothing in the browser marks a beat taken: the `nowpayments-webhook` is the only writer of
+`licenses` and it runs server-side, so the browser has no way to read back which beats are
+gone. The only source is therefore the browser-local `kyrolll_exclusive_sold` `localStorage`
+list — nothing populates it automatically — and `checkout.js`'s `soldExclusive()` returns
+exactly that list (an empty or absent record leaves every BUY button unlocked). `script.js`
+calls it once per page load
 (`loadSoldState()`) and marks every surface: `catalog-tile--sold` on the tile, `beat-detail--sold`
 on the beat page, `disabled` + `buy-beat-btn--sold` on the BUY button (the ghosted label is covered
 by the seal and the click handler refuses a sold button) and the angled `.sold-seal` over the cover
@@ -208,10 +205,10 @@ Three files every page loads (see the `<script>` order in `index.html`):
   `catalog.js`. The preview boots with no secrets.
 - `kyrolll-backend.js` — a dependency-free Supabase REST client behind
   `window.KYROlll_BACKEND` exposing only `payments.createInvoice`
-  (`POST /functions/v1/create-payment`, **no bearer** — the storefront is public) and
-  `licenses.soldExclusive()` (a best-effort anonymous `beat_id` read). There is no
-  Auth, no session, no token and no local-demo account branch: the anon key is sent as
-  `apikey` only, which PostgREST resolves as the `anon` role.
+  (`POST /functions/v1/create-payment`, **no bearer** — the storefront is public).
+  There is no Auth, no session, no token and no local-demo account branch: the anon key
+  is sent as `apikey` only, which PostgREST resolves as the `anon` role. It reads
+  nothing from `licenses` — that surface is server-side only (see "Exclusive sales").
 - `catalog.js` — shared beats, the three tiers, and each tier's Storage object `path` +
   `name` + same-origin `fallback`.
 
@@ -230,11 +227,11 @@ or footer.
 
 `tile → BUY → license tier → optional email → invoice`
 
-1. `script.js` opens the license menu (`account.js:openLicenseMenu`); choosing a tier
+1. `script.js` opens the license menu (`checkout.js:openLicenseMenu`); choosing a tier
    runs `beginPurchase()`, which records the pending purchase in `localStorage`
    (`kyrolll_pending_purchase`).
 2. `promptCheckoutEmail()` shows the email step inside the (already styled)
-   `.logout-modal` shell: an optional `.auth-input` email field, plus SKIP and CONTINUE
+   `.checkout-modal` shell: an optional `.checkout-input` email field, plus SKIP and CONTINUE
    TO PAYMENT. A malformed address is refused there; skipping is a first-class path, and
    NOWPayments then asks for an email on its own page.
 3. `startPayment()` calls `payments.createInvoice({beatId, licenseType, email})` and
@@ -326,7 +323,7 @@ The BUY flow is `create-payment` → hosted invoice → `nowpayments-webhook` �
   server-side (`PRICES`, kept in step with `catalog.js`), checks the beat exists in
   `public.beats`, and calls `POST https://api.nowpayments.io/v1/invoice` with
   `order_description = JSON.stringify({email, beat_id, license_type, price})` and, when
-  an email was given, `customer_email`. It returns `{ url }` and `account.js`'s
+  an email was given, `customer_email`. It returns `{ url }` and `checkout.js`'s
   `startPayment()` sends the browser there. No price and no license is trusted from the
   client. The email is optional and a malformed one is a `400`, never silently dropped.
 - `supabase/functions/nowpayments-webhook/index.ts` verifies the `x-nowpayments-sig`
@@ -410,7 +407,7 @@ Tests that ship with the repo:
 ## Deliberate behaviour worth knowing
 
 Order delivery is **email-only**: neither the payscreen nor `success.html` ever
-lists download links or license files — `initSuccessPage()` in `account.js` only
+lists download links or license files — `initSuccessPage()` in `checkout.js` only
 prints the beat, tier and price it remembered in `localStorage`. Everything —
 links, PDF/TXT licenses — is meant to go out by email from the payment webhook's
 finished-payment hook (see "Payments"). Nothing sends that mail yet, so for now

@@ -50,19 +50,19 @@ try {
   assert.equal(await desktop.evaluate(() => document.documentElement.classList.contains('preloader-armed')), false);
   await noOverflow(desktop);
   assert.equal(await desktop.locator('#grid .catalog-tile').count(), 1);
-  assert.match(await desktop.locator('#card-flesh').innerText(), /FLESH/i);
+  assert.match(await desktop.locator('#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af').innerText(), /FLESH/i);
   await shot(desktop, 'desktop');
 
   const direct = await setupPage({ viewport: { width: 1024, height: 800 }, reducedMotion: 'reduce' });
   await direct.goto(`${url}/?beat=flesh`);
   assert.match(await direct.title(), /FLESH/);
   assert.equal(await direct.locator('#grid .beat-detail').count(), 1);
-  assert.match(await direct.locator('#card-flesh').innerText(), /130 BPM \/\/ AM/i);
-  assert.equal(await direct.locator('#card-flesh audio').getAttribute('src'), 'assets/previews/BEAT 1 TAG.wav');
-  assert.equal(await direct.locator('#card-flesh .buy-beat-btn').count(), 1);
-  assert.match(await direct.locator('#card-flesh .buy-beat-btn').innerText(), /BUY/i);
+  assert.match(await direct.locator('#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af').innerText(), /130 BPM \/\/ AM/i);
+  assert.equal(await direct.locator('#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af audio').getAttribute('src'), 'assets/previews/BEAT 1 TAG.wav');
+  assert.equal(await direct.locator('#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af .buy-beat-btn').count(), 1);
+  assert.match(await direct.locator('#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af .buy-beat-btn').innerText(), /BUY/i);
   // BUY opens the three-tier license dropdown instead of linking straight out.
-  await direct.locator('#card-flesh .buy-beat-btn').click();
+  await direct.locator('#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af .buy-beat-btn').click();
   await direct.locator('.license-menu').waitFor();
   assert.equal(await direct.locator('.license-menu .license-tier').count(), 3);
   assert.deepEqual(
@@ -70,16 +70,16 @@ try {
     ['mp3', 'wav', 'exclusive']
   );
   await direct.keyboard.press('Escape');
-  assert.equal(await direct.locator('#card-flesh .beat-detail__artwork img').count(), 1);
-  assert.equal(await direct.locator('#card-flesh .beat-detail__content').count(), 1);
+  assert.equal(await direct.locator('#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af .beat-detail__artwork img').count(), 1);
+  assert.equal(await direct.locator('#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af .beat-detail__content').count(), 1);
   await shot(direct, 'beat-detail');
   await direct.close();
 
   const playback = await setupPage({ viewport: { width: 480, height: 800 }, reducedMotion: 'reduce' });
   await playback.goto(`${url}/index.html?beat=flesh`);
-  await playback.locator('#card-flesh .beat-preview__toggle').click();
+  await playback.locator('#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af .beat-preview__toggle').click();
   await playback.waitForFunction(() => {
-    const audio = document.querySelector('#card-flesh audio');
+    const audio = document.querySelector('#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af audio');
     return !audio.paused && audio.currentTime > 0 && audio.closest('.beat-preview').dataset.state === 'playing';
   }, null, { timeout: 15000 });
   await playback.close();

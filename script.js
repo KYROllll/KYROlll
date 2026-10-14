@@ -7,9 +7,9 @@ const CATALOG = window.KYROlll_CATALOG || [];
 
 const $ = (id) => document.getElementById(id);
 
-const account = () => window.KYROlll_ACCOUNT;
-const esc = (value) => (window.KYROlll_ACCOUNT
-  ? window.KYROlll_ACCOUNT.escapeHTML(value)
+const checkoutLayer = () => window.KYROlll_CHECKOUT;
+const esc = (value) => (window.KYROlll_CHECKOUT
+  ? window.KYROlll_CHECKOUT.escapeHTML(value)
   : String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char])));
 const beatById = (id) => CATALOG.find((beat) => beat.id === id || beat.slug === id) || null;
 
@@ -44,11 +44,11 @@ function applySoldState() {
   });
 }
 
-// Ask the account layer which beats have gone exclusive, then re-mark whatever is
-// on screen. The answer is instant locally and one best-effort query in Supabase
-// mode; the locked state simply stays off if it cannot be read.
+// Ask the checkout layer which beats have gone exclusive, then re-mark whatever
+// is on screen. The answer is instant from the browser record; the locked state
+// simply stays off if nothing is marked.
 function loadSoldState() {
-  const acc = account();
+  const acc = checkoutLayer();
   if (!acc || typeof acc.soldExclusive !== "function") return;
   Promise.resolve(acc.soldExclusive())
     .then((ids) => { soldBeats = new Set(ids || []); applySoldState(); })
@@ -257,7 +257,7 @@ grid.addEventListener("click", (e) => {
     // license menu can open, however the click lands.
     if (buy.disabled || buy.classList.contains("buy-beat-btn--sold")) return;
     const beat = beatById(buy.getAttribute("data-beat-id"));
-    if (beat && account()) account().openLicenseMenu(buy, beat);
+    if (beat && checkoutLayer()) checkoutLayer().openLicenseMenu(buy, beat);
     return;
   }
   const link = e.target.closest(".catalog-tile__link");
