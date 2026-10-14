@@ -187,16 +187,19 @@
   }
 
   // A refresh only ends the session when the server definitively rejects the
-  // refresh token (revoked, expired, wrong project). A dropped connection, a
-  // timeout, a 5xx or an offline moment must never log the visitor out — that
-  // is what made navigation feel like it randomly signed people out. On those
-  // transient failures we keep the stored session untouched and let the next
-  // navigation (or the focus/online wake below) try again.
+  // credential (revoked/expired refresh token, wrong project). A dropped
+  // connection, a timeout, a 5xx or an offline moment must never log the
+  // visitor out — that is what made navigation feel like it randomly signed
+  // people out. On those transient failures we keep the stored session
+  // untouched and let the next navigation (or the focus/online wake below) try
+  // again.
+  //
+  // 500/520 are deliberately *not* in this list: they mean the gateway or
+  // PostgREST failed, not that the bearer was rejected (an unparseable JWT is
+  // a 401), and treating them as a refusal is what stripped the Authorization
+  // header off every request that followed a single upstream hiccup.
   function isDefinitiveAuthFailure(err) {
-    // 400/401/403 = server refused; 500/520 = server-side failure often from
-    // an invalid/corrupted JWT that the gateway cannot parse. Both clear the
-    // session so nothing leaks across an unparseable token.
-    return !!(err && (err.status === 400 || err.status === 401 || err.status === 403 || err.status === 500 || err.status === 520));
+    return !!(err && (err.status === 400 || err.status === 401 || err.status === 403));
   }
 
   async function refreshSession() {
@@ -486,24 +489,25 @@
     try {
       return await perform(token);
     } catch (err) {
-      // 401 = expired token → try silent renewal.
-      // 500/520 = server-side failure often triggered by an invalid/corrupt JWT
-      // (gateway cannot parse the bearer). Treat as a definitive refusal so the
-      // user never sees an unhandled server crash.
-      const isDefinitive = !err || (err.status !== 401 && err.status !== 0 && !err.network);
-      if (!err || (err.status === 401 && !(session && session.refreshToken))) {
-        err.sessionRefused = true;
-        throw err;
-      }
-      if (err.status === 500 || err.status === 520) {
-        err.sessionRefused = true;
+      // A 5xx (500/520) is the gateway or PostgREST failing — *not* the bearer
+      // being rejected, which is what a 401 means. Renew the token if we can
+      // and replay once; otherwise surface the error with the session left
+      // exactly as it is, so the next request still carries its bearer.
+      // Deleting it here is what turned one upstream hiccup into a spontaneous
+      // sign-out.
+      if (err && (err.status === 500 || err.status === 520)) {
         if (session && session.refreshToken) {
           const refreshed = await refreshSession();
           const next = refreshed && refreshed.accessToken;
           if (next) return await perform(next);
         }
-        // If refresh fails or no refresh token, the corrupt session is dead.
-        forgetRefusedSession();
+        err.transient = true;
+        throw err;
+      }
+      // 401 = expired token → try silent renewal.
+      const isDefinitive = !err || (err.status !== 401 && err.status !== 0 && !err.network);
+      if (!err || (err.status === 401 && !(session && session.refreshToken))) {
+        err.sessionRefused = true;
         throw err;
       }
       if (isDefinitive || !(session && session.refreshToken)) {
@@ -591,13 +595,10 @@
       emitAuthChange();
       return currentUser();
     } catch (err) {
-      // 500/520 from /auth/v1/user = server-side token parsing failure (corrupt JWT).
-      // Treat as a refused session so nothing leaks across an invalid identity.
-      if (err && (err.status === 500 || err.status === 520)) {
-        err.sessionRefused = true;
-        forgetRefusedSession();
-        return null;
-      }
+      // Only a bearer the server actually refused (401/403, flagged
+      // `sessionRefused` by `withSession`) forgets the session. A 5xx here is
+      // the server failing, not the token being invalid — wiping on it is what
+      // made an upstream hiccup look like a sign-out.
       if (err && err.sessionRefused) {
         forgetRefusedSession();
         return null;
