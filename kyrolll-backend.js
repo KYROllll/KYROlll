@@ -775,11 +775,21 @@
       if (isAuth) {
         try { forgetRefusedSession(); } catch (ignore) { /* ignore */ }
       }
-      licensesError = null; // never surface the crash screen
-      console.warn("KYROlll: licenses read failed — using cached library fallback", {
+      // Record *why* the list is empty. Nulling this out is what made a refused
+      // session, a missing column and a blocked policy all render as the same
+      // reassuring "NO LICENSES YET" — so an account nobody can read looked
+      // exactly like an account that owns nothing. The page shows the reason
+      // whenever the fallback cache is empty too; a non-empty cache still shows
+      // the licenses, so this only ever replaces a lie with the truth.
+      licensesError = {
         status: (err && err.status) || 0,
         network: !!(err && err.network),
-        message: String((err && err.message) || err)
+        message: String((err && (err.message || err.body)) || err)
+      };
+      console.warn("KYROlll: licenses read failed — using cached library fallback", {
+        status: licensesError.status,
+        network: licensesError.network,
+        message: licensesError.message
       });
       // After a refused session the user may now be null; still return the
       // cache that belongs to whatever identity remains.
