@@ -138,7 +138,7 @@
     // signed-in user must pass `token`. Never fall back to
     // `Authorization: Bearer <apikey>`: that silently downgrades to `anon` and
     // makes an authenticated read look like an empty table.
-    const headers = { apikey: CONFIG.anonKey };
+    const headers = { apikey: CONFIG.anonKey, Accept: "application/json" };
     let body = opts.body;
     if (opts.token) headers.Authorization = "Bearer " + opts.token;
     if (body !== undefined && !(body instanceof FormData) && !(body instanceof Blob) && !(body instanceof File)) {
@@ -146,7 +146,17 @@
       body = JSON.stringify(body);
     }
     Object.assign(headers, opts.headers || {});
-    const response = await fetch(base + path, { method, headers, body });
+    let response;
+    try {
+      response = await fetch(base + path, { method, headers, body });
+    } catch (netErr) {
+      const msg = "Network/CORS error: " + String((netErr && netErr.message) || netErr);
+      console.error("KYROlll: request() network failure for", path, msg);
+      const error = new Error(msg);
+      error.status = 0;
+      error.network = true;
+      throw error;
+    }
     let data = null;
     const text = await response.text();
     if (text) data = readJSON(text, text);
@@ -186,7 +196,15 @@
       return session;
     } catch (err) {
       if (isDefinitiveAuthFailure(err)) {
+        // The server definitively refused the refresh (revoked, expired, wrong
+        // project): forget the refused identity completely — the session it
+        // claimed and the cached library written under the claimed id. Only
+        // the named keys go; a blanket localStorage.clear() would take
+        // unrelated app state with it.
+        const claimed = session && session.user && session.user.id;
+        if (claimed) lsDel(libraryKey(claimed));
         saveSession(null);
+        verifiedToken = "";
         emitAuthChange();
       }
       return null;
@@ -550,8 +568,9 @@
    * other. A failure is recorded (and warned once) rather than swallowed, so the
    * library can say *why* it is empty. */
   async function listLicenses() {
-    console.log("KYROlll: listLicenses() start", { configured: CONFIGURED, session: !!session });
-    if (!currentUser()) { console.log("KYROlll: listLicenses() — no current user, returning []"); return []; }
+    console.log("KYROlll: listLicenses() called");
+    if (!CONFIGURED) { console.log("KYROlll: listLicenses() — unconfigured (demo), returning []"); return []; }
+    if (!currentUser()) { console.log("KYROlll: listLicenses() — unauthenticated, returning [] safely"); return []; }
     // Resolve who is actually signed in before building the query: `ready()`
     // refreshes a session that is at/near expiry (its response re-reads the
     // user), and `alignSessionUser()` reconciles a cached user the token
