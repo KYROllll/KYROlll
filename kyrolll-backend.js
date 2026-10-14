@@ -563,7 +563,8 @@
     try {
       const rows = await withSession((token) => {
         if (!token) return [];
-        const owner = jwtSubject(token) || user.id;
+        const owner = jwtSubject(token); // strict: verified auth.uid() from JWT, never cached
+        if (!owner) return [];
         return request(
           "GET",
           "/rest/v1/" + LICENSES_TABLE +
@@ -624,6 +625,16 @@
     await alignSessionUser();
     const user = currentUser();
     if (!user) return null;
+    // Permanent user mapping: the session identity must match the verified
+    // JWT sub (auth.users.id). Any mismatch means a stale/shifting record.
+    if (CONFIGURED && session && session.accessToken) {
+      const tokenSub = jwtSubject(session.accessToken);
+      if (tokenSub && tokenSub !== user.id) {
+        // Stale session pointing to a shifted id — forget cleanly, abort.
+        forgetRefusedSession();
+        return null;
+      }
+    }
     // An exclusive sale takes the beat off the market for everyone, whatever
     // tiers this buyer already holds.
     if (input.tierId === "exclusive") rememberExclusive(input.beatId);
@@ -648,14 +659,15 @@
         // row would never reach the table — the purchase would live only in
         // this browser. `withSession` refreshes a stale token first, so a long
         // checkout cannot fail the write on a 401.
-        const created = await withSession((token) => token
-          ? request("POST", "/rest/v1/" + LICENSES_TABLE, {
+        const created = await withSession((token) => {
+          if (!token) return null;
+          const verifiedUid = jwtSubject(token); // strict auth.uid() — never cached
+          if (!verifiedUid) throw new Error("NO VERIFIED AUTH UID");
+          return request("POST", "/rest/v1/" + LICENSES_TABLE, {
               token: token,
               headers: { Prefer: "return=representation" },
               body: {
-                // `with check (auth.uid() = user_id)`: write the token's own
-                // subject so the insert is the one the policy will accept.
-                user_id: jwtSubject(token) || user.id,
+                user_id: verifiedUid,
                 beat_id: license.beatId,
                 beat_title: license.beatTitle,
                 tier_id: license.tierId,
@@ -663,8 +675,8 @@
                 price: license.price,
                 purchased_at: license.purchasedAt
               }
-            })
-          : null);
+            });
+        });
         // Adopt the server's id so the local copy and the row de-dupe on the
         // next read instead of showing the same purchase twice.
         const row = Array.isArray(created) ? created[0] : created;
