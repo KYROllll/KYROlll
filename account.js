@@ -730,6 +730,18 @@
     // failed the backend hands back the reason, and the page shows it rather
     // than pretending the account owns nothing.
     const broken = diagnostic && diagnostic.error;
+    // The refresh token is spent (rotated away by another tab, or revoked):
+    // the record is deliberately kept so the visitor is still named here, but
+    // they can no longer renew their access — say so and offer the sign-in,
+    // instead of letting the page die into a silent signed-out state.
+    const expired = !!(diagnostic && diagnostic.sessionExpired);
+    const expiryNotice = expired
+      ? '<div class="library-notice" role="alert">' +
+          '<span class="library-notice__title">SESSION EXPIRED</span>' +
+          "<p class=\"library-notice__text\">YOUR SESSION EXPIRED — PLEASE SIGN IN AGAIN TO KEEP READING YOUR LICENSES.</p>" +
+          '<a class="kyrolll-btn" href="auth.html?next=library.html&mode=login">SIGN IN AGAIN</a>' +
+        "</div>"
+      : "";
     const body = items.length
       ? '<ul class="library-list">' + items.map((item) => libraryItemHTML(user, item)).join("") + "</ul>"
       : '<div class="library-empty' + (broken ? " library-empty--error" : "") + '">' +
@@ -747,7 +759,7 @@
             : "<p>WHEN YOU SECURE A BEAT IT LANDS HERE PERMANENTLY — WITH ITS DOWNLOAD AND LICENSE.</p>") +
           '<a class="kyrolll-btn" href="index.html#catalog">BROWSE BEATS →</a>' +
         "</div>";
-    return '<article class="library-view">' + head + body +
+    return '<article class="library-view">' + head + expiryNotice + body +
       '<p class="library-note">Audio downloads use secure, time-limited links from your private KYROlll bucket, and the PDF license is generated on your device. Untagged masters and license copies also arrive by email.</p>' +
     "</article>";
   }

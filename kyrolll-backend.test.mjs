@@ -407,3 +407,139 @@ test("a stale cached user is reconciled before a cached purchase too", async () 
   );
 });
 
+/* ------------------------------------------------------------------ refresh */
+
+/* GoTrue rotates the refresh token on every use. A page load reaches expiry in
+ * several places at once — the bootstrap `ready()`, `licenses.list()` and
+ * `soldExclusive()` — and each used to fire its own `/token` call, so the second
+ * one always came back `refresh_token_already_used` (400) and the old code
+ * deleted the session over it. These tests pin the fix: one refresh per burst,
+ * a reused token never wipes the record, and a dead token is never replayed. */
+
+function tokenReply(data) {
+  return { ok: true, status: 200, text: async () => JSON.stringify(data) };
+}
+
+function alreadyUsedReply() {
+  return {
+    ok: false,
+    status: 400,
+    text: async () => JSON.stringify({
+      code: 400,
+      error_code: "refresh_token_already_used",
+      msg: "Invalid Refresh Token: Already Used"
+    })
+  };
+}
+
+test("concurrent reads share a single refresh, so the rotating token is spent once", async () => {
+  const clock = makeClock(Date.now());
+  const calls = [];
+  const tokenCalls = [];
+  let issued = 0;
+  const { backend, storage } = boot(async (url, init) => {
+    calls.push({ url, init });
+    if (url.includes("/auth/v1/token?grant_type=refresh_token")) {
+      tokenCalls.push(JSON.parse(init.body).refresh_token);
+      // Hold the first refresh open so the other callers must join it, not race it.
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      issued += 1;
+      return tokenReply({
+        access_token: "jwt-fresh-" + issued,
+        refresh_token: "refresh-" + issued,
+        expires_in: 3600,
+        user: USER
+      });
+    }
+    return { ok: true, status: 200, text: async () => "[]" };
+  }, { expiresAt: clock.get() + 30000 }, clock);
+
+  // Three entry points hitting expiry at the same moment, exactly like a load.
+  await Promise.all([
+    backend.licenses.list(),
+    backend.licenses.soldExclusive(),
+    backend.auth.ready()
+  ]);
+
+  assert.equal(tokenCalls.length, 1, "one refresh, not one per caller");
+  assert.deepEqual(tokenCalls, ["refresh-abc"], "the stored refresh token is spent exactly once");
+  assert.equal(
+    JSON.parse(storage.get("kyrolll_sb_session")).refreshToken, "refresh-1",
+    "the rotated token is persisted for the next load"
+  );
+  const reads = calls.filter((call) => /\/rest\/v1\/licenses\?/.test(call.url));
+  assert.ok(reads.length >= 2, "both the library and the sold lookup went out");
+  reads.forEach((read) => {
+    assert.equal(read.init.headers.Authorization, "Bearer jwt-fresh-1", "every read uses the refreshed token");
+  });
+});
+
+test("a reused refresh token keeps the session and reports it as expired", async () => {
+  const clock = makeClock(Date.now());
+  const { backend, storage } = boot(async (url) => {
+    if (url.includes("/auth/v1/token?grant_type=refresh_token")) return alreadyUsedReply();
+    return { ok: true, status: 200, text: async () => "[]" };
+  }, { expiresAt: clock.get() + 30000 }, clock);
+
+  assert.ok(storage.get("kyrolll_sb_session"), "starts with a stored session");
+
+  const items = await backend.licenses.list();
+
+  assert.equal(items.length, 0, "a dead session still answers with the cached library, no throw");
+  assert.ok(storage.get("kyrolll_sb_session"), "the session record is NOT wiped");
+  assert.equal(backend.licenses.diagnose().sessionExpired, true, "the page is told to ask for a sign-in");
+  assert.equal(backend.auth.sessionExpired(), true);
+  assert.ok(backend.auth.currentUser(), "the kept record still names the visitor");
+});
+
+test("a dead refresh token is never replayed on later reads", async () => {
+  const clock = makeClock(Date.now());
+  let tokenCalls = 0;
+  const { backend } = boot(async (url) => {
+    if (url.includes("/auth/v1/token?grant_type=refresh_token")) {
+      tokenCalls += 1;
+      return alreadyUsedReply();
+    }
+    return { ok: true, status: 200, text: async () => "[]" };
+  }, { expiresAt: clock.get() + 30000 }, clock);
+
+  await backend.licenses.list();
+  await backend.auth.ready();
+  await backend.licenses.soldExclusive();
+  await backend.licenses.list();
+
+  assert.equal(tokenCalls, 1, "the spent token is not offered again");
+  assert.equal(backend.auth.sessionExpired(), true);
+});
+
+test("a live session written by another tab revives an expired one", async () => {
+  const clock = makeClock(Date.now());
+  const calls = [];
+  const { backend, storage } = boot(async (url, init) => {
+    calls.push({ url, init });
+    if (url.includes("/auth/v1/token?grant_type=refresh_token")) return alreadyUsedReply();
+    return { ok: true, status: 200, text: async () => "[]" };
+  }, { expiresAt: clock.get() + 30000 }, clock);
+
+  await backend.licenses.list();
+  assert.equal(backend.auth.sessionExpired(), true, "the spent token marks the session expired");
+
+  // Another tab signs in (or refreshes) and writes a live session under the
+  // shared key; this tab only sees it through localStorage on the next read.
+  calls.length = 0;
+  storage.setItem("kyrolll_sb_session", JSON.stringify({
+    accessToken: "jwt-other-tab",
+    refreshToken: "refresh-other",
+    expiresAt: clock.get() + 3600000,
+    user: USER
+  }));
+
+  const items = await backend.licenses.list();
+
+  assert.equal(backend.auth.sessionExpired(), false, "the replacement clears the expired verdict");
+  assert.equal(items.length, 0, "the read still answers");
+  const read = calls.find((call) => /\/rest\/v1\/licenses\?/.test(call.url));
+  assert.ok(read, "reads the table again");
+  assert.equal(read.init.headers.Authorization, "Bearer jwt-other-tab", "with the other tab's live token");
+});
+

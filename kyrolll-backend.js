@@ -5,7 +5,7 @@
  * page:
  *
  *   KYROlll_BACKEND.auth.signInWithOtp / verifyOtp / signOut / ready /
- *                          currentUser / updateProfile
+ *                          currentUser / updateProfile / sessionExpired
  *   KYROlll_BACKEND.licenses.list / add / soldExclusive
  *   KYROlll_BACKEND.payments.createInvoice
  *   KYROlll_BACKEND.storage.download / signedUrl / uploadAvatar
@@ -13,6 +13,13 @@
  * When `supabase-config.js` has no project URL/key the client transparently
  * falls back to a browser-local implementation (accounts and libraries in
  * localStorage) so the storefront stays fully usable in preview.
+ *
+ * Refresh tokens rotate on every use, so only one refresh may ever be in
+ * flight (a second use of the same token is `refresh_token_already_used`). A
+ * refresh the server refuses does not delete the stored session: the record is
+ * kept, `auth.sessionExpired()` turns true, a `kyrolll:session-expired` event
+ * fires, and the page asks the visitor to sign in again instead of silently
+ * dropping them mid-read.
  *
  * Auth is passwordless: `signInWithOtp` asks Supabase to email a 6-digit code
  * (creating the account on first use) and `verifyOtp` exchanges that code for a
@@ -96,8 +103,10 @@
     };
   }
 
-  let session = null;      // { accessToken, refreshToken, expiresAt, user }
-  let localUser = null;    // demo-mode user
+  let session = null;         // { accessToken, refreshToken, expiresAt, user }
+  let localUser = null;       // demo-mode user
+  let refreshInflight = null; // shared promise: exactly one refresh at a time
+  let sessionExpired = false; // refresh token is dead — keep the record, ask to sign in
 
   function loadSession() {
     if (CONFIGURED) {
@@ -120,7 +129,13 @@
    * signed out. Without this, a fetch that runs off the in-memory copy could go
    * out with no bearer even though `kyrolll_sb_session` is in localStorage. */
   function adoptStoredSession() {
-    if (CONFIGURED && !session) loadSession();
+    if (!CONFIGURED) return session;
+    if (session && !sessionExpired) return session;
+    const previous = session && session.accessToken;
+    loadSession();
+    // A different token than the one we gave up on means another tab signed in
+    // (or wrote a fresh session), so this is a live session again.
+    if (session && session.accessToken !== previous) sessionExpired = false;
     return session;
   }
 
@@ -212,12 +227,31 @@
     return !!(err && (err.status === 400 || err.status === 401 || err.status === 403));
   }
 
-  async function refreshSession() {
-    if (!CONFIGURED || !session || !session.refreshToken) return null;
+  // GoTrue rotates the refresh token on every use, so two refreshes with the
+  // same token are guaranteed to make the second one fail with
+  // `refresh_token_already_used` (400). A single page load used to do exactly
+  // that — the bootstrap `ready()`, `licenses.list()` and `soldExclusive()` all
+  // reached expiry at once and each kicked off its own refresh. One in-flight
+  // promise is now shared by every caller, so the token is spent exactly once.
+  function refreshSession() {
+    if (!CONFIGURED || !session || !session.refreshToken) return Promise.resolve(null);
+    // A refresh token already known to be dead is never replayed: doing so only
+    // trips GoTrue's reuse detection again and spams `/token`. Signing in again
+    // is the only way back, and the UI has already been told so.
+    if (sessionExpired) return Promise.resolve(null);
+    if (refreshInflight) return refreshInflight;
+    refreshInflight = doRefreshSession().finally(() => { refreshInflight = null; });
+    return refreshInflight;
+  }
+
+  async function doRefreshSession() {
+    const refreshToken = session && session.refreshToken;
+    if (!refreshToken) return null;
     try {
       const data = await request("POST", "/auth/v1/token?grant_type=refresh_token", {
-        body: { refresh_token: session.refreshToken }
+        body: { refresh_token: refreshToken }
       });
+      sessionExpired = false;
       saveSession({
         accessToken: data.access_token,
         refreshToken: data.refresh_token,
@@ -227,20 +261,51 @@
       emitAuthChange();
       return session;
     } catch (err) {
+      // Another tab — or a call that raced us before the single-flight guard —
+      // may already have rotated this token and written the result. Adopt that
+      // live session instead of signing the visitor out over a stale one.
+      if (refreshTokenReused(err)) {
+        loadSession();
+        if (session && session.accessToken && (!session.expiresAt || session.expiresAt > Date.now() + 60000)) {
+          sessionExpired = false;
+          emitAuthChange();
+          return session;
+        }
+      }
       if (isDefinitiveAuthFailure(err)) {
-        // The server definitively refused the refresh (revoked, expired, wrong
-        // project): forget the refused identity completely — the session it
-        // claimed and the cached library written under the claimed id. Only
-        // the named keys go; a blanket localStorage.clear() would take
-        // unrelated app state with it.
-        const claimed = session && session.user && session.user.id;
-        if (claimed) lsDel(libraryKey(claimed));
-        saveSession(null);
-        verifiedToken = "";
-        emitAuthChange();
+        // The refresh token is dead and no live replacement exists. Do NOT
+        // delete the stored session here: a silent sign-out mid-read is what
+        // looked like a crash and stranded the visitor. Mark it expired so the
+        // next explicit sign-in replaces it, and let the UI ask for one.
+        markSessionExpired();
       }
       return null;
     }
+  }
+
+  // The refresh token is spent or revoked but the session record stays put: the
+  // cached library survives, the header can still say who was signed in, and the
+  // UI is told to ask for a fresh sign-in rather than the app dropping the
+  // visitor without a word.
+  function markSessionExpired() {
+    if (sessionExpired) return;
+    sessionExpired = true;
+    verifiedToken = "";
+    try {
+      window.dispatchEvent(new CustomEvent("kyrolll:session-expired", {
+        detail: {
+          user: currentUser(),
+          message: "Your session expired, please sign in again"
+        }
+      }));
+    } catch (err) { /* a page without CustomEvent still gets the flag */ }
+    emitAuthChange();
+  }
+
+  function refreshTokenReused(err) {
+    const code = String((err && err.code) || "");
+    const message = String((err && err.message) || "");
+    return code === "refresh_token_already_used" || /already[\s_-]?used/i.test(message);
   }
 
   // Resolve the active session, refreshing an expired access token when needed.
@@ -252,10 +317,13 @@
       return currentUser();
     }
     if (!adoptStoredSession()) return null;
+    // A dead refresh token cannot be renewed: don't hammer `/token` (and don't
+    // re-trip GoTrue's reuse detection) on every read. The access token is left
+    // in place — it is still valid until it actually expires — and the UI has
+    // already been told to ask for a sign-in.
+    if (sessionExpired) return currentUser();
     if (session.expiresAt && session.expiresAt - 60000 < Date.now()) {
-      const refreshed = await refreshSession();
-      // One quiet retry smooths over a momentary blip before the user sees it.
-      if (!refreshed && session && session.refreshToken) await refreshSession();
+      await refreshSession();
     }
     return currentUser();
   }
@@ -341,6 +409,7 @@
     const data = await request("POST", "/auth/v1/verify", {
       body: { type: fields.type || "email", email, token }
     });
+    sessionExpired = false;
     saveSession({
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
@@ -357,6 +426,7 @@
         await request("POST", "/auth/v1/logout", { token: session.accessToken });
       } catch (err) { /* token may already be gone — still clear locally */ }
     }
+    sessionExpired = false;
     saveSession(null);
     localUser = null;
     lsDel(LOCAL_SESSION_KEY);
@@ -540,8 +610,14 @@
    * that belonged to the identity that session claimed — that cache was written
    * for whichever account the stale record named, so leaving it behind is what
    * lets a later read look like someone else's. Only the named keys go: a
-   * blanket localStorage.clear() would take unrelated app state with it. */
+   * blanket localStorage.clear() would take unrelated app state with it.
+   *
+   * Once the refresh token is known to be dead the record is deliberately kept:
+   * the visitor has already been asked to sign in again, and deleting it here is
+   * what made an expiring session look like a spontaneous sign-out mid-page. An
+   * explicit sign-out still clears it, and the next sign-in replaces it. */
   function forgetRefusedSession() {
+    if (sessionExpired) return;
     const claimed = session && session.user && session.user.id;
     if (claimed) lsDel(libraryKey(claimed));
     saveSession(null);
@@ -720,6 +796,7 @@
     return {
       configured: CONFIGURED,
       signedIn: !!(session && session.accessToken),
+      sessionExpired: sessionExpired,
       table: LICENSES_TABLE,
       project: base,
       userId: (user && user.id) || "",
@@ -907,7 +984,8 @@
       ready,
       currentUser,
       refreshUser,
-      updateProfile
+      updateProfile,
+      sessionExpired: () => sessionExpired
     },
     licenses: { list: listLicenses, add: addLicense, soldExclusive, diagnose: licensesDiagnostic },
     payments: { createInvoice },
@@ -932,7 +1010,12 @@
   window.addEventListener("storage", (event) => {
     if (!CONFIGURED) return;
     if (event.key && event.key !== SESSION_KEY && event.key !== LOCAL_SESSION_KEY) return;
+    const previous = session && session.accessToken;
     loadSession();
+    // A removed key, or one holding a different token, is another tab's newer
+    // decision — follow it and drop the "expired" verdict that belonged to the
+    // record we are letting go of. (Same token rewritten keeps the verdict.)
+    if (!session || session.accessToken !== previous) sessionExpired = false;
     emitAuthChange();
   });
 
