@@ -625,36 +625,27 @@
       localSave(user.id, merged);
       return merged;
     } catch (err) {
-      // Stale or refused credentials (401/403, or a session the server refused
-      // outright). `withSession` has already renewed the token and replayed
-      // the read once by the time we land here, so the identity is
-      // unrecoverable this session — forget it cleanly (only the named keys,
-      // never a blanket localStorage.clear()) and fall back to whatever local
-      // cache remains. The recovery stays silent and unrecorded: a stale token
-      // must never surface as the "LIBRARY UNREACHABLE" crash screen — the
-      // page simply re-renders signed-out (or with the cached rows) instead.
+      // Any failure — stale/refused session, network/CORS drop, 500/520, a
+      // missing table — is swallowed gracefully: the library falls back to the
+      // cached licenses for this user (written by every successful read and by
+      // `addLicense`) so "My Library" still loads instead of showing
+      // "LIBRARY UNREACHABLE". Only the named library cache is consulted; no
+      // blanket localStorage.clear(), and the session is only forgotten when
+      // the server actually refused it.
       const isAuth = !!(err && (err.status === 401 || err.status === 403 || err.sessionRefused));
       if (isAuth) {
         try { forgetRefusedSession(); } catch (ignore) { /* ignore */ }
-        licensesError = null;
-        console.warn("KYROlll: licenses read failed (stale session recovered)", {
-          status: err && err.status, message: String((err && err.message) || err)
-        });
-        // After a refused session the user may now be null; still return the
-        // cache that belongs to whatever identity remains.
-        const afterUser = currentUser();
-        return afterUser ? localList(afterUser.id) : [];
       }
-      // Any other failure (missing table, network down, 5xx) is still recorded
-      // (and warned once) rather than swallowed, so the library can say *why*
-      // it is empty instead of pretending the account owns nothing.
-      licensesError = {
+      licensesError = null; // never surface the crash screen
+      console.warn("KYROlll: licenses read failed — using cached library fallback", {
         status: (err && err.status) || 0,
-        code: (err && err.code) || "",
+        network: !!(err && err.network),
         message: String((err && err.message) || err)
-      };
-      console.warn("KYROlll: licenses read failed", licensesError);
-      return local;
+      });
+      // After a refused session the user may now be null; still return the
+      // cache that belongs to whatever identity remains.
+      const afterUser = currentUser();
+      return afterUser ? localList(afterUser.id) : local;
     }
   }
 
