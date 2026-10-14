@@ -112,6 +112,20 @@
     if (CONFIGURED) {
       session = readJSON(lsGet(SESSION_KEY), null);
       if (session && !(session.user && session.user.id)) session = null;
+      // Backward-compat: a stale session written in snake_case won't parse
+      // into camelCase fields; silently migrate it to the current shape.
+      if (session) {
+        if (!session.accessToken && session.access_token) {
+          session.accessToken = session.access_token;
+        }
+        if (!session.refreshToken && session.refresh_token) {
+          session.refreshToken = session.refresh_token;
+        }
+        if (!session.expiresAt && session.expires_at != null) {
+          const num = Number(session.expires_at);
+          session.expiresAt = Number.isNaN(num) ? session.expires_at : num;
+        }
+      }
     } else {
       const stored = readJSON(lsGet(LOCAL_SESSION_KEY), null);
       localUser = stored && stored.username ? stored : null;

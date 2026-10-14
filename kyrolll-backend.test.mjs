@@ -594,3 +594,30 @@ test("a signed-in session round-trips through one key and camelCase fields", asy
   assert.equal(read.init.headers.Authorization, "Bearer " + token, "reads with the stored bearer");
 });
 
+/* Older builds — or a session hand-copied between environments — can leave a
+ * record in the snake_case Supabase field names. loadSession() migrates those
+ * to camelCase on read so the visitor is not silently treated as signed out. */
+test("a stale snake_case session is migrated on read", async () => {
+  const token = jwt({ sub: USER.id, email: USER.email });
+  const reads = [];
+  const { backend } = boot(async (url, init) => {
+    reads.push({ url, init });
+    return { ok: true, status: 200, text: async () => "[]" };
+  }, {
+    // Drop the camelCase defaults so the stored object is snake_case-only.
+    accessToken: undefined,
+    refreshToken: undefined,
+    expiresAt: undefined,
+    access_token: token,
+    refresh_token: "refresh-legacy",
+    expires_at: Date.now() + 3600000,
+    user: USER
+  });
+
+  assert.equal(backend.auth.currentUser().id, USER.id, "the legacy record is still recognized");
+  await backend.licenses.list();
+  const read = reads.find((call) => /\/rest\/v1\/licenses\?/.test(call.url));
+  assert.ok(read, "the migrated session reads the table");
+  assert.equal(read.init.headers.Authorization, "Bearer " + token, "the migrated bearer is sent");
+});
+
