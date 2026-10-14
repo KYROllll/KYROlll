@@ -3792,6 +3792,9 @@ html.auth-open { overflow: hidden; }
 .profile-form__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
 .profile-form__actions .kyrolll-btn { padding: 12px 18px; font-size: 10px; }
 .profile-status { margin-top: 12px; min-height: 1em; font-size: 9px; font-weight: 800; letter-spacing: .18em; color: #2ecc71; }
+.user-id-row { display: flex; gap: 8px; align-items: center; }
+.user-id-row .auth-input { flex: 1; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 10px; }
+.user-id-row .kyrolll-btn { font-size: 9px; padding: 6px 10px; }
 
 /* Branded inline loader: the flower silhouette slowly turning where a plain
    loading line used to sit (library licenses, etc.). Reduced-motion kills the

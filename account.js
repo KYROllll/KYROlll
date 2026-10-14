@@ -310,6 +310,10 @@
       const license = pending && licenseFor(pending.tierId);
       if (license) { window.location.assign(license.url); return; }
     }
+    if (next === "support") {
+      window.location.assign("support.html");
+      return;
+    }
     if (next && next !== "checkout" && /^[\w./#?=-]+$/.test(next)) {
       window.location.assign(next);
       return;
@@ -598,8 +602,19 @@
     const status = document.getElementById("profile-status");
     let avatarDataUrl = "";
 
+    const userIdEl = document.getElementById("profile-user-id");
+    const copyBtn = document.getElementById("copy-user-id");
     nameInput.value = user.username || "";
     emailInput.value = user.email || "";
+    if (userIdEl) userIdEl.value = user.id || "";
+    if (copyBtn) {
+      copyBtn.addEventListener("click", async () => {
+        try {
+          if (userIdEl && userIdEl.value) await navigator.clipboard.writeText(userIdEl.value);
+          if (copyBtn) { copyBtn.textContent = "COPIED"; setTimeout(() => { copyBtn.textContent = "Copy ID"; }, 1200); }
+        } catch (e) { /* ignore */ }
+      });
+    }
     paintAvatar(avatar, user);
 
     if (fileInput) fileInput.addEventListener("change", async () => {
@@ -935,6 +950,23 @@
   /* ------------------------------------------------------------------- boot */
 
   document.addEventListener("click", (event) => {
+    const support = event.target.closest(".footer__support");
+    if (support) {
+      event.preventDefault();
+      const user = getCurrentUser();
+      if (user && user.id) {
+        // Logged in — pre-fill support with permanent ID and email.
+        const body = encodeURIComponent(
+          "KYROlll Support Request\n\nUser ID: " + (user.id || "") + "\nEmail: " + (user.email || "") + "\n\nIssue:"
+        );
+        const mailto = "mailto:kyrolll00@gmail.com?subject=KYROlll%20Support%20—%20" + encodeURIComponent(user.id || "") + "&body=" + body;
+        window.open(mailto, "_blank");
+      } else {
+        // Not logged in — redirect to auth with a return to support flow.
+        window.location.href = "auth.html?next=support&reason=support";
+      }
+      return;
+    }
     const action = event.target.closest("[data-auth-action]");
     if (!action) return;
     const name = action.getAttribute("data-auth-action");
