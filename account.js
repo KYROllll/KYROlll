@@ -723,6 +723,18 @@
     let loading = false;   // re-entrancy guard — breaks the fetch→emit→render loop
     let fetchedFor = null; // user id whose licenses are currently in `items`
 
+    // A remote read can hang (a fetch that never settles on a dead connection,
+    // or a coalesced promise already stuck upstream). Racing it against a
+    // deadline guarantees the spinner can never become permanent: the page
+    // always paints, with whatever licenses are known, after LIBRARY_TIMEOUT_MS.
+    const LIBRARY_TIMEOUT_MS = 8000;
+    function withDeadline(promise, ms, fallback) {
+      return Promise.race([
+        Promise.resolve(promise).catch(() => fallback),
+        new Promise((resolve) => setTimeout(() => resolve(fallback), ms))
+      ]);
+    }
+
     async function render() {
       // An auth event fired while a fetch is already in flight must never start
       // a second one: `listLicenses()` -> `alignSessionUser()`/`ready()` emit
@@ -738,24 +750,32 @@
         return;
       }
       loading = true;
-      root.innerHTML = '<div class="flower-loader">' +
-        '<img class="flower-loader__flower" src="assets/kyrolll-flower-rest.png" alt="" width="208" height="208">' +
-        '<p class="flower-loader__text">LOADING YOUR LIBRARY…</p>' +
-        '</div>';
       try {
+        root.innerHTML = '<div class="flower-loader">' +
+          '<img class="flower-loader__flower" src="assets/kyrolll-flower-rest.png" alt="" width="208" height="208">' +
+          '<p class="flower-loader__text">LOADING YOUR LIBRARY…</p>' +
+          '</div>';
         console.log("KYROlll: fetching licenses (once)...");
-        items = await b.licenses.list();
-        console.log("KYROlll: licenses fetched, count:", (items || []).length);
+        // A missing backend, a rejection and a hang all converge on the same
+        // fallback, so the loading flag below is always reached.
+        const fetched = (b && b.licenses && b.licenses.list)
+          ? await withDeadline(b.licenses.list(), LIBRARY_TIMEOUT_MS, [])
+          : [];
+        items = Array.isArray(fetched) ? fetched : [];
+        console.log("KYROlll: licenses fetched, count:", items.length);
       } catch (err) {
+        console.warn("KYROlll: licenses fetch failed, showing empty library", String((err && err.message) || err));
         items = [];
       } finally {
+        // Always released — success, failure, hang or a synchronous throw all
+        // land here, so the spinner is never left running.
         loading = false;
         fetchedFor = user.id;
       }
       const current = getCurrentUser();
       console.log("KYROlll: render after fetch — current user:", current ? current.id : null, "items:", items.length);
       if (!current) { root.innerHTML = lockedHTML(); return; }
-      const diagnostic = b.licenses.diagnose ? b.licenses.diagnose() : null;
+      const diagnostic = b && b.licenses && b.licenses.diagnose ? b.licenses.diagnose() : null;
       root.innerHTML = libraryHTML(current, items, diagnostic);
     }
 
