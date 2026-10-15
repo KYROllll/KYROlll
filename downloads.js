@@ -222,14 +222,13 @@
   function emailGateBody(pack, opts) {
     const endpoint = newsletterEndpoint();
     /* Mandatory opt-in for EVERY gate — no bypass under any circumstances */
-    const checkboxAtt = ' required';
     return '<p class="gate-modal__copy">Enter your email to unlock the ' + escapeHTML(pack.name.toLowerCase()) + '.</p>' +
       '<form class="gate-form" data-gate-form novalidate' +
         (endpoint ? ' action="' + escapeHTML(endpoint) + '" method="post"' : '') + '>' +
         '<label class="gate-field"><span class="gate-field__label">EMAIL</span>' +
           '<input class="gate-input" id="gate-email" name="email" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="you@email.com" required>' +
         '</label>' +
-        '<label class="gate-optin"><input type="checkbox" id="gate-optin" name="opt_in" checked' + checkboxAtt + '><span>Email me future beat drops &amp; updates</span></label>' +
+        '<label class="gate-optin"><input type="checkbox" id="gate-optin" name="opt_in" required><span>Email me future beat drops &amp; updates</span></label>' +
         (endpoint ? '<input type="hidden" name="embed" value="1"><input type="hidden" name="tag" value="beat-download"><input type="hidden" name="_subject" value="KYROlll beat download">' : '') +
       '</form>' +
       '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
@@ -378,8 +377,16 @@
         writeEmail(email);
         submit.disabled = true;
         submit.textContent = "UNLOCKING…";
-        closeGate();
-        finalizeGate(beat, pack, onUnlocked);
+        const form = modal.querySelector("[data-gate-form]");
+        const wantsUpdates = checked;
+        if (wantsUpdates) addToMarketingList(email);
+        if (wantsUpdates && newsletterEndpoint()) {
+          const advance = () => { closeGate(); finalizeGate(beat, pack, onUnlocked); };
+          postSubscribeForm(form, advance);
+        } else {
+          closeGate();
+          finalizeGate(beat, pack, onUnlocked);
+        }
       };
 
       function refresh() { submit.disabled = !isReady(); }
@@ -478,12 +485,16 @@
       if (optin) {
         optin.addEventListener("change", () => { checkExclusive(); });
       }
+      if (input) {
+        input.addEventListener("input", () => { checkExclusive(); });
+      }
 
-      // Check if all steps done
+      // Check if all steps done (including valid email + consent)
       function checkExclusive() {
         const commentOk = (commentField && commentField.value.trim().length > 0);
+        const emailOk = EMAIL_RE.test(String(input && input.value || "").trim());
         const optOk = optin ? optin.checked : false;
-        const all = done[0] && done[1] && commentOk && optOk;
+        const all = done[0] && done[1] && commentOk && emailOk && optOk;
         submit.disabled = !all;
         if (hint) hint.textContent = all ? "ALL SET — UNLOCK YOUR DOWNLOAD" : "COMPLETE ALL STEPS TO UNLOCK";
       }

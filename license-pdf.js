@@ -383,7 +383,8 @@
       putTracked(x, sigTop - 54, label, "F1", 7, MUTED, 1.2);
       putTracked(x, sigTop - 65, micro, "F1", 6.5, MUTED, 0.9);
     };
-    signatureBlock(COL_X, data.licensee || "—", "LICENSEE — SIGNATURE", "SIGNED " + data.issued);
+    const licenseeMicro = "SIGNED " + data.issued + "  —  EMAIL: " + (data.licensee || "—");
+    signatureBlock(COL_X, data.licensee || "—", "LICENSEE — SIGNATURE", licenseeMicro);
     signatureBlock(sigX2, "KYROIII", "KYROlll — LICENSOR", "AUTHORISED SIGNATORY");
     gap(84);
 

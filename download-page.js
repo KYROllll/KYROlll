@@ -46,7 +46,7 @@
       if (stored) return stored;
     } catch (err) {}
     const email = (downloads() && downloads().readEmail ? downloads().readEmail() : "") || "";
-    return email.split("@")[0] || "";
+    return email || "";
   }
 
   function fileRowHTML(item, index) {
