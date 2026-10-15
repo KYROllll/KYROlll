@@ -16,7 +16,7 @@
       price: "$9.95",
       priceValue: 9.95,
       blurb: "Tagged MP3 + PDF license",
-      url: "https://nowpayments.io/payment/?iid=5704655234",
+      url: "https://nowpayments.io/payment/?iid=5704655234&source=button",
       rights: [
         "Non-exclusive lease of the tagged MP3.",
         "Distribute up to 5,000 copies.",
@@ -31,7 +31,7 @@
       price: "$14.95",
       priceValue: 14.95,
       blurb: "Untagged WAV + MP3 + PDF license",
-      url: "https://nowpayments.io/payment/?iid=5611617128",
+      url: "https://nowpayments.io/payment/?iid=5611617128&source=button",
       rights: [
         "Non-exclusive lease of the untagged WAV and MP3.",
         "Distribute up to 10,000 copies.",
@@ -46,7 +46,7 @@
       price: "$299.95",
       priceValue: 299.95,
       blurb: "Full exclusive rights + stems",
-      url: "https://nowpayments.io/payment/?iid=4868491664",
+      url: "https://nowpayments.io/payment/?iid=4868491664&source=button",
       rights: [
         "Exclusive, unlimited commercial use.",
         "Unlimited distribution and streams.",
