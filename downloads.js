@@ -324,40 +324,34 @@
 
     const submit = modal.querySelector("[data-gate-submit]");
 
-    // --- EMAIL GATE (MP3) ---
+    // --- EMAIL GATE (MP3) — direct, bulletproof ---
     if (pack.gate === "email") {
-      const form = modal.querySelector("[data-gate-form]");
       const input = modal.querySelector("#gate-email");
-      const optin = modal.querySelector("#gate-optin");
-
-      if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
       const remembered = readEmail();
       if (remembered) input.value = remembered;
       setTimeout(() => { try { input.focus(); input.select(); } catch (err) {} }, 40);
 
       const handleSubmit = (ev) => {
-        if (ev && ev.cancelable) ev.preventDefault();
-        const email = String(input.value || "").trim();
+        if (ev && ev.cancelable && ev.type === "submit") ev.preventDefault();
+        const email = String(input && input.value || "").trim();
+        console.log("Email button clicked! value=", email);
         if (!EMAIL_RE.test(email)) {
           const errEl = modal.querySelector("#gate-error");
           if (errEl) { errEl.textContent = "ENTER A VALID EMAIL ADDRESS"; errEl.hidden = false; }
-          try { input.focus(); } catch (err) {}
+          try { input && input.focus(); } catch (e) {}
           return;
         }
         writeEmail(email);
-        const wantsUpdates = !optin || optin.checked;
-        if (wantsUpdates) addToMarketingList(email);
-        const advance = () => { submit.disabled = true; submit.textContent = "UNLOCKING…"; closeGate(); finalizeGate(beat, pack, onUnlocked); };
-        if (form && wantsUpdates && newsletterEndpoint()) {
-          postSubscribeForm(form, advance);
-        } else {
-          advance();
-        }
+        submit.disabled = true;
+        submit.textContent = "UNLOCKING…";
+        console.log("Gate unlocked — transitioning to download page");
+        closeGate();
+        finalizeGate(beat, pack, onUnlocked);
       };
 
-      submit.disabled = !input.value.trim();
+      submit.disabled = !(input && input.value.trim());
+      input && input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") handleSubmit(ev); });
       submit.addEventListener("click", handleSubmit);
-      input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") handleSubmit(ev); });
     }
 
     // --- YOUTUBE GATE (WAV) ---
