@@ -8,7 +8,11 @@
  * package this browser has not unlocked re-opens that package's gate over the
  * page, so the flow is safe from any entry point. There is no backend — the
  * files are public, so the gate is a courtesy, and everything it remembers
- * stays in `localStorage`. */
+ * stays in `localStorage`.
+ *
+ * The licensee name/email stamped in the PDF is pulled automatically from
+ * localStorage (the address entered at the gate) — no interactive signature
+ * modal is needed, so PDF generation can never break on a missing name. */
 (function () {
   "use strict";
 
@@ -33,6 +37,17 @@
      id shown here is exactly the id printed in the document — and the prebuilt
      blob is cached under that same serial. */
   const serial = (window.KYROlll_LICENSE_PDF && beat && window.KYROlll_LICENSE_PDF.makeLicenseId(beat)) || "";
+
+  /* The licensee name stamped in the PDF: auto-pulled from the remembered
+     email/address the visitor entered at the gate. No signature modal. */
+  function licenseeName() {
+    try {
+      const stored = localStorage.getItem("kyrolll_licensee");
+      if (stored) return stored;
+    } catch (err) {}
+    const email = (downloads() && downloads().readEmail ? downloads().readEmail() : "") || "";
+    return email.split("@")[0] || "";
+  }
 
   function fileRowHTML(item, index) {
     return (
@@ -75,9 +90,10 @@
     if (pack.id === "exclusive") {
       const note = document.createElement("div");
       note.className = "download-list__note";
-      note.innerHTML = '<span class="download-list__note-kicker">PRODUCER NOTE</span>' +
-        '<p class="download-list__note-text">Tracked stems are part of our exclusive, limited drops — a way to keep the catalog fresh, curated and elite. ' +
-        'These stems are supplied for your release use only, exactly as delivered.</p>';
+      note.setAttribute("role", "region");
+      note.setAttribute("aria-label", "Producer Note — Tracked Stems");
+      note.innerHTML = '<span class="download-list__note-kicker">TRACKED STEMS — PRODUCER NOTE</span>' +
+        '<p class="download-list__note-text">Tracked stems are part of our exclusive, limited drops — a way to keep the catalog fresh, curated and elite. These stems are supplied for your release use only, exactly as delivered. Each stem is fully tagged, separated by instrument group, and delivered in studio-quality WAV format for your commercial and non-commercial releases.</p>';
       listEl.appendChild(note);
     }
 
@@ -123,10 +139,6 @@
      so everything is bound exactly once. `render()` can run again after a gate
      opens over the page; it must not re-bind or re-mint. */
   let licenseWired = false;
-  let licenseeName = "";
-  const sigModal = document.getElementById("sig-modal");
-  const sigInput = document.getElementById("sig-name");
-  const sigError = document.getElementById("sig-error");
   function showLicensePanel() {
     if (!licensePanel) return;
     licensePanel.hidden = false;
@@ -138,51 +150,19 @@
     licenseWired = true;
     pdfBtn.addEventListener("click", (event) => {
       if (event && typeof event.preventDefault === "function") event.preventDefault();
-      // If we already have a licensee name, go straight to PDF generation
-      if (licenseeName) {
-        window.KYROlll_LICENSE_PDF.generateLicensePDF(beat, pack, d, serial, licenseeName);
-        return;
-      }
-      // Otherwise, show the signature modal
-      sigModal.hidden = false;
-      sigInput.value = "";
-      sigError.hidden = false;
-      sigInput.focus();
-    });
-    // Signature modal handlers
-    const sigConfirm = sigModal.querySelector("[data-sig-confirm]");
-    const sigCancel = sigModal.querySelector("[data-sig-cancel]");
-    sigConfirm.addEventListener("click", () => {
-      const name = sigInput.value.trim();
-      if (!name) {
-        sigError.hidden = false;
-        sigInput.focus();
-        return;
-      }
-      licenseeName = name;
-      // Persist for future visits
-      try { localStorage.setItem("kyrolll_licensee", name); } catch (e) {}
-      sigModal.hidden = true;
-      // Now generate the PDF
-      window.KYROlll_LICENSE_PDF.generateLicensePDF(beat, pack, d, serial, licenseeName);
-    });
-    sigCancel.addEventListener("click", () => {
-      sigModal.hidden = true;
-    });
-    // Hide on Escape
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !sigModal.hidden) {
-        sigModal.hidden = true;
-      }
+      // Stamp the licensee name/email automatically from localStorage —
+      // no interactive signature modal is needed.
+      window.KYROlll_LICENSE_PDF.generateLicensePDF(beat, pack, d, serial, licenseeName());
     });
   }
+
   /* The license is assembled ahead of the click, then cached in `license-pdf.js`
      under this page's serial. The click itself then saves a ready blob
      synchronously, which is the only way Safari / iOS will download a generated
      file instead of opening it in its viewer. */
   function prebuildLicense() {
     if (!window.KYROlll_LICENSE_PDF || !window.KYROlll_LICENSE_PDF.primeLicensePDF) return;
-    window.KYROlll_LICENSE_PDF.primeLicensePDF(beat, pack, serial).catch((err) => {
+    window.KYROlll_LICENSE_PDF.primeLicensePDF(beat, pack, serial, licenseeName()).catch((err) => {
       /* Non-fatal: the click falls back to building on demand. */
       if (typeof console !== "undefined") console.warn("KYROlll license prebuild failed:", err);
     });

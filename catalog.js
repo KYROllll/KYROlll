@@ -26,19 +26,19 @@
   window.KYROlll_NEWSLETTER = { provider: "formspree", username: "", endpoint: "https://formspree.io/f/xgaoppwo" };
 
   // The three free ways a beat leaves the store. `gate` is the initial behaviour:
-  //   "instant" → no initial gate; email step is added afterwards for every package;
-  //   "youtube" → YouTube Sub & Like gate (two steps), then email step added afterwards;
-  //   "exclusive" → YouTube Sub & Like + Comment verification gate, then Email with mandatory
-  //     opt-in checkbox, then Digital Signature prompt, then unlock.
+  //   "email"    → Email input + submit → instant unlock + PDF.
+  //   "youtube"  → YouTube Sub & Like (two steps), then Email input + submit → unlock + PDF.
+  //   "exclusive"→ YouTube Sub & Like → Comment verification → Email with mandatory opt-in
+  //     checkbox → submit → unlock Stems+MP3+WAV+PDF. No signature prompt.
   // `includes` is the plain-language list of what the package hands over; it is
   // printed in the generated license (see `downloads.js`).
   window.KYROlll_PACKAGES = [
     {
       id: "mp3",
       name: "MP3 LEASE",
-      tag: "FREE · EMAIL",
-      gate: "instant",
-      blurb: "Tagged MP3 + license. Enter your email to unlock.",
+      tag: "EMAIL GATE",
+      gate: "email",
+      blurb: "Enter your email to unlock instant download.",
       includes: ["Tagged MP3 audio file", "Free license"]
     },
     {
