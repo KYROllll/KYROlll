@@ -25,19 +25,20 @@
   // locally.
   window.KYROlll_NEWSLETTER = { provider: "formspree", username: "", endpoint: "https://formspree.io/f/xgaoppwo" };
 
-  // The three free ways a beat leaves the store. `gate` is the whole behaviour:
-  //   "instant" → walk straight to the download page, no questions asked;
-  //   "youtube" → subscribe + like the beat video, then the package unlocks;
-  //   "email"   → leave an address (and opt in to future drops), then it unlocks.
+  // The three free ways a beat leaves the store. `gate` is the initial behaviour:
+  //   "instant" → no initial gate; email step is added afterwards for every package;
+  //   "youtube" → YouTube Sub & Like gate (two steps), then email step added afterwards;
+  //   "exclusive" → YouTube Sub & Like + Comment verification gate, then Email with mandatory
+  //     opt-in checkbox, then Digital Signature prompt, then unlock.
   // `includes` is the plain-language list of what the package hands over; it is
   // printed in the generated license (see `downloads.js`).
   window.KYROlll_PACKAGES = [
     {
       id: "mp3",
       name: "MP3 LEASE",
-      tag: "FREE · INSTANT",
+      tag: "FREE · EMAIL",
       gate: "instant",
-      blurb: "Tagged MP3 + license. Download now, nothing to unlock.",
+      blurb: "Tagged MP3 + license. Enter your email to unlock.",
       includes: ["Tagged MP3 audio file", "Free license"]
     },
     {
@@ -45,7 +46,7 @@
       name: "STANDARD WAV LEASE",
       tag: "SUBSCRIBE + LIKE",
       gate: "youtube",
-      blurb: "Tagged MP3 + high-quality WAV + license. Subscribe & like to unlock.",
+      blurb: "Tagged MP3 + high-quality WAV + license. Subscribe, like, and enter your email to unlock.",
       includes: ["Tagged MP3 audio file", "High-quality WAV", "Free license"]
     },
     {
@@ -53,7 +54,7 @@
       name: "EXCLUSIVE / PRO PACKAGE",
       tag: "MULTI-STEP",
       gate: "exclusive",
-      blurb: "Full stems + MP3 + WAV + license. Follow three high-value steps to unlock.",
+      blurb: "Full stems + MP3 + WAV + license. Follow YouTube, comment, and email steps to unlock.",
       includes: [
         "Tagged MP3 audio file",
         "High-quality WAV",

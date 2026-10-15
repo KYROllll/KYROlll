@@ -80,7 +80,7 @@
     const beat = catalog && catalog.beatById(beatId);
     const pack = catalog && catalog.packageById(packageId);
     if (!beat || !pack) { showToast("BEAT OR PACKAGE NOT FOUND"); return; }
-    if (pack.gate === "instant" || isUnlocked(beat.id, pack.id)) {
+    if (isUnlocked(beat.id, pack.id)) {
       goToDownload(beat, pack);
       return;
     }
@@ -195,32 +195,27 @@
     document.documentElement.classList.remove("gate-open");
     setTimeout(() => node.remove(), 260);
   }
-  function gateShell(pack, beat, body) {
+  function gateShell(pack, beat, stageTitle, body) {
+    if (arguments.length === 3) { body = stageTitle; stageTitle = null; }
+    const titleText = stageTitle ? (escapeHTML(stageTitle) + ' — ' + escapeHTML(beat.title)) : escapeHTML(beat.title);
     return '<div class="gate-modal__backdrop" data-gate-cancel></div>' +
       '<div class="gate-modal__card" role="dialog" aria-modal="true" aria-labelledby="gate-title">' +
         '<span class="gate-modal__kicker">' + escapeHTML(pack.name) + '</span>' +
-        '<h2 class="gate-modal__title" id="gate-title">' + escapeHTML(beat.title) + '</h2>' + body + '</div>';
+        '<h2 class="gate-modal__title" id="gate-title">' + titleText + '</h2>' + body + '</div>';
   }
-  function emailGateBody(pack) {
+  function emailGateBody(pack, opts) {
     const endpoint = newsletterEndpoint();
-    // A real form (posted through a hidden iframe) is what these providers
-    // require: their submit endpoints cannot be reached with `fetch`. With no
-    // provider set, no action/fields are emitted and the gate stays local-only.
+    const mandatory = opts && opts.optinRequired;
+    const checkboxAtt = mandatory ? ' checked required' : ' checked';
     return '<form class="gate-form" data-gate-form novalidate' +
         (endpoint ? ' action="' + escapeHTML(endpoint) + '" method="post"' : '') + '>' +
-      '<p class="gate-modal__copy">Drop your email to unlock the ' + escapeHTML(pack.name.toLowerCase()) + '.</p>' +
+      '<p class="gate-modal__copy">Enter your email to unlock the ' + escapeHTML(pack.name.toLowerCase()) + '.</p>' +
       '<label class="gate-field"><span class="gate-field__label">EMAIL</span>' +
         '<input class="gate-input" id="gate-email" name="email" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="you@email.com" required>' +
       '</label>' +
-      '<label class="gate-optin"><input type="checkbox" id="gate-optin" checked><span>Email me future beat drops &amp; updates</span></label>' +
+      '<label class="gate-optin"><input type="checkbox" id="gate-optin"' + checkboxAtt + '><span>Email me future beat drops &amp; updates</span></label>' +
       (endpoint ? '<input type="hidden" name="embed" value="1"><input type="hidden" name="tag" value="beat-download"><input type="hidden" name="_subject" value="KYROlll beat download">' : '') +
-      '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
-      '<div class="gate-modal__actions">' +
-        '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
-        '<button type="button" class="kyrolll-btn" data-gate-submit>UNLOCK DOWNLOAD</button>' +
-      '</div>' +
-      '</form>' +
-      '<p class="gate-modal__hint">FREE · NO ACCOUNT · DOWNLOAD STARTS INSTANTLY</p>';
+      '</form>';
   }
 
   /* The provider's submit endpoint must be a real form POST, so the gate posts
@@ -348,9 +343,14 @@
       });
       submit.addEventListener("click", () => {
         if (submit.disabled) return;
-        closeGate();
-        const sm = showSuccessModal();
-        setTimeout(() => { if (sm && sm.parentNode) sm.remove(); markUnlocked(beat.id, pack.id); onUnlocked(beat, pack); }, 1400);
+        const steps = modal.querySelectorAll("[data-gate-step]");
+        let ytDone = [false, false];
+        steps.forEach((s, i) => { if (i < 2) ytDone[i] = s.classList.contains("is-done"); });
+        if (ytDone[0] && ytDone[1]) {
+          renderEmailStage(beat, pack, () => finalizeGate(beat, pack, onUnlocked));
+        } else {
+          steps.forEach((s, i) => { if (i < 2 && !ytDone[i]) { s.classList.add("is-done"); s.querySelector(".gate-step__go").textContent = "DONE"; } });
+        }
       });
     } else if (pack.gate === "exclusive") {
       const done = [false, false, false];
@@ -397,9 +397,7 @@
         rememberEmail(email);
         const wantsUpdates = optin.checked;
         if (wantsUpdates) addToMarketingList(email);
-        const submitBtn = modal.querySelector("[data-gate-submit]");
-        if (submitBtn) submitBtn.disabled = true;
-        const advance = () => { closeGate(); const sm = showSuccessModal(); setTimeout(() => { if (sm && sm.parentNode) sm.remove(); markUnlocked(beat.id, pack.id); onUnlocked(beat, pack); }, 1400); };
+        const advance = () => { renderSignatureStage(beat, pack, () => finalizeGate(beat, pack, onUnlocked)); };
         if (form && wantsUpdates && newsletterEndpoint()) postSubscribeForm(form, advance); else advance();
       };
       submit.addEventListener("click", submitEmail);
@@ -434,17 +432,8 @@
         rememberEmail(email);
         const wantsUpdates = !optin || optin.checked;
         if (wantsUpdates) addToMarketingList(email);
-        const submitBtn = modal.querySelector("[data-gate-submit]");
-        if (submitBtn) submitBtn.disabled = true;
-        const advance = () => {
-          closeGate();
-          const sm = showSuccessModal();
-          setTimeout(() => { if (sm && sm.parentNode) sm.remove(); markUnlocked(beat.id, pack.id); onUnlocked(beat, pack); }, 1400);
-        };
-        // Subscribe first (so the POST survives the move to the download page),
-        // then unlock. The address itself is never required to be confirmed.
-        if (form && wantsUpdates && newsletterEndpoint()) postSubscribeForm(form, advance);
-        else advance();
+        const advance = () => renderEmailStage(beat, pack, () => finalizeGate(beat, pack, onUnlocked));
+        if (form && wantsUpdates && newsletterEndpoint()) postSubscribeForm(form, advance); else advance();
       };
       submit.addEventListener("click", submitEmail);
       input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") submitEmail(ev); });
@@ -458,6 +447,106 @@
      document itself, so nothing here renders or hands over license copy. */
 
   /* toast */
+
+  /* Email stage is shared across all packages — every package must leave an
+     address before it can be unlocked; the opt-in checkbox is mandatory only
+     for Exclusive / Pro. The POST survives the move to its page. */
+  function renderEmailStage(beat, pack, onEmailDone) {
+    if (gate) closeGate();
+    const modal = document.createElement("div");
+    modal.className = "gate-modal";
+    const mandatory = pack.gate === "exclusive";
+    modal.innerHTML = gateShell(pack, beat, "YOUR EMAIL", emailGateBody(pack, { optinRequired: mandatory }));
+    document.body.appendChild(modal);
+    gate = modal;
+    document.documentElement.classList.add("gate-open");
+    requestAnimationFrame(() => modal.classList.add("is-visible"));
+    const form = modal.querySelector("[data-gate-form]");
+    const input = modal.querySelector("#gate-email");
+    const optin = modal.querySelector("#gate-optin");
+    if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
+    const remembered = readEmail();
+    if (remembered) input.value = remembered;
+    setTimeout(() => { try { input.focus(); input.select(); } catch (err) {} }, 40);
+    const submitEmail = (ev) => {
+      if (ev && ev.cancelable) ev.preventDefault();
+      const email = String(input.value || "").trim();
+      if (!EMAIL_RE.test(email)) {
+        const errEl = modal.querySelector("#gate-error");
+        if (errEl) { errEl.textContent = "ENTER A VALID EMAIL ADDRESS"; errEl.hidden = false; }
+        try { input.focus(); } catch (err) {}
+        return;
+      }
+      if (mandatory && (!optin || !optin.checked)) {
+        const errEl = modal.querySelector("#gate-error");
+        if (errEl) { errEl.textContent = "CHECK THE BOX TO UNLOCK"; errEl.hidden = false; }
+        return;
+      }
+      rememberEmail(email);
+      const wantsUpdates = !optin || optin.checked;
+      if (wantsUpdates) addToMarketingList(email);
+      const submitBtn = modal.querySelector("[data-gate-submit]");
+      if (submitBtn) submitBtn.disabled = true;
+      const advance = () => { closeGate(); onEmailDone(); };
+      if (form && wantsUpdates && newsletterEndpoint()) postSubscribeForm(form, advance); else advance();
+    };
+    modal.querySelector("[data-gate-submit]").addEventListener("click", submitEmail);
+    input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") submitEmail(ev); });
+    modal.querySelectorAll("[data-gate-cancel]").forEach((el) => el.addEventListener("click", closeGate));
+    gateKeyHandler = (ev) => { if (ev.key === "Escape") closeGate(); };
+    document.addEventListener("keydown", gateKeyHandler);
+  }
+
+  /* Signature stage (Exclusive only): the artist's typed signature is embedded
+     in the license PDF and stored for future visits. */
+  function renderSignatureStage(beat, pack, onSigned) {
+    if (gate) closeGate();
+    const modal = document.createElement("div");
+    modal.className = "gate-modal";
+    modal.innerHTML = gateShell(pack, beat, "SIGN YOUR LICENSE",
+      '<p class="gate-modal__copy">Type your artist / producer name to sign the certificate.</p>' +
+      '<label class="gate-field"><span class="gate-field__label">SIGNATURE</span>' +
+        '<input class="gate-input" id="gate-signature" type="text" autocomplete="name" spellcheck="false" placeholder="Your name" aria-label="Your signature" required>' +
+      '</label>' +
+      '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
+      '<div class="gate-modal__actions">' +
+        '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
+        '<button type="button" class="kyrolll-btn" data-gate-submit>UNLOCK DOWNLOAD</button>' +
+      '</div>');
+    document.body.appendChild(modal);
+    gate = modal;
+    document.documentElement.classList.add("gate-open");
+    requestAnimationFrame(() => modal.classList.add("is-visible"));
+    const input = modal.querySelector("#gate-signature");
+    try { const r = localStorage.getItem("kyrolll_licensee") || ""; if (r) input.value = r; } catch (err) {}
+    setTimeout(() => { try { input.focus(); input.select(); } catch (err) {} }, 40);
+    const submitSig = () => {
+      const name = String(input.value || "").trim();
+      if (!name) {
+        const errEl = modal.querySelector("#gate-error");
+        if (errEl) { errEl.textContent = "ENTER YOUR NAME"; errEl.hidden = false; }
+        try { input.focus(); } catch (err) {}
+        return;
+      }
+      try { localStorage.setItem("kyrolll_licensee", name); } catch (err) {}
+      closeGate();
+      onSigned();
+    };
+    modal.querySelector("[data-gate-submit]").addEventListener("click", submitSig);
+    input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") submitSig(); });
+    modal.querySelectorAll("[data-gate-cancel]").forEach((el) => el.addEventListener("click", closeGate));
+    gateKeyHandler = (ev) => { if (ev.key === "Escape") closeGate(); };
+    document.addEventListener("keydown", gateKeyHandler);
+  }
+
+  /* Common completion used by every gate chain — mark unlocked, show success
+     checkmark, then hand off to the download page. */
+  function finalizeGate(beat, pack, onUnlocked) {
+    markUnlocked(beat.id, pack.id);
+    const sm = showSuccessModal();
+    setTimeout(() => { if (sm && sm.parentNode) sm.remove(); onUnlocked(beat, pack); }, 1400);
+  }
+
   let toastTimer = 0;
   function showToast(message) {
     let toast = document.querySelector(".kyrolll-toast");
