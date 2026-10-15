@@ -18,51 +18,10 @@
 
   try {
     const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-  const STORAGE_PREFIX = "kyrolll_";
-  const UNLOCK_KEY = STORAGE_PREFIX + "unlocked";
-  const EMAIL_KEY = STORAGE_PREFIX + "download_email";
-  const LICENSEE_KEY = STORAGE_PREFIX + "licensee";
-  const MARKETING_KEY = STORAGE_PREFIX + "marketing_list";
-
   function helpers() { return window.KYROlll_HELPERS || null; }
   function newsletterEndpoint() {
     const h = helpers();
     return h && h.newsletterEndpoint ? h.newsletterEndpoint() : "";
-  }
-
-  function readStore(key) {
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return null;
-      return JSON.parse(raw);
-    } catch (err) { return null; }
-  }
-  function writeStore(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch (err) { /* ignore */ }
-  }
-  function readEmail() { return (readStore(EMAIL_KEY) || "").trim() || ""; }
-  function writeEmail(email) { writeStore(EMAIL_KEY, String(email || "").trim()); }
-  function readLicensee() { return (readStore(LICENSEE_KEY) || "").trim() || ""; }
-  function writeLicensee(name) { writeStore(LICENSEE_KEY, String(name || "").trim()); }
-  function readMarketingList() { return readStore(MARKETING_KEY) || []; }
-  function addToMarketingList(email) {
-    if (!EMAIL_RE.test(String(email || "").trim())) return;
-    const list = readStore(MARKETING_KEY) || [];
-    const addr = String(email).trim().toLowerCase();
-    if (list.some((entry) => (entry && entry.email || "").toLowerCase() === addr)) return;
-    list.push({ email: addr, at: Date.now() });
-    writeStore(MARKETING_KEY, list);
-  }
-
-  function isUnlocked(beatId, packageId) {
-    const list = readStore(UNLOCK_KEY) || [];
-    const id = beatId + "::" + packageId;
-    return list.indexOf(id) !== -1;
-  }
-  function markUnlocked(beatId, packageId) {
-    const list = readStore(UNLOCK_KEY) || [];
-    const id = beatId + "::" + packageId;
-    if (list.indexOf(id) === -1) { list.push(id); writeStore(UNLOCK_KEY, list); }
   }
 
   /* ------------------------------------------------------ low-level download */
@@ -103,10 +62,6 @@
     const beat = catalog && catalog.beatById(beatId);
     const pack = catalog && catalog.packageById(packageId);
     if (!beat || !pack) { showToast("BEAT OR PACKAGE NOT FOUND"); return; }
-    if (isUnlocked(beat.id, pack.id)) {
-      goToDownload(beat, pack);
-      return;
-    }
     openGate(beat, pack, () => { goToDownload(beat, pack); });
   }
 
@@ -228,7 +183,7 @@
         '<label class="gate-field"><span class="gate-field__label">EMAIL</span>' +
           '<input class="gate-input" id="gate-email" name="email" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="you@email.com" required>' +
         '</label>' +
-        '<label class="gate-optin"><input type="checkbox" id="gate-optin" name="opt_in" required><span>Email me future beat drops &amp; updates</span></label>' +
+        '<label class="gate-optin"><input type="checkbox" id="gate-optin" name="opt_in"' + ((opts && opts.optinRequired) ? ' required' : '') + '><span>Email me future beat drops &amp; updates</span></label>' +
         (endpoint ? '<input type="hidden" name="embed" value="1"><input type="hidden" name="tag" value="beat-download"><input type="hidden" name="_subject" value="KYROlll beat download">' : '') +
       '</form>' +
       '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
@@ -313,7 +268,6 @@
 
   /* Common completion: mark unlocked, show success, proceed */
   function finalizeGate(beat, pack, onUnlocked) {
-    markUnlocked(beat.id, pack.id);
     const sm = showSuccessModal();
     setTimeout(() => {
       if (sm && sm.parentNode) sm.remove();
@@ -349,37 +303,26 @@
     if (pack.gate === "email") {
       const input = modal.querySelector("#gate-email");
       const optin = modal.querySelector("#gate-optin");
-      const remembered = readEmail();
-      if (remembered) input.value = remembered;
       setTimeout(() => { try { input.focus(); input.select(); } catch (err) {} }, 40);
 
       function isReady() {
         const email = String(input && input.value || "").trim();
-        const checked = optin ? optin.checked : false;
-        return EMAIL_RE.test(email) && checked;
+        // MP3 (email gate): email required; checkbox optional
+        return EMAIL_RE.test(email);
       }
 
       const handleSubmit = (ev) => {
         if (ev && ev.cancelable && ev.type === "submit") ev.preventDefault();
         const email = String(input && input.value || "").trim();
-        const checked = optin ? optin.checked : false;
         if (!EMAIL_RE.test(email)) {
           const errEl = modal.querySelector("#gate-error");
           if (errEl) { errEl.textContent = "ENTER A VALID EMAIL ADDRESS"; errEl.hidden = false; }
           try { input && input.focus(); } catch (e) {}
           return;
         }
-        if (!checked) {
-          const errEl = modal.querySelector("#gate-error");
-          if (errEl) { errEl.textContent = "YOU MUST CHECK CONSENT TO UNLOCK"; errEl.hidden = false; }
-          return;
-        }
-        writeEmail(email);
-        submit.disabled = true;
-        submit.textContent = "UNLOCKING…";
+        const checked = optin ? optin.checked : false;
         const form = modal.querySelector("[data-gate-form]");
         const wantsUpdates = checked;
-        if (wantsUpdates) addToMarketingList(email);
         if (wantsUpdates && newsletterEndpoint()) {
           const advance = () => { closeGate(); finalizeGate(beat, pack, onUnlocked); };
           postSubscribeForm(form, advance);
@@ -439,9 +382,7 @@
           if (errEl) { errEl.textContent = "YOU MUST CHECK CONSENT TO UNLOCK"; errEl.hidden = false; }
           return;
         }
-        writeEmail(email);
         const wantsUpdates = optin.checked;
-        if (wantsUpdates) addToMarketingList(email);
         const advance = () => { closeGate(); finalizeGate(beat, pack, onUnlocked); };
         if (form && wantsUpdates && newsletterEndpoint()) postSubscribeForm(form, advance); else advance();
       };
@@ -462,8 +403,6 @@
       if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
 
       // Remembered email
-      const remembered = readEmail();
-      if (remembered) input.value = remembered;
       setTimeout(() => { try { input.focus(); input.select(); } catch (err) {} }, 40);
 
       // Step click handlers for steps 0 and 1 (YouTube)
@@ -517,9 +456,7 @@
           return;
         }
 
-        writeEmail(email);
         const wantsUpdates = optin.checked;
-        if (wantsUpdates) addToMarketingList(email);
         const advance = () => { closeGate(); finalizeGate(beat, pack, onUnlocked); };
         if (form && wantsUpdates && newsletterEndpoint()) postSubscribeForm(form, advance); else advance();
       };
@@ -589,8 +526,8 @@
 
   window.KYROlll_DOWNLOADS = {
     PACKAGES: window.KYROlll_PACKAGES || [],
-    readEmail, writeEmail, readLicensee, writeLicensee,
-    isUnlocked, markUnlocked,
+    readEmail: () => "", writeEmail: () => {}, readLicensee: () => "", writeLicensee: () => {},
+    isUnlocked: () => false, markUnlocked: () => {},
     downloadUrl, start, goToDownload, openMenu, closeMenu, openGate, closeGate,
     deliverablesFor: (beatId, packageId) => (helpers() ? helpers().deliverablesFor(beatId, packageId) : []),
     newsletterEndpoint,

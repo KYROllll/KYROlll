@@ -93,7 +93,7 @@
       note.setAttribute("role", "region");
       note.setAttribute("aria-label", "Producer Note — Tracked Stems");
       note.innerHTML = '<span class="download-list__note-kicker">TRACKED STEMS — PRODUCER NOTE</span>' +
-        '<p class="download-list__note-text">Tracked stems are part of our exclusive, limited drops — a way to keep the catalog fresh, curated and elite. These stems are supplied for your release use only, exactly as delivered. Each stem is fully tagged, separated by instrument group, and delivered in studio-quality WAV format for your commercial and non-commercial releases.</p>';
+        '<p class="download-list__note-text">TRACKED STEMS ARE PART OF OUR EXCLUSIVE, LIMITED DROPS — A WAY TO KEEP THE CATALOG FRESH, CURATED AND ELITE. THESE STEMS ARE SUPPLIED FOR YOUR RELEASE USE ONLY, EXACTLY AS DELIVERED.</p>';
       listEl.appendChild(note);
     }
 
