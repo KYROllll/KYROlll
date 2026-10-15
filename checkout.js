@@ -301,33 +301,18 @@
     modal.addEventListener("keydown", (event) => { if (event.key === "Escape") closeEmailModal(); });
   }
 
-  // Ask the `create-payment` function for a NOWPayments invoice, then send the
-  // browser to the hosted URL it returns. The function prices the order
-  // server-side and returns `{ url }`; the license row itself is written only by
-  // `nowpayments-webhook`, with the service_role key, once the payment is
-  // finished and — later — the delivery email is sent from there.
+  // Redirect directly to the pre-created NOWPayments invoice for the selected tier.
   let paymentInFlight = false;
-  async function startPayment(beat, license, email) {
+  function startPayment(beat, license, email) {
     if (!beat || !license) return;
-    const b = backend();
-    if (!b || !b.configured || !b.payments || !b.payments.createInvoice) {
-      window.location.assign(license.url);
-      return;
-    }
     if (paymentInFlight) return;
     paymentInFlight = true;
-    showToast("CREATING YOUR INVOICE…");
-    try {
-      const invoice = await b.payments.createInvoice({ beatId: beat.id, licenseType: license.id, email });
-      const url = invoice && (invoice.url || invoice.invoice_url);
-      if (!url) throw new Error("NO INVOICE URL");
+    const url = license.url || (licenseFor(license.id) && licenseFor(license.id).url);
+    if (url) {
       window.location.assign(url);
-      return;
-    } catch (err) {
-      console.warn("KYROlll: create-payment failed", err);
-      showToast("CHECKOUT UNAVAILABLE — TRY AGAIN");
-    } finally {
+    } else {
       paymentInFlight = false;
+      showToast("CHECKOUT UNAVAILABLE");
     }
   }
 
