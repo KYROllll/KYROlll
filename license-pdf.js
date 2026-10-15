@@ -45,7 +45,8 @@
      it cannot draw are the typographic ones, which fold to ASCII first. */
   function toAscii(value) {
     return String(value == null ? "" : value)
-      .replace(/[\u2014\u2013]/g, "-")
+      .toUpperCase()
+      .replace(/\u2014\u2013/g, "-")
       .replace(/[\u2018\u2019]/g, "'")
       .replace(/[\u00ae\u00a9]/g, "(c)")
       .replace(/\u00b7/g, "-")
@@ -378,10 +379,10 @@
     const sigW = (COL_W - 40) / 2;
     const sigX2 = COL_X + sigW + 40;
     const signatureBlock = (x, name, label, micro) => {
-      hline(x, x + sigW, sigTop - 40, FRAME, 0.8);
-      put(x + 3, sigTop - 31, name, "F3", 17, SILVER, 0);
-      putTracked(x, sigTop - 54, label, "F1", 7, MUTED, 1.2);
-      putTracked(x, sigTop - 65, micro, "F1", 6.5, MUTED, 0.9);
+      hline(x, x + sigW, sigTop - 42, FRAME, 0.8);
+      put(x + 3, sigTop - 32, name, "F3", 16, SILVER, 0);
+      putTracked(x, sigTop - 55, label, "F1", 7, MUTED, 1.2);
+      putTracked(x, sigTop - 66, micro, "F1", 6.5, MUTED, 0.9);
     };
     const licenseeMicro = "SIGNED " + data.issued + "  —  EMAIL: " + (data.licensee || "—");
     signatureBlock(COL_X, data.licensee || "—", "LICENSEE — SIGNATURE", licenseeMicro);
@@ -404,23 +405,23 @@
       const barsX = PAGE_W - M - 110;
       const barsY = footRuleY - 18;
       let bc = "";
-      const url = "https://kyroill.store";
+      const url = "HTTPS://KYROILL.STORE";
       for (let b = 0; b < 12; b++) {
         const x = barsX + b * 7 + (b % 2 ? 0 : 2);
         const h = (b % 3 === 0) ? 14 : 8;
         bc += "0 0 0 RG\n" + x.toFixed(1) + " " + barsY.toFixed(1) + " m " + (x + 2.4).toFixed(1) + " " + barsY.toFixed(1) + " l " + (x + 2.4).toFixed(1) + " " + (barsY + h).toFixed(1) + " l " + x.toFixed(1) + " " + (barsY + h).toFixed(1) + " l f\n";
       }
-      bc += "BT /F1 5.5 Tf 0 Tc 0.55 0.55 0.55 rg " + (barsX - 4).toFixed(2) + " " + (barsY - 10).toFixed(2) + " Td (" + escapePdfString(url) + ") Tj ET\n";
+      bc += "BT /F1 5.5 Tf 0 Tc 0.55 0.55 0.55 rg " + (barsX - 4).toFixed(2) + " " + (barsY - 10).toFixed(2) + " Td (" + escapePdfString(url.toUpperCase()) + ") Tj ET\n";
       return bc;
     }
 
     pages.forEach((content, i) => {
       const right = "PAGE " + (i + 1) + " OF " + pageCount;
-      const center = data.serial;
+      const center = (data.serial || "").toUpperCase();
       const footer =
         HAIR + " 0.6 RG\n" +
         COL_X.toFixed(2) + " " + footRuleY.toFixed(2) + " m " + (COL_X + COL_W).toFixed(2) + " " + footRuleY.toFixed(2) + " l S\n" +
-        "BT /F1 7 Tf 0 Tc " + MUTED + " " + COL_X.toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString("KYROlll OPEN RELEASE PROGRAM") + ") Tj ET\n" +
+        "BT /F1 7 Tf 0 Tc " + MUTED + " " + COL_X.toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString("KYROLLL OPEN RELEASE PROGRAM") + ") Tj ET\n" +
         "BT /F1 7 Tf 0 Tc " + MUTED + " " + (PAGE_W / 2 - measure(center, "F1", 7) / 2).toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString(center) + ") Tj ET\n" +
         "BT /F1 7 Tf 0 Tc " + MUTED + " " + (PAGE_W - M - 18 - measure(right, "F1", 7)).toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString(right) + ") Tj ET\n" +
         barcodeBlock();
