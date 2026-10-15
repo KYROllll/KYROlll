@@ -398,6 +398,21 @@
     const pageCount = pages.length;
     const footRuleY = M + 22;
     const footTextY = M + 13;
+    /* Vector barcode graphic + URL label in the footer — links to the store. */
+    function barcodeBlock() {
+      const barsX = PAGE_W - M - 110;
+      const barsY = footRuleY - 18;
+      let bc = "";
+      const url = "KYROILL.STORE";
+      for (let b = 0; b < 12; b++) {
+        const x = barsX + b * 7 + (b % 2 ? 0 : 2);
+        const h = (b % 3 === 0) ? 14 : 8;
+        bc += "0 0 0 RG\n" + x.toFixed(1) + " " + barsY.toFixed(1) + " m " + (x + 2.4).toFixed(1) + " " + barsY.toFixed(1) + " l " + (x + 2.4).toFixed(1) + " " + (barsY + h).toFixed(1) + " l " + x.toFixed(1) + " " + (barsY + h).toFixed(1) + " l f\n";
+      }
+      bc += "BT /F1 5.5 Tf 0 Tc 0.55 0.55 0.55 rg " + (barsX - 4).toFixed(2) + " " + (barsY - 10).toFixed(2) + " Td (" + escapePdfString(url) + ") Tj ET\n";
+      return bc;
+    }
+
     pages.forEach((content, i) => {
       const right = "PAGE " + (i + 1) + " OF " + pageCount;
       const center = data.serial;
@@ -406,7 +421,8 @@
         COL_X.toFixed(2) + " " + footRuleY.toFixed(2) + " m " + (COL_X + COL_W).toFixed(2) + " " + footRuleY.toFixed(2) + " l S\n" +
         "BT /F1 7 Tf 0 Tc " + MUTED + " " + COL_X.toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString("KYROlll OPEN RELEASE PROGRAM") + ") Tj ET\n" +
         "BT /F1 7 Tf 0 Tc " + MUTED + " " + (PAGE_W / 2 - measure(center, "F1", 7) / 2).toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString(center) + ") Tj ET\n" +
-        "BT /F1 7 Tf 0 Tc " + MUTED + " " + (PAGE_W - M - 18 - measure(right, "F1", 7)).toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString(right) + ") Tj ET\n";
+        "BT /F1 7 Tf 0 Tc " + MUTED + " " + (PAGE_W - M - 18 - measure(right, "F1", 7)).toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString(right) + ") Tj ET\n" +
+        barcodeBlock();
       pages[i] = content + footer;
     });
 

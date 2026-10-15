@@ -204,6 +204,7 @@
     const node = gate;
     gate = null;
     if (gateKeyHandler) { document.removeEventListener("keydown", gateKeyHandler); gateKeyHandler = null; }
+    document.removeEventListener("click", closeGate); // defensive
     node.classList.remove("is-visible");
     document.documentElement.classList.remove("gate-open");
     setTimeout(() => node.remove(), 260);
@@ -486,9 +487,11 @@
       input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") handleSubmit(ev); });
     }
 
-    // Cancel handler
+    // Cancel + outside-click handler
     modal.querySelectorAll("[data-gate-cancel]").forEach((el) => el.addEventListener("click", closeGate));
-    gateKeyHandler = (ev) => { if (ev.key === "Escape") closeGate(); };
+    const outsideClick = (e) => { if (gate && !gate.contains(e.target)) closeGate(); };
+    document.addEventListener("click", outsideClick, true);
+    gateKeyHandler = (ev) => { if (ev.key === "Escape") { closeGate(); document.removeEventListener("click", outsideClick, true); } };
     document.addEventListener("keydown", gateKeyHandler);
   }
 
