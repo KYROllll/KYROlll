@@ -136,7 +136,7 @@
           canvas.width = image.naturalWidth;
           canvas.height = image.naturalHeight;
           const ctx = canvas.getContext("2d");
-          ctx.fillStyle = "#0a0a0a";
+          ctx.fillStyle = "#0b0b0b";
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(image, 0, 0);
           const base64 = canvas.toDataURL("image/jpeg", 0.9).split(",")[1];
@@ -403,7 +403,7 @@
       const barsX = PAGE_W - M - 110;
       const barsY = footRuleY - 18;
       let bc = "";
-      const url = "KYROILL.STORE";
+      const url = "https://kyroill.store";
       for (let b = 0; b < 12; b++) {
         const x = barsX + b * 7 + (b % 2 ? 0 : 2);
         const h = (b % 3 === 0) ? 14 : 8;

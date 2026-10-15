@@ -221,15 +221,15 @@
   /* Email gate body - used for MP3 instant gate */
   function emailGateBody(pack, opts) {
     const endpoint = newsletterEndpoint();
-    const mandatory = opts && opts.optinRequired;
-    const checkboxAtt = mandatory ? ' required' : '';
+    /* Mandatory opt-in for EVERY gate — no bypass under any circumstances */
+    const checkboxAtt = ' required';
     return '<p class="gate-modal__copy">Enter your email to unlock the ' + escapeHTML(pack.name.toLowerCase()) + '.</p>' +
       '<form class="gate-form" data-gate-form novalidate' +
         (endpoint ? ' action="' + escapeHTML(endpoint) + '" method="post"' : '') + '>' +
         '<label class="gate-field"><span class="gate-field__label">EMAIL</span>' +
           '<input class="gate-input" id="gate-email" name="email" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="you@email.com" required>' +
         '</label>' +
-        '<label class="gate-optin"><input type="checkbox" id="gate-optin" checked' + checkboxAtt + '><span>Email me future beat drops &amp; updates</span></label>' +
+        '<label class="gate-optin"><input type="checkbox" id="gate-optin" name="opt_in" checked' + checkboxAtt + '><span>Email me future beat drops &amp; updates</span></label>' +
         (endpoint ? '<input type="hidden" name="embed" value="1"><input type="hidden" name="tag" value="beat-download"><input type="hidden" name="_subject" value="KYROlll beat download">' : '') +
       '</form>' +
       '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
@@ -253,7 +253,7 @@
           '<span class="gate-step__num">2</span><span class="gate-step__body"><span class="gate-step__title">LIKE THIS VIDEO</span><span class="gate-step__meta">The beat you are grabbing</span></span><span class="gate-step__go">OPEN ↗</span>' +
         '</a>' +
       '</div>' +
-      emailGateBody(pack, { optinRequired: false }) +
+      emailGateBody(pack, { optinRequired: true }) +
       '<p class="gate-modal__hint" id="gate-hint">COMPLETE STEPS 1-2 AND ENTER EMAIL TO UNLOCK</p>';
   }
 
@@ -283,7 +283,7 @@
         '<label class="gate-field"><span class="gate-field__label">EMAIL</span>' +
           '<input class="gate-input" id="gate-email" name="email" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="you@email.com" required>' +
         '</label>' +
-        '<label class="gate-optin"><input type="checkbox" id="gate-optin" checked required><span>Email me future beat drops &amp; updates</span></label>' +
+        '<label class="gate-optin"><input type="checkbox" id="gate-optin" name="opt_in" checked required><span>Email me future beat drops &amp; updates</span></label>' +
         '<input type="hidden" name="embed" value="1"><input type="hidden" name="tag" value="beat-download"><input type="hidden" name="_subject" value="KYROlll beat download">' +
       '</form>' +
       '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
@@ -349,30 +349,44 @@
     // --- EMAIL GATE (MP3) — direct, bulletproof ---
     if (pack.gate === "email") {
       const input = modal.querySelector("#gate-email");
+      const optin = modal.querySelector("#gate-optin");
       const remembered = readEmail();
       if (remembered) input.value = remembered;
       setTimeout(() => { try { input.focus(); input.select(); } catch (err) {} }, 40);
 
+      function isReady() {
+        const email = String(input && input.value || "").trim();
+        const checked = optin ? optin.checked : false;
+        return EMAIL_RE.test(email) && checked;
+      }
+
       const handleSubmit = (ev) => {
         if (ev && ev.cancelable && ev.type === "submit") ev.preventDefault();
         const email = String(input && input.value || "").trim();
-        console.log("Email button clicked! value=", email);
+        const checked = optin ? optin.checked : false;
         if (!EMAIL_RE.test(email)) {
           const errEl = modal.querySelector("#gate-error");
           if (errEl) { errEl.textContent = "ENTER A VALID EMAIL ADDRESS"; errEl.hidden = false; }
           try { input && input.focus(); } catch (e) {}
           return;
         }
+        if (!checked) {
+          const errEl = modal.querySelector("#gate-error");
+          if (errEl) { errEl.textContent = "YOU MUST CHECK CONSENT TO UNLOCK"; errEl.hidden = false; }
+          return;
+        }
         writeEmail(email);
         submit.disabled = true;
         submit.textContent = "UNLOCKING…";
-        console.log("Gate unlocked — transitioning to download page");
         closeGate();
         finalizeGate(beat, pack, onUnlocked);
       };
 
-      submit.disabled = !(input && input.value.trim());
+      function refresh() { submit.disabled = !isReady(); }
+      submit.disabled = !isReady();
+      input && input.addEventListener("input", refresh);
       input && input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") handleSubmit(ev); });
+      optin && optin.addEventListener("change", refresh);
       submit.addEventListener("click", handleSubmit);
     }
 
@@ -390,12 +404,21 @@
         step.addEventListener("click", () => {
           const i = Number(step.getAttribute("data-gate-step"));
           if (!done[i]) { done[i] = true; step.classList.add("is-done"); step.querySelector(".gate-step__go").textContent = "DONE ✓"; }
-          if (done[0] && done[1]) { submit.disabled = false; hint.textContent = "ALL SET — UNLOCK YOUR DOWNLOAD"; }
+          refreshSubmit();
         });
       });
 
-      // Initialize submit disabled until both steps complete
+      function refreshSubmit() {
+        const emailOk = EMAIL_RE.test(String(input && input.value || "").trim());
+        const checked = optin ? optin.checked : false;
+        submit.disabled = !(done[0] && done[1] && emailOk && checked);
+        if (hint) hint.textContent = (done[0] && done[1] && emailOk && checked) ? "ALL SET — UNLOCK YOUR DOWNLOAD" : "COMPLETE STEPS 1-2 AND ENTER EMAIL TO UNLOCK";
+      }
+
+      // Initialize submit disabled until all conditions met
       submit.disabled = true;
+      input && input.addEventListener("input", refreshSubmit);
+      optin && optin.addEventListener("change", refreshSubmit);
 
       const handleSubmit = () => {
         if (submit.disabled) return;
@@ -405,14 +428,17 @@
           if (input) try { input.focus(); } catch (err) {}
           return;
         }
+        if (!optin || !optin.checked) {
+          if (errEl) { errEl.textContent = "YOU MUST CHECK CONSENT TO UNLOCK"; errEl.hidden = false; }
+          return;
+        }
         writeEmail(email);
-        const wantsUpdates = !optin || optin.checked;
+        const wantsUpdates = optin.checked;
         if (wantsUpdates) addToMarketingList(email);
         const advance = () => { closeGate(); finalizeGate(beat, pack, onUnlocked); };
         if (form && wantsUpdates && newsletterEndpoint()) postSubscribeForm(form, advance); else advance();
       };
 
-      submit.disabled = !input.value.trim();
       submit.addEventListener("click", handleSubmit);
     }
 
@@ -449,11 +475,15 @@
           checkExclusive();
         });
       }
+      if (optin) {
+        optin.addEventListener("change", () => { checkExclusive(); });
+      }
 
       // Check if all steps done
       function checkExclusive() {
         const commentOk = (commentField && commentField.value.trim().length > 0);
-        const all = done[0] && done[1] && commentOk;
+        const optOk = optin ? optin.checked : false;
+        const all = done[0] && done[1] && commentOk && optOk;
         submit.disabled = !all;
         if (hint) hint.textContent = all ? "ALL SET — UNLOCK YOUR DOWNLOAD" : "COMPLETE ALL STEPS TO UNLOCK";
       }
@@ -495,28 +525,22 @@
     document.addEventListener("keydown", gateKeyHandler);
   }
 
-  /* Form POST through hidden iframe */
+  /* Real Formspree AJAX — every submitted email recorded in dashboard */
   function postSubscribeForm(form, done) {
-    const name = "kyrolll-subscribe-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-    const frame = document.createElement("iframe");
-    frame.name = name;
-    frame.hidden = true;
-    frame.setAttribute("aria-hidden", "true");
-    frame.tabIndex = -1;
-    frame.style.cssText = "position:absolute;width:0;height:0;border:0;visibility:hidden";
-    let settled = false;
-    let timer = 0;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      if (frame.parentNode) frame.remove();
-      done();
-    };
-    frame.addEventListener("load", finish);
-    document.body.appendChild(frame);
-    form.target = name;
-    try { form.submit(); } catch (err) { finish(); }
+    const emailInput = form && form.querySelector ? form.querySelector('input[name="email"]') : null;
+    const optinInput = form && form.querySelector ? form.querySelector('input[name="opt_in"]') : null;
+    const email = emailInput ? String(emailInput.value || "").trim() : "";
+    const optIn = optinInput ? !!optinInput.checked : false;
+    if (!email) { if (done) done(); return; }
+    const data = new FormData();
+    data.append("email", email);
+    data.append("opt_in", optIn ? "yes" : "no");
+    fetch("https://formspree.io/f/xgaoppwo", {
+      method: "POST",
+      headers: { "Accept": "application/json" },
+      body: data
+    }).catch(() => { /* ignore — unlock proceeds regardless */ });
+    if (done) done();
   }
 
   /* toast */
