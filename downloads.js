@@ -109,6 +109,84 @@
     openGate(beat, pack, () => { goToDownload(beat, pack); });
   }
 
+  /* ------------------------------------------------------ menu */
+  let activeMenu = null;
+  function openMenu(trigger, beatId) {
+    closeMenu();
+    const catalog = helpers();
+    const beat = catalog && catalog.beatById(beatId);
+    if (!beat) { showToast("BEAT NOT FOUND"); return; }
+    const menu = document.createElement("div");
+    menu.className = "download-menu";
+    menu.setAttribute("role", "menu");
+    const packs = (window.KYROlll_PACKAGES || []).map((pack, i) => {
+      return '<button type="button" class="download-tier" role="menuitem" data-package="' + escapeHTML(pack.id) + '" style="--tier-i:' + i + '">' +
+        '<span class="download-tier__top"><span class="download-tier__name">' + escapeHTML(pack.name) + '</span>' +
+        '<span class="download-tier__tag">' + escapeHTML(pack.tag || "") + '</span></span>' +
+        '<span class="download-tier__blurb">' + escapeHTML(pack.blurb || "") + '</span>' +
+      '</button>';
+    }).join("");
+    menu.innerHTML = '<div class="download-menu__head">' +
+        '<span class="download-menu__kicker">DOWNLOAD FREE</span>' +
+        '<span class="download-menu__beat">' + escapeHTML(beat.title) + '</span>' +
+      '</div>' +
+      '<div class="download-menu__list">' + packs + '</div>';
+    document.body.appendChild(menu);
+    activeMenu = { el: menu, anchor: trigger };
+    requestAnimationFrame(() => {
+      menu.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    menu.querySelectorAll(".download-tier").forEach((btn) => {
+      btn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        closeMenu();
+        start(beat.id, btn.getAttribute("data-package"));
+      });
+    });
+    trigger.setAttribute("aria-expanded", "true");
+    menu.classList.add("is-open");
+    positionMenu();
+    window.addEventListener("scroll", guardMenuScroll, true);
+    window.addEventListener("resize", closeMenu, true);
+    document.addEventListener("keydown", handleMenuKey);
+    document.addEventListener("click", handleMenuOutside, true);
+  }
+  function guardMenuScroll() { positionMenu(); }
+  function handleMenuOutside(e) {
+    if (activeMenu && !activeMenu.el.contains(e.target) && !activeMenu.anchor.contains(e.target)) closeMenu();
+  }
+  function handleMenuKey(e) { if (e.key === "Escape") closeMenu(); }
+  function closeMenu() {
+    if (!activeMenu) return;
+    if (activeMenu.anchor) activeMenu.anchor.setAttribute("aria-expanded", "false");
+    if (activeMenu.el) activeMenu.el.classList.remove("is-open");
+    activeMenu.el.remove();
+    activeMenu = null;
+    window.removeEventListener("scroll", guardMenuScroll, true);
+    window.removeEventListener("resize", closeMenu, true);
+    document.removeEventListener("keydown", handleMenuKey);
+    document.removeEventListener("click", handleMenuOutside, true);
+  }
+  function positionMenu() {
+    if (!activeMenu) return;
+    const { el, anchor } = activeMenu;
+    const rect = anchor.getBoundingClientRect();
+    const width = Math.max(rect.width, 300);
+    let left = rect.left + rect.width / 2 - width / 2;
+    left = Math.max(12, Math.min(left, window.innerWidth - width - 12));
+    el.style.width = width + "px";
+    el.style.left = left + "px";
+    let top = Math.max(12, rect.bottom + 10);
+    let maxHeight = window.innerHeight - top - 12;
+    if (maxHeight < 140) {
+      top = Math.max(12, window.innerHeight - 140 - 12);
+      maxHeight = window.innerHeight - top - 12;
+    }
+    el.style.top = top + "px";
+    el.style.maxHeight = Math.max(80, maxHeight) + "px";
+    el.style.overflowY = "auto";
+  }
+
   /* escapeHTML for gate body rendering */
   function escapeHTML(v) {
     return String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ 
