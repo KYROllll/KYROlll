@@ -68,5 +68,20 @@
   <script src="downloads.js?v=7"></script>
   <script src="download-page.js?v=7"></script>
   <script type="module" src="assets/brand-logo.min.js?v=19"></script>
+
+  <!-- Signature prompt — collects the licensee's name before the PDF is built -->
+  <div class="sig-modal" id="sig-modal" role="dialog" aria-modal="true" aria-label="License signature" hidden>
+    <div class="sig-modal__backdrop"></div>
+    <div class="sig-modal__card">
+      <h3 class="sig-modal__title">SIGN YOUR LICENSE</h3>
+      <p class="sig-modal__copy">Type your artist / producer name to sign the certificate.</p>
+      <input class="sig-modal__input" id="sig-name" type="text" autocomplete="name" spellcheck="false" placeholder="Your name" aria-label="Your name">
+      <p class="sig-modal__error" id="sig-error" role="alert" hidden>ENTER YOUR NAME</p>
+      <div class="sig-modal__actions">
+        <button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-sig-cancel>CANCEL</button>
+        <button type="button" class="kyrolll-btn" data-sig-confirm>SIGN & DOWNLOAD</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

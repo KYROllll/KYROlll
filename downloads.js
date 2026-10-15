@@ -123,6 +123,11 @@
       '<div class="download-menu__list">' + packs + '</div>';
     document.body.appendChild(menu);
     activeMenu = { el: menu, anchor: trigger };
+    // Smooth-scroll the menu into view so mobile visitors land on the drawer,
+    // not on the trigger they just tapped.
+    requestAnimationFrame(() => {
+      menu.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     menu.querySelectorAll(".download-tier").forEach((btn) => {
       btn.addEventListener("click", (ev) => {
         ev.stopPropagation();
@@ -264,6 +269,46 @@
       '</div>' +
       '<p class="gate-modal__hint" id="gate-hint">OPEN BOTH STEPS TO UNLOCK</p>';
   }
+  /* Exclusive / Pro multi-step gate:
+     1) YouTube Subscribe + Like (same as youtube gate)
+     2) YouTube Comment verification prompt (user types a comment, we just ensure non-empty)
+     3) Email with mandatory opt-in checkbox */
+  function exclusiveGateBody(pack, beat) {
+    const channel = window.KYROlll_YOUTUBE_CHANNEL || "https://www.youtube.com/";
+    const video = helpers() ? helpers().videoFor(beat.id) : channel;
+    const endpoint = newsletterEndpoint();
+  return '<p class="gate-modal__copy">Three high-value steps to unlock the ' + escapeHTML(pack.name.toLowerCase()) + '.</p>' +
+      '<div class="gate-steps">' +
+        '<a class="gate-step" href="' + escapeHTML(channel) + '" target="_blank" rel="noopener noreferrer" data-gate-step="0">' +
+          '<span class="gate-step__num">1</span><span class="gate-step__body"><span class="gate-step__title">SUBSCRIBE</span><span class="gate-step__meta">To the KYROlll channel</span></span><span class="gate-step__go">OPEN ↗</span>' +
+        '</a>' +
+        '<a class="gate-step" href="' + escapeHTML(video) + '" target="_blank" rel="noopener noreferrer" data-gate-step="1">' +
+          '<span class="gate-step__num">2</span><span class="gate-step__body"><span class="gate-step__title">LIKE THIS VIDEO</span><span class="gate-step__meta">The beat you are grabbing</span></span><span class="gate-step__go">OPEN ↗</span>' +
+        '</a>' +
+        '<div class="gate-step gate-step--comment" data-gate-step="2">' +
+          '<span class="gate-step__num">3</span>' +
+          '<span class="gate-step__body">' +
+            '<span class="gate-step__title">COMMENT ON THE VIDEO</span>' +
+            '<span class="gate-step__meta">Paste your comment here to verify</span>' +
+            '<textarea class="gate-input gate-comment" id="gate-comment" placeholder="Paste your comment..." rows="2"></textarea>' +
+          '</span>' +
+          '<span class="gate-step__go">DONE</span>' +
+        '</div>' +
+      '</div>' +
+      '<form class="gate-form" data-gate-form action="' + escapeHTML(endpoint) + '" method="post" novalidate>' +
+        '<label class="gate-field"><span class="gate-field__label">EMAIL</span>' +
+          '<input class="gate-input" id="gate-email" name="email" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="you@email.com" required>' +
+        '</label>' +
+        '<label class="gate-optin"><input type="checkbox" id="gate-optin" checked><span>Email me future beat drops &amp; updates</span></label>' +
+        '<input type="hidden" name="embed" value="1"><input type="hidden" name="tag" value="beat-download"><input type="hidden" name="_subject" value="KYROlll beat download">' +
+      '</form>' +
+      '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
+      '<div class="gate-modal__actions">' +
+        '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
+        '<button type="button" class="kyrolll-btn" data-gate-submit disabled>UNLOCK EXCLUSIVE</button>' +
+      '</div>' +
+      '<p class="gate-modal__hint" id="gate-hint">COMPLETE ALL STEPS TO UNLOCK</p>';
+  }
   function showSuccessModal() {
     const modal = document.createElement("div");
     modal.className = "gate-modal gate-modal--success";
@@ -285,7 +330,7 @@
     closeGate();
     const modal = document.createElement("div");
     modal.className = "gate-modal";
-    modal.innerHTML = gateShell(pack, beat, pack.gate === "youtube" ? youtubeGateBody(pack, beat) : emailGateBody(pack));
+    modal.innerHTML = gateShell(pack, beat, pack.gate === "youtube" ? youtubeGateBody(pack, beat) : (pack.gate === "exclusive" ? exclusiveGateBody(pack, beat) : emailGateBody(pack)));
     document.body.appendChild(modal);
     gate = modal;
     document.documentElement.classList.add("gate-open");
@@ -307,6 +352,66 @@
         const sm = showSuccessModal();
         setTimeout(() => { if (sm && sm.parentNode) sm.remove(); markUnlocked(beat.id, pack.id); onUnlocked(beat, pack); }, 1400);
       });
+    } else if (pack.gate === "exclusive") {
+      const done = [false, false, false];
+      const hint = modal.querySelector("#gate-hint");
+      const stepBtn = modal.querySelector("[data-gate-step='2']");
+      const commentField = modal.querySelector("#gate-comment");
+      // Steps 0 and 1 are the YouTube subscribe + like links
+      modal.querySelectorAll("[data-gate-step='0'],[data-gate-step='1']").forEach((step) => {
+        step.addEventListener("click", () => {
+          const i = Number(step.getAttribute("data-gate-step"));
+          if (i < 2 && !done[i]) { done[i] = true; step.classList.add("is-done"); step.querySelector(".gate-step__go").textContent = "DONE"; }
+          checkExclusive();
+        });
+      });
+      // Step 2: comment verification — non-empty input marks done
+      if (commentField) {
+        commentField.addEventListener("input", () => {
+          done[2] = (commentField.value.trim().length > 0);
+          checkExclusive();
+        });
+      }
+      const form = modal.querySelector("[data-gate-form]");
+      const input = modal.querySelector("#gate-email");
+      const optin = modal.querySelector("#gate-optin");
+      if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
+      const remembered = readEmail();
+      if (remembered) input.value = remembered;
+      setTimeout(() => { try { input.focus(); input.select(); } catch (err) {} }, 40);
+      const submitEmail = (ev) => {
+        if (ev && ev.cancelable) ev.preventDefault();
+        const email = String(input.value || "").trim();
+        if (!EMAIL_RE.test(email)) {
+          const errEl = modal.querySelector("#gate-error");
+          if (errEl) { errEl.textContent = "ENTER A VALID EMAIL ADDRESS"; errEl.hidden = false; }
+          try { input.focus(); } catch (err) {}
+          return;
+        }
+        // Mandatory consent checkbox must be checked
+        if (!optin || !optin.checked) {
+          const errEl = modal.querySelector("#gate-error");
+          if (errEl) { errEl.textContent = "YOU MUST CHECK CONSENT TO UNLOCK"; errEl.hidden = false; }
+          return;
+        }
+        rememberEmail(email);
+        const wantsUpdates = optin.checked;
+        if (wantsUpdates) addToMarketingList(email);
+        const submitBtn = modal.querySelector("[data-gate-submit]");
+        if (submitBtn) submitBtn.disabled = true;
+        const advance = () => { closeGate(); const sm = showSuccessModal(); setTimeout(() => { if (sm && sm.parentNode) sm.remove(); markUnlocked(beat.id, pack.id); onUnlocked(beat, pack); }, 1400); };
+        if (form && wantsUpdates && newsletterEndpoint()) postSubscribeForm(form, advance); else advance();
+      };
+      submit.addEventListener("click", submitEmail);
+      input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") submitEmail(ev); });
+      // Helper that enables submit when youtube steps + comment + consent done
+      // (consent is checked at click time; for UX we just require youtube + comment here)
+      function checkExclusive() {
+        const commentOk = (commentField && commentField.value.trim().length > 0) || (done[2]);
+        const all = done[0] && done[1] && commentOk;
+        submit.disabled = !all;
+        if (hint) hint.textContent = all ? "ALL SET — UNLOCK YOUR DOWNLOAD" : "COMPLETE ALL STEPS TO UNLOCK";
+      }
     } else {
       const form = modal.querySelector("[data-gate-form]");
       const input = modal.querySelector("#gate-email");

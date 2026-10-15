@@ -123,6 +123,10 @@
      so everything is bound exactly once. `render()` can run again after a gate
      opens over the page; it must not re-bind or re-mint. */
   let licenseWired = false;
+  let licenseeName = "";
+  const sigModal = document.getElementById("sig-modal");
+  const sigInput = document.getElementById("sig-name");
+  const sigError = document.getElementById("sig-error");
   function showLicensePanel() {
     if (!licensePanel) return;
     licensePanel.hidden = false;
@@ -134,7 +138,42 @@
     licenseWired = true;
     pdfBtn.addEventListener("click", (event) => {
       if (event && typeof event.preventDefault === "function") event.preventDefault();
-      window.KYROlll_LICENSE_PDF.generateLicensePDF(beat, pack, d, serial);
+      // If we already have a licensee name, go straight to PDF generation
+      if (licenseeName) {
+        window.KYROlll_LICENSE_PDF.generateLicensePDF(beat, pack, d, serial, licenseeName);
+        return;
+      }
+      // Otherwise, show the signature modal
+      sigModal.hidden = false;
+      sigInput.value = "";
+      sigError.hidden = false;
+      sigInput.focus();
+    });
+    // Signature modal handlers
+    const sigConfirm = sigModal.querySelector("[data-sig-confirm]");
+    const sigCancel = sigModal.querySelector("[data-sig-cancel]");
+    sigConfirm.addEventListener("click", () => {
+      const name = sigInput.value.trim();
+      if (!name) {
+        sigError.hidden = false;
+        sigInput.focus();
+        return;
+      }
+      licenseeName = name;
+      // Persist for future visits
+      try { localStorage.setItem("kyrolll_licensee", name); } catch (e) {}
+      sigModal.hidden = true;
+      // Now generate the PDF
+      window.KYROlll_LICENSE_PDF.generateLicensePDF(beat, pack, d, serial, licenseeName);
+    });
+    sigCancel.addEventListener("click", () => {
+      sigModal.hidden = true;
+    });
+    // Hide on Escape
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !sigModal.hidden) {
+        sigModal.hidden = true;
+      }
     });
   }
   /* The license is assembled ahead of the click, then cached in `license-pdf.js`

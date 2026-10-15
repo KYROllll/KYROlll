@@ -3,12 +3,15 @@
  * A dependency-free PDF writer. Every issued license is a single dark branded
  * document — the 3D flower as the header mark, a unique serial number
  * (`KYRO-2026-<BEAT>-<DIGITS>`), a ruled metadata grid, numbered clauses, a
- * signature block and a document-control footer — laid out against real font
- * metrics so the grid actually aligns. It is handed to the browser as a normal
- * `download`-attribute link, so it never opens a viewer.
+ * two-party signature block (the licensee's typed signature over the licensor's)
+ * and a document-control footer — laid out against real font metrics so the grid
+ * actually aligns. It is handed to the browser as a normal `download`-attribute
+ * link, so it never opens a viewer.
  *
- * The page mints one serial per view and passes it back in, so the serial shown
- * on `download.html` is exactly the serial printed in the PDF.
+ * The palette is strictly neutral — deep black, crisp white and silver, no
+ * colour cast of any kind. The page mints one serial per view and the signature
+ * modal hands back the licensee's name, so the serial and the signature shown on
+ * `download.html` are exactly the ones printed in the PDF.
  */
 (function () {
   "use strict";
@@ -116,10 +119,14 @@
 
   /* ---------------------------------------------------- the still flower */
 
-  let cachedFlower = null;
+  /* `undefined` = not attempted yet, `null` = attempted and unusable, object =
+     ready. The distinction lets `generateLicensePDF` build synchronously on the
+     very first click once the flower has been warmed, while still degrading to a
+     text-only document when the image cannot be decoded. */
+  let flowerCache;
 
   function flowerJpeg() {
-    if (cachedFlower) return Promise.resolve(cachedFlower);
+    if (flowerCache !== undefined) return Promise.resolve(flowerCache);
     return new Promise((resolve) => {
       const image = new Image();
       image.crossOrigin = "anonymous";
@@ -129,18 +136,18 @@
           canvas.width = image.naturalWidth;
           canvas.height = image.naturalHeight;
           const ctx = canvas.getContext("2d");
-          ctx.fillStyle = "#0a0a0c";
+          ctx.fillStyle = "#0a0a0a";
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(image, 0, 0);
           const base64 = canvas.toDataURL("image/jpeg", 0.9).split(",")[1];
           const binary = atob(base64);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-          cachedFlower = { bytes: bytes, width: canvas.width, height: canvas.height };
-          resolve(cachedFlower);
-        } catch (err) { resolve(null); }
+          flowerCache = { bytes: bytes, width: canvas.width, height: canvas.height };
+          resolve(flowerCache);
+        } catch (err) { flowerCache = null; resolve(null); }
       };
-      image.onerror = () => resolve(null);
+      image.onerror = () => { flowerCache = null; resolve(null); };
       image.src = FLOWER_SRC;
     });
   }
@@ -154,13 +161,16 @@
   const COL_X = M + 18;            // content column, clear of the frame
   const COL_W = PAGE_W - M * 2 - 36;
   const FOOT_Y = M + 30;           // flow stops here; footer lives below
-  const BG = "0.035 0.035 0.043 rg";
-  const FRAME = "0.42 0.42 0.47";
-  const HAIR = "0.2 0.2 0.24";
-  const TICK = "0.62 0.62 0.68";
+  /* Strictly neutral greys — every channel equal, so the document is deep black,
+     crisp white and silver with no blue cast anywhere. */
+  const BG = "0.031 0.031 0.031 rg";     // the deep black field
+  const FRAME = "0.5 0.5 0.5";           // minimalist silver frame
+  const HAIR = "0.19 0.19 0.19";         // inner hairline
+  const TICK = "0.72 0.72 0.72";         // bright silver corner ticks
   const WHITE = "1 1 1 rg";
-  const BODY = "0.84 0.84 0.88 rg";
-  const MUTED = "0.55 0.55 0.6 rg";
+  const SILVER = "0.8 0.8 0.8 rg";       // signatures / soft silver text
+  const BODY = "0.85 0.85 0.85 rg";
+  const MUTED = "0.55 0.55 0.55 rg";
 
   /* ---------------------------------------------------------------- page */
 
@@ -360,14 +370,22 @@
     gap(26);
 
     /* --------------------------------------------------- signatures */
-    ensure(74);
+    /* The two marks that close a contract: the licensee's typed signature (the
+       name entered in the signature modal) and the licensor's, each drawn in a
+       formal italic above its own rule, under a micro-label. */
+    ensure(104);
     const sigTop = y;
     const sigW = (COL_W - 40) / 2;
-    [[COL_X, "LICENSEE"], [COL_X + sigW + 40, "KYROlll — LICENSOR"]].forEach((side) => {
-      hline(side[0], side[0] + sigW, sigTop - 30, FRAME, 0.8);
-      putTracked(side[0], sigTop - 44, side[1], "F1", 7, MUTED, 1.2);
-    });
-    gap(66);
+    const sigX2 = COL_X + sigW + 40;
+    const signatureBlock = (x, name, label, micro) => {
+      hline(x, x + sigW, sigTop - 40, FRAME, 0.8);
+      put(x + 3, sigTop - 31, name, "F3", 17, SILVER, 0);
+      putTracked(x, sigTop - 54, label, "F1", 7, MUTED, 1.2);
+      putTracked(x, sigTop - 65, micro, "F1", 6.5, MUTED, 0.9);
+    };
+    signatureBlock(COL_X, data.licensee || "—", "LICENSEE — SIGNATURE", "SIGNED " + data.issued);
+    signatureBlock(sigX2, "KYROIII", "KYROlll — LICENSOR", "AUTHORISED SIGNATORY");
+    gap(84);
 
     /* ------------------------------------------------ document footer */
     /* Close the last page first: `startPage` only pushes when a new one begins,
@@ -417,19 +435,24 @@
     } else {
       putObject(5, toBytes("5 0 obj << >> endobj\n"));
     }
+    /* The signature font (Times-Italic — a formal, hand-written-looking base-14
+       face) is the one object emitted after the pages; its number is known up
+       front so every page can reference it. */
+    const font3 = 6 + pageCount * 2;
     pages.forEach((content, i) => {
       const pageObj = 6 + i * 2;
       const contentObj = pageObj + 1;
       const stream = toBytes(content);
       putObject(pageObj, toBytes(pageObj + " 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 " + PAGE_W + " " + PAGE_H + "]" +
-        " /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Im1 5 0 R >> >> /Contents " + contentObj + " 0 R >> endobj\n"));
+        " /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 " + font3 + " 0 R >> /XObject << /Im1 5 0 R >> >> /Contents " + contentObj + " 0 R >> endobj\n"));
       putObject(contentObj, toBytes(contentObj + " 0 obj << /Length " + stream.length + " >> stream\n"));
       push(stream);
       push(toBytes("\nendstream\nendobj\n"));
     });
+    putObject(font3, toBytes(font3 + " 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Times-Italic /Encoding /WinAnsiEncoding >> endobj\n"));
 
     const xrefStart = position;
-    const total = 5 + pageCount * 2 + 1;
+    const total = font3 + 1;
     let xref = "xref\n0 " + total + "\n0000000000 65535 f \n";
     for (let i = 1; i < total; i += 1) xref += String(offsets[i]).padStart(10, "0") + " 00000 n \n";
     xref += "trailer << /Size " + total + " /Root 1 0 R >>\nstartxref\n" + xrefStart + "\n%%EOF\n";
@@ -440,11 +463,12 @@
 
   /* ---------------------------------------------------------------- public */
 
-  let cache = new Map(); // beatId::packageId::serial -> { blob, name }
+  let cache = new Map(); // beatId::packageId::serial::licensee -> { blob, name }
 
-  function cacheKey(beat, pack, serial) {
+  function cacheKey(beat, pack, serial, licensee) {
     if (!beat) return "";
-    return (beat.id || beat.slug || "beat") + "::" + (pack && pack.id || "pack") + "::" + (serial || "");
+    return (beat.id || beat.slug || "beat") + "::" + (pack && pack.id || "pack") + "::" +
+      (serial || "") + "::" + (String(licensee || "").trim().toLowerCase());
   }
 
   function saveBlob(blob, name) {
@@ -465,7 +489,7 @@
     return "KYROlll - " + (safe || "BEAT") + " LICENSE.pdf";
   }
 
-  function buildDocument(beat, pack, serial, flower) {
+  function buildDocument(beat, pack, serial, licensee, flower) {
     const channel = String(window.KYROlll_YOUTUBE_CHANNEL || "")
       .replace(/^https?:\/\/(www\.)?/, "")
       .split("?")[0];
@@ -478,40 +502,73 @@
       includes: pack.includes || [],
       channel: channel,
       serial: serial,
+      licensee: String(licensee == null ? "" : licensee).trim(),
       flower: flower
     });
   }
 
+  /* Warm the flower ahead of the click. The signature modal collects the name
+     first, so by the time the visitor signs, the only remaining work is the
+     document itself — which then builds inside the click. */
+  function primeLicenseFlower() {
+    return flowerJpeg();
+  }
+
+  function saveBuilt(beat, pack, serial, licensee, flower, downloads) {
+    const key = cacheKey(beat, pack, serial, licensee);
+    let entry = cache.get(key);
+    if (!entry) {
+      entry = { blob: buildDocument(beat, pack, serial, licensee, flower), name: safeFileName(beat) };
+      cache.set(key, entry);
+    }
+    try {
+      saveBlob(entry.blob, entry.name);
+      if (downloads && downloads.showToast) downloads.showToast("LICENSE PDF DOWNLOADED");
+    } catch (err) {
+      if (downloads && downloads.showToast) downloads.showToast("LICENSE UNAVAILABLE - TRY AGAIN");
+    }
+  }
+
   /* Assemble the document and park it in the cache, so a later click can save it
      without awaiting anything first. */
-  async function primeLicensePDF(beat, pack, serial) {
+  async function primeLicensePDF(beat, pack, serial, licensee) {
     if (!beat || !pack) return null;
     const sid = serial || makeLicenseId(beat);
-    const key = cacheKey(beat, pack, sid);
+    const key = cacheKey(beat, pack, sid, licensee);
     const cached = cache.get(key);
     if (cached) return cached.blob;
     const flower = await flowerJpeg();
-    const blob = buildDocument(beat, pack, sid, flower);
+    const blob = buildDocument(beat, pack, sid, licensee, flower);
     cache.set(key, { blob: blob, name: safeFileName(beat) });
     return blob;
   }
 
-  async function generateLicensePDF(beat, pack, downloads, serial) {
+  /* `licensee` is the name the visitor typed into the signature modal; it is
+     embedded as the LICENSEE signature. */
+  async function generateLicensePDF(beat, pack, downloads, serial, licensee) {
     if (!beat || !pack) { if (downloads && downloads.showToast) downloads.showToast("LICENSE UNAVAILABLE"); return; }
     const sid = serial || makeLicenseId(beat);
-    const key = cacheKey(beat, pack, sid);
+    const key = cacheKey(beat, pack, sid, licensee);
     const cached = cache.get(key);
-    // The cached branch awaits nothing before `saveBlob`, so the download still
-    // runs inside the click — Safari / iOS saves it instead of opening a viewer.
     if (cached) {
       try { saveBlob(cached.blob, cached.name); if (downloads && downloads.showToast) downloads.showToast("LICENSE PDF DOWNLOADED"); }
       catch (err) { if (downloads && downloads.showToast) downloads.showToast("LICENSE UNAVAILABLE - TRY AGAIN"); }
       return;
     }
+    // Once the flower is warmed this whole branch runs synchronously before any
+    // `await`, so the save still happens inside the click — which is what Safari
+    // and iOS require to download a generated file instead of opening a viewer.
+    if (flowerCache !== undefined) {
+      try { saveBuilt(beat, pack, sid, licensee, flowerCache, downloads); }
+      catch (err) {
+        if (typeof console !== "undefined") console.error("KYROlll license PDF failed:", err);
+        if (downloads && downloads.showToast) downloads.showToast("LICENSE UNAVAILABLE - TRY AGAIN");
+      }
+      return;
+    }
     try {
-      const blob = await primeLicensePDF(beat, pack, sid);
-      saveBlob(blob, safeFileName(beat));
-      if (downloads && downloads.showToast) downloads.showToast("LICENSE PDF DOWNLOADED");
+      const flower = await flowerJpeg();
+      saveBuilt(beat, pack, sid, licensee, flower, downloads);
     } catch (err) {
       /* The still image is the only fragile part and it already degrades to a
          text-only document, so a throw here is a real bug — surface it rather
@@ -523,6 +580,7 @@
 
   window.KYROlll_LICENSE_PDF = {
     makeLicenseId: makeLicenseId,
+    primeLicenseFlower: primeLicenseFlower,
     primeLicensePDF: primeLicensePDF,
     generateLicensePDF: generateLicensePDF
   };

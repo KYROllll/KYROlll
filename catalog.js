@@ -51,9 +51,9 @@
     {
       id: "exclusive",
       name: "EXCLUSIVE / PRO PACKAGE",
-      tag: "EMAIL GATE",
-      gate: "email",
-      blurb: "Full stems + MP3 + WAV + license. Drop your email to unlock.",
+      tag: "MULTI-STEP",
+      gate: "exclusive",
+      blurb: "Full stems + MP3 + WAV + license. Follow three high-value steps to unlock.",
       includes: [
         "Tagged MP3 audio file",
         "High-quality WAV",
