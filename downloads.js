@@ -16,7 +16,8 @@
 (function () {
   "use strict";
 
-  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  try {
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   const STORAGE_PREFIX = "kyrolll_";
   const UNLOCK_KEY = STORAGE_PREFIX + "unlocked";
   const EMAIL_KEY = STORAGE_PREFIX + "download_email";
@@ -531,13 +532,22 @@
     toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 2600);
   }
 
-  document.addEventListener("click", (event) => {
-    const trigger = event.target.closest && event.target.closest("[data-download-trigger]");
-    if (!trigger) return;
-    console.log("Download button clicked!");
-    event.preventDefault();
-    openMenu(trigger, trigger.getAttribute("data-beat-id"));
-  });
+  try {
+    document.addEventListener("click", (event) => {
+      try {
+        const btn = event.target.closest && event.target.closest(".download-btn, .download-dropdown-toggle, .download-trigger, [data-download-trigger]");
+        if (!btn) return;
+        console.log("Global download button clicked!");
+        event.preventDefault();
+        const trigger = btn.closest("[data-download-trigger]") || btn;
+        if (trigger && trigger.getAttribute && trigger.getAttribute("data-beat-id")) {
+          openMenu(trigger, trigger.getAttribute("data-beat-id"));
+        } else if (trigger && trigger.getAttribute && trigger.getAttribute("data-beat-id")) {
+          openMenu(trigger, trigger.getAttribute("data-beat-id"));
+        }
+      } catch (e) { /* ignore click errors */ }
+    });
+  } catch (e) { /* ignore listener errors */ }
 
   window.KYROlll_DOWNLOADS = {
     PACKAGES: window.KYROlll_PACKAGES || [],
