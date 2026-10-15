@@ -2349,3 +2349,26 @@ html.preloader-armed { overflow-y: hidden; }
 }
 
 .catalog-tile__art { position: relative; }
+
+/* ---------- Pointer-events & overlay audit fix ---------- */
+.download-trigger,
+.download-dropdown-toggle,
+.download-btn,
+.download-tier,
+.kyrolll-btn,
+.gate-step,
+.gate-modal__actions button,
+.download-menu.is-open .download-tier {
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 130;
+}
+.download-menu.is-open {
+  pointer-events: auto !important;
+  z-index: 121;
+}
+.gate-modal.is-visible {
+  pointer-events: auto !important;
+  z-index: 201;
+}
+

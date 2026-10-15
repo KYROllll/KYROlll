@@ -376,7 +376,7 @@
     }
 
     // --- YOUTUBE GATE (WAV) ---
-    } else if (pack.gate === "youtube") {
+    if (pack.gate === "youtube") {
       const done = [false, false];
       const form = modal.querySelector("[data-gate-form]");
       const input = modal.querySelector("#gate-email");
@@ -413,9 +413,10 @@
 
       submit.disabled = !input.value.trim();
       submit.addEventListener("click", handleSubmit);
+    }
 
     // --- EXCLUSIVE GATE (Pro) ---
-    } else if (pack.gate === "exclusive") {
+    if (pack.gate === "exclusive") {
       const done = [false, false, false];
       const hint = modal.querySelector("#gate-hint");
       const commentField = modal.querySelector("#gate-comment");
@@ -532,22 +533,21 @@
     toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 2600);
   }
 
-  try {
-    document.addEventListener("click", (event) => {
-      try {
-        const btn = event.target.closest && event.target.closest(".download-btn, .download-dropdown-toggle, .download-trigger, [data-download-trigger]");
-        if (!btn) return;
-        console.log("Global download button clicked!");
-        event.preventDefault();
-        const trigger = btn.closest("[data-download-trigger]") || btn;
-        if (trigger && trigger.getAttribute && trigger.getAttribute("data-beat-id")) {
-          openMenu(trigger, trigger.getAttribute("data-beat-id"));
-        } else if (trigger && trigger.getAttribute && trigger.getAttribute("data-beat-id")) {
-          openMenu(trigger, trigger.getAttribute("data-beat-id"));
-        }
-      } catch (e) { /* ignore click errors */ }
-    });
-  } catch (e) { /* ignore listener errors */ }
+  // Foolproof global listener — handles any download trigger across the page.
+  document.addEventListener("click", (event) => {
+    try {
+      const btn = event.target.closest && event.target.closest(".download-btn, .download-dropdown-toggle, .download-trigger, [data-download-trigger]");
+      if (!btn) return;
+      console.log("DOWNLOAD CLICKED SUCCESSFULLY");
+      event.preventDefault();
+      event.stopPropagation();
+      const trigger = btn.closest && btn.closest("[data-download-trigger]") ? btn.closest("[data-download-trigger]") : btn;
+      const beatId = trigger && trigger.getAttribute ? trigger.getAttribute("data-beat-id") : null;
+      if (beatId) {
+        openMenu(trigger, beatId);
+      }
+    } catch (e) { /* ignore */ }
+  }, true);
 
   window.KYROlll_DOWNLOADS = {
     PACKAGES: window.KYROlll_PACKAGES || [],
@@ -558,4 +558,5 @@
     newsletterEndpoint,
     downloadItem, showToast
   };
+  } catch (e) { /* ignore top-level errors */ }
 })();
