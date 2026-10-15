@@ -267,8 +267,28 @@
         '<a class="gate-step" href="' + escapeHTML(video) + '" target="_blank" rel="noopener noreferrer" data-gate-step="1">' +
           '<span class="gate-step__num">2</span><span class="gate-step__body"><span class="gate-step__title">LIKE THIS VIDEO</span><span class="gate-step__meta">The beat you are grabbing</span></span><span class="gate-step__go">OPEN ↗</span>' +
         '</a>' +
+        '<div class="gate-step gate-step--comment" data-gate-step="2">' +
+          '<span class="gate-step__num">3</span>' +
+          '<span class="gate-step__body">' +
+            '<span class="gate-step__title">COMMENT ON THE VIDEO</span>' +
+            '<span class="gate-step__meta">Paste a verification comment</span>' +
+            '<textarea class="gate-input gate-comment" id="gate-comment" placeholder="Paste your comment to verify..." rows="2"></textarea>' +
+          '</span>' +
+          '<span class="gate-step__go">DONE</span>' +
+        '</div>' +
       '</div>' +
-      emailGateBody(pack, { optinRequired: false }) +
+      '<form class="gate-form" data-gate-form novalidate>' +
+        '<label class="gate-field"><span class="gate-field__label">EMAIL</span>' +
+          '<input class="gate-input" id="gate-email" name="email" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="you@email.com" required>' +
+        '</label>' +
+        '<label class="gate-optin"><input type="checkbox" id="gate-optin" checked required><span>Email me future beat drops &amp; updates</span></label>' +
+        '<input type="hidden" name="embed" value="1"><input type="hidden" name="tag" value="beat-download"><input type="hidden" name="_subject" value="KYROlll beat download">' +
+      '</form>' +
+      '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
+      '<div class="gate-modal__actions">' +
+        '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
+        '<button type="button" class="kyrolll-btn" data-gate-submit disabled>UNLOCK EXCLUSIVE</button>' +
+      '</div>' +
       '<p class="gate-modal__hint" id="gate-hint">COMPLETE ALL STEPS TO UNLOCK</p>';
   }
 
@@ -514,6 +534,7 @@
   document.addEventListener("click", (event) => {
     const trigger = event.target.closest && event.target.closest("[data-download-trigger]");
     if (!trigger) return;
+    console.log("Download button clicked!");
     event.preventDefault();
     openMenu(trigger, trigger.getAttribute("data-beat-id"));
   });
