@@ -1,17 +1,10 @@
-// The active release renders under its exact title everywhere on the site.
-const ACTIVE_TITLE = "[FREE] DON TOLIVER TYPE BEAT - FLESH";
-
-// The catalog is shared by every page (catalog.js) so the store, the library
-// and the checkout all read the same beats, tiers and Storage object paths.
+// The catalog is shared by every page (catalog.js) so the store and the
+// download layer all read the same beats, packages and file paths.
 const CATALOG = window.KYROlll_CATALOG || [];
 
 const $ = (id) => document.getElementById(id);
 
-const checkoutLayer = () => window.KYROlll_CHECKOUT;
-const esc = (value) => (window.KYROlll_CHECKOUT
-  ? window.KYROlll_CHECKOUT.escapeHTML(value)
-  : String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char])));
-const beatById = (id) => CATALOG.find((beat) => beat.id === id || beat.slug === id) || null;
+const attr = (value) => String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 
 function unlockScroll() {
   document.body.style.cssText = '';
@@ -23,38 +16,6 @@ const previewPlayer = new BeatPreviewPlayer(grid);
 let vinylTimer = 0;
 window.addEventListener("pagehide", () => previewPlayer.stop());
 
-// Beats whose exclusive rights have been assigned. The BUY button locks and the
-// cover art carries the SOLD EXCLUSIVE seal, on the catalog tile and on the beat
-// page, wherever that beat appears.
-let soldBeats = new Set();
-
-function applySoldState() {
-  grid.querySelectorAll("[id^='card-']").forEach((card) => {
-    const sold = soldBeats.has(card.id.slice("card-".length));
-    card.classList.toggle(card.classList.contains("catalog-tile") ? "catalog-tile--sold" : "beat-detail--sold", sold);
-    const buy = card.querySelector(".buy-beat-btn");
-    if (buy) {
-      buy.disabled = sold;
-      buy.classList.toggle("buy-beat-btn--sold", sold);
-      buy.setAttribute("aria-haspopup", sold ? "false" : "true");
-      buy.setAttribute("aria-label", sold ? "Sold exclusive — no longer available" : "Buy");
-    }
-    const hint = card.querySelector(".buy-hint");
-    if (hint) hint.textContent = sold ? "EXCLUSIVE RIGHTS ASSIGNED" : "MP3 · WAV · EXCLUSIVE";
-  });
-}
-
-// Ask the checkout layer which beats have gone exclusive, then re-mark whatever
-// is on screen. The answer is instant from the browser record; the locked state
-// simply stays off if nothing is marked.
-function loadSoldState() {
-  const acc = checkoutLayer();
-  if (!acc || typeof acc.soldExclusive !== "function") return;
-  Promise.resolve(acc.soldExclusive())
-    .then((ids) => { soldBeats = new Set(ids || []); applySoldState(); })
-    .catch(() => {});
-}
-
 function specLine(beat) {
   return `${beat.bpm} BPM // ${beat.key}`;
 }
@@ -65,7 +26,6 @@ function youtubeHTML(beat, show) {
 }
 
 function previewHTML(beat) {
-  const attr = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
   if (!beat.preview) return beat.youtube
     ? `<a class="beat-preview__unavailable" href="${attr(beat.youtube)}" target="_blank" rel="noopener noreferrer">PREVIEW ON YOUTUBE ↗</a>`
     : '<p class="beat-preview__unavailable">PREVIEW COMING SOON</p>';
@@ -84,19 +44,23 @@ function previewHTML(beat) {
   </div>`;
 }
 
-function buyButtonHTML(beat) {
-  const attr = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
-  return `<button type="button" class="buy-beat-btn" data-beat-id="${attr(beat.id)}" aria-haspopup="true" aria-expanded="false">
-          <span class="buy-beat-btn__label">BUY</span><span class="buy-beat-btn__caret" aria-hidden="true">▾</span>
-          <span class="sold-seal buy-beat-btn__sold" aria-hidden="true">SOLD EXCLUSIVE</span>
-        </button>
-        <span class="buy-hint">MP3 · WAV · EXCLUSIVE</span>`;
+// One "DOWNLOAD FREE" trigger per beat; it opens the three-package menu (see
+// downloads.js). `compact` is the trimmed catalog-tile variant.
+function downloadTriggerHTML(beat, compact) {
+  return `<button type="button" class="download-trigger${compact ? " download-trigger--compact" : ""}" data-download-trigger data-beat-id="${attr(beat.id)}" aria-haspopup="menu" aria-expanded="false">
+        <span class="download-trigger__label">DOWNLOAD FREE</span><span class="download-trigger__caret" aria-hidden="true">▾</span>
+      </button>`;
+}
+
+function downloadActionsHTML(beat, compact) {
+  if (compact) return `<div class="catalog-tile__actions">${downloadTriggerHTML(beat, true)}</div>`;
+  return `<div class="download-actions">${downloadTriggerHTML(beat, false)}</div>
+        <p class="download-hint">EVERY BEAT IS FREE · MP3 INSTANTLY · SUBSCRIBE OR LEAVE AN EMAIL TO UNLOCK MORE</p>`;
 }
 
 function beatDetailInner(beat) {
-  const attr = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
   return `
-    <section class="beat-detail__content" aria-label="Beat details and purchase">
+    <section class="beat-detail__content" aria-label="Beat details and free downloads">
       <div class="card__meta">
         <div class="card__name">
           <h2 class="card__title-link animate-glow">
@@ -108,7 +72,7 @@ function beatDetailInner(beat) {
       </div>
       ${previewHTML(beat)}
       <div class="card__actions">
-        ${buyButtonHTML(beat)}
+        ${downloadActionsHTML(beat, false)}
       </div>
     </section>
     <div class="beat-detail__artwork-wrap">
@@ -117,7 +81,6 @@ function beatDetailInner(beat) {
       </div>
       <figure class="beat-detail__artwork">
         <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" decoding="async" fetchpriority="high">
-        <span class="cover-sold" aria-hidden="true"><span class="sold-seal">SOLD EXCLUSIVE</span></span>
       </figure>
     </div>`;
 }
@@ -159,7 +122,7 @@ function buildGrid() {
   if (catalogHeading) catalogHeading.hidden = detail;
   grid.setAttribute("aria-label", detail ? "Beat details" : "Available beats");
 
-  document.title = detail && list.length ? `${list[0].title} — KYROlll` : "KYROlll — BEATS & ORIGINAL PRODUCTION";
+  document.title = detail && list.length ? `${list[0].title} — KYROlll` : "KYROlll — FREE BEATS & ORIGINAL PRODUCTION";
 
   if (!list.length) {
     const panel = document.createElement("article");
@@ -179,10 +142,11 @@ function buildGrid() {
       card.innerHTML = beatDetailInner(beat);
     } else {
       card.className = "catalog-tile";
-      card.innerHTML = `<a class="catalog-tile__link" href="index.html?beat=${encodeURIComponent(beat.id)}" aria-label="View ${beat.title}">
-        <span class="catalog-tile__art"><img src="${beat.img}" alt="" loading="lazy" decoding="async"><span class="cover-sold" aria-hidden="true"><span class="sold-seal">SOLD EXCLUSIVE</span></span></span>
+      card.innerHTML = `<a class="catalog-tile__link" href="index.html?beat=${encodeURIComponent(beat.id)}" aria-label="View ${attr(beat.title)}">
+        <span class="catalog-tile__art"><img src="${attr(beat.img)}" alt="" loading="lazy" decoding="async"></span>
         <span class="catalog-tile__title">${beat.title}</span>
-      </a>`;
+      </a>
+      ${downloadActionsHTML(beat, true)}`;
     }
     grid.appendChild(card);
   });
@@ -197,7 +161,6 @@ function buildGrid() {
     // Land directly on the beat card instead of the top of the page.
     landOnBeatDetail();
   }
-  applySoldState();
 }
 
 function beatFromAnchor(anchor) {
@@ -218,11 +181,6 @@ function handleDeepHash() {
 
 function rebuildCatalog() {
   const params = new URLSearchParams(location.search);
-  // The library now lives on its own page; keep old ?view=library links working.
-  if (params.get("view") === "library") {
-    window.location.replace("library.html");
-    return;
-  }
   const isHome = !params.has("beat");
   if (isHome) {
     unlockScroll();
@@ -237,7 +195,6 @@ window.addEventListener("DOMContentLoaded", () => {
     console.error("Catalog init error:", err);
     buildGrid();
   }
-  loadSoldState();
 });
 window.addEventListener("load", () => {
   if (new URLSearchParams(location.search).has("beat")) landOnBeatDetail();
@@ -250,16 +207,8 @@ window.addEventListener("popstate", () => {
 handleDeepHash();
 
 grid.addEventListener("click", (e) => {
-  const buy = e.target.closest(".buy-beat-btn");
-  if (buy) {
-    e.preventDefault();
-    // A beat sold exclusively is locked: the seal sits over the button and no
-    // license menu can open, however the click lands.
-    if (buy.disabled || buy.classList.contains("buy-beat-btn--sold")) return;
-    const beat = beatById(buy.getAttribute("data-beat-id"));
-    if (beat && checkoutLayer()) checkoutLayer().openLicenseMenu(buy, beat);
-    return;
-  }
+  // The download trigger is delegated globally in downloads.js (the menu is
+  // rendered on <body>), so only the tile link is handled here.
   const link = e.target.closest(".catalog-tile__link");
   if (link) {
     e.preventDefault();

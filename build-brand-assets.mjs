@@ -3,7 +3,6 @@
 import sharp from 'sharp';
 import { copyFile, writeFile } from 'node:fs/promises';
 import { build } from 'esbuild';
-import { brandedEmailHtml } from './worker/src/brand-email.js';
 
 // Import once; subsequent builds use the checked-in reference, not Downloads.
 const secondarySource = process.argv.indexOf('--secondary-source');
@@ -109,18 +108,4 @@ await sharp(Buffer.from(metallic)).resize(640).flatten({ background: '#080809' }
 await sharp('assets/kyrolll-doodles.svg').resize(1200, 152, { fit: 'cover', position: 'top' }).flatten({ background: '#080809' }).png().toFile('assets/kyrolll-email-doodles.png');
 await build({ entryPoints: ['brand-logo.js'], outfile: 'assets/brand-logo.min.js', bundle: true, minify: true, format: 'esm', target: ['es2020'], legalComments: 'eof' });
 await build({ entryPoints: ['background-x.js'], outfile: 'assets/background-x.min.js', bundle: true, minify: true, format: 'esm', target: ['es2020'], legalComments: 'eof' });
-// A reference template built with the same shell as live purchase emails.
-await writeFile('email-template.html', brandedEmailHtml({
-  title: 'Your sound. Unlocked.',
-  eyebrow: 'KYROlll / ORDER CONFIRMED',
-  subtitle: 'Payment verified · Your beats and licenses are ready.',
-  content: `<p style="margin:0 0 12px;">Hey {{field:ArtistName}},</p>
-<p style="margin:0 0 22px;">Thank you for choosing <strong>KYROlll</strong>. Your next creation starts with these files.</p>
-<div style="padding:18px;background-color:#17171a;border:1px solid #38383e;">
-<h2 style="margin:0 0 14px;font-size:10px;font-weight:700;letter-spacing:2px;color:#a4a4aa;">YOUR RECEIPT &amp; DOWNLOADS</h2>
-{{field:PaymentDetailsHtml}}</div>
-<h2 style="font-size:10px;letter-spacing:2px;color:#a4a4aa;margin:24px 0 10px;">LICENSE ATTACHMENTS</h2>
-<p style="margin:0;font-size:12px;color:#a4a4aa;">Your purchased MP3, WAV, or exclusive license contracts are attached as PDF and text files. Keep them as proof of purchase.</p>
-<p style="margin:16px 0 0;font-size:12px;color:#a4a4aa;">Follow the instructions inside each license attachment before using a beat in a release.</p>`
-}));
 console.log(`Built metallic artwork and 3D renderer from ${contours.length} source contours.`);

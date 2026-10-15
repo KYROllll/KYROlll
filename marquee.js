@@ -45,7 +45,7 @@
     if (catalog.length) {
       studio.push(
         "STUDIO UPDATE — " + catalog.length + (catalog.length === 1 ? " RELEASE LIVE" : " RELEASES LIVE") +
-        " — MASTERS & LEASES READY"
+        " — FREE DOWNLOADS READY"
       );
       const newest = catalog[catalog.length - 1];
       if (newest) {

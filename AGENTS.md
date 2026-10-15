@@ -5,47 +5,40 @@ about *running* the app in this sandbox, not about the app's own behaviour.
 
 ## Shape of the app
 
-- **Storefront** — plain static files (`index.html`, `style.css`, `script.js`,
-  `preview-player.js`, `hero-intro.js`, `assets/*.min.js`) served by `server.mjs`
-  on port 8080. No bundler, no runtime dependencies: `server.mjs` is pure Node
-  `http`, so edits to HTML/CSS/JS show up on a browser reload with no rebuild.
+- **Storefront** — plain static files (`index.html`, `download.html`, `style.css`,
+  `script.js`, `catalog.js`, `downloads.js`, `download-page.js`, `preview-player.js`,
+  `marquee.js`, `hero-intro.js`, `preloader.js`, `assets/*.min.js`) served by `server.mjs`
+  on port 8080. No bundler, no runtime dependencies: `server.mjs` is pure Node `http`, so
+  edits to HTML/CSS/JS show up on a browser reload with no rebuild.
+- **No backend and no secrets.** Every beat is 100% free: there is no cart, no
+  checkout, no payment gateway, no Supabase, no worker and no server-side state.
+  `catalog.js` holds the shared data (beats plus the three free packages) and
+  `downloads.js` — with `download-page.js` for the landing page — is the whole
+  "commerce" layer: the "DOWNLOAD FREE" trigger opens a three-package menu, and a
+  package either downloads instantly or is unlocked behind a local gate (a YouTube
+  subscribe + like, or an email). Everything the visitor leaves is kept in `localStorage`
+  only; nothing leaves the browser.
 - `hero-intro.js` drives the hero scroll storytelling: it publishes a 0 → 1
   scroll progress onto `.brand-hero` as the `--hero-p` custom property (all hero
   movement is `calc()`-ed from it in CSS) and reveals the sections below the fold.
   It honours reduced motion and the shared `motion-toggle` event, so pausing
   motion freezes the parallax as well.
-- **Checkout Worker** — `worker/` is a Cloudflare Worker (wrangler) that holds
-  the NOWPayments key and the buyer download links. It is the only piece that
-  needs secrets. It stores orders in a KV namespace (`ORDERS`), which wrangler
-  simulates locally when running `wrangler dev`.
 
-## How the two are wired here
+## How it is wired here
 
-- `docker-compose.base44.yml` runs `web` (`node server.mjs`, host port 3000) and
-  `worker` (the locally installed Wrangler CLI, host port 8000). Both bind-mount
-  the checkout and run live from source. Wrangler is launched directly rather
-  than through `npx`, so normal container shutdowns do not log an npm SIGTERM
-  command failure.
-- `script.js` picks its backend URL from `window.KYROlll_WORKER_URL` if it is
-  set, otherwise localhost:8787, otherwise the deployed `*.workers.dev` URL.
-  `server.mjs` serves `/config.js` and, **only when `BASE44_PREVIEW_MODE=1`**,
-  sets that global to `https://8000-$BASE44_PUBLIC_HOST_SUFFIX` (the exposed
-  worker port). With the flag unset the route is a no-op and production keeps
-  its built-in default.
-- The worker's CORS default (`ALLOWED_ORIGIN` unset → `*`) is what lets the
-  storefront on port 3000 call the worker on port 8000 cross-origin. No cookies
-  or sessions are involved, so no `credentials: 'include'` is needed.
+- `docker-compose.base44.yml` runs a single service, `web` (`node server.mjs`,
+  host port 3000 → container 8080). It bind-mounts the checkout and runs live
+  from source. There is no worker service any more — the storefront has no
+  cross-origin calls to make, so nothing needs a second port or a CORS default.
 
 ## Built assets (`assets/*.min.js`)
 
 `assets/brand-logo.min.js` and `assets/background-x.min.js` are esbuild bundles of
-`brand-logo.js` / `background-x.js`. `npm run build:brand` regenerates the whole asset
-set but needs `sharp`, which this sandbox does not install. To rebuild one bundle, use
-the esbuild that ships with the Worker and run its binary directly (`bin/esbuild` is a
-native binary, not a JS entry point):
+`brand-logo.js` / `background-x.js`. `esbuild` is a root devDependency
+(`package.json`), so after `npm install` a single bundle rebuilds with `npx`:
 
 ```bash
-worker/node_modules/@esbuild/linux-x64/bin/esbuild background-x.js --bundle --minify \
+npx esbuild background-x.js --bundle --minify \
   --format=esm --target=es2020 --legal-comments=eof --outfile=assets/background-x.min.js
 ```
 
@@ -58,18 +51,18 @@ esbuild write the repo's asset:
 
 ```bash
 mkdir -p /tmp/rebuild && cd /tmp/rebuild && cp /app/brand-logo.js . \
-  && npm install three@0.186.0 --no-audit --no-fund \
-  && /app/worker/node_modules/@esbuild/linux-x64/bin/esbuild brand-logo.js --bundle --minify \
+  && npm install three@0.186.1 esbuild@0.28.2 --no-audit --no-fund \
+  && ./node_modules/.bin/esbuild brand-logo.js --bundle --minify \
      --format=esm --target=es2020 --legal-comments=eof --outfile=/app/assets/brand-logo.min.js
 ```
 
 Run on the **unmodified** `brand-logo.js` that command reproduces the committed bundle
-byte-for-byte (`cmp` silent, 574295 bytes), so the toolchain is exactly reproducible and a
-source edit can be shipped with confidence. Bump the `?v=N` query on the matching
-`<script>` tag in `index.html` afterwards — and remember `brand-logo.js` without a rebuild
-changes nothing. `npm run build:brand` is still the only thing that regenerates the
-*images*, and it needs `sharp`, which this sandbox does not install. `background-x.js` has
-no dependencies and rebuilds with the esbuild line above.
+byte-for-byte as long as `three` matches the pin (`cmp` is the check), so the toolchain is
+reproducible and a source edit can be shipped with confidence. Bump the `?v=N` query on the
+matching `<script>` tag in `index.html` afterwards — and remember `brand-logo.js` without a
+rebuild changes nothing. `npm run build:brand` regenerates the *images* and both bundles,
+and it needs `sharp`, which this sandbox does not install. `background-x.js` has no
+dependencies and rebuilds with the esbuild line above.
 
 ## Logo hand-off (still image → live 3D)
 
@@ -123,26 +116,6 @@ AND the hero flower has reported ready and built (a failed or timed-out flower i
 `HARD_CAP_MS` remains the last-resort escape). Keep that in step with `.preloader__progress-bar`
 carrying no CSS transition — the bar is eased from the same `preloader.js` rAF loop.
 
-## Exclusive sales lock the beat ("SOLD EXCLUSIVE")
-
-Nothing in the browser marks a beat taken: the `nowpayments-webhook` is the only writer of
-`licenses` and it runs server-side, so the browser has no way to read back which beats are
-gone. The only source is therefore the browser-local `kyrolll_exclusive_sold` `localStorage`
-list — nothing populates it automatically — and `checkout.js`'s `soldExclusive()` returns
-exactly that list (an empty or absent record leaves every BUY button unlocked). `script.js`
-calls it once per page load
-(`loadSoldState()`) and marks every surface: `catalog-tile--sold` on the tile, `beat-detail--sold`
-on the beat page, `disabled` + `buy-beat-btn--sold` on the BUY button (the ghosted label is covered
-by the seal and the click handler refuses a sold button) and the angled `.sold-seal` over the cover
-art. The seal always sits in the markup and is hidden with `visibility` — never `opacity` alone,
-which would leak the words into `innerText` and the accessibility tree off a sold beat.
-
-To eyeball it without a real exclusive checkout, seed the local record and reload the storefront:
-
-```js
-localStorage.setItem('kyrolll_exclusive_sold', '["6c56eda2-df4a-45b0-b9b7-68f8efdbb1af"]'); // then clear it to undo
-```
-
 To re-capture the frame after the flower changes, serve a throwaway page from the repo
 root that mounts a wide `.logo-stage` plus a `.motion-toggle` button, loads
 `assets/brand-logo.min.js`, and then: wait for `is-ready`, hold ~480ms (the pose is still
@@ -189,229 +162,169 @@ reads — the active-uniform query still forces the link. An environment several
 than this one can therefore still trip the platform's fresh-load smoke check
 (`page_unresponsive`). Trim the material last, not the page structure.
 
-## Supabase (account-less store)
+## Free downloads, the package menu and the gates
 
-There are **no accounts**. A visitor browses, picks a license, optionally leaves an
-email, and pays on a hosted NOWPayments invoice; the beat and its PDF license are
-delivered by email. Supabase is used for exactly three things: the public `beats`
-catalog, the `licenses` audit table (written only by the webhook) and the private
-`BEATS` storage bucket that holds the masters.
+Every beat is free. The store is static, account-less and secret-free; the only
+"commerce" is a browser-side file hand-off, split across `catalog.js` (data) and
+`downloads.js` + `download-page.js` (behaviour). There is no cart, no checkout and no
+payment gateway.
 
-Three files every page loads (see the `<script>` order in `index.html`):
+`catalog.js` is plain data with no DOM access, loaded first:
 
-- `supabase-config.js` — project URL, anon/publishable key and bucket/table names.
-  **While `url`/`anonKey` are empty the store runs in "local demo" mode**: no request
-  leaves the browser and the checkout falls back to the static invoice links in
-  `catalog.js`. The preview boots with no secrets.
-- `kyrolll-backend.js` — a dependency-free Supabase REST client behind
-  `window.KYROlll_BACKEND` exposing only `payments.createInvoice`
-  (`POST /functions/v1/create-payment`, **no bearer** — the storefront is public).
-  There is no Auth, no session, no token and no local-demo account branch: the anon key
-  is sent as `apikey` only, which PostgREST resolves as the `anon` role. It reads
-  nothing from `licenses` — that surface is server-side only (see "Exclusive sales").
-- `catalog.js` — shared beats, the three tiers, and each tier's Storage object `path` +
-  `name` + same-origin `fallback`.
+- `window.KYROlll_YOUTUBE_CHANNEL` — where the "subscribe" step sends the visitor
+  (`?sub_confirmation=1` makes YouTube show its own subscribe prompt). Currently
+  `https://www.youtube.com/@KYROllllll?sub_confirmation=1`.
+- `window.KYROlll_PACKAGES` — exactly three options per beat:
+  `mp3` (`"MP3 LEASE"`, `gate: "instant"`), `wav` (`"STANDARD WAV LEASE"`,
+  `gate: "youtube"`) and `exclusive` (`"EXCLUSIVE / PRO PACKAGE"`, `gate: "email"`).
+  `gate` is the whole behaviour: `instant` goes straight to the download page, `youtube`
+  asks for a subscribe + like, `email` asks for an address. `includes` is the plain-language
+  list of what the package hands over (MP3 → tagged MP3 + license; WAV → tagged MP3 +
+  high-quality WAV + license; exclusive → tagged MP3 + WAV + tracked stems + full rights +
+  email opt-in) and is printed verbatim in the generated license.
+- `window.KYROlll_CATALOG` — one entry per beat: `id` (the uuid, also the `?beat=` value),
+  `slug` (kept only so old `?beat=flesh` links resolve), `title`, `img`, `bpm`, `key`,
+  `preview`, `youtube` (the beat's own video, used by the "like" step) and `deliverables`
+  — a map of package id → an array of `{ file, name, label }`, where `file` is a
+  **same-origin** path, `name` is what the browser saves it as and `label` is shown on the
+  download page. The license is never listed: the download page always generates one.
+- `window.KYROlll_HELPERS` — `escapeHTML`, `beatById(idOrSlug)`, `packageById(id)`,
+  `deliverablesFor(beatId, packageId)`, `videoFor(beatId)` and `newsletterEndpoint()`.
+- `window.KYROlll_NEWSLETTER` — `{ provider, username, endpoint }`, where the email gate sends a
+  new subscriber. The endpoint is a form action URL — these providers have no CORS for `fetch`,
+  so the address is only deliverable as a real form POST (made through a hidden iframe). The repo
+  ships with a **Formspree** form wired to `endpoint`; swap it for any other provider that
+  accepts a form POST (Buttondown's `embed-subscribe` URL, a Beehiiv subscribe form, …) — for
+  Buttondown just set `username`. Left blank, the gate still unlocks the files and only
+  remembers the address locally.
 
-Pages: `index.html` (home + catalog + beat page) and `success.html` (post-payment
-confirmation). `library.html` is now a static notice — "No account needed — your beat
-will be sent to your email after purchase…" — kept so old `?view=library` links and
-bookmarks land somewhere sensible, and `support.html` is a static `mailto:` panel.
-`license.html` is the static certificate template the delivery email links to: it reads
-`?beat&tier&id&price&email`, prints the order and renders the PDF through the existing
-`license-pdf.js` + `assets/jspdf.min.js`. `auth.html` and `dashboard.html` are
-**deleted**. The BUY dropdown always opens
-downward (clamped to the space below and scrollable) so it can never cover the header
-or footer.
+`downloads.js` exposes `window.KYROlll_DOWNLOADS` and owns the whole interaction. It has
+**no backend** — no Supabase and no worker, and no `fetch` to an API; the only outbound request
+is the email gate's subscribe POST (a plain form submit to the configured newsletter provider):
 
-### The BUY flow
+- The `[data-download-trigger]` button (delegated once on `document`, so a re-rendered
+  grid keeps working) opens the `.download-menu` — the old downward-only license dropdown,
+  relabelled, anchored under the trigger and clamped so it can never run off screen.
+- `start(beatId, packageId)` resolves the beat + package, then either walks an instant (or
+  already-unlocked) package to `download.html?beat=…&package=…`, or opens that package's
+  gate and continues on success.
+- `openGate(beat, pack, onUnlocked)` renders `.gate-modal` (backdrop + card) into `<body>`
+  and adds `html.gate-open`. `gate: "youtube"` shows two numbered steps (`.gate-step`) that
+  open the channel and the beat video in new tabs; the confirm button stays disabled until
+  both are opened. `gate: "email"` renders a real `<form data-gate-form>` with one email field
+  (`#gate-email`), an opt-in checkbox (`#gate-optin`, checked by default), an inline error
+  (`#gate-error`), and the CANCEL/backdrop (`[data-gate-cancel]`) + submit (`[data-gate-submit]`)
+  row; Enter submits, Escape or CANCEL closes, and a remembered address prefills the field. A
+  malformed address is refused with `#gate-error`. When a provider is configured and the opt-in
+  is checked, the form is posted through a throwaway hidden iframe (`postSubscribeForm`) so the
+  page never navigates and the POST survives the move to `download.html`; the address itself is
+  never required to be confirmed. Passing either gate writes the package to the unlock set and
+  runs `onUnlocked`.
+- `downloadItem` builds a detached `<a download>` for a same-origin file, so nothing navigates
+  the page away. The href carries `?dl=1&name=<friendly name>`, which is what lets `server.mjs`
+  answer with `Content-Disposition: attachment` — that header, not the `download` attribute, is
+  what makes a phone save the file instead of previewing it (and `?dl` is required so the inline
+  beat preview keeps streaming the same `.wav`/`.mp3` normally). There is no text license any
+  more: `downloads.js` hands over files and gates only, and the license is a PDF issued by
+  `license-pdf.js` (see below). Every package shares
+  the same terms: **100% free for non-profit AND commercial/profit use** (release on Spotify,
+  Apple Music, YouTube, monetise it), with a single rule — credit `(Prod. by KYROIII)` in the
+  song title or description. The package's `includes` are listed under "WHAT THIS PACKAGE
+  INCLUDES". The gate, trigger, menu, download-list and download-page styles live in
+  `style.css` under "10. Free downloads, package menu, gates & download page".
 
-`tile → BUY → license tier → optional email → invoice`
+`license-pdf.js` is the whole license: a dependency-free PDF writer (`window.KYROlll_LICENSE_PDF`
+= `{ makeLicenseId, primeLicensePDF, generateLicensePDF }`). `makeLicenseId(beat)` mints
+`KYRO-<year>-<SLUG>-<6 digits>` from `crypto.getRandomValues`; `download-page.js` mints it once
+per page view and passes it to the PDF, so the id on screen is the id in the document. The
+document is an A4 certificate — dark field, double frame with corner ticks, the flower still as
+an embedded `/DCTDecode` JPEG in the header, a hero serial block, a ruled metadata table,
+numbered clauses 1.0–4.0 and a signature block — held to a **single page** for every package.
+Letter-spacing uses the text-space `Tc` operator, so each run stays one string and the PDF
+remains searchable and copyable. Base-14 Helvetica with real AFM metrics (`measure`,
+`wrapToWidth`) does all the layout. The old jsPDF path is gone; `buildPdf` still degrades to a
+text-only PDF if the flower image fails, and a thrown error is a real bug (logged + toast), not
+a fallback. `primeLicensePDF` builds the blob (and caches the flower JPEG) ahead of the click,
+so the cached branch of `generateLicensePDF` awaits nothing before `saveBlob` — the download
+stays inside the user's click, which is what Safari / iOS require to save a generated file
+instead of opening it in a viewer.
 
-1. `script.js` opens the license menu (`checkout.js:openLicenseMenu`); choosing a tier
-   runs `beginPurchase()`, which records the pending purchase in `localStorage`
-   (`kyrolll_pending_purchase`).
-2. `promptCheckoutEmail()` shows the email step inside the (already styled)
-   `.checkout-modal` shell: an optional `.checkout-input` email field, plus SKIP and CONTINUE
-   TO PAYMENT. A malformed address is refused there; skipping is a first-class path, and
-   NOWPayments then asks for an email on its own page.
-3. `startPayment()` calls `payments.createInvoice({beatId, licenseType, email})` and
-   sends the browser to the returned hosted invoice URL. In local-demo mode it falls
-   back to the tier's static `url` in `catalog.js`.
-4. `success.html` reads the pending purchase (title / tier / price / email) to fill the
-   confirmation card.
+`download-page.js` fills `download.html` from the `?beat=`/`?package=` params and gives the
+hand-off the full luxury treatment: a glass hero with the live 3D flower (`.dl-hero__flower`,
+one `.logo-stage` with no preloader veil), a glassmorphism file card with one row per file, and a
+`.license-cert` block that shows the minted serial (`#license-serial`) over a single
+**DOWNLOAD LICENSE (.PDF)** action (`[data-license-pdf]`). It prebuilds the license at load
+(`primeLicensePDF`) so the click saves a ready blob, and probes each file with a `HEAD` so a row
+whose file is missing is dimmed to "UNAVAILABLE" instead of handing over the storefront's HTML.
+There is no raw-text preview, no `.txt` and no COPY button. The page content paints immediately
+and never waits on the flower; if WebGL fails the still `kyrolll-flower-rest.png` simply
+remains. A deep link to a gated package
+the browser has not unlocked yet re-opens that gate over the page, so the flow is the same from
+any entry point.
 
-### Tables & RLS
+`server.mjs` (the static preview server) is what actually makes a download a download: for a
+same-origin file requested with `?dl`/`?name` it answers `Content-Disposition: attachment` with
+the friendly name, and it no longer substitutes `index.html` for a missing asset — only
+extension-less routes fall back, everything else 404s. Without that, a missing file was served
+the storefront HTML with a `200`, which is exactly what makes a "download" open as a webpage.
+`HEAD` is answered from `fs.stat`, so the download page's availability probe never reads a 38 MB
+WAV. None of this exists on a static host (there is no `server.mjs`), so the client-side pieces —
+the prebuilt PDF and the `download` attribute — carry the flow there.
 
-`migrations/0003_licenses_webhook.sql` creates `beats` and `licenses`;
-`migrations/0005_licenses_email_nullable_user.sql` then reshapes `licenses` for the
-account-less flow. The current expected shape is:
+Nothing the visitor leaves is stored server-side. The unlock set is `kyrolll_unlocked`,
+the remembered address is `kyrolll_download_email` and the opt-ins are `kyrolll_marketing_list`
+(a list of `{ email, at }`) — all `localStorage`, for prefill/again. The one exception is the
+email gate itself: with a provider configured and the opt-in checked, the address is posted to
+that newsletter provider (and only then).
 
-```sql
-create table if not exists public.beats (
-  id uuid primary key default gen_random_uuid(),
-  slug text unique not null,
-  title text not null,
-  created_at timestamptz not null default now()
-);
-alter table public.beats enable row level security;
-drop policy if exists "beats are public" on public.beats;
-create policy "beats are public" on public.beats
-  for select to anon, authenticated using (true);
-insert into public.beats (id, slug, title)
-  values ('6c56eda2-df4a-45b0-b9b7-68f8efdbb1af', 'flesh', '[FREE] DON TOLIVER TYPE BEAT - FLESH')
-  on conflict (slug) do nothing;
-grant select on public.beats to anon, authenticated;
+`script.js` renders one `.download-trigger` per beat (a `--compact` variant on a catalog
+tile) and nothing else about downloads. There is no `checkout.js`, no sold/exclusive state
+(`kyrolll_exclusive_sold` is gone), no pending-purchase record and no `success.html` /
+`license.html` / `library.html`.
 
--- After migrations/0005_licenses_email_nullable_user.sql. There are no accounts,
--- so a row carries the buyer's optional email and a NULLABLE user_id (kept only
--- for historical rows; the auth.users foreign key is dropped).
-create table public.licenses (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid,                              -- nullable; no auth.users FK
-  email text,                                -- the buyer's address, optional
-  beat_id uuid not null references public.beats(id) on delete restrict,
-  license_type text not null check (license_type in ('mp3','wav','exclusive')),
-  price numeric(10,2) not null check (price >= 0),
-  payment_id text unique,
-  status text not null default 'active',
-  created_at timestamptz not null default now()
-);
-alter table public.licenses enable row level security;  -- ON, with NO policy
-```
-
-The migration chain (all under `migrations/`, applied with
-`MIGRATION=… SUPABASE_ACCESS_TOKEN=… node set-licenses-policy.mjs`, whose
-`database/query` endpoint needs a token with the `database_read`/`database_write`
-scopes; it prints the SQL for the editor when no token is set):
-
-- `0001_licenses_rls.sql` — the original `for all` policy that also let a browser
-  INSERT. **Superseded; do not re-apply.**
-- `0002_licenses_foreign_key.sql` — added the `user_id → auth.users(id)` FK.
-  **Superseded** (0005 drops it).
-- `0003_licenses_webhook.sql` — the table in the payment shape + `beats`. The script's
-  **default**; it DROPs and recreates `licenses`, so it must not be used on a live
-  table with rows you care about.
-- `0004_licenses_owner_only_select.sql` — non-destructive: turns RLS on, drops *every*
-  policy on `licenses` (enumerated from `pg_policies`) and re-creates the owner-only
-  SELECT. Written to close a public-read leak; 0005 now supersedes its policy.
-- `0005_licenses_email_nullable_user.sql` — non-destructive: adds nullable `email`,
-  makes `user_id` nullable, drops any FK to `auth.users`, and drops every policy,
-  leaving RLS on with **none**.
-
-With RLS on and no policy the publishable key (which ships in the browser) reads zero
-`licenses` rows — never a customer list — and the only writer is the
-`nowpayments-webhook` Edge Function, using the service_role key (which bypasses RLS).
-Verify with the publishable key only — no bearer — the read must be `200 []`, never a
-list of rows (`<publishable-key>` is `anonKey` from `supabase-config.js`):
-
-```bash
-curl -s "https://vuryglxywrqdnvnbelvp.supabase.co/rest/v1/licenses?select=*" \
-  -H "apikey: <publishable-key>"
-```
-
-The browser never writes `licenses` at all. `seed-test-licenses.mjs` and
-`diagnose-licenses.sql` are legacy DB tools kept from the account era; the seed still
-works (it writes via the service_role key) but a row's `user_id` may now be empty.
-
-### Payments (NOWPayments via Edge Functions)
-
-The BUY flow is `create-payment` → hosted invoice → `nowpayments-webhook` →
-`licenses` row:
-
-- `supabase/functions/create-payment/index.ts` is **public** (no bearer to verify — the
-  browser sends none). It takes `{beat_id, license_type, email?}`, prices the order
-  server-side (`PRICES`, kept in step with `catalog.js`), checks the beat exists in
-  `public.beats`, and calls `POST https://api.nowpayments.io/v1/invoice` with
-  `order_description = JSON.stringify({email, beat_id, license_type, price})` and, when
-  an email was given, `customer_email`. It returns `{ url }` and `checkout.js`'s
-  `startPayment()` sends the browser there. No price and no license is trusted from the
-  client. The email is optional and a malformed one is a `400`, never silently dropped.
-- `supabase/functions/nowpayments-webhook/index.ts` verifies the `x-nowpayments-sig`
-  header (HMAC-SHA512 over the key-sorted body, per NOWPayments' IPN scheme) and — only
-  on `payment_status === "finished"` — inserts the row with the service_role key:
-  `{email, beat_id, license_type, price, payment_id, status}`, with no `user_id`.
-  `payment_id` is unique and the insert uses `resolution=ignore-duplicates`, so a
-  retried IPN is a no-op. Any other status is acknowledged and ignored. A `500` here is
-  deliberate: it asks NOWPayments to retry.
-- **Both** functions deploy with JWT verification **off** (`supabase/config.toml` pins
-  `verify_jwt = false` for each): NOWPayments has no Supabase token, and the storefront
-  has no session to present. `create-payment` authenticates nothing — its only guards
-  are the server-side price list and the beat-existence check — so nothing sensitive may
-  be added to its response. Secrets: `NOWPAYMENTS_API_KEY` (create-payment) and
-  `NOWPAYMENTS_IPN_SECRET` (webhook). Full deploy/verify steps: `supabase/README.md`.
-- The `beat_id` uuid a checkout carries is the catalog's `id` (it has to match
-  `public.beats.id`, or the webhook insert would fail the foreign key). The catalog keeps
-  `slug` only so old `?beat=flesh` links still resolve.
-- **Delivery is wired** (Resend): once the row is written the webhook looks the beat up
-  in `public.beats` (title + slug), signs a **60-minute** URL for the purchased tier's
-  object in the `BEATS` bucket, and emails the buyer the beat link plus a link to
-  `license.html`. The buyer address is `order.email`, falling back to
-  `payload.customer_email` (what NOWPayments collected when the buyer skipped our step).
-  The Storage object for a tier is duplicated in the function's `BEAT_FILES` map (keyed
-  by slug) because a Deno function cannot read `catalog.js` — keep it in step when a
-  beat is added; an unknown slug falls back to a storefront link, never a dead signed
-  URL. The mail is best-effort: the license row is the record of the sale, so a Resend
-  failure (or a missing `RESEND_API_KEY`) is logged and the handler still returns `200`,
-  which stops NOWPayments replaying an IPN for a payment that was already recorded.
-  `RESEND_FROM` must be a Resend-verified domain — gmail.com cannot be a sender — and
-  until one is verified it defaults to Resend's test sender, which only reaches the
-  account owner. `SUPPORT_EMAIL` (default `kyrolll00@gmail.com`) is the reply-to and the
-  address printed in the mail's footer. The storefront never lists download links — see
-  "Deliberate behaviour".
-
-### Leftover auth tooling
-
-`set-auth-email-templates.mjs` and `set-otp-length.mjs` (and their tests) date from the
-removed Supabase Auth: they branded the `{{ .Token }}` login emails and pinned the OTP
-length. No page signs in and no auth email is ever sent now, so they are **unused** —
-left in place, not deleted. `assets/jspdf.min.js` and `license-pdf.js` are no longer
-loaded by the store pages — the only page that pulls them in is `license.html`, the
-static certificate the delivery email links to.
-
-The storefront itself still needs no external CDN at runtime.
-
-## Secrets
-
-`worker/.dev.vars` is generated at container start from the platform-managed
-env file `/run/base44/app.env` (see the compose `command`). The file is
-git-ignored. The app **boots without any secrets** — checkout invoices and
-delivery emails stay disabled until real NOWPayments / Resend values (and the
-`FLESH_*` buyer links) are provided. `/api/catalog` (the healthcheck) touches
-only KV, so it works without credentials.
-
-`GET /api/mins` degrades gracefully: with no `NOWPAYMENTS_API_KEY` it returns
-`{"mins":{}}` without calling NOWPayments (the storefront then shows every
-coin), and if the key is present but rejected (401/403) it stops after the
-first call and logs one line instead of failing per coin. Neither case is an
-error — the empty `mins` only means the sub-minimum coin lock isn't applied.
+The one piece of package metadata that is duplicated outside `catalog.js` is the file
+name in a `deliverables` entry; there is no server-side copy to keep in step, so adding a
+beat is a single edit to `catalog.js`. The files themselves are **conventional paths**
+(`assets/previews/flesh.mp3`, `flesh.wav`, `flesh-stems.zip`); `flesh-stems.zip` currently
+ships as an empty placeholder, so the pro package downloads correctly but hands over an empty
+archive until the real stems are dropped in.
 
 ## Verify it works
 
 ```bash
 docker compose -f docker-compose.base44.yml up -d --build
 docker compose -f docker-compose.base44.yml ps
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/          # 200 storefront
-curl -s http://localhost:8000/api/catalog                                # {"sold":[]}
-curl -s http://localhost:3000/config.js                                  # sets KYROlll_WORKER_URL
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/   # 200 storefront
 ```
 
+There are no secrets and no environment variables: the app boots as-is, and the free
+downloads work the moment the static files are served.
+
 Tests that ship with the repo:
-- `worker/*.test.mjs` (via `worker/verify.mjs`) and the root
-  `preview-player.test.mjs` are `node:test` based and need no browser:
-  `docker compose -f docker-compose.base44.yml exec -T worker node --test catalog.test.mjs base-token.test.mjs`
-- `brand-design.test.mjs` is Playwright-based and needs Chromium + root
-  `node_modules`, which the sandbox does not install. To run it without touching
-  the checkout, copy the repo into a `node:22` container and install there:
+- `preview-player.test.mjs` is `node:test` based and needs no browser:
+  `node --test preview-player.test.mjs`
+- `brand-design.test.mjs` is Playwright-based and checks the storefront layout, the
+  tagged audio preview, the "DOWNLOAD FREE" package menu and all three unlock paths
+  (instant MP3, the YouTube gate and the email gate), ending on the download page — its
+  3D flower branding, the file rows and the certificate block (a minted
+  `KYRO-YYYY-FLESH-NNNNNN` serial, no raw text), then downloads the PDF license and asserts
+  the `(Prod. by KYROIII)` credit, the commercial grant, the package's `includes` and the
+  embedded flower image straight from the PDF bytes. It also asserts the email gate posts a
+  valid address to the configured newsletter provider (and never a malformed one). It needs
+  Chromium + root `node_modules`,
+  which the sandbox does not install. To run it without touching the checkout, copy the repo
+  into a `node:22` container and install there:
   `docker run --rm -v "$PWD":/src:ro -w /work node:22 bash -lc 'cp -r /src/. /work/ && cd /work && npm i @playwright/test@1.63.0 && npx playwright install --with-deps chromium && node --test brand-design.test.mjs'`.
 
 ## Deliberate behaviour worth knowing
 
-Order delivery is **email-only**: neither the payscreen nor `success.html` ever
-lists download links or license files — `initSuccessPage()` in `checkout.js` only
-prints the beat, tier and price it remembered in `localStorage`. Everything —
-links, PDF/TXT licenses — is meant to go out by email from the payment webhook's
-finished-payment hook (see "Payments"). Nothing sends that mail yet, so for now
-the storefront collects the optional address and hands the buyer to NOWPayments.
+Downloads are plain same-origin files. The MP3 downloads instantly; the other two
+packages sit behind local gates (a YouTube subscribe + like, or an email), which are
+lead-capture courtesies rather than enforcement — the files themselves are public and
+nothing on the server blocks them. Since the unlock set and the address live only in
+`localStorage`, a new browser (or cleared storage) is asked again. The email itself is the one
+thing that can leave the browser: with `KYROlll_NEWSLETTER` configured and the opt-in checked,
+the gate posts the address to that provider.
 
 `index.html` pre-renders the active release's beat card so a direct beat link
 (`?beat=…`) paints without a flash; `script.js` replaces the grid contents right after

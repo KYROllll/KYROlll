@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Original production by KYROlll. Explore beats, leases and studio drops direct from the official store.">
+  <meta name="description" content="Free original production by KYROlll. Stream and download every beat — tagged MP3 instantly, stems and WAV after a quick email.">
   <meta name="theme-color" content="#080809">
-  <meta property="og:title" content="KYROlll — Original sound.">
-  <meta property="og:description" content="Original beats, direct licenses and studio drops. The official KYROlll store.">
+  <meta property="og:title" content="KYROlll — Original sound. Free beats.">
+  <meta property="og:description" content="Free beats, direct downloads. Grab the MP3 instantly and unlock the stems + WAV with a quick email. The official KYROlll store.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://www.kencarter.abrdns.com/assets/kyrolll-social.jpg">
-  <title>KYROlll — BEATS &amp; ORIGINAL PRODUCTION</title>
+  <title>KYROlll — FREE BEATS &amp; ORIGINAL PRODUCTION</title>
   <script>
     // Home is the default landing state. Only a direct beat link (?beat=…)
     // starts as a beat page, so the store never flashes the beat page before
@@ -22,7 +22,7 @@
     document.documentElement.classList.add("preloader-armed");
   </script>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg">
-  <link rel="stylesheet" href="style.css?v=120">
+  <link rel="stylesheet" href="style.css?v=125">
 </head>
 <!-- The `beat-page` state lives on <html> only (set in the head for a direct beat
      link and re-synced by script.js), so the homepage hero renders in its full
@@ -73,8 +73,8 @@
 
   <div class="marquee-banner" aria-label="Marquee announcement">
     <div class="marquee-track">
-      <span class="marquee-copy"><span>KYROlll &mdash; ORIGINAL SOUND &mdash; BEATS, LEASES &amp; STUDIO SESSIONS</span></span>
-      <span class="marquee-copy"><span>KYROlll &mdash; ORIGINAL SOUND &mdash; BEATS, LEASES &amp; STUDIO SESSIONS</span></span>
+      <span class="marquee-copy"><span>KYROlll &mdash; ORIGINAL SOUND &mdash; FREE BEATS, STEMS &amp; STUDIO SESSIONS</span></span>
+      <span class="marquee-copy"><span>KYROlll &mdash; ORIGINAL SOUND &mdash; FREE BEATS, STEMS &amp; STUDIO SESSIONS</span></span>
     </div>
   </div>
 
@@ -85,14 +85,14 @@
     </nav>
     <section class="grid grid--detail" id="grid" aria-label="Beat details">
       <article class="beat-detail" id="card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af">
-        <section class="beat-detail__content" aria-label="Beat details and purchase">
+        <section class="beat-detail__content" aria-label="Beat details and free downloads">
           <div class="card__meta">
             <div class="card__name">
               <h2 class="card__title-link animate-glow">
                 <span>[FREE] DON TOLIVER TYPE BEAT - FLESH</span>
               </h2>
             </div>
-            <div class="card__specs animate-glow">130 BPM // Am // TAGGED AUDIO</div>
+            <div class="card__specs">130 BPM // Am // TAGGED AUDIO</div>
           </div>
           <div class="beat-preview" data-title="[FREE] DON TOLIVER TYPE BEAT - FLESH" data-state="idle">
             <audio class="beat-preview__audio" src="assets/previews/BEAT 1 TAG.wav" preload="none"></audio>
@@ -107,10 +107,12 @@
             <span class="beat-preview__status" role="status">AUDIO PREVIEW</span>
           </div>
           <div class="card__actions">
-            <button type="button" class="buy-beat-btn" data-beat-id="6c56eda2-df4a-45b0-b9b7-68f8efdbb1af" aria-haspopup="true" aria-expanded="false">
-              BUY<span class="buy-beat-btn__caret" aria-hidden="true">▾</span>
-            </button>
-            <span class="buy-hint">MP3 · WAV · EXCLUSIVE</span>
+            <div class="download-actions">
+              <button type="button" class="download-trigger" data-download-trigger data-beat-id="6c56eda2-df4a-45b0-b9b7-68f8efdbb1af" aria-haspopup="menu" aria-expanded="false">
+                <span class="download-trigger__label">DOWNLOAD FREE</span><span class="download-trigger__caret" aria-hidden="true">▾</span>
+              </button>
+            </div>
+            <p class="download-hint">EVERY BEAT IS FREE · MP3 INSTANTLY · SUBSCRIBE OR LEAVE AN EMAIL TO UNLOCK MORE</p>
           </div>
         </section>
         <div class="beat-detail__artwork-wrap">
@@ -132,15 +134,12 @@
   </footer>
   </div>
 
-  <script src="assets/qrcode.min.js"></script>
-  <script src="supabase-config.js?v=7"></script>
-  <script src="catalog.js?v=3"></script>
-  <script src="marquee-items.js?v=2"></script>
+  <script src="catalog.js?v=7"></script>
+  <script src="marquee-items.js?v=3"></script>
   <script src="marquee.js?v=3"></script>
-  <script src="kyrolll-backend.js?v=19"></script>
-  <script src="checkout.js?v=1"></script>
+  <script src="downloads.js?v=7"></script>
   <script src="preview-player.js?v=3"></script>
-  <script src="script.js?v=38"></script>
+  <script src="script.js?v=40"></script>
   <script type="module" src="assets/brand-logo.min.js?v=19"></script>
   <script type="module" src="assets/background-x.min.js?v=2"></script>
   <script src="hero-intro.js?v=4"></script>
