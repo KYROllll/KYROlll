@@ -1589,9 +1589,30 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    drawer read as one control that unfolds — no detached panel hovering over the
    page. Nothing is pinned to the viewport, so it cannot drift, lag behind a
    swipe or come loose when the page scrolls; JS only chooses the direction
-   (`.download-menu--up`) and caps the height. It never changes page layout. */
+   (`.download-menu--up`) and caps the height. It never changes page layout.
+
+   Deliberately NOT `position: fixed` on phones: the drawer lives inside
+   `.beat-detail__content`, which carries a `backdrop-filter`, and the catalog
+   tiles carry a `transform` — both make their element a containing block for
+   fixed-position descendants, so a fixed drawer would be positioned against the
+   glass card or the tilted tile instead of the viewport. Absolute positioning
+   against the button's own container is what keeps it welded to the button on
+   every layout. */
 .download-actions,
-.catalog-tile__actions { position: relative; }
+.catalog-tile__actions {
+  position: relative;
+  /* This box is the drawer's home and the drawer must be free to paint past it in
+     every direction, so it may never clip. `overflow: visible` is the default and
+     is restated on purpose, so a later rule cannot quietly take it away and start
+     shaving the open drawer off at the container's edge.
+     The storefront's wider guards (`overflow-x: clip` on
+     `html`/`body`/`main`/`.viewport`/`.grid`/`.beat-detail`/`.beat-detail__content`)
+     only ever clip the horizontal axis — the vertical axis stays `visible` — which
+     is exactly why the drawer unfolds well past its card without being cut off.
+     Do not "fix" those guards by removing them: they are what stop the page
+     scrolling sideways, and the drawer needs none of them removed. */
+  overflow: visible;
+}
 
 /* A scrollable flex column (JS sets `max-height`), so its children must refuse
    to shrink — otherwise a short viewport squeezes the tiers instead of scrolling
@@ -1602,11 +1623,19 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   left: 0;
   right: auto;
   top: 100%;
-  z-index: 140;
+  /* Above every piece of storefront paint (`body::before` grain 80, the hero and
+     vinyl layers), still inside the drawer's own stacking context: the gate modal
+     (200) and the toast (260) live on `<body>` and are painted by the root
+     stacking context, so they keep winning over an open drawer regardless. */
+  z-index: 9999;
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 14px;
+  /* No-JS/no-measure fallback — `positionMenu` overwrites this inline with the
+     trigger's own measured width, which is what makes the drawer exactly as wide
+     as the button it unfolds from. */
+  width: 100%;
   background: #101010;
   border: 1px solid #484848;
   /* The seam with the button: one continuous white edge around the pair. */
@@ -1615,7 +1644,10 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   transform-origin: top center;
   opacity: 0;
   transform: translate3d(0, -6px, 0);
+  /* Closed: inert for both the pointer and the tab order, so a drawer that has
+     not been opened cannot be clicked through or reached by keyboard. */
   pointer-events: none;
+  visibility: hidden;
   overscroll-behavior: contain;
   overflow-x: hidden;
   overflow-y: auto;
@@ -1637,6 +1669,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   opacity: 1;
   transform: translate3d(0, 0, 0);
   pointer-events: auto;
+  visibility: visible;
 }
 
 /* The ambient light: a soft white bloom pouring out of the button into the
@@ -1709,6 +1742,10 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   padding: 12px 14px;
   font-family: inherit;
   cursor: pointer;
+  /* Every package option is a live target on its own, never a passive child of
+     the open drawer: the tap must register on the tier itself, whatever the
+     panel's reveal transition is doing at that instant. */
+  pointer-events: auto;
   transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
 }
 

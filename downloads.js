@@ -361,7 +361,14 @@
   }
   /* The drawer stays attached to the trigger's exact box. It unfolds down unless
      the visible viewport has more usable room above, and scrolls internally when
-     the full list cannot fit. */
+     the full list cannot fit.
+     `width` is taken from the trigger's own measured box (not the container's), so
+     button and drawer share one pair of edges, and the drawer is never pinned to
+     the viewport — it stays a child of the button's container (see `menuHost`),
+     which is what keeps it from being clipped, drifting off or coming loose while
+     the page moves. The containing chain clips nothing vertically; the only
+     overflow guards on the page are `overflow-x: clip`, which leaves the vertical
+     axis `visible`. */
   function positionMenu() {
     if (!activeMenu) return;
     const { el, anchor } = activeMenu;

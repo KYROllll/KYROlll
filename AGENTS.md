@@ -262,7 +262,20 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   the pair reads as one control that unfolds. `positionMenu` only picks the direction — down,
   or `.download-menu--up` welded to the button's top edge when the space below is the cramped
   side — and caps `max-height` to the visible viewport, so a short screen scrolls the tiers
-  inside the drawer instead of running off it. The direction is decided on the drawer's *real*
+  inside the drawer instead of running off it. Two pieces keep it uncut: its host
+  (`.download-actions` / `.catalog-tile__actions`) carries an explicit `overflow: visible`,
+  restated so a later rule cannot shave the open drawer off at its own container's edge, and
+  the storefront's page-wide guards are `overflow-x: clip` only — `clip` on one axis leaves the
+  other `visible`, so nothing in the ancestor chain clips the drawer vertically and there is no
+  `overflow: hidden` anywhere to remove. It is deliberately **not** `position: fixed` on
+  phones: `.beat-detail__content` carries a `backdrop-filter` and the catalog tiles carry a
+  `transform`, both of which make them containing blocks for fixed descendants, so a fixed
+  drawer would be positioned against the glass card instead of the viewport. The drawer holds a
+  very high `z-index` (`9999`) inside its own container — safe, because the gate modal (200) and
+  the toast (260) live on `<body>` and win from the root stacking context — and while closed it
+  is also `visibility: hidden`, so an unopened drawer is inert to pointer and keyboard, while
+  every `.download-tier` re-states `pointer-events: auto` so a tap always lands on the option
+  itself. The direction is decided on the drawer's *real*
   measured height (`natural > below && above > below`), never on a guess: a drawer that misses
   the room below by a few pixels turns around instead of capping itself and making the visitor
   scroll for the last tier. **The trigger is a switch**: a tap on the trigger that owns the open
