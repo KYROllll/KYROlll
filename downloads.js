@@ -11,11 +11,12 @@
  * A reload, a new tab, a bookmark or a shared link always re-opens the gate from
  * scratch, and the address is never prefilled.
  *
- * STRICT GATING (all three packages) — every gate ends the same way:
+ * STRICT GATING — each package asks for exactly what its own listing promises:
  * - MP3 LEASE (gate: email): EMAIL + MANDATORY OPT-IN → REVIEW & SIGN → FILES + PDF.
- * - STANDARD WAV LEASE (gate: youtube): YOUTUBE SUB + LIKE → EMAIL + OPT-IN → REVIEW & SIGN.
- * - EXCLUSIVE / PRO PACKAGE (gate: exclusive): the same two YouTube steps →
- *   EMAIL + OPT-IN → REVIEW & SIGN (STEMS + MP3 + WAV + PDF).
+ * - STANDARD WAV LEASE (gate: youtube): SUBSCRIBE to the channel → EMAIL + OPT-IN →
+ *   REVIEW & SIGN.
+ * - EXCLUSIVE / PRO PACKAGE (gate: exclusive): SUBSCRIBE + LIKE this beat's own
+ *   video → EMAIL + OPT-IN → REVIEW & SIGN (STEMS + MP3 + WAV + PDF).
  *
  * Two rules make those steps real rather than a click-through. A YouTube step
  * only counts after a genuine gesture AND a minimum hold (`STEP_HOLD_MS`), so
@@ -258,20 +259,33 @@
 
   /* ------------------------------------------------------ menu */
   let activeMenu = null;
-  /* The viewport the fixed panel must fit inside. On a phone the visual viewport
-     is the honest measurement — it shrinks with the keyboard and moves with the
-     pinch — so the menu is clamped to what the visitor can actually see. */
+  /* The viewport the drawer must fit inside. On a phone the visual viewport is
+     the honest measurement — it shrinks with the keyboard and moves with the
+     pinch — so the drawer is only ever clamped to what the visitor can see. */
   function viewportBox() {
     const vv = window.visualViewport;
     const w = (vv && vv.width) || window.innerWidth;
     const h = (vv && vv.height) || window.innerHeight;
     return { w: w || window.innerWidth, h: h || window.innerHeight };
   }
+  /* The drawer is rendered inside the trigger's own container, so it is part of
+     the same element as the button instead of a panel floating over the page:
+     it spans exactly the button's width and butts straight onto its edge. */
+  function menuHost(trigger) {
+    return (trigger && trigger.parentElement) || document.body;
+  }
   function openMenu(trigger, beatId) {
     closeMenu();
     const catalog = helpers();
     const beat = catalog && catalog.beatById(beatId);
     if (!beat) { showToast("BEAT NOT FOUND"); return; }
+    const host = menuHost(trigger);
+    const tile = trigger.closest ? trigger.closest(".catalog-tile") : null;
+    /* The detail card's sleeve is a positioned sibling painted after the copy
+       column, so the column that owns the trigger is lifted while its drawer is
+       open — otherwise the cover art sits on top of the open drawer and swallows
+       its taps (seen in the phone run: the tier was covered by `flesh.png`). */
+    const stage = trigger.closest ? trigger.closest(".beat-detail") : null;
     const menu = document.createElement("div");
     menu.className = "download-menu";
     menu.setAttribute("role", "menu");
@@ -287,8 +301,14 @@
         '<span class="download-menu__beat">' + escapeHTML(beat.title) + '</span>' +
       '</div>' +
       '<div class="download-menu__list">' + packs + '</div>';
-    document.body.appendChild(menu);
-    activeMenu = { el: menu, anchor: trigger };
+    host.appendChild(menu);
+    /* `is-menu-open` on the container lights the ambient bloom that pours out of
+       the button into the drawer; the tile guard drops the catalog tile's 3D
+       hover transform so the open drawer is never rendered on a tilted plane. */
+    host.classList.add("is-menu-open");
+    if (tile) tile.classList.add("is-menu-open");
+    if (stage) stage.classList.add("is-menu-open");
+    activeMenu = { el: menu, anchor: trigger, host: host, tile: tile, stage: stage };
     menu.querySelectorAll(".download-tier").forEach((btn) => {
       btn.addEventListener("click", (ev) => {
         ev.stopPropagation();
@@ -297,21 +317,26 @@
       });
     });
     trigger.setAttribute("aria-expanded", "true");
-    menu.classList.add("is-open");
     positionMenu();
-    /* Keep the fixed panel glued to its trigger — one reposition per frame, never
-       one per scroll event — and watch the visual viewport too, so the keyboard
-       or a pinch can never leave the panel floating away from its button. (The
-       old smooth `scrollIntoView` here fought the page's own scroll on touch; the
-       clamping in `positionMenu` is what actually keeps the panel on screen.) */
-    window.addEventListener("scroll", guardMenuScroll, { capture: true, passive: true });
-    window.addEventListener("resize", closeMenu, true);
+    /* The drawer travels with its button, so page scrolling needs no repositioning
+       at all — no listener, nothing to drift or lag behind a swipe. The only thing
+       that is watched is the *visible* viewport (the keyboard, a pinch, the mobile
+       URL bar), and that is one reposition per frame. */
+    window.addEventListener("resize", guardMenuScroll, true);
     if (window.visualViewport) {
       window.visualViewport.addEventListener("resize", guardMenuScroll);
       window.visualViewport.addEventListener("scroll", guardMenuScroll);
     }
     document.addEventListener("keydown", handleMenuKey);
     document.addEventListener("click", handleMenuOutside, true);
+    /* The panel is appended closed and opened on the next frame, so its reveal
+       actually animates instead of landing already-expanded. */
+    requestAnimationFrame(() => {
+      if (activeMenu && activeMenu.el === menu) {
+        menu.classList.add("is-open");
+        positionMenu();
+      }
+    });
   }
   let menuFrame = 0;
   function guardMenuScroll() {
@@ -324,13 +349,15 @@
   function handleMenuKey(e) { if (e.key === "Escape") closeMenu(); }
   function closeMenu() {
     if (!activeMenu) return;
-    if (activeMenu.anchor) activeMenu.anchor.setAttribute("aria-expanded", "false");
-    if (activeMenu.el) activeMenu.el.classList.remove("is-open");
-    activeMenu.el.remove();
+    const { el, anchor, host, tile, stage } = activeMenu;
+    if (anchor) anchor.setAttribute("aria-expanded", "false");
+    if (el) { el.classList.remove("is-open"); el.remove(); }
+    if (host) host.classList.remove("is-menu-open");
+    if (tile) tile.classList.remove("is-menu-open");
+    if (stage) stage.classList.remove("is-menu-open");
     activeMenu = null;
     if (menuFrame) { cancelAnimationFrame(menuFrame); menuFrame = 0; }
-    window.removeEventListener("scroll", guardMenuScroll, true);
-    window.removeEventListener("resize", closeMenu, true);
+    window.removeEventListener("resize", guardMenuScroll, true);
     if (window.visualViewport) {
       window.visualViewport.removeEventListener("resize", guardMenuScroll);
       window.visualViewport.removeEventListener("scroll", guardMenuScroll);
@@ -338,27 +365,41 @@
     document.removeEventListener("keydown", handleMenuKey);
     document.removeEventListener("click", handleMenuOutside, true);
   }
+  /* The drawer only ever makes two decisions: which way it unfolds (down, or up
+     when the space below is the cramped side) and how tall it may grow — never a
+     pixel wider than its button, never taller than the visible viewport, and
+     scrolling inside itself when a short screen cannot show every tier at once.
+     Both edges and the seam are taken straight off the trigger's own box, so the
+     pair is welded together in every container (the detail card's action column
+     and a catalog tile's padded footer alike). */
   function positionMenu() {
     if (!activeMenu) return;
     const { el, anchor } = activeMenu;
+    const host = menuHost(anchor);
     const box = viewportBox();
     const rect = anchor.getBoundingClientRect();
-    /* On a phone the panel is as wide as the screen allows rather than as wide
-       as the trigger, so the tiers keep a readable measure. */
-    const width = Math.min(Math.max(rect.width, 300), box.w - 24);
-    let left = rect.left + rect.width / 2 - width / 2;
-    left = Math.max(12, Math.min(left, box.w - width - 12));
-    el.style.width = width + "px";
-    el.style.left = left + "px";
-    let top = Math.max(12, rect.bottom + 10);
-    let maxHeight = box.h - top - 12;
-    if (maxHeight < 140) {
-      top = Math.max(12, box.h - 140 - 12);
-      maxHeight = box.h - top - 12;
+    const hostRect = host.getBoundingClientRect();
+    const edge = 12;
+    /* Exactly the button's box: same left edge, same right edge, and a seam with
+       no gap whoever the container is. */
+    el.style.left = (rect.left - hostRect.left) + "px";
+    el.style.right = (hostRect.right - rect.right) + "px";
+    /* Measure the panel's own height before capping it. */
+    el.style.maxHeight = "none";
+    const natural = el.getBoundingClientRect().height;
+    const below = box.h - rect.bottom - edge;
+    const above = rect.top - edge;
+    const up = below < Math.min(natural, 200) && above > below;
+    el.classList.toggle("download-menu--up", up);
+    if (up) {
+      el.style.top = "auto";
+      el.style.bottom = (hostRect.bottom - rect.top) + "px";
+    } else {
+      el.style.bottom = "auto";
+      el.style.top = (rect.bottom - hostRect.top) + "px";
     }
-    el.style.top = top + "px";
-    el.style.maxHeight = Math.max(80, maxHeight) + "px";
-    el.style.overflowY = "auto";
+    const room = Math.max(120, up ? above : below);
+    el.style.maxHeight = Math.min(natural || room, room) + "px";
   }
 
   /* escapeHTML for gate body rendering */
@@ -486,18 +527,20 @@
       ((opts && opts.hint === false) ? '' : '<p class="gate-modal__hint" id="gate-hint">ENTER EMAIL, TICK THE BOX AND SUBMIT</p>');
   }
 
-  /* The two YouTube steps, shared by the WAV gate and the Pro gate so both read
-     exactly the same: open the channel, open the beat's own video. Each step
+  /* The YouTube step rows, in the order the packages ask for them: every gated
+     package subscribes to the channel, and only the Pro package also likes this
+     beat's own video — which is exactly what the two listings promise. Each row
      carries the tick that draws itself once it has been opened. */
-  function youtubeSteps(channel, video) {
+  function youtubeSteps(channel, video, count) {
     const step = (n, href, title, meta) =>
       '<a class="gate-step" href="' + escapeHTML(href) + '" target="_blank" rel="noopener noreferrer" data-gate-step="' + n + '">' +
         '<span class="gate-step__num"><span>' + (n + 1) + '</span><span class="gate-step__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +
         '<span class="gate-step__body"><span class="gate-step__title">' + title + '</span><span class="gate-step__meta">' + meta + '</span></span>' +
         '<span class="gate-step__go">OPEN ↗</span>' +
       '</a>';
-    return step(0, channel, "SUBSCRIBE", "TO THE KYROIII CHANNEL") +
-      step(1, video, "LIKE THIS VIDEO", "THE BEAT YOU ARE GRABBING");
+    const rows = [step(0, channel, "SUBSCRIBE", "TO THE KYROIII CHANNEL")];
+    if (count > 1) rows.push(step(1, video, "LIKE THIS VIDEO", "THE BEAT YOU ARE GRABBING"));
+    return rows.join("");
   }
 
   /* ------------------------------------------------- STRICT STEP VERIFICATION
@@ -572,23 +615,24 @@
     });
   }
 
-  /* YouTube gate body - for the Standard WAV package: sub + like → email */
+  /* Standard WAV lease: subscribe to the channel → email. One step, because that
+     is all the listing asks for. */
   function youtubeGateBody(pack, beat) {
     const channel = window.KYROlll_YOUTUBE_CHANNEL || "https://www.youtube.com/";
     const video = helpers() ? helpers().videoFor(beat.id) : channel;
-    return '<p class="gate-modal__copy">THREE QUICK STEPS TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>' +
-      '<div class="gate-steps">' + youtubeSteps(channel, video) + '</div>' +
+    return '<p class="gate-modal__copy">SUBSCRIBE, THEN YOUR EMAIL, TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>' +
+      '<div class="gate-steps">' + youtubeSteps(channel, video, 1) + '</div>' +
       emailGateBody(pack, { hint: false }) +
-      '<p class="gate-modal__hint" id="gate-hint">OPEN BOTH STEPS, THEN THE EMAIL</p>';
+      '<p class="gate-modal__hint" id="gate-hint">OPEN THE STEP, THEN THE EMAIL</p>';
   }
 
-  /* Exclusive gate body - for the Pro package: the same two YouTube steps as the
-     Standard WAV, then the email form. There is no comment step. */
+  /* Exclusive / Pro package: subscribe AND like this beat's video, then the
+     email. There is no comment step. */
   function exclusiveGateBody(pack, beat) {
     const channel = window.KYROlll_YOUTUBE_CHANNEL || "https://www.youtube.com/";
     const video = helpers() ? helpers().videoFor(beat.id) : channel;
-    return '<p class="gate-modal__copy">TWO QUICK STEPS TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>' +
-      '<div class="gate-steps">' + youtubeSteps(channel, video) + '</div>' +
+    return '<p class="gate-modal__copy">SUBSCRIBE, LIKE THE BEAT, THEN YOUR EMAIL, TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>' +
+      '<div class="gate-steps">' + youtubeSteps(channel, video, 2) + '</div>' +
       emailGateBody(pack, { hint: false, submit: "UNLOCK EXCLUSIVE" }) +
       '<p class="gate-modal__hint" id="gate-hint">OPEN BOTH STEPS, THEN THE EMAIL</p>';
   }
@@ -1008,9 +1052,11 @@
       submit.addEventListener("click", () => submitGate(beat, pack, modal, onUnlocked, readState));
     }
 
-    // --- YOUTUBE GATE (WAV) ---
+    // --- YOUTUBE GATE (WAV) --- one subscribe step (`done` has one slot), then
+    // the email. The step must be genuinely opened and held before it counts —
+    // see `wireYouTubeSteps`.
     if (pack.gate === "youtube") {
-      const done = [false, false];
+      const done = [false];
       const form = modal.querySelector("[data-gate-form]");
       const input = modal.querySelector("#gate-email");
       const errEl = modal.querySelector("#gate-error");
@@ -1018,16 +1064,17 @@
       const hint = modal.querySelector("#gate-hint");
       if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
 
-      // Step click handlers — each step must be genuinely opened and held.
       wireYouTubeSteps(modal, done, refreshSubmit);
+      const stepsOk = () => done.every(Boolean);
 
       function refreshSubmit() {
         const emailOk = EMAIL_RE.test(String(input && input.value || "").trim());
         const checked = optin ? optin.checked : false;
-        submit.disabled = !(done[0] && done[1] && emailOk && checked);
+        const all = stepsOk() && emailOk && checked;
+        submit.disabled = !all;
         setFieldValid(modal, emailOk);
         hideGateError(errEl);
-        if (hint) hint.textContent = (done[0] && done[1] && emailOk && checked) ? "ALL SET — REVIEW & SIGN" : "OPEN BOTH STEPS, THEN THE EMAIL";
+        if (hint) hint.textContent = all ? "ALL SET — REVIEW & SIGN" : "OPEN THE STEP, THEN THE EMAIL";
       }
 
       // Initialize submit disabled until all conditions met
@@ -1038,7 +1085,7 @@
       const readState = () => ({
         email: String(input && input.value || "").trim(),
         optin: !!(optin && optin.checked),
-        stepsOk: done[0] && done[1]
+        stepsOk: stepsOk()
       });
       submit.addEventListener("click", () => submitGate(beat, pack, modal, onUnlocked, readState));
       input && input.addEventListener("keydown", (ev) => {
@@ -1048,8 +1095,8 @@
       });
     }
 
-    // --- EXCLUSIVE GATE (Pro) --- the same two YouTube steps as the WAV gate,
-    // then the email form. There is no comment step.
+    // --- EXCLUSIVE GATE (Pro) --- subscribe + like this beat's video, then the
+    // email form. There is no comment step.
     if (pack.gate === "exclusive") {
       const done = [false, false];
       const hint = modal.querySelector("#gate-hint");
@@ -1072,7 +1119,7 @@
       function checkExclusive() {
         const emailOk = EMAIL_RE.test(String(input && input.value || "").trim());
         const optOk = optin ? optin.checked : false;
-        const all = done[0] && done[1] && emailOk && optOk;
+        const all = done.every(Boolean) && emailOk && optOk;
         submit.disabled = !all;
         setFieldValid(modal, emailOk);
         hideGateError(errEl);
@@ -1085,7 +1132,7 @@
       const readState = () => ({
         email: String(input && input.value || "").trim(),
         optin: !!(optin && optin.checked),
-        stepsOk: done[0] && done[1]
+        stepsOk: done.every(Boolean)
       });
       submit.addEventListener("click", () => submitGate(beat, pack, modal, onUnlocked, readState));
       input && input.addEventListener("keydown", (ev) => {
@@ -1152,12 +1199,24 @@
   // Foolproof global listener — handles any download trigger across the page.
   document.addEventListener("click", (event) => {
     try {
-      const btn = event.target.closest && event.target.closest(".download-btn, .download-dropdown-toggle, .download-trigger, [data-download-trigger]");
-      if (!btn) return;
+      const target = event.target;
+      if (!target || !target.closest) return;
+      /* A tap inside the open drawer belongs to the drawer, never to the button. */
+      if (target.closest(".download-menu")) return;
+      const btn = target.closest(".download-btn, .download-dropdown-toggle, .download-trigger, [data-download-trigger]");
+      /* The button is the whole control: a tap that lands on the strip it lives in
+         (a catalog tile's footer is padding around a slim button, and a finger is
+         not a pixel) is the same intent, so the nearest trigger inside that
+         container is opened. Without this a tap that missed the button by a couple
+         of pixels did nothing but follow the tile's own link. */
+      const host = btn ? null : target.closest(".download-actions, .catalog-tile__actions");
+      const trigger = btn
+        ? (btn.closest("[data-download-trigger]") || btn)
+        : (host ? host.querySelector("[data-download-trigger]") : null);
+      if (!trigger || !trigger.getAttribute) return;
       event.preventDefault();
       event.stopPropagation();
-      const trigger = btn.closest && btn.closest("[data-download-trigger]") ? btn.closest("[data-download-trigger]") : btn;
-      const beatId = trigger && trigger.getAttribute ? trigger.getAttribute("data-beat-id") : null;
+      const beatId = trigger.getAttribute("data-beat-id");
       if (beatId) {
         openMenu(trigger, beatId);
       }

@@ -55,6 +55,13 @@
       email: licensee || ""
     };
   };
+  /* The drawing, replayed as vector strokes. SVG and the canvas share the same
+     origin — top-left, y growing downwards — so a point is copied straight
+     across: no `1 - y` flip here. (Flipping it was the bug that rendered every
+     drawn signature upside down in the preview, while the PDF — whose origin is
+     the bottom-left — flipped it correctly, so the page and the document
+     disagreed.) The mark keeps the pad's aspect ratio and is centred in the box,
+     so it lands exactly where `license-pdf.js` prints it. */
   function strokeSVG(strokes, pad) {
     const box = { w: 170, h: 46 };
     pad = (pad && pad.w && pad.h) ? pad : { w: 600, h: 220 };
@@ -64,7 +71,7 @@
     const h = 100 * scale;
     const x0 = (box.w - w) / 2;
     const paths = strokes.map((stroke) => "<path d=\"M" + stroke.map((point) =>
-      (x0 + point[0] * w).toFixed(2) + " " + ((1 - point[1]) * h).toFixed(2)).join("L") + "\"/>").join("");
+      (x0 + point[0] * w).toFixed(2) + " " + (point[1] * h).toFixed(2)).join("L") + "\"/>").join("");
     return '<svg class="license-cert__mark" viewBox="0 0 ' + box.w + " " + box.h +
       '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Drawn signature">' + paths + "</svg>";
   }

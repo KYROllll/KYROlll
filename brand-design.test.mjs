@@ -1,6 +1,8 @@
 // Browser integration checks for the free-download KYROIII store.
 // Covers the storefront layout, the tagged audio preview, the "DOWNLOAD FREE"
-// package menu and all three unlock paths (instant MP3, YouTube gate, email gate).
+// drawer (welded to its trigger, with the ambient glow) and all three
+// package-specific unlock paths (email-only MP3, subscribe-only WAV, and the
+// subscribe + like Pro package), ending on the download page and its PDF license.
 import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 import { createServer } from 'node:http';
@@ -136,16 +138,31 @@ async function pickPackage(page, packageId) {
   // The panel becomes a scroller on short viewports; every tier must keep its
   // natural height (a shrunk flex child is exactly the clipping bug this guards)
   // and the panel must stay on screen.
+  // The drawer is part of the trigger, not a popup floating over the page: it is
+  // rendered inside the button's own container, spans exactly the button's width
+  // and butts straight onto its edge — and the ambient bloom is lit while it is
+  // open. Every tier keeps its natural height (a shrunk flex child is exactly the
+  // clipping bug this guards) and the panel stays on screen.
   assert(await page.evaluate(() => {
     const menu = document.querySelector('.download-menu');
+    const trigger = document.querySelector('[data-download-trigger][aria-expanded="true"]');
+    const host = trigger && trigger.parentElement;
     const list = menu && menu.querySelector('.download-menu__list');
-    if (!list) return false;
+    if (!list || !host || !trigger) return false;
     const tiers = Array.from(menu.querySelectorAll('.download-tier'));
     const squished = tiers.some(tier => tier.scrollHeight > tier.clientHeight + 1);
     const natural = tiers.reduce((sum, tier) => sum + tier.getBoundingClientRect().height, 0) + 8 * (tiers.length - 1);
     const box = menu.getBoundingClientRect();
-    return !squished && list.clientHeight + 1 >= natural && box.left >= -1 && box.right <= innerWidth + 1;
-  }), 'package menu renders every tier without clipping');
+    const t = trigger.getBoundingClientRect();
+    const attached = menu.parentElement === host && menu.parentElement !== document.body &&
+      Math.abs(box.left - t.left) < 2 && Math.abs(box.right - t.right) < 2;
+    const seam = Math.abs(box.top - t.bottom) < 1.5 || Math.abs(box.bottom - t.top) < 1.5;
+    const glow = host.classList.contains('is-menu-open') &&
+      getComputedStyle(host, '::after').backgroundImage.includes('radial-gradient') &&
+      getComputedStyle(trigger).boxShadow !== 'none';
+    return !squished && list.clientHeight + 1 >= natural && attached && seam && glow &&
+      box.left >= -1 && box.right <= innerWidth + 1;
+  }), 'the drawer is welded to its trigger with the ambient glow lit, every tier renders without clipping');
   await page.locator(`.download-tier[data-package="${packageId}"]`).click();
 }
 
@@ -187,15 +204,17 @@ const drawnPaths = text => [...text.matchAll(/m ((?:[\d.]+ [\d.]+ l )+)/g)]
   .filter(path => path.length >= 2);
 
 // A YouTube step is not a click-through: it only counts once its hold has run, so
-// the bypass (click, bounce, submit) is refused.
-async function openSteps(page) {
-  await page.locator('[data-gate-step="0"]').click();
-  await page.locator('[data-gate-step="1"]').click();
+// the bypass (click, bounce, submit) is refused. Each package carries exactly the
+// steps its listing promises: the Standard WAV lease one (subscribe), the Pro
+// package two (subscribe + like this beat's video).
+async function openSteps(page, count = 2) {
+  assert.equal(await page.locator('.gate-step').count(), count, `the gate carries ${count} step(s)`);
+  for (let i = 0; i < count; i += 1) await page.locator(`[data-gate-step="${i}"]`).click();
   assert.equal(await page.locator('.gate-step.is-done').count(), 0, 'a step is not done the moment it is clicked');
-  assert.equal(await page.locator('.gate-step.is-verifying').count(), 2, 'both held steps report they are verifying');
+  assert.equal(await page.locator('.gate-step.is-verifying').count(), count, 'every held step reports it is verifying');
   assert.match(await page.locator('[data-gate-step="0"] .gate-step__go').innerText(), /VERIFYING/);
   await page.locator('.gate-step.is-done').first().waitFor({ timeout: 15000 });
-  await page.waitForFunction(() => document.querySelectorAll('.gate-step.is-done').length === 2, null, { timeout: 15000 });
+  await page.waitForFunction(n => document.querySelectorAll('.gate-step.is-done').length === n, count, { timeout: 15000 });
 }
 
 try {
@@ -368,10 +387,15 @@ try {
   assert(pdfText.includes('FREE MUSIC LICENSE PROGRAM'));
   assert(pdfText.includes('NON-EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE'));
   assert.equal(drawnPaths(pdfText).length, 0, 'a typed license carries no drawn strokes');
-  // Monochromatic cyberpunk palette: matte black #0B0B0B, white type and
-  // silver #888888 rules — and no blue channel anywhere.
+  // Monochromatic palette: matte black #0B0B0B, white type, and the crisp
+  // white/silver borders — a pure #FFFFFF frame with the equal-channel twin of
+  // the requested #a1a1aa silver for the hairlines, rules and columns.
   assert(pdfText.includes('0.043 0.043 0.043 rg'), 'deep matte black field (#0B0B0B)');
-  assert(pdfText.includes('0.533 0.533 0.533'), 'silver frame (#888888)');
+  assert(pdfText.includes('1 1 1 1 RG'), 'crisp white outer frame (#FFFFFF)');
+  assert(pdfText.includes('0.631 0.631 0.631'), 'silver hairline / rules (#A1A1A1, the neutral twin of #a1a1aa)');
+  assert(pdfText.includes('1 1 1 RG'), 'white signature rules and corner ticks');
+  // The hero mark floats cleanly: nothing draws a box, plate or frame around it.
+  assert.equal(/[\d.]+ [\d.]+ 120\.00 120\.00 re S/.test(pdfText), false, 'the flower has zero box borders around it');
   // `x y z rg` for fills, `x y z width RG` for strokes.
   const colors = [...pdfText.matchAll(/(?:([\d.]+) ([\d.]+) ([\d.]+) rg)|(?:([\d.]+) ([\d.]+) ([\d.]+) [\d.]+ RG)/g)]
     .map(m => [m[1] ?? m[4], m[2] ?? m[5], m[3] ?? m[6]]);
@@ -403,16 +427,19 @@ try {
   await shot(mp3Page, 'download-mp3');
   await mp3Page.close();
 
-  // Package 2 — Standard WAV Lease: the YouTube gate. Both steps must be opened
-  // before the unlock enables, then the page lists the MP3 + WAV.
+  // Package 2 — Standard WAV Lease: the YouTube gate, and only the subscription
+  // its listing asks for (one step — no like), then the email. The unlock enables
+  // only once that step really ran, and the page then lists the MP3 + WAV.
   const wavPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce', acceptDownloads: true });
   await pickPackage(wavPage, 'wav');
   await wavPage.locator('.gate-modal').waitFor();
-  assert.equal(await wavPage.locator('.gate-step').count(), 2);
+  assert.equal(await wavPage.locator('.gate-step').count(), 1, 'the WAV lease asks for the subscribe only');
+  assert.match(await wavPage.locator('[data-gate-step="0"]').innerText(), /SUBSCRIBE/);
+  assert.equal(await wavPage.locator('[data-gate-step="1"]').count(), 0, 'no like step on the WAV lease');
   assert.equal(await wavPage.locator('[data-gate-submit]').isDisabled(), true);
-  // Each step has to be genuinely opened — and held — before it counts.
-  await openSteps(wavPage);
-  assert.equal(await wavPage.locator('[data-gate-submit]').isDisabled(), true, 'the two steps alone never unlock — the email is still required');
+  // The step has to be genuinely opened — and held — before it counts.
+  await openSteps(wavPage, 1);
+  assert.equal(await wavPage.locator('[data-gate-submit]').isDisabled(), true, 'the step alone never unlocks — the email is still required');
   await wavPage.locator('#gate-email').fill('wav-buyer@example.com');
   assert.equal(await wavPage.locator('[data-gate-submit]').isDisabled(), false);
   await wavPage.locator('[data-gate-submit]').click();
@@ -463,10 +490,14 @@ try {
   // The email gate is a real <form> pointing at that provider endpoint.
   assert.equal(await proPage.locator('[data-gate-form]').getAttribute('action'), endpoint);
   assert.equal(await proPage.locator('[data-gate-form]').getAttribute('method'), 'post');
-  assert.equal(await proPage.locator('.gate-step').count(), 2, 'the Pro gate carries no comment step');
+  // Subscribe AND like this beat's own video — and nothing else: no comment step.
+  assert.equal(await proPage.locator('.gate-step').count(), 2, 'the Pro gate carries the subscribe and the like');
+  assert.match(await proPage.locator('[data-gate-step="0"]').innerText(), /SUBSCRIBE/);
+  assert.match(await proPage.locator('[data-gate-step="1"]').innerText(), /LIKE THIS VIDEO/);
+  assert.equal(await proPage.locator('[data-gate-step="1"]').getAttribute('href'), await proPage.evaluate(() => window.KYROlll_HELPERS.videoFor('6c56eda2-df4a-45b0-b9b7-68f8efdbb1af')), 'the like step opens this beat\'s own video');
   assert.equal(await proPage.locator('#gate-comment').count(), 0, 'the comment step is gone');
   assert.equal(await proPage.locator('[data-gate-submit]').isDisabled(), true);
-  await openSteps(proPage);
+  await openSteps(proPage, 2);
   // Each completed step draws its own tick and still cannot unlock alone.
   assert.equal(await proPage.locator('.gate-step.is-done .gate-step__tick').count(), 2, 'both steps show their tick');
   assert.equal(await proPage.locator('[data-gate-submit]').isDisabled(), true, 'the steps alone never unlock');
@@ -488,6 +519,20 @@ try {
   await proPage.waitForURL(/package=exclusive/);
   assert.match(proPage.url(), /sig=/, 'the drawing is handed forward, packed into the flow URL');
   assert(await proPage.locator('.license-cert__mark path').count() >= 2, 'the download page replays the drawn signature');
+  // Upright, never flipped: SVG shares the canvas' top-left origin, so the first
+  // pen position — drawn 72% down the pad — must land 72% down the mark. (The
+  // `1 - y` flip that used to be here rendered every drawing upside down while
+  // the PDF, whose origin is the bottom-left, stayed correct, so the preview and
+  // the document disagreed.)
+  const mark = await proPage.locator('.license-cert__mark').evaluate(svg => {
+    const paths = Array.from(svg.querySelectorAll('path'));
+    const pts = d => d.replace(/^M/, '').split('L').map(pair => pair.trim().split(/\s+/).map(Number));
+    const box = svg.viewBox.baseVal;
+    return { fx: pts(paths[0].getAttribute('d'))[0][0] / box.width, fy: pts(paths[0].getAttribute('d'))[0][1] / box.height, paths: paths.length };
+  });
+  assert(mark.paths >= 2, 'the mark replays both drawn strokes');
+  assert(Math.abs(mark.fy - 0.72) < 0.05, `the drawn signature is upright, not flipped (first pen at ${mark.fy.toFixed(2)} of the pad's height)`);
+  assert(Math.abs(mark.fx - 0.205) < 0.04, 'the mark keeps the pad aspect ratio and its horizontal placement');
   assert.equal(subscribeRequests.length, 3, 'the valid address is posted to the newsletter provider');
   assert.equal(subscribeRequests[2].url, endpoint, 'posted to the configured provider endpoint');
   assert.match(subscribeRequests[2].body, /email=producer%40example\.com/);
@@ -518,6 +563,16 @@ try {
   assert(ink.length >= 2, `the drawn signature is stamped into the PDF as vector strokes: ${ink.length}`);
   const inkX = ink.flatMap(path => path.map(point => Number(String(point).split(' ')[0])));
   assert(Math.max(...inkX) < 300, 'the drawn strokes sit inside the LICENSEE column');
+  // The document and the page agree on which way is up: the PDF grows its y
+  // upwards, so the point the canvas drew higher must end up higher (a bigger y)
+  // in both. A flip on either side would break this in opposite directions.
+  const firstStroke = ink[0].map(point => Number(String(point).split(' ')[1]));
+  // (`drawnPaths` captures the points after the stroke's opening move, so the
+  // SVG list is trimmed the same way before the two are compared.)
+  const firstSvgYs = (await proPage.locator('.license-cert__mark path').first().evaluate(path =>
+    path.getAttribute('d').replace(/^M/, '').split('L').map(pair => Number(pair.trim().split(/\s+/)[1])))).slice(1);
+  assert(firstSvgYs.length >= 2 && firstStroke.length >= 2, 'both sides carry the drawn points to compare');
+  assert.equal(firstSvgYs[0] < firstSvgYs[1], firstStroke[0] > firstStroke[1], 'the preview and the PDF orient the signature the same way');
   assert.equal(drawnPaths(proText).length, ink.length, 'the signs are stable');
   assert.deepEqual(pdfRuns(proText).filter(run => /[a-z]/.test(run)), [], 'the hand-signed license is uppercase too');
 
@@ -576,9 +631,14 @@ try {
   await phone.locator(`${CARD} .download-trigger`).click();
   await phone.locator('.download-menu.is-open').waitFor();
   assert(await phone.evaluate(() => {
-    const box = document.querySelector('.download-menu').getBoundingClientRect();
-    return box.left >= -1 && box.right <= innerWidth + 1 && box.top >= -1 && box.bottom <= innerHeight + 1;
-  }), 'the package menu lands inside the phone viewport');
+    const menu = document.querySelector('.download-menu');
+    const trigger = document.querySelector('[data-download-trigger][aria-expanded="true"]');
+    const box = menu.getBoundingClientRect(), t = trigger.getBoundingClientRect();
+    const attached = menu.parentElement === trigger.parentElement &&
+      Math.abs(box.left - t.left) < 2 && Math.abs(box.right - t.right) < 2 &&
+      (Math.abs(box.top - t.bottom) < 1.5 || Math.abs(box.bottom - t.top) < 1.5);
+    return attached && box.left >= -1 && box.right <= innerWidth + 1 && box.top >= -1 && box.bottom <= innerHeight + 1;
+  }), 'the drawer stays welded to its trigger and lands inside the phone viewport');
   await phone.locator('.download-tier[data-package="exclusive"]').click();
   await phone.locator('.gate-modal').waitFor();
   assert(await phone.evaluate(() => {
@@ -654,7 +714,7 @@ try {
   assert.equal(/\.gate-input[^}]*text-transform: none/.test(cssText), false, 'no casing opt-out is left on the fields');
 
   assert.deepEqual(errors, []);
-  console.log('Passed storefront layout, tagged audio preview, and the free-download menu + all three gates (held YouTube steps, the REVIEW & SIGN stage with read-to-the-end terms, a full-name-or-drawing signature and a single-word signature refused even with the disabled attribute stripped, the flower watermark on the sheet / the certificate / the PDF, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts, and the whole flow walked at 390x844 with touch).');
+  console.log('Passed storefront layout, tagged audio preview, and the free-download drawer + all three package-specific gates (one held subscribe step for the WAV lease, subscribe + like for the Pro package, the REVIEW & SIGN stage with read-to-the-end terms, a full-name-or-drawing signature and a single-word signature refused even with the disabled attribute stripped, an upright never-flipped signature mark, the flower watermark on the sheet / the certificate / the PDF, a border-free floating flower and white/silver monochrome PDF borders, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts, and the whole flow walked at 390x844 with touch).');
 } finally {
   await browser?.close();
   server.close();

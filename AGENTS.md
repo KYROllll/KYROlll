@@ -252,15 +252,38 @@ form-urlencoded body — the shape Formspree records in its dashboard):
 
 - The `[data-download-trigger]` button (delegated once on `document`, so a re-rendered
   grid keeps working) opens the `.download-menu` — the old downward-only license dropdown,
-  relabelled, anchored under the trigger and clamped so it can never run off screen.
+  relabelled. **It is not a popup.** `openMenu` renders it inside the trigger's *own*
+  container (`.download-actions` / `.catalog-tile__actions`), so `positionMenu` takes both
+  side edges and the seam straight off the trigger's own box (no horizontal maths at all) and
+  the pair reads as one control that unfolds. `positionMenu` only picks the direction — down,
+  or `.download-menu--up` welded to the button's top edge when the space below is the cramped
+  side — and caps `max-height` to the visible viewport, so a short screen scrolls the tiers
+  inside the drawer instead of running off it. Page scrolling repositions nothing (the drawer
+  travels with its button), so there is no scroll listener to lag behind a swipe; only
+  `visualViewport` resize/scroll is watched, one reposition per frame. Because the drawer is
+  part of the button, the delegated click also accepts a tap that lands on that container (a
+  tile footer is padding around a slim button, and a finger is not a pixel), and the catalog
+  tile drops its 3D hover transform while the drawer is open. `is-menu-open` is set on the
+  container, the tile and `.beat-detail` — the last lifts the copy column over the sleeve,
+  because the cover art is a positioned sibling painted after it and otherwise swallows the
+  open drawer's taps. The container also carries the **ambient glow**:
+  `.is-menu-open::after` is one blurred white bloom pouring out of the button into the drawer
+  with a slow breath (`downloadAmbientPulse`, cancelled under reduced motion), and the lit
+  button keeps a white `box-shadow` while `aria-expanded="true"`. One more fix worth keeping:
+  `.catalog-tile:focus-within` no longer adds the 3D tilt (only `:hover` does) — it fired on
+  mousedown, so the tile rotated under the finger, the slim button slid out from under the
+  pointer and the click landed on the container: the button looked dead.
 - `start(beatId, packageId)` resolves the beat + package, then opens that package's gate and
   continues on success (`gate: "instant"` short-circuits straight to the download page, and a
   package already granted in this view skips its gate with an "ALREADY UNLOCKED THIS SESSION"
   toast).
 - `openGate(beat, pack, onUnlocked)` renders `.gate-modal` (backdrop + card) into `<body>`
-  and adds `html.gate-open`. `gate: "youtube"` and `gate: "exclusive"` show the same two
-  numbered steps (`.gate-step`, built by one shared `youtubeSteps` helper) that open the
-  channel and the beat video in new tabs; each completed step morphs its number into a tick
+  and adds `html.gate-open`. Each package asks for exactly what its listing promises:
+  `gate: "email"` (MP3 lease) is the address only, `gate: "youtube"` (Standard WAV lease)
+  shows **one** numbered step — subscribe to the channel — and `gate: "exclusive"` (Pro
+  package) shows **two**: subscribe, then like this beat's own video
+  (`youtubeSteps(channel, video, count)`, one `.gate-step` row per step); each row opens in a
+  new tab, and each completed step morphs its number into a tick
   that draws itself (`.gate-step__tick`, monochrome). **A step is not a click-through.**
   `wireYouTubeSteps` marks one done only when (a) the click was genuine — a scripted click
   (`isTrusted === false`) is refused outright — and (b) the row has held in its VERIFYING
@@ -336,8 +359,10 @@ form-urlencoded body — the shape Formspree records in its dashboard):
 `crypto.getRandomValues`, so no two licenses ever share an id; `download-page.js` mints it once
 per page view and passes it to the PDF, so the id on screen is the id in the document. The
 document is an A4 certificate built around one centered masthead: the flower still as an
-embedded `/DCTDecode` JPEG at the middle of the page, the `KYROIII` wordmark under it, a
-full-width silver divider, then the title, the hero serial block, **one** ruled metadata row
+embedded `/DCTDecode` JPEG at the middle of the page — **nothing outlines it**, no box, plate
+or frame, because the still is composited on the field's own `#0B0B0B` and therefore floats —
+the `KYROIII` wordmark under it, a full-width divider, then the title, the hero serial block,
+**one** ruled metadata row
 (BEAT / PACKAGE / BPM / KEY / TERRITORY), numbered clauses 1.0–3.0, two **straight, pre-filled
 signature blocks** and a footer carrying the support address, the serial, a vector barcode and
 `HTTPS://KYROILL.STORE` — held to a **single page** for every package. The LICENSEE block shows
@@ -359,8 +384,12 @@ Three rules hold that document together and are easy to break by accident:
   sanitises, so no lowercase letter can reach a page whatever the source data says. The two
   signature faces are upright Helvetica, not a script font — that is why no third font object
   exists and the whole document is Helvetica / Helvetica-Bold.
-- **It is monochromatic.** `#0B0B0B` field, `#FFFFFF` type, `#888888` silver rules and their
-equal-channel grey siblings: zero blue, zero hue of any kind. The barcode bars are drawn white
+- **It is monochromatic, with crisp white/silver borders.** `#0B0B0B` field and `#FFFFFF`
+  type; the borders are the requested `#ffffff / #a1a1aa` pair realised on equal channels —
+  `FRAME` is pure white `1 1 1` (`#FFFFFF`) and `HAIR` is `0.631 0.631 0.631` (`#A1A1A1`, the
+  neutral twin of `#A1A1AA`), which is what draws the inner hairline, the masthead divider,
+  the heading rules, the metadata column separators, the signature rules and the footer rule.
+  Every channel is equal: zero blue, zero hue of any kind. The barcode bars are drawn white
   (`1 1 1 rg`) — black bars on the black field are invisible.
 - **It fits one page.** `FOOT_Y` (where the flow stops above the footer rule) and the
   `ensure(...)` reservations are the page-count knobs. The footer needs a rule, a row of control
@@ -388,7 +417,13 @@ one `.logo-stage` with no preloader veil), a glassmorphism file card with one ro
 `.license-cert` block that shows the minted serial (`#license-serial`) over the signature that
 came with the flow — `boot()` adopts `?sign=` / `?sig=` through `adoptSignature` before anything
 is rendered, so the stamp line (`#license-stamp`) shows the name signed in the gate, or replays
-a hand-drawn one as an inline SVG (`.license-cert__mark`), and the PDF carries the same mark. The
+a hand-drawn one as an inline SVG (`.license-cert__mark`), and the PDF carries the same mark.
+**That replay copies the pad's points straight across — `point[1] * h`, no `1 - y`** — because
+SVG shares the canvas' top-left origin, while `license-pdf.js`'s `drawSignature` *does* flip
+y (its origin is the bottom-left). Flipping both is what rendered every drawing upside down in
+the preview while the document stayed right, so the two disagreed; the strokes are also held
+crisp with `stroke-width: 2.6` + `vector-effect: non-scaling-stroke`, the pen weight of the pad
+itself. The
 `#license-signature` field is a re-sign: typing a new name replaces the signature (and the
 prebuilt blob, ~220 ms after the last keystroke) and clears any drawing, and an empty one falls
 back to the gate address, so the document is never unsigned. It prebuilds the license at load

@@ -2,10 +2,11 @@
  *
  * A dependency-free PDF writer. Every issued license is a single dark branded
  * certificate, redesigned around one centered hero: the 3D flower mark in the
- * middle of the masthead, the KYROIII wordmark beneath it, a full-width silver
- * divider, then the title, the hero serial block, one ruled metadata row, the
- * numbered clauses and two pre-filled signature blocks over a document-control
- * footer with a vector barcode.
+ * middle of the masthead — floating free, with no box, frame or plate around
+ * it — the KYROIII wordmark beneath it, a full-width divider, then the title,
+ * the hero serial block, one ruled metadata row, the numbered clauses and two
+ * pre-filled signature blocks over a document-control footer with a vector
+ * barcode.
  *
  * The LICENSEE block carries the signature captured in the gate's
  * review-and-sign step on `download.html` (see `downloads.js`). A typed
@@ -19,8 +20,10 @@
  * The document is 100% ALL CAPS: every string runs through `toAscii`, which
  * uppercases it, so no lowercase letter can reach the page. The palette is
  * strictly monochromatic — deep matte black (#0B0B0B), crisp pure white
- * (#FFFFFF) and silver/grey rules (#888888 and siblings) — every channel equal,
- * so there is no blue (or any other hue) anywhere in the document.
+ * (#FFFFFF) and silver (#A1A1A1) — every channel equal, so there is no blue (or
+ * any other hue) anywhere in the document: not a line, not an accent, not a
+ * border. The borders themselves are pure white and silver: a crisp white outer
+ * frame with a silver inner hairline, silver rules and silver column separators.
  *
  * Every issuance mints a fresh serial (`KYRO-<year>-<SLUG>-<6 random digits>`
  * from `crypto.getRandomValues`), so no two licenses ever share an id, and the
@@ -193,12 +196,15 @@
   const MARK = 120;                // the flower mark, centred in the masthead
   const MARK_TOP = PAGE_H - M - 20;
   /* Strictly monochromatic greys — every channel equal, so the document is deep
-     black, crisp white and silver with zero blue cast. The first two are the
-     exact brand values: #0B0B0B field and #888888 silver rules. */
+     black, crisp white and silver with zero blue cast. The two border values are
+     the equal-channel realisation of the requested "#ffffff / #a1a1aa" pair:
+     pure #FFFFFF for the frame and #A1A1A1 (the neutral twin of #A1A1AA) for the
+     silver hairlines and rules, so the borders read exactly as asked while not
+     one blue unit exists anywhere in the file. */
   const BG = "0.043 0.043 0.043 rg";     // #0B0B0B — the deep matte black field
-  const FRAME = "0.533 0.533 0.533";     // #888888 — minimalist silver frame
-  const HAIR = "0.19 0.19 0.19";         // inner hairline
-  const TICK = "0.72 0.72 0.72";         // bright silver corner ticks
+  const FRAME = "1 1 1";                 // #FFFFFF — crisp pure white outer frame
+  const HAIR = "0.631 0.631 0.631";      // #A1A1A1 — silver hairline, rules & columns
+  const TICK = "1 1 1";                  // #FFFFFF — crisp white corner ticks
   const WHITE = "1 1 1 rg";              // #FFFFFF — crisp pure white
   const SILVER = "0.8 0.8 0.8 rg";       // the drawn signature / soft silver text
   const SILVER_RG = "0.8 0.8 0.8";       // the same silver as a stroke colour
@@ -307,8 +313,10 @@
       if (flower) {
         const imgX = (PAGE_W - MARK) / 2;
         const imgY = MARK_TOP - MARK;
+        /* The hero mark floats: the still is composited on the field's own
+           #0B0B0B, so it lands invisibly on the page — and there is deliberately
+           no box, plate or frame around it. Nothing outlines the flower. */
         raw("q " + MARK.toFixed(2) + " 0 0 " + MARK.toFixed(2) + " " + imgX.toFixed(2) + " " + imgY.toFixed(2) + " cm /Im1 Do Q");
-        box(imgX, imgY, MARK, MARK, HAIR, 0.6);
       }
     };
 

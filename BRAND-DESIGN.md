@@ -39,6 +39,20 @@ The storefront is strictly monochrome — deep matte black `#0B0B0B`, pure white
 literal in `style.css` is an equal-channel grey, and the generated PDF is
 monochromatic by construction (`license-pdf.js` draws only equal-channel greys).
 
+Its borders are the crisp white/silver pair: a pure white frame (`1 1 1`, the
+requested `#FFFFFF`) with a silver hairline and silver rules at
+`0.631 0.631 0.631` — `#A1A1A1`, the neutral twin of `#A1A1AA`, chosen over the
+requested hex itself because `#A1A1AA` carries nine blue units and the document
+allows none. The flower hero has no box, plate or frame around it: the still is
+composited on the field's own `#0B0B0B`, so the mark simply floats.
+
+The "DOWNLOAD FREE" package menu is a drawer, not a popup: it renders inside the
+trigger's own container, spans exactly the button, butts straight onto its edge
+and pours a soft white ambient bloom (`downloadAmbientPulse`) from the button
+into the panel. Its text is uppercase and its few literals (`#101010`, `#484848`,
+white) are equal-channel greys, so the open drawer passes the same zero-hue and
+ALL-CAPS audits the rest of the store does.
+
 The supplied artwork is never re-cut for this: the brush and wordmark images are
 desaturated at paint time (`filter: grayscale(1)` on `body > canvas`,
 `.footer__logo`, `.brand-wordmark__mark`, `.vinyl-record__label` and the two

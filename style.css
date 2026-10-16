@@ -1425,9 +1425,14 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   transform-style: preserve-3d;
 }
 
+/* The lift is a HOVER flourish only. `:focus-within` used to add the same 3D
+   tilt, but that fires on mousedown — the tile rotated under the finger, the
+   slim DOWNLOAD FREE button slid out from under the pointer and the tap landed
+   on the container instead of the button, so the control looked dead. Keyboard
+   focus still gets the ring and the glow, without moving the tile mid-click. */
+.catalog-tile:hover { transform: translateY(-6px) rotateX(2.5deg) rotateY(-2deg); }
 .catalog-tile:hover,
 .catalog-tile:focus-within {
-  transform: translateY(-6px) rotateX(2.5deg) rotateY(-2deg);
   border-color: rgba(255, 255, 255, 0.28);
   box-shadow: 0 26px 46px rgba(0, 0, 0, 0.55), 0 0 34px rgba(255, 255, 255, 0.07);
 }
@@ -1464,8 +1469,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   .beat-detail__artwork-wrap { grid-column: 1; order: 2; }
   .beat-detail.vinyl-open .beat-detail__artwork,
   .beat-detail__artwork-wrap:hover .beat-detail__artwork { transform: translateX(-2%); }
-  .catalog-tile:hover,
-  .catalog-tile:focus-within { transform: translateY(-4px); }
+  .catalog-tile:hover { transform: translateY(-4px); }
 
   /* Scroll performance on phones: drop the heavy 3D perspective layers
      (perspective + rotateX/rotateY) whose compositing causes scroll jitter on
@@ -1610,7 +1614,14 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 
 .download-trigger:focus-visible { outline: 2px solid var(--white); outline-offset: 3px; }
-.download-trigger[aria-expanded="true"] { background: #e2e2e2; }
+/* While the drawer is open the button stays lit and keeps its own light, so the
+   button and the drawer below it read as one glowing element. Its bottom border
+   steps aside — the drawer's top border is the shared seam. */
+.download-trigger[aria-expanded="true"] {
+  background: var(--white);
+  border-bottom-color: transparent;
+  box-shadow: 0 0 26px rgba(255, 255, 255, .45), 0 0 64px rgba(255, 255, 255, .22);
+}
 .download-trigger__caret { font-size: 10px; transform: translateY(-1px); }
 
 .download-hint {
@@ -1652,39 +1663,97 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 .motion-paused .download-trigger { animation-play-state: paused !important; }
 
-/* The package menu: the same downward-only glass panel the license dropdown
-   used, so the interaction reads identically. Composited transform + opacity
+/* ---- The package drawer: part of the trigger, not a popup over the page ---- */
+/* The drawer is rendered inside the button's own container (see `openMenu`),
+   spans exactly the button's width and butts straight onto its edge, so button +
+   drawer read as one control that unfolds — no detached panel hovering over the
+   page. Nothing is pinned to the viewport, so it cannot drift, lag behind a
+   swipe or come loose when the page scrolls; JS only chooses the direction
+   (`.download-menu--up`) and caps the height. Composited transform + opacity
    only, so opening it never touches layout. */
-/* The menu is a scrollable flex column (it gets `max-height` + `overflow-y`
-   from `positionMenu`), so its children must refuse to shrink — otherwise a
-   short viewport squeezes the tiers instead of scrolling them, which is what
-   made the panel clip. `overscroll-behavior` stops wheel events leaking to the
-   page underneath. */
+.download-actions,
+.catalog-tile__actions { position: relative; }
+
+/* A scrollable flex column (JS sets `max-height`), so its children must refuse
+   to shrink — otherwise a short viewport squeezes the tiers instead of scrolling
+   them, which is what made the panel clip. `overscroll-behavior` stops wheel
+   events leaking to the page underneath. */
 .download-menu {
-  position: fixed;
-  z-index: 120;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 140;
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 14px;
   background: #101010;
   border: 1px solid #484848;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, .7);
+  /* The seam with the button: one continuous white edge around the pair. */
+  border-top-color: var(--white);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .7), 0 0 34px rgba(255, 255, 255, .13);
   transform-origin: top center;
   opacity: 0;
-  transform: translate3d(0, -14px, 0) scale(.97);
+  transform: translate3d(0, -8px, 0) scaleY(.97);
   pointer-events: none;
   will-change: transform, opacity;
   backface-visibility: hidden;
   overscroll-behavior: contain;
+  overflow-x: hidden;
+  overflow-y: auto;
   transition: opacity .18s ease, transform .34s cubic-bezier(.16, 1, .3, 1);
+}
+
+/* More room above than below: the drawer unfolds upwards, still welded to the
+   button's top edge. */
+.download-menu--up {
+  top: auto;
+  bottom: 100%;
+  border-top-color: #484848;
+  border-bottom-color: var(--white);
+  transform-origin: bottom center;
+  transform: translate3d(0, 8px, 0) scaleY(.97);
 }
 
 .download-menu.is-open {
   opacity: 1;
-  transform: translate3d(0, 0, 0) scale(1);
+  transform: translate3d(0, 0, 0) scaleY(1);
   pointer-events: auto;
 }
+
+/* The ambient light: a soft white bloom pouring out of the button into the
+   drawer, breathing slowly — the lit-from-within look on an otherwise pure black
+   page. One non-interactive pseudo-element on the button's container, so it is a
+   single composited layer and nothing else takes the cost. */
+.download-actions.is-menu-open::after,
+.catalog-tile__actions.is-menu-open::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: min(520px, 150%);
+  height: 260%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .22), rgba(255, 255, 255, .07) 46%, transparent 74%);
+  filter: blur(10px);
+  pointer-events: none;
+  z-index: 0;
+  animation: downloadAmbientPulse 3.8s ease-in-out infinite;
+}
+@keyframes downloadAmbientPulse {
+  0%, 100% { opacity: .5; }
+  50% { opacity: 1; }
+}
+/* The hint keeps its own crispness on top of the bloom. */
+.download-hint { position: relative; z-index: 1; }
+/* The catalog tile drops its 3D hover transform while its drawer is open, so the
+   open drawer is never rendered on a tilted plane. */
+.catalog-tile.is-menu-open { transform: none; perspective: none; }
+/* The detail card's sleeve is a positioned sibling that paints after the copy
+   column, so the column owning the trigger is lifted while its drawer is open —
+   otherwise the cover art sits over the drawer and swallows its taps. */
+.beat-detail.is-menu-open .beat-detail__content { position: relative; z-index: 30; }
 
 .download-menu__head {
   flex: 0 0 auto;
@@ -2383,7 +2452,10 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
 .license-cert__mark path {
   fill: none;
   stroke: var(--white);
-  stroke-width: 2.4;
+  /* The pad's own pen weight, held crisp at any box size: the stroke is not
+     scaled with the viewBox, so the replay stays sharp on a retina screen. */
+  stroke-width: 2.6;
+  vector-effect: non-scaling-stroke;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -2650,6 +2722,8 @@ html.preloader-armed { overflow-y: hidden; }
   .gate-step.is-done .gate-step__tick path,
   .gate-field.is-valid .gate-field__tick path,
   .license-cert__stamp.is-stamped,
+  .download-actions.is-menu-open::after,
+  .catalog-tile__actions.is-menu-open::after,
   .dl-meta__chip { animation: none; }
   .gate-step.is-done::after { content: none; }
   .gate-step.is-done .gate-step__tick path,
@@ -2673,7 +2747,7 @@ html.preloader-armed { overflow-y: hidden; }
 }
 .download-menu.is-open {
   pointer-events: auto !important;
-  z-index: 121;
+  z-index: 140;
 }
 .gate-modal.is-visible {
   pointer-events: auto !important;
