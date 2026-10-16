@@ -459,8 +459,7 @@ button {
     width: 100%;
     max-width: 100vw;
   }
-  .beat-detail__artwork-wrap,
-  .beat-detail__artwork {
+  .beat-detail__artwork-wrap {
     width: 100% !important;
     max-width: 320px !important;
     height: auto !important;
@@ -469,6 +468,16 @@ button {
     visibility: visible !important;
     opacity: 1 !important;
     margin: 0 auto !important;
+  }
+  .beat-detail__artwork {
+    width: var(--vinyl-art) !important;
+    max-width: none !important;
+    height: auto !important;
+    aspect-ratio: 1 !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    margin: 6% 0 0 0 !important;
   }
   .beat-detail__artwork img {
     width: 100% !important;
@@ -1196,7 +1205,14 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   margin: 0 auto;
   overflow: visible;
   box-sizing: border-box;
+  /* The stage geometry. The wrap is the whole stage; the sleeve (`__artwork`) is
+     sized to `--vinyl-art` and sits in the left of it, and the record — the same
+     diameter — slides right by `--vinyl-slide` (a share of its own width) into the
+     stage's free right-hand strip. Because the record's far edge stays inside the
+     stage, and the stage is a normal child of the section, the protrusion is
+     never clipped by the `overflow-x: clip` guard above it. */
   --vinyl-record: 88%;
+  --vinyl-art: 88%;
   --vinyl-slide: 12%;
   --vinyl-rotate: 360deg;
 }
@@ -1204,9 +1220,17 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 /* The sleeve gives the record room to travel by handing over part of its box. */
 .beat-detail__artwork {
   position: relative;
-  width: 100%;
-  height: 100%;
-  margin: 0;
+  /* The sleeve is inset on the stage so the record has somewhere to slide to: it
+     covers the left 88% of the wrap, leaving the right strip for the record to
+     emerge into. Both stay inside the wrap, which is what stops the protrusion
+     from being clipped by the `overflow-x: clip` guard on the sections above.
+     `justify-self` is reset from the old grid-item `center`: the sleeve is a
+     block box here, and `center` would push it right of the record's start so the
+     record appeared to slide out of the sleeve's LEFT side. */
+  justify-self: normal;
+  width: var(--vinyl-art);
+  height: var(--vinyl-art);
+  margin: 6% auto 0 0;
   max-width: 100%;
   z-index: 2;
   border-radius: 4px;
@@ -1220,7 +1244,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .vinyl-record {
   position: absolute;
   top: 6%;
-  left: 6%;
+  left: 0;
   width: var(--vinyl-record);
   height: var(--vinyl-record);
   transform: translateX(0) rotate(0deg);
@@ -1370,7 +1394,12 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 
 .catalog-tile {
   border-radius: 6px;
-  transition: box-shadow 0.5s ease, border-color 0.4s ease;
+  /* Colour only. The box-shadow lift still appears on hover, but it is not
+     tweened: animating a shadow repaints the tile — and any blurred surface
+     behind it — for the life of the transition, which is what a hover shimmer
+     is. A single-frame change is rock-solid. No `transform`/`scale` anywhere on
+     hover: nothing in the storefront moves, grows or tilts under the pointer. */
+  transition: border-color 0.3s ease;
 }
 
 /* The lift is a HOVER flourish only. `:focus-within` used to add the same 3D
@@ -1514,13 +1543,12 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   cursor: pointer;
   box-sizing: border-box;
   overflow: hidden;
-  transition:
-    /* One duration for the glow and the tile's own lift under it, so the two
-       shadows settle together instead of the button finishing 50ms early and
-       repainting on its own while the tile is still moving. */
-    box-shadow .5s ease,
-    background .3s ease,
-    color .3s ease;
+  /* Background and colour only. The glow arrives in a single frame rather than
+     tweening `box-shadow`: the button sits inside the `backdrop-filter`ed detail
+     card, and animating a shadow there forces that blur to re-compose on every
+     frame — the flicker that reads as hover jitter. Nothing here changes
+     geometry. */
+  transition: background .3s ease, color .3s ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -1592,16 +1620,13 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .download-actions,
 .catalog-tile__actions {
   position: relative;
-  /* This box is the drawer's home and the drawer must be free to paint past it in
-     every direction, so it may never clip. `overflow: visible` is the default and
-     is restated on purpose, so a later rule cannot quietly take it away and start
-     shaving the open drawer off at the container's edge.
-     The storefront's wider guards (`overflow-x: clip` on
-     `html`/`body`/`main`/`.viewport`/`.grid`/`.beat-detail`/`.beat-detail__content`)
-     only ever clip the horizontal axis — the vertical axis stays `visible` — which
-     is exactly why the drawer unfolds well past its card without being cut off.
-     Do not "fix" those guards by removing them: they are what stop the page
-     scrolling sideways, and the drawer needs none of them removed. */
+  /* Only the button's container now: the drawer itself is mounted on `<body>`
+     (see `openMenu`) and painted `position: fixed`, so it is the page root, not
+     this box, that anchors it. `position: relative` is kept because the ambient
+     bloom (`::after`) is pinned to this box, and `overflow: visible` is restated
+     so nothing here clips the button's own glow. The storefront's
+     `overflow-x: clip` guards stay exactly as they are; they keep the page from
+     scrolling sideways and no longer have any say over the drawer. */
   overflow: visible;
 }
 
@@ -1610,21 +1635,19 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    them, which is what made the panel clip. `overscroll-behavior` stops wheel
    events leaking to the page underneath. */
 .download-menu {
-  position: absolute;
+  /* Anchored to the page root and painted `fixed`, so it is placed in viewport
+     coordinates by `positionMenu` and can never be clipped, cut off or covered by
+     any card, section or footer. `left`/`top` are written inline; those below are
+     the no-JS fallbacks. */
+  position: fixed;
   left: 0;
   right: auto;
-  /* Downwards, always. `top: 100%` is the CSS default; `positionMenu` overwrites
-     it with the button's own measured bottom edge in pixels and never turns the
-     drawer around. Room below is made by scrolling the page (`frameDrawer`), not
-     by flipping the drawer over the button, so the control behaves the same way
-     everywhere: the button, then its drawer beneath it. */
-  top: 100%;
+  top: 0;
   bottom: auto;
-  /* Above every piece of storefront paint (`body::before` grain 80, the hero and
-     vinyl layers), still inside the drawer's own stacking context: the gate modal
-     (200) and the toast (260) live on `<body>` and are painted by the root
-     stacking context, so they keep winning over an open drawer regardless. */
-  z-index: 9999;
+  /* Above every piece of storefront paint — cards, sections, the footer and the
+     grain (`body::before`, 80). The gate modal (1000000) and the toast (1000001)
+     are raised above it, so an open dialog still wins. */
+  z-index: 999999;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1665,6 +1688,10 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   pointer-events: auto;
   visibility: visible;
 }
+
+/* A drawer turned over the button (near the foot of the page) grows from its
+   bottom seam instead of its top, so it still unfolds away from the button. */
+.download-menu--up { transform-origin: bottom center; }
 
 /* The ambient light: a soft white bloom pouring out of the button into the
    drawer, breathing slowly — the lit-from-within look on an otherwise pure black
@@ -1741,7 +1768,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
      the open drawer: the tap must register on the tier itself, whatever the
      panel's reveal transition is doing at that instant. */
   pointer-events: auto;
-  transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
 }
 
 .download-tier:hover,
@@ -1749,7 +1776,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   background: var(--white);
   border-color: var(--white);
   color: var(--black);
-  transform: translateY(-1px);
 }
 
 /* The tier name and its tag share one row; wrapping keeps a long name from
@@ -1784,7 +1810,7 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
 .gate-modal {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: 1000000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2291,12 +2317,11 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
   padding: 15px 18px;
   background: linear-gradient(150deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .01));
   border: 1px solid rgba(255, 255, 255, .08);
-  transition: transform .25s ease, border-color .25s ease, background .25s ease;
+  transition: border-color .25s ease, background .25s ease;
   animation: download-item-in .55s cubic-bezier(.16, 1, .3, 1) both;
   animation-delay: calc(var(--i, 0) * 70ms + 80ms);
 }
 .download-item:hover {
-  transform: translateY(-2px);
   border-color: rgba(255, 255, 255, .22);
   background: linear-gradient(150deg, rgba(255, 255, 255, .085), rgba(255, 255, 255, .02));
 }
@@ -2314,7 +2339,7 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
 /* A file the server does not actually have: dim the row and refuse the click
    rather than handing over something that is not the file. */
 .download-item.is-missing { opacity: .5; border-color: rgba(121, 121, 121, 0.35); }
-.download-item.is-missing:hover { transform: none; border-color: rgba(121, 121, 121, 0.35); }
+.download-item.is-missing:hover { border-color: rgba(121, 121, 121, 0.35); }
 .download-item__btn[disabled] { cursor: not-allowed; }
 
 /* The license: no raw text any more — a certificate block that shows the
@@ -2639,7 +2664,7 @@ html.preloader-armed { overflow-y: hidden; }
   position: fixed;
   left: 50%;
   bottom: 28px;
-  z-index: 260;
+  z-index: 1000001;
   transform: translate3d(-50%, 24px, 0);
   opacity: 0;
   padding: 13px 22px;

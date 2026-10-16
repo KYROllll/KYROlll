@@ -153,15 +153,19 @@ async function pickPackage(page, packageId) {
     const natural = tiers.reduce((sum, tier) => sum + tier.getBoundingClientRect().height, 0) + 8 * (tiers.length - 1);
     const box = menu.getBoundingClientRect();
     const t = trigger.getBoundingClientRect();
-    const attached = menu.parentElement === host && menu.parentElement !== document.body &&
-      Math.abs(box.left - t.left) < 2 && Math.abs(box.right - t.right) < 2;
+    const cs = getComputedStyle(menu);
+    /* Root-anchored: a direct child of <body>, painted `fixed`, so no ancestor's
+       `overflow` or stacking context can clip or bury it. It is still aligned to
+       the button it belongs to, edge to edge, with the seam between them. */
+    const rooted = menu.parentElement === document.body && cs.position === 'fixed';
+    const aligned = Math.abs(box.left - t.left) < 2 && Math.abs(box.right - t.right) < 2;
     const seam = Math.abs(box.top - t.bottom) < 1.5 || Math.abs(box.bottom - t.top) < 1.5;
     const glow = host.classList.contains('is-menu-open') &&
       getComputedStyle(host, '::after').backgroundImage.includes('radial-gradient') &&
       getComputedStyle(trigger).boxShadow !== 'none';
-    return !squished && list.clientHeight + 1 >= natural && attached && seam && glow &&
-      box.left >= -1 && box.right <= innerWidth + 1;
-  }), 'the drawer is welded to its trigger with the ambient glow lit, every tier renders without clipping');
+    const inView = box.left >= -1 && box.right <= innerWidth + 1 && box.top >= -1 && box.bottom <= innerHeight + 1;
+    return !squished && list.clientHeight + 1 >= natural && rooted && aligned && seam && glow && inView;
+  }), 'the drawer is root-anchored (fixed on <body>), welded to its trigger with the ambient glow lit, and every tier renders without clipping');
   await page.locator(`.download-tier[data-package="${packageId}"]`).click();
 }
 
@@ -661,11 +665,11 @@ try {
     const menu = document.querySelector('.download-menu');
     const trigger = document.querySelector('[data-download-trigger][aria-expanded="true"]');
     const box = menu.getBoundingClientRect(), t = trigger.getBoundingClientRect();
-    const attached = menu.parentElement === trigger.parentElement &&
-      Math.abs(box.left - t.left) < 2 && Math.abs(box.right - t.right) < 2 &&
+    const rooted = menu.parentElement === document.body && getComputedStyle(menu).position === 'fixed';
+    const attached = Math.abs(box.left - t.left) < 2 && Math.abs(box.right - t.right) < 2 &&
       (Math.abs(box.top - t.bottom) < 1.5 || Math.abs(box.bottom - t.top) < 1.5);
-    return attached && box.left >= -1 && box.right <= innerWidth + 1 && box.top >= -1 && box.bottom <= innerHeight + 1;
-  }), 'the drawer stays welded to its trigger and lands inside the phone viewport');
+    return rooted && attached && box.left >= -1 && box.right <= innerWidth + 1 && box.top >= -1 && box.bottom <= innerHeight + 1;
+  }), 'the root-anchored drawer stays welded to its trigger and lands inside the phone viewport');
   await phone.locator('.download-tier[data-package="exclusive"]').click();
   await phone.locator('.gate-modal').waitFor();
   assert(await phone.evaluate(() => {

@@ -192,17 +192,13 @@ the clamp does not need it, and it did not make the sandbox smoke check any more
 
 `.reveal` is pre-promoted with `will-change: opacity, transform` while its slide-in is still
 to come, and `.reveal.is-revealed` (and `.beat-page .reveal`) takes it back with
-`will-change: auto`. That is not just compositor hygiene: **`will-change` makes an element a
-stacking context**, and one held for the life of the page is what let the footer cover an open
-package drawer on the home route. Every section is a `.reveal`, so the drawer's `z-index: 9999`
-could only ever escape as far as its nearest stacking-context ancestor (`.grid`), and the footer
-— a later `.reveal` sibling — painted over the whole grid, so the drawer's tiers were painted
-under the footer and a tap on one landed on the footer instead (measured: `document
-.elementFromPoint` at every tier centre returned `footer.footer`, on the home route only, and
-the drawer's own `z-index` could not fix it). With the settled sections handed back, the lifted
-tile (`.catalog-tile.is-menu-open { z-index: 5 }`) wins over the footer again and all three
-tiers take their own taps. Keep the `will-change: auto`; a bare `.reveal.is-revealed` silently
-re-breaks the home route's drawer.
+`will-change: auto`. That is compositor hygiene: **`will-change` makes an element a stacking
+context**, and a layer held for the life of the page is a cost with no benefit once the slide
+is over. (This used to be load-bearing — the drawer lived inside the card, so a `.reveal`
+stacking context could trap its `z-index` and the footer painted over it. The drawer is now
+mounted on `<body>` at `z-index: 999999`, in the root stacking context, so no ancestor's
+stacking context can contain it. Keep the `will-change: auto` regardless: a bare
+`.reveal.is-revealed` still promotes every settled section for the life of the page.)
 
 ## Preview responsiveness in this sandbox
 
@@ -280,67 +276,55 @@ form-urlencoded body — the shape Formspree records in its dashboard):
 
 - The `[data-download-trigger]` button (delegated once on `document`, so a re-rendered
   grid keeps working) opens the `.download-menu` — the old downward-only license dropdown,
-  relabelled. **It is not a popup.** `openMenu` renders it inside the trigger's *own*
-  container (`.download-actions` / `.catalog-tile__actions`), so `positionMenu` takes both
-  side edges and the seam straight off the trigger's own box (no horizontal maths at all) and
-  the pair reads as one control that unfolds. **It always unfolds downwards**, off the button's
-  bottom edge: `positionMenu` welds it to `anchorTop + rect.height`, never turns it around, and
-  does not consult a direction at all — the CSS default is `top: 100%; bottom: auto` and the
-  `.download-menu--up` variant is gone. Room below is found by **framing** the page instead:
-  `positionMenu` hands its measurement (`{ natural, room }`) to `frameDrawer`, which scrolls so the
-  button and its drawer sit together in the middle of the visible viewport, which is what puts the
-  whole list — MP3 lease, WAV lease, Pro package — on screen with nothing cut off. `frameDrawer` is
-  a no-op when the drawer is already whole below the button, and it only ever scrolls as far as the
-  document allows; when the stack cannot fit the window on any scroll the button is pinned to the
-  top margin and the drawer keeps its capped, internally scrollable height rather than running off
-  the bottom. The scroll is `smooth` unless `prefers-reduced-motion` or the store's own
-  `motion-paused` switch asks for `auto`. Two pieces keep the drawer uncut: its host
-  (`.download-actions` / `.catalog-tile__actions`) carries an explicit `overflow: visible`,
-  restated so a later rule cannot shave the open drawer off at its own container's edge, and
-  the storefront's page-wide guards are `overflow-x: clip` only — `clip` on one axis leaves the
-  other `visible`, so nothing in the ancestor chain clips the drawer vertically and there is no
-  `overflow: hidden` anywhere to remove. It is deliberately **not** `position: fixed` on
-  phones: `.beat-detail__content` carries a `backdrop-filter` and the catalog tiles carry a
-  `transform`, both of which make them containing blocks for fixed descendants, so a fixed
-  drawer would be positioned against the glass card instead of the viewport. The drawer holds a
-  very high `z-index` (`9999`) inside its own container — safe, because the gate modal (200) and
-  the toast (260) live on `<body>` and win from the root stacking context — and while closed it
-  is also `visibility: hidden`, so an unopened drawer is inert to pointer and keyboard, while
-  every `.download-tier` re-states `pointer-events: auto` so a tap always lands on the option
-  itself. The drawer is a **glass** sheet — the same `backdrop-filter` treatment the detail card
-  wears (equal-channel greys only, per the monochrome rule), with a silver edge and the pure-white
-  seam along the button. **The trigger is a switch**: a tap on the trigger that owns the open
-  drawer closes it (same delegated listener), because re-rendering it under the finger restarted
-  the reveal animation and read as a second, stray panel. Page scrolling repositions nothing
-  (the drawer travels with its button), so there is no scroll listener to lag behind a swipe;
-  only `visualViewport` resize/scroll is watched, one reposition per frame. Because the drawer is
-  part of the button, the delegated click also accepts a tap that lands on that container (a
-  tile footer is padding around a slim button, and a finger is not a pixel), and the catalog
-  tile drops its 3D hover transform while the drawer is open. `is-menu-open` is set on the
-  container, the tile and `.beat-detail` — the last lifts the copy column over the sleeve,
-  because the cover art is a positioned sibling painted after it and otherwise swallows the
-  open drawer's taps. Opening also lifts the tile (`.catalog-tile.is-menu-open` gets
-  `position: relative; z-index: 5`), because a tile later in the grid paints after this one and
-  would otherwise cover an unfolded drawer. The container also carries the **ambient glow**:
-  `.is-menu-open::after` is one blurred white bloom pouring out of the button into the drawer
-  with a slow breath (`downloadAmbientPulse`, cancelled under reduced motion), and the lit
-  button keeps a white `box-shadow` while `aria-expanded="true"`. The bloom is pinned to the
+  relabelled. **It is not a popup inside the card** — it is a root-anchored sheet:
+  `openMenu` appends it to `<body>` and it is painted `position: fixed`, so `positionMenu`
+  places it in *viewport* coordinates straight off the trigger's own box (both side edges and
+  the seam) and the pair still reads as one control that unfolds. Mounting on `<body>` — never
+  inside the card — is the whole point: a fixed element is only viewport-anchored while no
+  ancestor is a containing block for it, and the glass detail card (`backdrop-filter`) and the
+  catalog tiles (`transform`) would otherwise anchor it to the card.
+  **It unfolds downwards by default**, off the button's bottom edge, and is only turned over —
+  `.download-menu--up`, `transform-origin: bottom center` — when the room below the button is
+  smaller than the room above, so a button near the foot of the page still shows all three
+  tiers. Its width is the button's own width, pulled back inside the visible viewport when the
+  button hugs an edge, and its height is capped to the space actually available, so the panel is
+  never taller than the screen: an oversized list scrolls internally rather than running off the
+  bottom. There is no framing scroll any more (the old `frameDrawer` is gone) — a fixed drawer
+  that flips and clamps is already whole, so the page never moves under the visitor. Because the
+  drawer does not travel with the page, `positionMenu` re-welds it to the button on every
+  `scroll` / `resize` / `visualViewport` change, one reposition per frame.
+  **Nothing can clip it**: a fixed box whose containing block is the viewport is immune to every
+  ancestor's `overflow`, so the storefront's page-wide `overflow-x: clip` guards — which keep
+  the page from scrolling sideways — have no say over the drawer and stay exactly as they are.
+  The drawer sits in the root stacking context at `z-index: 999999`, above every card, section,
+  glow and the footer; the gate modal (`1000000`) and the toast (`1000001`) are raised above it
+  so an open dialog still wins. While closed it is `visibility: hidden`, so an unopened drawer
+  is inert to pointer and keyboard, while every `.download-tier` re-states `pointer-events:
+  auto` so a tap always lands on the option itself. The drawer is a **glass** sheet — the same
+  `backdrop-filter` treatment the detail card wears (equal-channel greys only, per the monochrome
+  rule), with a silver edge and the pure-white seam along the button. **The trigger is a
+  switch**: a tap on the trigger that owns the open drawer closes it (same delegated listener),
+  because re-rendering it under the finger restarted the reveal animation and read as a second,
+  stray panel. The delegated click also accepts a tap that lands on the button's container (a
+  tile footer is padding around a slim button, and a finger is not a pixel). `is-menu-open` is
+  still set on the container (which keeps the **ambient glow** — one blurred white bloom,
+  `downloadAmbientPulse`, cancelled under reduced motion — and the lit `box-shadow` while
+  `aria-expanded="true"`), on the tile and on `.beat-detail`; those lifts are now only cosmetic,
+  since the drawer itself outranks them all from the root context. The bloom itself is pinned to the
   container's own box (`left`/`right: 0`, a percentage height centred on the button) instead of
-  being a fixed-width disc, so the light belongs to the button and can never wander sideways
-  out of its column. One more fix worth keeping:
-  `.catalog-tile:focus-within` no longer adds the 3D tilt (only `:hover` does) — it fired on
-  mousedown, so the tile rotated under the finger, the slim button slid out from under the
-  pointer and the click landed on the container: the button looked dead. **No hover in the
-  storefront changes geometry at all** (measured: every rect on the tile and the beat card holds
-  to 0.00px across 90 frames of a held hover). The last two paint-level offenders are gone with
-  it: the youtube link's `transform: scale(1.08)` on hover is now a colour/opacity change, and
-  `.beat-preview::before`'s `playerSpin` conic gradient only runs in the
-  `[data-state="playing"]` state — it used to spin from page load inside a `backdrop-filter`ed
-  surface, repainting every frame for a layer that is fully transparent when idle. The
-  `.beat-preview` rule also no longer transitions `box-shadow`, because `playerPulse` animates
-  that same property — a transition and an animation on one property fight over it. The
-  button's glow and the tile's lift share one `box-shadow` duration so the two shadows settle
-  together.
+  being a fixed-width disc, so it can never wander sideways out of its column.
+  **No hover in the storefront changes geometry at all** (measured: every rect on the tile and the
+  beat card holds to 0.00px across 90 frames of a held hover), and no hover tween touches a shadow
+  or a `transform`: the tile's lift, the trigger's glow and the drawer tiers' highlight all arrive
+  in a single frame (only `border-color`/`background`/`color` transition), because animating a
+  `box-shadow` inside a `backdrop-filter`ed card re-composes the blur every frame — the flicker
+  that reads as hover jitter. `.catalog-tile:focus-within` adds no movement at all (it fired on
+  mousedown, so a slim button slid out from under the pointer and the click landed on the
+  container: the button looked dead). `.beat-preview::before`'s `playerSpin` conic gradient only
+  runs in the `[data-state="playing"]` state — it used to spin from page load inside a
+  `backdrop-filter`ed surface, repainting every frame for a layer that is fully transparent when
+  idle — and `.beat-preview` never transitions `box-shadow`, because `playerPulse` animates that
+  same property (a transition and an animation on one property fight over it).
 - `start(beatId, packageId)` resolves the beat + package, then opens that package's gate and
   continues on success (`gate: "instant"` short-circuits straight to the download page). It does
   **not** consult the in-page grant itself: `openGate` answers an already-unlocked package with

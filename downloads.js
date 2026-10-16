@@ -259,24 +259,27 @@
   const MENU_EDGE = 12;
   /* The viewport the drawer must fit inside. On a phone the visual viewport is
      the honest measurement — it shrinks with the keyboard and moves with the
-     pinch — so the drawer is only ever clamped to what the visitor can see. */
+     pinch — so the drawer is only ever clamped to what the visitor can see. The
+     horizontal edges are needed too, because the drawer is placed in viewport
+     coordinates (see `positionMenu`). */
   function viewportBox() {
     const vv = window.visualViewport;
+    const left = vv ? vv.offsetLeft : 0;
     const top = vv ? vv.offsetTop : 0;
+    const width = (vv && vv.width) || window.innerWidth;
     const height = (vv && vv.height) || window.innerHeight;
-    return { top: top, bottom: top + height };
+    return { left: left, top: top, width: width, height: height, right: left + width, bottom: top + height };
   }
-  /* How a page scroll is asked for: the storefront's own motion switch — the
-     `motion-paused` class `brand-logo.js` owns — and the OS preference decide
-     whether the section glides into view or simply lands there. */
-  function scrollBehavior() {
-    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce || document.documentElement.classList.contains("motion-paused")) return "auto";
-    return "smooth";
-  }
-  /* The drawer is rendered inside the trigger's own container, so it is part of
-     the same element as the button instead of a panel floating over the page:
-     it spans exactly the button's width and butts straight onto its edge. */
+  /* The drawer's home is the page root (`<body>`), never the button's card. A
+     `position: fixed` element is only viewport-anchored while no ancestor is a
+     containing block for it — and the glass detail card carries a
+     `backdrop-filter` while a catalog tile carries a `transform`, either of which
+     would make a fixed child position against the card instead of the viewport.
+     Mounting on `<body>` is what puts the drawer in the root stacking context, at
+     a `z-index` above every card, section and footer, and beyond the reach of any
+     ancestor's `overflow` — so it can never be clipped, cut off or painted under
+     anything. The `host` (the button's own container) is still tracked, but only
+     to light the ambient bloom and the tile lift while the drawer is open. */
   function menuHost(trigger) {
     return (trigger && trigger.parentElement) || document.body;
   }
@@ -307,10 +310,10 @@
         '<span class="download-menu__beat">' + escapeHTML(beat.title) + '</span>' +
       '</div>' +
       '<div class="download-menu__list">' + packs + '</div>';
-    host.appendChild(menu);
-    /* `is-menu-open` on the container lights the ambient bloom that pours out of
-       the button into the drawer; the tile guard drops the catalog tile's 3D
-       hover transform so the open drawer is never rendered on a tilted plane. */
+    /* The drawer lives on `<body>` (see `menuHost`), not inside this card: that is
+       what makes its `position: fixed` viewport-anchored and unclippable. The
+       `host` class still lights the ambient bloom around the button. */
+    document.body.appendChild(menu);
     host.classList.add("is-menu-open");
     if (tile) tile.classList.add("is-menu-open");
     if (stage) stage.classList.add("is-menu-open");
@@ -324,14 +327,9 @@
     });
     trigger.setAttribute("aria-expanded", "true");
     positionMenu();
-    /* Frame the button and its drawer in the middle of the visible viewport when
-       the drawer would not otherwise fit whole below it (see `frameDrawer`). The
-       instant branch of that scroll has already happened by here, so the drawer is
-       measured once more against where the page now sits. */
-    frameDrawer();
-    positionMenu();
-    /* Re-check available room while scrolling so the attached drawer keeps its
-       full visible height without ever detaching from its trigger. */
+    /* The drawer is viewport-anchored, so it must be re-welded to the button
+       whenever the page or the visual viewport moves — the button travels with
+       the page while the fixed drawer does not. */
     window.addEventListener("scroll", guardMenuScroll, { passive: true });
     window.addEventListener("resize", guardMenuScroll, true);
     if (window.visualViewport) {
@@ -377,70 +375,40 @@
     document.removeEventListener("keydown", handleMenuKey);
     document.removeEventListener("click", handleMenuOutside, true);
   }
-  /* The drawer stays attached to the trigger's exact box. It unfolds down unless
-     the visible viewport has more usable room above, and scrolls internally when
-     the full list cannot fit.
-     `width` is taken from the trigger's own measured box (not the container's), so
-     button and drawer share one pair of edges, and the drawer is never pinned to
-     the viewport — it stays a child of the button's container (see `menuHost`),
-     which is what keeps it from being clipped, drifting off or coming loose while
-     the page moves. The containing chain clips nothing vertically; the only
-     overflow guards on the page are `overflow-x: clip`, which leaves the vertical
-     axis `visible`. */
+  /* Place the drawer against the button's own box in *viewport* coordinates.
+     Because the drawer is `position: fixed` and its containing block is the
+     viewport, no ancestor can clip it: an `overflow` guard on a card, the grid or
+     the page does not apply to a fixed box. It spans exactly the button's width
+     (nudged back inside the viewport if the button hugs an edge), unfolds
+     downwards off the button's bottom edge, and is only turned over when the room
+     below is smaller than the room above — so a button near the foot of the page
+     still shows the whole list. Its height is capped to the space actually
+     available and the panel scrolls internally, so it can never be taller than the
+     screen and never cut off. */
   function positionMenu() {
     if (!activeMenu) return;
     const { el, anchor } = activeMenu;
-    const host = menuHost(anchor);
     const box = viewportBox();
     const rect = anchor.getBoundingClientRect();
-    const hostRect = host.getBoundingClientRect();
     const edge = MENU_EDGE;
-    const anchorLeft = rect.left - hostRect.left - host.clientLeft;
-    const anchorTop = rect.top - hostRect.top - host.clientTop;
-    el.style.left = anchorLeft + "px";
-    el.style.width = rect.width + "px";
+    /* Width and horizontal placement: the button's own width, pulled back inside
+       the visible viewport when the button itself sits near an edge. */
+    const width = Math.min(rect.width, Math.max(0, box.width - 2 * edge));
+    const left = Math.max(box.left + edge, Math.min(rect.left, box.right - edge - width));
+    el.style.width = width + "px";
+    el.style.left = left + "px";
     /* Measure the panel's own height before capping it. */
     el.style.maxHeight = "none";
     const natural = el.getBoundingClientRect().height;
-    /* Downwards, always: the drawer hangs off the button's bottom edge and is
-       never turned around. `frameDrawer` is what finds the room for it, by moving
-       the page rather than by flipping the panel — so the button/drawer pair reads
-       the same on every screen. */
-    el.style.top = (anchorTop + rect.height) + "px";
-    el.style.bottom = "auto";
-    const room = Math.max(0, box.bottom - rect.bottom - edge);
-    el.style.maxHeight = Math.min(natural, room) + "px";
-    /* The measurement the framing scroll works from, so it never re-measures and
-       can never disagree with the decision just taken here. */
-    activeMenu.geometry = { natural: natural, room: room };
-  }
-
-  /* The framing scroll. The drawer always unfolds downwards, so when the room
-     below the button is short — a low button, a short window — the page glides
-     until the button and its drawer sit together in the middle of what the
-     visitor can see, which puts the whole list (MP3 lease, WAV lease, Pro
-     package) on screen with nothing cut off.
-     It is a no-op when the drawer is already whole, and it can only ever scroll
-     as far as the document allows: at the very end of the page the button still
-     gets whatever room exists and the drawer keeps its capped, internally
-     scrollable height rather than running off the bottom. */
-  function frameDrawer() {
-    const plan = activeMenu && activeMenu.geometry;
-    if (!plan) return;
-    if (plan.room >= plan.natural) return;      // already whole: do not move the page
-    const box = viewportBox();
-    const rect = activeMenu.anchor.getBoundingClientRect();
-    const visible = box.bottom - box.top;
-    /* Button + drawer, framed together. When the stack cannot fit the window on
-       any scroll, the button is pinned to the top margin so the drawer gets the
-       largest possible share of the screen and the cap takes care of the rest. */
-    const stack = rect.height + plan.natural;
-    const target = stack > visible - 2 * MENU_EDGE
-      ? box.top + MENU_EDGE
-      : box.top + (visible - stack) / 2;
-    const delta = rect.top - target;
-    if (!delta) return;
-    window.scrollBy({ top: delta, behavior: scrollBehavior() });
+    const below = Math.max(0, box.bottom - edge - rect.bottom);
+    const above = Math.max(0, rect.top - box.top - edge);
+    /* Downwards by preference — the drawer hangs off the button's bottom edge —
+       turned over only when the room below is smaller than the room above. */
+    const up = natural > below && above > below;
+    const maxHeight = Math.min(natural, up ? above : below);
+    el.style.maxHeight = maxHeight + "px";
+    el.style.top = (up ? rect.top - maxHeight : rect.bottom) + "px";
+    el.classList.toggle("download-menu--up", up);
   }
 
   /* escapeHTML for gate body rendering */

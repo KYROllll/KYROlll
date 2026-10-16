@@ -116,6 +116,10 @@ function landOnBeatDetail() {
 function buildGrid() {
   previewPlayer.stop();
   clearTimeout(vinylTimer);
+  /* The package drawer lives on `<body>` (see downloads.js), so replacing the
+     grid would no longer take it with it: close it before the re-render, or a
+     back/forward that rebuilds the catalog could leave a stale drawer on screen. */
+  if (window.KYROlll_DOWNLOADS) window.KYROlll_DOWNLOADS.closeMenu();
   grid.innerHTML = "";
   const params = new URLSearchParams(location.search);
   const id = params.get("beat");
