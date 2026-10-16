@@ -32,15 +32,16 @@ strip, local renderer and background bundles, and `email-template.html`. Ship
 these generated files with the storefront. The renderer has no external CDN
 dependency.
 
-## One palette: black, white, silver
+## Store palette: black, white, silver, with the restored hero accent
 
-The storefront's own paint is strictly monochrome — deep matte black `#0B0B0B`,
-pure white `#FFFFFF`, silver `#888888` and their equal-channel grey siblings.
-Every colour literal in `style.css` is an equal-channel grey, and the generated
-PDF is monochromatic by construction (`license-pdf.js` draws only equal-channel
-greys). That rule governs what the store *draws* — type, rules, borders, glows
-and the certificate. It does not repaint the supplied artwork, which keeps the
-colour it was drawn in (see "The artwork keeps its own colour").
+The storefront is built on deep matte black `#0B0B0B`, pure white `#FFFFFF`,
+silver `#888888` and their equal-channel grey siblings. The hero's
+`THAT MY FAVORITE` tagline and pixel heart retain their original neon-green and
+vivid-pink glitch accents; that is the only colored CSS section. Every other
+color literal in `style.css` is an equal-channel grey. The generated PDF remains
+monochromatic by construction (`license-pdf.js` draws only equal-channel greys).
+The palette does not repaint supplied artwork, which keeps the colour it was
+drawn in (see "The artwork keeps its own colour").
 
 Its borders are the crisp white/silver pair: a pure white frame (`1 1 1`, the
 requested `#FFFFFF`) with a silver hairline and silver rules at
@@ -103,10 +104,11 @@ continue to be enforced by the existing checkout logic.
 ## Hero
 
 The hero is a centered single column: the layered KYROIII wordmark (with the
-brown brush X), a minimal "EXPLORE BEATS" cue, then the flower as the dominant
-centerpiece. The redundant tagline was removed so the flower has full breathing
-room. The catalog and compact 2+1 lease offer follow the hero directly; token
-promotions are paused (see `worker/BASE-TOKEN.md` for relaunch instructions).
+brown brush X), the `THAT MY FAVORITE` tagline with its green / pink glitch
+accents and pixel heart, a minimal "EXPLORE BEATS" cue, then the flower as the
+dominant centerpiece. The catalog and compact 2+1 lease offer follow the hero
+directly; token promotions are paused (see `worker/BASE-TOKEN.md` for relaunch
+instructions).
 
 ## Responsive
 

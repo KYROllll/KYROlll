@@ -36,11 +36,11 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   again in `toAscii` (`license-pdf.js`), which uppercases before it sanitises; `KYROlll`
   survives only as an API name (`window.KYROlll_*`), an asset path (`assets/kyrolll-*.png`)
   and the YouTube handle.
-- **One palette for the store's own paint — and no filters on the art.** What the storefront
-  *draws* is monochrome: deep matte black `#0B0B0B`, pure white `#FFFFFF` and silver `#888888`,
-  plus their equal-channel grey siblings. Every colour literal in `style.css` is an
-  equal-channel grey — no blue, no green, no pink, no brown — so no border, glow, shadow or
-  state can carry a tint, and the `theme-color` metas are `#0b0b0b`. The supplied raster
+- **One palette for the store's own paint — and no filters on the art.** The storefront is
+  deep matte black `#0B0B0B`, pure white `#FFFFFF` and silver `#888888`, with the original
+  neon-green / vivid-pink glitch palette isolated to the hero tagline and heart. Every colour
+  literal outside that tagline section in `style.css` is an equal-channel grey, and the
+  `theme-color` metas are `#0b0b0b`. The supplied raster
   artwork is **not** desaturated, because the store shows its art rather than tinting it:
   `body > canvas` (the falling brush X), `.footer__logo`, `.brand-wordmark__mark`,
   `.vinyl-record__label` and both watermark images paint in the colour they were drawn in —
@@ -48,8 +48,8 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   of their chains. `npm run build:brand` (which needs `sharp`) still owns those files and is
   still the only thing that may re-cut them. The generated PDF is equal-channel by construction
   (`license-pdf.js`), and the brand-design test asserts both halves: it reads every colour out
-  of the PDF bytes and every colour literal out of `style.css` (a tinted hex in the stylesheet
-  still fails that half of the audit — so keep new accents in the artwork, not in the CSS).
+  of the PDF bytes and every colour literal outside the dedicated tagline section of `style.css`.
+  Keep any new CSS accents scoped to the tagline; all other storefront styling stays neutral.
 - **The dialog is a phone citizen.** `.gate-modal` is measured in *dynamic* viewport units
   (`height: 100vh; height: 100dvh`) and the card scrolls inside it, so the unlock button can
   never hide behind mobile browser chrome; `downloads.js` also pins the page's scroll offset on

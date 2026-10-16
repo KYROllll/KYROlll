@@ -258,9 +258,9 @@
      pinch — so the drawer is only ever clamped to what the visitor can see. */
   function viewportBox() {
     const vv = window.visualViewport;
-    const w = (vv && vv.width) || window.innerWidth;
-    const h = (vv && vv.height) || window.innerHeight;
-    return { w: w || window.innerWidth, h: h || window.innerHeight };
+    const top = vv ? vv.offsetTop : 0;
+    const height = (vv && vv.height) || window.innerHeight;
+    return { top: top, bottom: top + height };
   }
   /* The drawer is rendered inside the trigger's own container, so it is part of
      the same element as the button instead of a panel floating over the page:
@@ -312,10 +312,9 @@
     });
     trigger.setAttribute("aria-expanded", "true");
     positionMenu();
-    /* The drawer travels with its button, so page scrolling needs no repositioning
-       at all — no listener, nothing to drift or lag behind a swipe. The only thing
-       that is watched is the *visible* viewport (the keyboard, a pinch, the mobile
-       URL bar), and that is one reposition per frame. */
+    /* Re-check available room while scrolling so the attached drawer keeps its
+       full visible height without ever detaching from its trigger. */
+    window.addEventListener("scroll", guardMenuScroll, { passive: true });
     window.addEventListener("resize", guardMenuScroll, true);
     if (window.visualViewport) {
       window.visualViewport.addEventListener("resize", guardMenuScroll);
@@ -356,16 +355,13 @@
       window.visualViewport.removeEventListener("resize", guardMenuScroll);
       window.visualViewport.removeEventListener("scroll", guardMenuScroll);
     }
+    window.removeEventListener("scroll", guardMenuScroll);
     document.removeEventListener("keydown", handleMenuKey);
     document.removeEventListener("click", handleMenuOutside, true);
   }
-  /* The drawer only ever makes two decisions: which way it unfolds (down, or up
-     when the space below is the cramped side) and how tall it may grow — never a
-     pixel wider than its button, never taller than the visible viewport, and
-     scrolling inside itself when a short screen cannot show every tier at once.
-     Both edges and the seam are taken straight off the trigger's own box, so the
-     pair is welded together in every container (the detail card's action column
-     and a catalog tile's padded footer alike). */
+  /* The drawer stays attached to the trigger's exact box. It unfolds down unless
+     the visible viewport has more usable room above, and scrolls internally when
+     the full list cannot fit. */
   function positionMenu() {
     if (!activeMenu) return;
     const { el, anchor } = activeMenu;
@@ -374,15 +370,15 @@
     const rect = anchor.getBoundingClientRect();
     const hostRect = host.getBoundingClientRect();
     const edge = 12;
-    /* Exactly the button's box: same left edge, same right edge, and a seam with
-       no gap whoever the container is. */
-    el.style.left = (rect.left - hostRect.left) + "px";
-    el.style.right = (hostRect.right - rect.right) + "px";
+    const anchorLeft = rect.left - hostRect.left - host.clientLeft;
+    const anchorTop = rect.top - hostRect.top - host.clientTop;
+    el.style.left = anchorLeft + "px";
+    el.style.width = rect.width + "px";
     /* Measure the panel's own height before capping it. */
     el.style.maxHeight = "none";
     const natural = el.getBoundingClientRect().height;
-    const below = box.h - rect.bottom - edge;
-    const above = rect.top - edge;
+    const below = box.bottom - rect.bottom - edge;
+    const above = rect.top - box.top - edge;
     /* Unfold downwards whenever the whole drawer fits below the button; only when
        it does not — and the side above is the roomier one — does it fold upwards.
        Deciding on the drawer's *real* height (not a 200px guess) is what keeps the
@@ -392,13 +388,13 @@
     el.classList.toggle("download-menu--up", up);
     if (up) {
       el.style.top = "auto";
-      el.style.bottom = (hostRect.bottom - rect.top) + "px";
+      el.style.bottom = (host.clientHeight - anchorTop) + "px";
     } else {
       el.style.bottom = "auto";
-      el.style.top = (rect.bottom - hostRect.top) + "px";
+      el.style.top = (anchorTop + rect.height) + "px";
     }
-    const room = Math.max(120, up ? above : below);
-    el.style.maxHeight = Math.min(natural || room, room) + "px";
+    const room = Math.max(0, up ? above : below);
+    el.style.maxHeight = Math.min(natural, room) + "px";
   }
 
   /* escapeHTML for gate body rendering */

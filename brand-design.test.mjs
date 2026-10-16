@@ -63,10 +63,8 @@ async function setupPage(options = {}) {
 const shot = (page, name) => page.screenshot({ path: join(tmpdir(), 'opencode', `kyrolll-${name}.png`), fullPage: true });
 const noOverflow = async page => assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'horizontal overflow');
 
-// The monochrome identity, checked on what the browser actually paints: every
-// colour any element resolves to — text, borders, outlines, fills, strokes,
-// carets and both shadow kinds — must be an equal-channel grey. A single blue
-// tint anywhere on the page fails this.
+// Every rendered colour except the hero tagline's intentional green / pink
+// glitch palette must be an equal-channel grey.
 const noHue = async (page, label) => {
   const report = await page.evaluate(() => {
     const plain = ['color', 'backgroundColor', 'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor', 'outlineColor', 'textDecorationColor', 'caretColor', 'fill', 'stroke', 'columnRuleColor', 'boxShadow', 'textShadow'];
@@ -76,6 +74,7 @@ const noHue = async (page, label) => {
     const bad = [];
     let inspected = 0;
     document.querySelectorAll('*').forEach(el => {
+      if (el.closest('.brand-tagline')) return;
       const cs = getComputedStyle(el);
       inspected += 1;
       plain.forEach(prop => runs(cs[prop]).forEach(rgb => {
@@ -85,7 +84,7 @@ const noHue = async (page, label) => {
     return { bad: [...new Set(bad)], inspected };
   });
   assert(report.inspected > 50, `${label}: the audit really walked the page (${report.inspected} elements)`);
-  assert.deepEqual(report.bad, [], `${label}: every rendered colour is an equal-channel grey (zero blue)`);
+  assert.deepEqual(report.bad, [], `${label}: every non-tagline rendered colour is an equal-channel grey`);
 };
 
 // The ALL-CAPS identity, checked on what actually renders: every text node that
@@ -232,6 +231,12 @@ try {
   await noOverflow(desktop);
   await noHue(desktop, 'the storefront');
   await noLowercase(desktop, 'the storefront');
+  assert.equal(await desktop.locator('.brand-tagline__text').textContent(), 'THAT MY FAVORITE');
+  assert.equal(await desktop.locator('.brand-tagline__heart svg').count(), 1);
+  assert.deepEqual(await desktop.locator('.brand-tagline__text').evaluate(el => ({
+    green: getComputedStyle(el, '::before').color,
+    pink: getComputedStyle(el, '::after').color,
+  })), { green: 'rgb(57, 255, 139)', pink: 'rgb(255, 62, 165)' });
   assert.equal(await desktop.locator('#grid .catalog-tile').count(), 1);
   assert.match(await desktop.locator(CARD).innerText(), /FLESH/i);
   await shot(desktop, 'desktop');
@@ -244,6 +249,28 @@ try {
   assert.match(await direct.locator(CARD).innerText(), /130 BPM \/\/ AM/i);
   assert.equal(await direct.locator(`${CARD} audio`).getAttribute('src'), 'assets/previews/BEAT 1 TAG.wav');
   assert.equal(await direct.locator(`${CARD} .download-trigger`).count(), 1);
+  const stableSelectors = [
+    '.beat-detail',
+    '.beat-preview',
+    '.beat-detail__artwork-wrap',
+    '.beat-detail__artwork',
+    '.beat-detail__artwork img',
+  ];
+  for (const selector of stableSelectors) {
+    const element = direct.locator(selector).first();
+    const measure = () => element.evaluate(el => {
+      const rect = el.getBoundingClientRect();
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, scrollY: window.scrollY };
+    });
+    const before = await measure();
+    await element.hover();
+    const after = await measure();
+    assert.deepEqual(
+      [after.x, after.y + after.scrollY, after.width, after.height],
+      [before.x, before.y + before.scrollY, before.width, before.height],
+      `${selector} remains stationary on hover`,
+    );
+  }
   await shot(direct, 'beat-detail');
   await direct.close();
 
@@ -693,22 +720,30 @@ try {
   }, null, { timeout: 15000 });
   await playback.close();
 
-  // The palette and the ALL-CAPS rule are asserted at the source as well, so a
-  // tinted literal cannot slip into the stylesheet unnoticed.
+  // Keep the rest of the stylesheet monochrome while expressly checking the
+  // isolated original green / pink hero accents and ALL-CAPS rules.
   const cssText = await readFile(new URL('./style.css', import.meta.url), 'utf8');
+  const taglineStart = cssText.indexOf('/* Tagline under the wordmark');
+  const taglineEnd = cssText.indexOf('\n.logo-stage {', taglineStart);
+  assert(taglineStart >= 0 && taglineEnd > taglineStart, 'the tagline palette is isolated in its own stylesheet section');
+  const taglineCss = cssText.slice(taglineStart, taglineEnd);
+  assert.match(taglineCss, /#39ff8b/i, 'the tagline keeps its original neon-green accent');
+  assert.match(taglineCss, /#ff3ea5/i, 'the tagline keeps its original vivid-pink accent');
+  assert.match(taglineCss, /#ff2e9a/i, 'the pixel heart keeps its original pink base');
+  const auditedCss = cssText.slice(0, taglineStart) + cssText.slice(taglineEnd);
   const literal = value => (value.includes(',')
     ? value.split(',').slice(0, 3).map(part => Number(part.trim()))
     : (value.length <= 4 ? value.slice(0, 3).split('').map(c => parseInt(c + c, 16)) : [0, 2, 4].map(i => parseInt(value.slice(i, i + 2), 16))));
   const cssColours = [
-    ...[...cssText.matchAll(/#([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\b/g)].map(m => m[1]),
-    ...[...cssText.matchAll(/rgba?\(([^)]*)\)/g)].map(m => m[1]),
+    ...[...auditedCss.matchAll(/#([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\b/g)].map(m => m[1]),
+    ...[...auditedCss.matchAll(/rgba?\(([^)]*)\)/g)].map(m => m[1]),
   ];
   assert(cssColours.length > 100, 'the stylesheet declares a full palette');
   const cssTinted = [...new Set(cssColours)].filter(value => {
     const [r, g, b] = literal(value);
     return !(r === g && g === b);
   });
-  assert.deepEqual(cssTinted, [], `every colour literal in style.css is an equal-channel grey: ${cssTinted.join(', ')}`);
+  assert.deepEqual(cssTinted, [], `every colour literal outside the tagline section is an equal-channel grey: ${cssTinted.join(', ')}`);
   assert.match(cssText, /html \{ text-transform: uppercase; \}/, 'the page-wide ALL-CAPS rule');
   assert.match(cssText, /input::placeholder, textarea::placeholder \{ text-transform: uppercase; \}/, 'placeholders are uppercase too');
   assert.equal(/\.gate-input[^}]*text-transform: none/.test(cssText), false, 'no casing opt-out is left on the fields');

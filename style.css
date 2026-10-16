@@ -1,8 +1,5 @@
-/* ONE PALETTE, NO HUE. The whole store is deep matte black, pure white and
-   silver rules — every colour literal in this file is an equal-channel grey, so
-   there is no blue (and no other hue) anywhere: not in a border, not in a glow,
-   not in a shadow. The three brand values the store is built on are the PDF's
-   own (`license-pdf.js`): #0B0B0B field, #FFFFFF type, #888888 silver. */
+/* The store is matte black, white and silver, with the hero tagline's original
+   neon-green / pink glitch accents as its only authored color exception. */
 :root {
   color-scheme: dark;
   --black: #0b0b0b;
@@ -569,9 +566,8 @@ body > canvas {
 .catalog-tile { min-width: 0; border: 1px solid var(--hairline); background: var(--paper); }
 .catalog-tile__link { display: block; height: 100%; color: var(--white); text-decoration: none; }
 .catalog-tile__art { display: block; aspect-ratio: 1; overflow: hidden; }
-.catalog-tile__art img { display: block; width: 100%; height: 100%; object-fit: cover; transition: filter .2s ease, transform .3s ease; }
+.catalog-tile__art img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .catalog-tile__title { display: block; padding: 16px; font-size: 12px; font-weight: 700; line-height: 1.5; letter-spacing: .04em; }
-.catalog-tile__link:hover img, .catalog-tile__link:focus-visible img { filter: contrast(1.08); transform: scale(1.025); }
 .catalog-tile__link:focus-visible, .beat-navigation a:focus-visible { outline: 2px solid var(--white); outline-offset: 3px; }
 
 .beat-page .brand-hero { flex-direction: row; justify-content: space-between; text-align: left; gap: 24px; padding: 14px clamp(16px, 3vw, 40px); }
@@ -635,11 +631,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   height: 100%;
   object-fit: cover;
   box-sizing: border-box;
-  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease;
-}
-.beat-detail__artwork-wrap:hover .beat-detail__artwork img {
-  transform: scale(1.025);
-  filter: contrast(1.05);
 }
 .beat-detail .card__name {
   font-size: clamp(26px, 3.5vw, 42px);
@@ -757,13 +748,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .beat-detail {
   animation: detailFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-.beat-detail__artwork img {
-  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease;
-}
-.beat-detail__artwork-wrap:hover .beat-detail__artwork img {
-  transform: scale(1.025);
-  filter: contrast(1.05);
-}
 @keyframes detailFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -778,7 +762,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   aspect-ratio: 1;
   justify-self: center;
   margin: 0 auto;
-  perspective: 1200px;
 }
 .vinyl-record {
   position: absolute;
@@ -813,8 +796,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   background: radial-gradient(circle, #888888 0%, #666666 60%, #333 100%);
   border: 4px solid #000;
 }
-.beat-detail.vinyl-open .vinyl-record,
-.beat-detail__artwork-wrap:hover .vinyl-record {
+.beat-detail.vinyl-open .vinyl-record {
   transform: translateX(var(--vinyl-slide)) rotate(var(--vinyl-rotate));
   box-shadow: 20px 20px 50px rgba(0, 0, 0, 0.85);
 }
@@ -828,15 +810,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   overflow: hidden;
   background: var(--paper);
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
-}
-
-/* 3D Audio Player Effects */
-.beat-preview {
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, background 0.2s ease;
-  transform-style: preserve-3d;
-}
-.beat-preview:hover {
-  transform: perspective(1000px) rotateY(-2deg);
 }
 
 /* Gorgeous Fade & Glow Animations */
@@ -981,8 +954,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .brand-tagline__text {
   position: relative;
   display: inline-block;
-  color: #fafafa;
-  text-shadow: 0 0 6px rgba(205, 205, 205, 0.55), 0 0 16px rgba(205, 205, 205, 0.22);
+  color: #eafff2;
+  text-shadow: 0 0 6px rgba(57, 255, 139, 0.55), 0 0 16px rgba(57, 255, 139, 0.22);
   animation: tagline-flicker 3.4s steps(1, end) infinite;
 }
 
@@ -997,14 +970,14 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 
 .brand-tagline__text::before {
-  color: #cdcdcd;
-  text-shadow: 0 0 8px rgba(205, 205, 205, 0.75);
+  color: #39ff8b;
+  text-shadow: 0 0 8px rgba(57, 255, 139, 0.75);
   animation: tagline-slice-green 3.4s steps(1, end) infinite;
 }
 
 .brand-tagline__text::after {
-  color: #6e6e6e;
-  text-shadow: 0 0 8px rgba(110, 110, 110, 0.75);
+  color: #ff3ea5;
+  text-shadow: 0 0 8px rgba(255, 62, 165, 0.75);
   animation: tagline-slice-pink 3.4s steps(1, end) infinite;
 }
 
@@ -1020,7 +993,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .brand-tagline__heart svg { display: block; width: 100%; height: 100%; }
 
 .brand-tagline__heart-body {
-  fill: #626262;
+  fill: #ff2e9a;
   animation: heart-fill 3.4s steps(1, end) infinite;
 }
 
@@ -1047,24 +1020,24 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 
 @keyframes tagline-flicker {
-  0%, 100% { color: #fafafa; text-shadow: 0 0 6px rgba(205, 205, 205, 0.5), 0 0 16px rgba(205, 205, 205, 0.2); }
-  6% { color: #efefef; text-shadow: 0 0 10px rgba(205, 205, 205, 0.75); }
-  7% { color: #fafafa; text-shadow: 0 0 6px rgba(205, 205, 205, 0.5), 0 0 16px rgba(205, 205, 205, 0.2); }
-  13% { color: #e0e0e0; text-shadow: 0 0 10px rgba(110, 110, 110, 0.7); }
-  14% { color: #fafafa; text-shadow: 0 0 6px rgba(205, 205, 205, 0.5), 0 0 16px rgba(205, 205, 205, 0.2); }
-  26% { color: #eaeaea; text-shadow: 0 0 12px rgba(110, 110, 110, 0.8); }
-  27% { color: #fafafa; }
+  0%, 100% { color: #eafff2; text-shadow: 0 0 6px rgba(57, 255, 139, 0.5), 0 0 16px rgba(57, 255, 139, 0.2); }
+  6% { color: #bfffd8; text-shadow: 0 0 10px rgba(57, 255, 139, 0.75); }
+  7% { color: #eafff2; text-shadow: 0 0 6px rgba(57, 255, 139, 0.5), 0 0 16px rgba(57, 255, 139, 0.2); }
+  13% { color: #ffd6ec; text-shadow: 0 0 10px rgba(255, 62, 165, 0.7); }
+  14% { color: #eafff2; text-shadow: 0 0 6px rgba(57, 255, 139, 0.5), 0 0 16px rgba(57, 255, 139, 0.2); }
+  26% { color: #ffe3f2; text-shadow: 0 0 12px rgba(255, 62, 165, 0.8); }
+  27% { color: #eafff2; }
   33% { opacity: 0.7; }
   34% { opacity: 1; }
-  44% { color: #f1f1f1; text-shadow: 0 0 12px rgba(205, 205, 205, 0.85); }
-  45% { color: #fafafa; text-shadow: 0 0 6px rgba(205, 205, 205, 0.5), 0 0 16px rgba(205, 205, 205, 0.2); }
-  58% { color: #e0e0e0; text-shadow: 0 0 11px rgba(110, 110, 110, 0.75); }
-  59% { color: #fafafa; }
+  44% { color: #c8ffdc; text-shadow: 0 0 12px rgba(57, 255, 139, 0.85); }
+  45% { color: #eafff2; text-shadow: 0 0 6px rgba(57, 255, 139, 0.5), 0 0 16px rgba(57, 255, 139, 0.2); }
+  58% { color: #ffd6ec; text-shadow: 0 0 11px rgba(255, 62, 165, 0.75); }
+  59% { color: #eafff2; }
   72% { opacity: 0.78; }
   73% { opacity: 1; }
-  84% { color: #e1e1e1; text-shadow: 0 0 14px rgba(205, 205, 205, 0.9); }
-  86% { color: #cacaca; text-shadow: 0 0 14px rgba(110, 110, 110, 0.9); }
-  88% { color: #fafafa; text-shadow: 0 0 6px rgba(205, 205, 205, 0.5); }
+  84% { color: #8bffb4; text-shadow: 0 0 14px rgba(57, 255, 139, 0.9); }
+  86% { color: #ffb8de; text-shadow: 0 0 14px rgba(255, 62, 165, 0.9); }
+  88% { color: #eafff2; text-shadow: 0 0 6px rgba(57, 255, 139, 0.5); }
 }
 
 @keyframes tagline-slice-green {
@@ -1092,26 +1065,26 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 
 @keyframes heart-glitch {
-  0%, 24%, 78%, 100% { transform: translateY(0.06em); filter: drop-shadow(0 0 5px rgba(98, 98, 98, 0.7)); }
-  26% { transform: translate(-1px, 0.03em); filter: drop-shadow(0 0 6px rgba(205, 205, 205, 0.85)); }
-  29% { transform: translate(1px, 0.09em); filter: drop-shadow(0 0 6px rgba(110, 110, 110, 0.9)); }
-  32% { transform: translate(-1px, 0.06em) scale(1.08); filter: drop-shadow(0 0 9px rgba(205, 205, 205, 0.8)); }
+  0%, 24%, 78%, 100% { transform: translateY(0.06em); filter: drop-shadow(0 0 5px rgba(255, 46, 154, 0.7)); }
+  26% { transform: translate(-1px, 0.03em); filter: drop-shadow(0 0 6px rgba(57, 255, 139, 0.85)); }
+  29% { transform: translate(1px, 0.09em); filter: drop-shadow(0 0 6px rgba(255, 62, 165, 0.9)); }
+  32% { transform: translate(-1px, 0.06em) scale(1.08); filter: drop-shadow(0 0 9px rgba(57, 255, 139, 0.8)); }
   35% { transform: translate(0, 0.06em); }
-  80% { transform: translate(-1px, 0.03em); filter: drop-shadow(0 0 7px rgba(205, 205, 205, 0.9)); }
-  84% { transform: translate(1px, 0.1em) scale(1.06); filter: drop-shadow(0 0 8px rgba(110, 110, 110, 0.9)); }
+  80% { transform: translate(-1px, 0.03em); filter: drop-shadow(0 0 7px rgba(57, 255, 139, 0.9)); }
+  84% { transform: translate(1px, 0.1em) scale(1.06); filter: drop-shadow(0 0 8px rgba(255, 62, 165, 0.9)); }
   88% { transform: translate(0, 0.06em); }
 }
 
 @keyframes heart-fill {
-  0%, 24%, 78%, 100% { fill: #626262; }
-  26% { fill: #d6d6d6; }
-  27% { fill: #626262; }
-  32% { fill: #e2e2e2; }
-  33% { fill: #626262; }
-  82% { fill: #d6d6d6; }
-  84% { fill: #626262; }
-  87% { fill: #e2e2e2; }
-  88% { fill: #626262; }
+  0%, 24%, 78%, 100% { fill: #ff2e9a; }
+  26% { fill: #5cffa8; }
+  27% { fill: #ff2e9a; }
+  32% { fill: #8bffc0; }
+  33% { fill: #ff2e9a; }
+  82% { fill: #5cffa8; }
+  84% { fill: #ff2e9a; }
+  87% { fill: #8bffc0; }
+  88% { fill: #ff2e9a; }
 }
 
 .motion-paused .brand-tagline,
@@ -1249,7 +1222,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   --vinyl-record: 88%;
   --vinyl-slide: 12%;
   --vinyl-rotate: 360deg;
-  perspective: 1400px;
 }
 
 /* The sleeve gives the record room to travel by handing over part of its box. */
@@ -1265,7 +1237,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   overflow: hidden;
   background: var(--paper);
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
-  transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 1s ease;
+  transition: box-shadow 1s ease;
 }
 
 .vinyl-record {
@@ -1324,15 +1296,12 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 
 /* Locked-open position: reached automatically a few seconds after load. */
-.beat-detail.vinyl-open .vinyl-record,
-.beat-detail__artwork-wrap:hover .vinyl-record {
+.beat-detail.vinyl-open .vinyl-record {
   transform: translateX(var(--vinyl-slide)) rotate(var(--vinyl-rotate));
   box-shadow: 0 26px 58px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
-.beat-detail.vinyl-open .beat-detail__artwork,
-.beat-detail__artwork-wrap:hover .beat-detail__artwork {
-  transform: translateX(-4%);
+.beat-detail.vinyl-open .beat-detail__artwork {
   box-shadow: 0 22px 46px rgba(0, 0, 0, 0.6);
 }
 
@@ -1347,10 +1316,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   background: linear-gradient(150deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
   backdrop-filter: blur(12px) saturate(1.2);
   -webkit-backdrop-filter: blur(12px) saturate(1.2);
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease, box-shadow 0.4s ease;
+  transition: border-color 0.4s ease, box-shadow 0.4s ease;
 }
-
-.beat-preview:hover { transform: perspective(1000px) rotateY(-2deg) translateY(-2px); }
 
 /* Rotating conic sheen around the frame — the "audio-reactive" border. */
 .beat-preview::before {
@@ -1416,9 +1383,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 
 .catalog-tile {
   border-radius: 6px;
-  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s ease, border-color 0.4s ease;
-  perspective: 1000px;
-  transform-style: preserve-3d;
+  transition: box-shadow 0.5s ease, border-color 0.4s ease;
 }
 
 /* The lift is a HOVER flourish only. `:focus-within` used to add the same 3D
@@ -1426,7 +1391,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    slim DOWNLOAD FREE button slid out from under the pointer and the tap landed
    on the container instead of the button, so the control looked dead. Keyboard
    focus still gets the ring and the glow, without moving the tile mid-click. */
-.catalog-tile:hover { transform: translateY(-6px) rotateX(2.5deg) rotateY(-2deg); }
 .catalog-tile:hover,
 .catalog-tile:focus-within {
   border-color: rgba(255, 255, 255, 0.28);
@@ -1463,20 +1427,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
      copy to 0px wide on phones. */
   .beat-detail__content { grid-column: 1; order: 1; padding: 18px; border-radius: 16px; }
   .beat-detail__artwork-wrap { grid-column: 1; order: 2; }
-  .beat-detail.vinyl-open .beat-detail__artwork,
-  .beat-detail__artwork-wrap:hover .beat-detail__artwork { transform: translateX(-2%); }
-  .catalog-tile:hover { transform: translateY(-4px); }
-
-  /* Scroll performance on phones: drop the heavy 3D perspective layers
-     (perspective + rotateX/rotateY) whose compositing causes scroll jitter on
-     touch devices. Interaction feedback stays, but flat and cheap. */
-  .beat-detail__artwork-wrap,
-  .catalog-tile,
-  .beat-preview {
-    perspective: none;
-    transform-style: flat;
-  }
-  .beat-preview:hover { transform: translateY(-2px); }
 }
 
 @media (max-width: 600px) {
@@ -1577,29 +1527,15 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   cursor: pointer;
   box-sizing: border-box;
   overflow: hidden;
-  transform-style: preserve-3d;
-  transform-origin: center;
   transition:
-    transform .6s cubic-bezier(.23, 1, .32, 1),
     box-shadow .45s ease,
     background .3s ease,
     color .3s ease;
-  animation: downloadTilt 7.5s ease-in-out infinite;
-  will-change: transform;
-}
-
-/* Continuous, subtle 3D tilt while the trigger rests, exactly like the old BUY
-   button — the interaction the store already read as "premium". */
-@keyframes downloadTilt {
-  0%, 100% { transform: perspective(900px) rotateX(4deg) rotateY(-5deg); }
-  50% { transform: perspective(900px) rotateX(-4deg) rotateY(5deg); }
 }
 
 @media (hover: hover) and (pointer: fine) {
   .download-trigger:hover,
   .download-trigger:focus-visible {
-    animation: none;
-    transform: perspective(900px) rotateX(0deg) rotateY(0deg) translateZ(16px);
     background: #ffffff;
     color: var(--black);
     box-shadow:
@@ -1638,26 +1574,14 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   padding: 10px;
   font-size: 10px;
   letter-spacing: .1em;
-  animation: none;
-  transform: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .download-trigger--compact:hover,
   .download-trigger--compact:focus-visible {
-    transform: translateY(-1px);
     box-shadow: 0 6px 18px rgba(0, 0, 0, .4);
   }
 }
-
-/* Phones drop the heavy 3D perspective layer (its compositing jitters on touch
-   scroll); the interaction feedback stays, flat and cheap. */
-@media (max-width: 640px) {
-  .download-trigger { animation: none; transform: none; }
-  .download-trigger:hover,
-  .download-trigger:focus-visible { transform: translateY(-2px); }
-}
-.motion-paused .download-trigger { animation-play-state: paused !important; }
 
 /* ---- The package drawer: part of the trigger, not a popup over the page ---- */
 /* The drawer is rendered inside the button's own container (see `openMenu`),
@@ -1665,8 +1589,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    drawer read as one control that unfolds — no detached panel hovering over the
    page. Nothing is pinned to the viewport, so it cannot drift, lag behind a
    swipe or come loose when the page scrolls; JS only chooses the direction
-   (`.download-menu--up`) and caps the height. Composited transform + opacity
-   only, so opening it never touches layout. */
+   (`.download-menu--up`) and caps the height. It never changes page layout. */
 .download-actions,
 .catalog-tile__actions { position: relative; }
 
@@ -1677,7 +1600,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .download-menu {
   position: absolute;
   left: 0;
-  right: 0;
+  right: auto;
   top: 100%;
   z-index: 140;
   display: flex;
@@ -1691,14 +1614,12 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   box-shadow: 0 30px 80px rgba(0, 0, 0, .7), 0 0 34px rgba(255, 255, 255, .13);
   transform-origin: top center;
   opacity: 0;
-  transform: translate3d(0, -8px, 0) scaleY(.97);
+  transform: translate3d(0, -6px, 0);
   pointer-events: none;
-  will-change: transform, opacity;
-  backface-visibility: hidden;
   overscroll-behavior: contain;
   overflow-x: hidden;
   overflow-y: auto;
-  transition: opacity .18s ease, transform .34s cubic-bezier(.16, 1, .3, 1);
+  transition: opacity .18s ease, transform .24s ease-out;
 }
 
 /* More room above than below: the drawer unfolds upwards, still welded to the
@@ -1709,12 +1630,12 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   border-top-color: #484848;
   border-bottom-color: var(--white);
   transform-origin: bottom center;
-  transform: translate3d(0, 8px, 0) scaleY(.97);
+  transform: translate3d(0, 6px, 0);
 }
 
 .download-menu.is-open {
   opacity: 1;
-  transform: translate3d(0, 0, 0) scaleY(1);
+  transform: translate3d(0, 0, 0);
   pointer-events: auto;
 }
 
