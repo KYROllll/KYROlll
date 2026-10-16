@@ -206,8 +206,7 @@
   const HAIR = "0.631 0.631 0.631";      // #A1A1A1 — silver hairline, rules & columns
   const TICK = "1 1 1";                  // #FFFFFF — crisp white corner ticks
   const WHITE = "1 1 1 rg";              // #FFFFFF — crisp pure white
-  const SILVER = "0.8 0.8 0.8 rg";       // the drawn signature / soft silver text
-  const SILVER_RG = "0.8 0.8 0.8";       // the same silver as a stroke colour
+  const SILVER_RG = "0.8 0.8 0.8";       // silver as a stroke colour (the drawn signature)
   const BODY = "0.85 0.85 0.85 rg";
   const MUTED = "0.55 0.55 0.55 rg";
 

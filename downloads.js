@@ -324,11 +324,11 @@
     });
     trigger.setAttribute("aria-expanded", "true");
     positionMenu();
-    /* Give the drawer the room its full list needs before it unfolds, so the
-       whole menu lands in view (see `revealDrawerRoom`). The instant branch of
-       that scroll has already happened by here, so the drawer is measured again
-       against where the page now sits. */
-    revealDrawerRoom();
+    /* Frame the button and its drawer in the middle of the visible viewport when
+       the drawer would not otherwise fit whole below it (see `frameDrawer`). The
+       instant branch of that scroll has already happened by here, so the drawer is
+       measured once more against where the page now sits. */
+    frameDrawer();
     positionMenu();
     /* Re-check available room while scrolling so the attached drawer keeps its
        full visible height without ever detaching from its trigger. */
@@ -402,62 +402,43 @@
     /* Measure the panel's own height before capping it. */
     el.style.maxHeight = "none";
     const natural = el.getBoundingClientRect().height;
-    const below = box.bottom - rect.bottom - edge;
-    const above = rect.top - box.top - edge;
-    /* Unfold downwards whenever the whole drawer fits below the button; only when
-       it does not — and the side above is the roomier one — does it fold upwards.
-       Deciding on the drawer's *real* height (not a 200px guess) is what keeps the
-       tiers whole: the old guess capped a drawer that was a few pixels too tall and
-       made the visitor scroll for the last tier instead of turning it around. */
-    const up = natural > below && above > below;
-    el.classList.toggle("download-menu--up", up);
-    if (up) {
-      el.style.top = "auto";
-      el.style.bottom = (host.clientHeight - anchorTop) + "px";
-    } else {
-      el.style.bottom = "auto";
-      el.style.top = (anchorTop + rect.height) + "px";
-    }
-    const room = Math.max(0, up ? above : below);
+    /* Downwards, always: the drawer hangs off the button's bottom edge and is
+       never turned around. `frameDrawer` is what finds the room for it, by moving
+       the page rather than by flipping the panel — so the button/drawer pair reads
+       the same on every screen. */
+    el.style.top = (anchorTop + rect.height) + "px";
+    el.style.bottom = "auto";
+    const room = Math.max(0, box.bottom - rect.bottom - edge);
     el.style.maxHeight = Math.min(natural, room) + "px";
-    /* The measurement the scroll below works from, so it never re-measures and
+    /* The measurement the framing scroll works from, so it never re-measures and
        can never disagree with the decision just taken here. */
-    activeMenu.geometry = { natural: natural, up: up };
+    activeMenu.geometry = { natural: natural, room: room };
   }
 
-  /* The one page scroll this module makes, and only when it buys something: the
-     page glides by the smallest amount that brings the drawer's *whole* box
-     inside the visible viewport, so the full list — MP3 lease, WAV lease, Pro
-     package — lands in view instead of the visitor having to scroll inside the
-     drawer for the last tier, and a button that sits low (or partly off the
-     fold) still hangs its drawer where it can be read.
-     It is a no-op when the drawer is already whole, and when the drawer is taller
-     than the visible band can ever be (`positionMenu` keeps a margin at each end,
-     so nothing the page does can fit it): there the drawer keeps the capped,
-     internally scrollable height it already has. `positionMenu` still runs on
-     every scroll frame, so the drawer can never overhang while the page is
-     moving. */
-  function revealDrawerRoom() {
+  /* The framing scroll. The drawer always unfolds downwards, so when the room
+     below the button is short — a low button, a short window — the page glides
+     until the button and its drawer sit together in the middle of what the
+     visitor can see, which puts the whole list (MP3 lease, WAV lease, Pro
+     package) on screen with nothing cut off.
+     It is a no-op when the drawer is already whole, and it can only ever scroll
+     as far as the document allows: at the very end of the page the button still
+     gets whatever room exists and the drawer keeps its capped, internally
+     scrollable height rather than running off the bottom. */
+  function frameDrawer() {
     const plan = activeMenu && activeMenu.geometry;
     if (!plan) return;
+    if (plan.room >= plan.natural) return;      // already whole: do not move the page
     const box = viewportBox();
     const rect = activeMenu.anchor.getBoundingClientRect();
-    const edge = MENU_EDGE;
-    /* Where the drawer's own box lands, measured off the button it is welded to:
-       above the button when it unfolds upwards, below it otherwise. A scroll
-       moves both boxes together, so these two overflows are exactly what the
-       drawer is missing at each end. */
-    const top = plan.up ? rect.top - plan.natural : rect.bottom;
-    const bottom = plan.up ? rect.top : rect.bottom + plan.natural;
-    /* A drawer taller than the visible band (the viewport minus a margin at each
-       end) can never be made whole by scrolling — only its capped, internally
-       scrollable height can hold it — so the page stays exactly where it is. That
-       also guarantees at most one of the two overflows below is positive, which is
-       what makes this a single, exact correction rather than a chase. */
-    if (plan.natural > (box.bottom - box.top) - 2 * edge) return;
-    const overTop = (box.top + edge) - top;
-    const overBottom = bottom - (box.bottom - edge);
-    const delta = overBottom > 0 ? overBottom : overTop > 0 ? -overTop : 0;
+    const visible = box.bottom - box.top;
+    /* Button + drawer, framed together. When the stack cannot fit the window on
+       any scroll, the button is pinned to the top margin so the drawer gets the
+       largest possible share of the screen and the cap takes care of the rest. */
+    const stack = rect.height + plan.natural;
+    const target = stack > visible - 2 * MENU_EDGE
+      ? box.top + MENU_EDGE
+      : box.top + (visible - stack) / 2;
+    const delta = rect.top - target;
     if (!delta) return;
     window.scrollBy({ top: delta, behavior: scrollBehavior() });
   }

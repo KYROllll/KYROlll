@@ -180,6 +180,22 @@ a stale measurement only rescales the marks slightly.
 Re-measuring with `document.body.offsetHeight` inside `resize()` was tried and reverted:
 the clamp does not need it, and it did not make the sandbox smoke check any more reliable.
 
+## `will-change` is handed back when a reveal settles
+
+`.reveal` is pre-promoted with `will-change: opacity, transform` while its slide-in is still
+to come, and `.reveal.is-revealed` (and `.beat-page .reveal`) takes it back with
+`will-change: auto`. That is not just compositor hygiene: **`will-change` makes an element a
+stacking context**, and one held for the life of the page is what let the footer cover an open
+package drawer on the home route. Every section is a `.reveal`, so the drawer's `z-index: 9999`
+could only ever escape as far as its nearest stacking-context ancestor (`.grid`), and the footer
+— a later `.reveal` sibling — painted over the whole grid, so the drawer's tiers were painted
+under the footer and a tap on one landed on the footer instead (measured: `document
+.elementFromPoint` at every tier centre returned `footer.footer`, on the home route only, and
+the drawer's own `z-index` could not fix it). With the settled sections handed back, the lifted
+tile (`.catalog-tile.is-menu-open { z-index: 5 }`) wins over the footer again and all three
+tiers take their own taps. Keep the `will-change: auto`; a bare `.reveal.is-revealed` silently
+re-breaks the home route's drawer.
+
 ## Preview responsiveness in this sandbox
 
 The storefront is heavy to render without a GPU. Measured on a fresh load here (SwiftShader,
@@ -259,10 +275,18 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   relabelled. **It is not a popup.** `openMenu` renders it inside the trigger's *own*
   container (`.download-actions` / `.catalog-tile__actions`), so `positionMenu` takes both
   side edges and the seam straight off the trigger's own box (no horizontal maths at all) and
-  the pair reads as one control that unfolds. `positionMenu` only picks the direction — down,
-  or `.download-menu--up` welded to the button's top edge when the space below is the cramped
-  side — and caps `max-height` to the visible viewport, so a short screen scrolls the tiers
-  inside the drawer instead of running off it. Two pieces keep it uncut: its host
+  the pair reads as one control that unfolds. **It always unfolds downwards**, off the button's
+  bottom edge: `positionMenu` welds it to `anchorTop + rect.height`, never turns it around, and
+  does not consult a direction at all — the CSS default is `top: 100%; bottom: auto` and the
+  `.download-menu--up` variant is gone. Room below is found by **framing** the page instead:
+  `positionMenu` hands its measurement (`{ natural, room }`) to `frameDrawer`, which scrolls so the
+  button and its drawer sit together in the middle of the visible viewport, which is what puts the
+  whole list — MP3 lease, WAV lease, Pro package — on screen with nothing cut off. `frameDrawer` is
+  a no-op when the drawer is already whole below the button, and it only ever scrolls as far as the
+  document allows; when the stack cannot fit the window on any scroll the button is pinned to the
+  top margin and the drawer keeps its capped, internally scrollable height rather than running off
+  the bottom. The scroll is `smooth` unless `prefers-reduced-motion` or the store's own
+  `motion-paused` switch asks for `auto`. Two pieces keep the drawer uncut: its host
   (`.download-actions` / `.catalog-tile__actions`) carries an explicit `overflow: visible`,
   restated so a later rule cannot shave the open drawer off at its own container's edge, and
   the storefront's page-wide guards are `overflow-x: clip` only — `clip` on one axis leaves the
@@ -277,17 +301,7 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   every `.download-tier` re-states `pointer-events: auto` so a tap always lands on the option
   itself. The drawer is a **glass** sheet — the same `backdrop-filter` treatment the detail card
   wears (equal-channel greys only, per the monochrome rule), with a silver edge and the pure-white
-  seam along the button. `openMenu` also makes room for it: `positionMenu` hands its measurement
-  (`{ natural, up }`) to `revealDrawerRoom`, which scrolls the page by the smallest amount that
-  brings the drawer's *whole* box inside the visible viewport — so a short window gives the three
-  packages their own room instead of a drawer the visitor has to scroll inside. It is a no-op when
-  the drawer is already whole and when the drawer is taller than the visible band at any scroll
-  position (there the capped, internally scrollable height stands); the scroll is `smooth` unless
-  `prefers-reduced-motion` or the store's own `motion-paused` switch asks for `auto`.
-  The direction is decided on the drawer's *real*
-  measured height (`natural > below && above > below`), never on a guess: a drawer that misses
-  the room below by a few pixels turns around instead of capping itself and making the visitor
-  scroll for the last tier. **The trigger is a switch**: a tap on the trigger that owns the open
+  seam along the button. **The trigger is a switch**: a tap on the trigger that owns the open
   drawer closes it (same delegated listener), because re-rendering it under the finger restarted
   the reveal animation and read as a second, stray panel. Page scrolling repositions nothing
   (the drawer travels with its button), so there is no scroll listener to lag behind a swipe;
@@ -308,7 +322,17 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   out of its column. One more fix worth keeping:
   `.catalog-tile:focus-within` no longer adds the 3D tilt (only `:hover` does) — it fired on
   mousedown, so the tile rotated under the finger, the slim button slid out from under the
-  pointer and the click landed on the container: the button looked dead.
+  pointer and the click landed on the container: the button looked dead. **No hover in the
+  storefront changes geometry at all** (measured: every rect on the tile and the beat card holds
+  to 0.00px across 90 frames of a held hover). The last two paint-level offenders are gone with
+  it: the youtube link's `transform: scale(1.08)` on hover is now a colour/opacity change, and
+  `.beat-preview::before`'s `playerSpin` conic gradient only runs in the
+  `[data-state="playing"]` state — it used to spin from page load inside a `backdrop-filter`ed
+  surface, repainting every frame for a layer that is fully transparent when idle. The
+  `.beat-preview` rule also no longer transitions `box-shadow`, because `playerPulse` animates
+  that same property — a transition and an animation on one property fight over it. The
+  button's glow and the tile's lift share one `box-shadow` duration so the two shadows settle
+  together.
 - `start(beatId, packageId)` resolves the beat + package, then opens that package's gate and
   continues on success (`gate: "instant"` short-circuits straight to the download page). It does
   **not** consult the in-page grant itself: `openGate` answers an already-unlocked package with

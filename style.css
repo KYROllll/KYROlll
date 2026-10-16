@@ -114,10 +114,6 @@ button {
 }
 
 .header {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0 16px 24px 52px;
   border-bottom: 1px solid var(--hairline);
   position: relative;
   background: transparent;
@@ -209,22 +205,17 @@ button {
 }
 
 .grid-closed {
-  grid-column: 1 / -1;
   padding: 64px 20px;
   text-align: center;
-  background: #101010b3;
   color: var(--white);
 }
 
 .grid-closed__title {
-  font-size: 22px;
   font-weight: 800;
-  letter-spacing: 0.12em;
   margin-bottom: 10px;
 }
 
 .grid-closed__box p {
-  font-size: 11px;
   letter-spacing: 0.14em;
   color: var(--gray);
 }
@@ -233,11 +224,9 @@ button {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
-  padding: 16px clamp(16px, 3vw, 40px) 40px;
   width: 100%;
   max-width: 1440px;
   margin-inline: auto;
-  box-sizing: border-box;
 }
 .grid-closed { grid-column: 1 / -1; }
 
@@ -281,13 +270,17 @@ button {
   display: inline-flex;
   align-items: center;
   color: #999999;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  /* Colour/opacity only: nothing on this card changes size or position on hover.
+     A `transform: scale()` here was the one scaling hover left in the card, and a
+     glyph that grows under the pointer while the title beside it stays put reads
+     as a shimmer/jitter — the whole card now holds perfectly still. */
+  transition: opacity 0.2s ease, color 0.2s ease;
   flex-shrink: 0;
 }
 
 .card__youtube-link:hover {
   opacity: 0.6;
-  transform: scale(1.08);
+  color: var(--white);
 }
 
 .card__youtube-link svg {
@@ -495,12 +488,6 @@ button {
   .grid { grid-template-columns: minmax(0, 1fr); }
 }
 
-@media (max-width: 600px) {
-  .header {
-    padding: 0 16px 24px;
-  }
-}
-
 /* Underground art direction: raw surfaces, technical labels, hard-cut type. */
 body::before {
   content: "";
@@ -521,7 +508,7 @@ body > canvas {
      footer. Capping it to the body's box keeps it exactly as tall as the page. */
   height: 100% !important;
 }
-.brand-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 40px 24px 56px 52px; border-bottom: 1px solid var(--hairline); }
+.brand-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; border-bottom: 1px solid var(--hairline); }
 .motion-toggle {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
@@ -532,8 +519,7 @@ body > canvas {
   95% { transform: translate(-.08em, -.12em); }
   97% { transform: translate(-.13em, -.1em); }
 }
-.header { padding: 20px 40px; }
-.catalog-heading { scroll-margin-top: 20px; display: flex; align-items: center; justify-content: flex-end; padding: 24px 40px; }
+.catalog-heading { scroll-margin-top: 20px; display: flex; align-items: center; justify-content: flex-end; }
 .catalog-heading.catalog-heading--empty { padding-block: 0; }
 .grid-closed { min-height: 240px; display: grid; place-items: center; background: repeating-linear-gradient(125deg, transparent 0 18px, #ffffff03 18px 19px), #0d0d0d; }
 .grid-closed__title { font-size: clamp(20px, 3vw, 36px); letter-spacing: -.04em; }
@@ -576,7 +562,7 @@ body > canvas {
 .beat-page .brand-logo-container { width: auto; }
 .beat-page .logo-stage { width: 88px; }
 .beat-page .logo-fallback { padding: 0; }
-.beat-navigation { max-width: 1440px; margin: 0 auto; padding: 22px clamp(16px, 3vw, 40px) 0; }
+.beat-navigation { max-width: 1440px; margin: 0 auto; }
 .beat-navigation a { color: var(--gray); font-size: 10px; font-weight: 700; letter-spacing: .15em; text-decoration: none; }
 .beat-navigation a:hover { color: var(--white); }
 /* index.html pre-renders the active release's card so a direct beat link
@@ -614,15 +600,10 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 .beat-detail__artwork {
   grid-column: 2;
-  position: relative;
-  width: 100%;
   max-width: 480px;
   aspect-ratio: 1;
   justify-self: center;
   margin: 0;
-  overflow: hidden;
-  border-radius: 4px;
-  border: 1px solid var(--hairline);
   box-sizing: border-box;
 }
 .beat-detail__artwork img {
@@ -745,9 +726,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 /* The hero mark and flower render immediately — no entrance opacity delay. */
 
 /* Beat Detail & Download Animations */
-.beat-detail {
-  animation: detailFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
+/* `.beat-detail`'s entrance is declared with the rest of its layout in section 2
+   (a second, duplicate rule used to repeat the same animation here). */
 @keyframes detailFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -763,26 +743,13 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   justify-self: center;
   margin: 0 auto;
 }
-.vinyl-record {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: auto;
-  width: 90%;
-  height: 90%;
-  transform: translateX(0) rotate(0deg);
-  background: radial-gradient(circle, #111 0%, #1a1a1a 40%, #000 70%, #222 100%);
-  border-radius: 50%;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
-  z-index: 1;
-  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.8s ease;
-}
+/* `.vinyl-record`'s own base declarations used to sit here, every one of them
+   superseded (same selector, later section) by the Vinyl Sanctum block below —
+   only the paint and geometry that survived there are left. */
 .vinyl-record::before {
   content: "";
   position: absolute;
-  inset: 15%;
   border-radius: 50%;
-  background: repeating-radial-gradient(circle, #151515, #151515 4px, #252525 5px, #111 6px);
 }
 .vinyl-record::after {
   content: "";
@@ -1196,14 +1163,25 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   transition:
     opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
     transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Pre-promoted only while the slide-in is still to come (opacity < 1 promotes
+     the layer on its own during the transition, so nothing is lost by handing it
+     back below). */
   will-change: opacity, transform;
 }
 
-.reveal.is-revealed { opacity: 1; transform: none; }
+/* A settled section gives its `will-change` back. Kept for the life of the page it
+   is not just wasted compositor memory, it is a permanent **stacking context** on
+   every revealed section — and that is what hid an open package drawer behind the
+   footer on the home route: the drawer's `z-index` can only escape as far as its
+   nearest stacking-context ancestor, which was `.grid`, so the footer (a later
+   `.reveal` sibling) painted over the drawer and swallowed its taps. Settled
+   sections are ordinary blocks again, and the lifted tile (`z-index: 5`) wins. */
+.reveal.is-revealed { opacity: 1; transform: none; will-change: auto; }
 
 /* On a beat detail link every revealed section is already on screen, so the
-   slide-in would drag the beat card after we align it — show them settled. */
-.beat-page .reveal { opacity: 1; transform: none; transition: none; }
+   slide-in would drag the beat card after we align it — show them settled (and
+   settled means settled: no `will-change`, so no layer and no stacking context). */
+.beat-page .reveal { opacity: 1; transform: none; transition: none; will-change: auto; }
 
 /* ---------- 3. The Vinyl Sanctum — flower label + locked-open slide --------- */
 
@@ -1218,7 +1196,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   margin: 0 auto;
   overflow: visible;
   box-sizing: border-box;
-  --vinyl-size: 100%;
   --vinyl-record: 88%;
   --vinyl-slide: 12%;
   --vinyl-rotate: 360deg;
@@ -1316,7 +1293,11 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   background: linear-gradient(150deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
   backdrop-filter: blur(12px) saturate(1.2);
   -webkit-backdrop-filter: blur(12px) saturate(1.2);
-  transition: border-color 0.4s ease, box-shadow 0.4s ease;
+  /* `border-color` only. `box-shadow` used to be transitioned here as well, while
+     `playerPulse` animates the same property in the playing state — an animation
+     and a transition on one property fight over it, so the frame jumped every
+     time playback started or stopped. The pulse owns the shadow now. */
+  transition: border-color 0.4s ease;
 }
 
 /* Rotating conic sheen around the frame — the "audio-reactive" border. */
@@ -1340,7 +1321,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   opacity: 0;
   transition: opacity 0.5s ease;
   pointer-events: none;
-  animation: playerSpin 3.6s linear infinite;
 }
 
 @keyframes playerSpin { to { transform: rotate(360deg); } }
@@ -1350,7 +1330,14 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   animation: playerPulse 1.9s ease-in-out infinite;
 }
 
-.beat-preview[data-state="playing"]::before { opacity: 1; }
+/* The sheen is both visible and spinning only while a preview plays. It used to
+   run from page load — a masked conic gradient repainting every frame inside a
+   `backdrop-filter`ed surface, for a layer that is fully transparent when idle.
+   That constant repaint is exactly what a hover flicker reads as. */
+.beat-preview[data-state="playing"]::before {
+  opacity: 1;
+  animation: playerSpin 3.6s linear infinite;
+}
 
 .beat-preview[data-state="playing"] .beat-preview__toggle {
   animation: togglePulse 1.9s ease-in-out infinite;
@@ -1528,7 +1515,10 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   box-sizing: border-box;
   overflow: hidden;
   transition:
-    box-shadow .45s ease,
+    /* One duration for the glow and the tile's own lift under it, so the two
+       shadows settle together instead of the button finishing 50ms early and
+       repainting on its own while the tile is still moving. */
+    box-shadow .5s ease,
     background .3s ease,
     color .3s ease;
 }
@@ -1587,9 +1577,10 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 /* The drawer is rendered inside the button's own container (see `openMenu`),
    spans exactly the button's width and butts straight onto its edge, so button +
    drawer read as one control that unfolds — no detached panel hovering over the
-   page. Nothing is pinned to the viewport, so it cannot drift, lag behind a
-   swipe or come loose when the page scrolls; JS only chooses the direction
-   (`.download-menu--up`) and caps the height. It never changes page layout.
+   page. It always unfolds downwards, off the button's bottom edge. Nothing is
+   pinned to the viewport, so it cannot drift, lag behind a swipe or come loose
+   when the page scrolls; JS sets the width and caps the height, and scrolls the
+   page when the drawer needs more room below. It never changes page layout.
 
    Deliberately NOT `position: fixed` on phones: the drawer lives inside
    `.beat-detail__content`, which carries a `backdrop-filter`, and the catalog
@@ -1622,7 +1613,13 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   position: absolute;
   left: 0;
   right: auto;
+  /* Downwards, always. `top: 100%` is the CSS default; `positionMenu` overwrites
+     it with the button's own measured bottom edge in pixels and never turns the
+     drawer around. Room below is made by scrolling the page (`frameDrawer`), not
+     by flipping the drawer over the button, so the control behaves the same way
+     everywhere: the button, then its drawer beneath it. */
   top: 100%;
+  bottom: auto;
   /* Above every piece of storefront paint (`body::before` grain 80, the hero and
      vinyl layers), still inside the drawer's own stacking context: the gate modal
      (200) and the toast (260) live on `<body>` and are painted by the root
@@ -1662,17 +1659,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   transition: opacity .18s ease, transform .24s ease-out;
 }
 
-/* More room above than below: the drawer unfolds upwards, still welded to the
-   button's top edge. */
-.download-menu--up {
-  top: auto;
-  bottom: 100%;
-  border-top-color: var(--gray);
-  border-bottom-color: var(--white);
-  transform-origin: bottom center;
-  transform: translate3d(0, 6px, 0);
-}
-
 .download-menu.is-open {
   opacity: 1;
   transform: translate3d(0, 0, 0);
@@ -1710,11 +1696,12 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 /* The hint keeps its own crispness on top of the bloom. */
 .download-hint { position: relative; z-index: 1; }
-/* The catalog tile drops its 3D hover transform while its drawer is open, so the
-   open drawer is never rendered on a tilted plane — and it is lifted above its
-   grid siblings, otherwise a tile that comes later in the DOM paints over the
-   unfolded drawer and clips it in the middle of the grid. */
-.catalog-tile.is-menu-open { position: relative; z-index: 5; transform: none; perspective: none; }
+/* The catalog tile is lifted above its grid siblings while its drawer is open,
+   otherwise a tile later in the DOM paints over the unfolded drawer and clips it
+   in the middle of the grid. No `transform`/`perspective` reset is needed any
+   more: the 3D hover tilt that used to require it is gone, and the tile now holds
+   perfectly still on hover (its lift is a shadow, not a movement). */
+.catalog-tile.is-menu-open { position: relative; z-index: 5; }
 /* The detail card's sleeve is a positioned sibling that paints after the copy
    column, so the column owning the trigger is lifted while its drawer is open —
    otherwise the cover art sits over the drawer and swallows its taps. */
@@ -2447,15 +2434,6 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
   animation: glass-card-in .6s cubic-bezier(.16, 1, .3, 1) both;
   animation-delay: calc(var(--i, 0) * 70ms + 120ms);
   color: var(--white);
-}
-
-.download-list__note-kicker {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: .28em;
-  color: var(--gray);
 }
 
 .download-list__note-text {
