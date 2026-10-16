@@ -6,7 +6,14 @@ const $ = (id) => document.getElementById(id);
 
 const attr = (value) => String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 
+// A navigation can happen while a gate is still mounted (a deep link, the back
+// button), and the scroll lock belongs to `downloads.js`: it is released by
+// closing the dialog, which also resets the offset it pinned. Wiping the inline
+// styles from here instead left the document unpinned while `gate-open` was
+// still set — a frozen page with a dialog on it.
 function unlockScroll() {
+  const downloads = window.KYROlll_DOWNLOADS;
+  if (downloads && downloads.closeGate) downloads.closeGate();
   document.body.style.cssText = '';
   document.documentElement.style.cssText = '';
 }

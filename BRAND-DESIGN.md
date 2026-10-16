@@ -34,10 +34,13 @@ dependency.
 
 ## One palette: black, white, silver
 
-The storefront is strictly monochrome — deep matte black `#0B0B0B`, pure white
-`#FFFFFF`, silver `#888888` and their equal-channel grey siblings. Every colour
-literal in `style.css` is an equal-channel grey, and the generated PDF is
-monochromatic by construction (`license-pdf.js` draws only equal-channel greys).
+The storefront's own paint is strictly monochrome — deep matte black `#0B0B0B`,
+pure white `#FFFFFF`, silver `#888888` and their equal-channel grey siblings.
+Every colour literal in `style.css` is an equal-channel grey, and the generated
+PDF is monochromatic by construction (`license-pdf.js` draws only equal-channel
+greys). That rule governs what the store *draws* — type, rules, borders, glows
+and the certificate. It does not repaint the supplied artwork, which keeps the
+colour it was drawn in (see "The artwork keeps its own colour").
 
 Its borders are the crisp white/silver pair: a pure white frame (`1 1 1`, the
 requested `#FFFFFF`) with a silver hairline and silver rules at
@@ -53,16 +56,23 @@ into the panel. Its text is uppercase and its few literals (`#101010`, `#484848`
 white) are equal-channel greys, so the open drawer passes the same zero-hue and
 ALL-CAPS audits the rest of the store does.
 
-The supplied artwork is never re-cut for this: the brush and wordmark images are
-desaturated at paint time (`filter: grayscale(1)` on `body > canvas`,
-`.footer__logo`, `.brand-wordmark__mark`, `.vinyl-record__label` and the two
-watermark images), so `npm run build:brand` remains the single source of truth
-for every raster asset and a rebuild cannot reintroduce a hue.
+## The artwork keeps its own colour
+
+The supplied artwork is never re-cut and never desaturated: the brush X on the
+falling canvas (`body > canvas`), `.footer__logo`, `.brand-wordmark__mark`, the
+vinyl record's `.vinyl-record__label` and the two watermark images all paint exactly as
+they were drawn — the warm brown of the brush marks and the tints in the wordmark
+artwork included. No `grayscale()`, no `saturate(0)` and no monochrome filter sits
+anywhere in the chain, so the dark field stays as deep as it was while the art on
+top of it keeps its accents. `npm run build:brand` remains the single source of
+truth for every raster asset, and the storefront is the only thing that decides
+what a hue looks like on screen.
 
 ## Falling-X background
 
-`background-x.js` paints the brush X (`assets/kyrolll-brown-x.png`, desaturated
-by the canvas's `filter`) onto an absolute document-height canvas behind the
+`background-x.js` paints the brush X (`assets/kyrolll-brown-x.png`, in the warm
+brown it is drawn in — the canvas carries no filter) onto an absolute
+document-height canvas behind the
 storefront. Sprites drift downward with gentle rotation until they land at a
 page coordinate, where they remain still as the visitor scrolls past. New page
 height adds marks without moving the existing ones. The canvas honors
@@ -74,8 +84,8 @@ visibility.
 `assets/logos/kyrolll-secondary-source.png` is the provided
 `Downloads/Untitled design-28.png` reference. The build extracts its gray wordmark
 and brush X into transparent PNGs. The footer uses the full secondary logo; the
-layered live-text main title uses the extracted brush mark, desaturated by CSS so
-the identity stays black and white. The top banner keeps only the motion control,
+layered live-text main title uses the extracted brush mark in its supplied
+colour, so the identity keeps the accents the artwork was drawn with. The top banner keeps only the motion control,
 leaving the hero as the sole brand mark above the catalog.
 
 To intentionally replace that reference:

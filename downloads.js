@@ -191,7 +191,6 @@
     if (signature) drawnStrokes = null;  // a typed name replaces a drawing
     return signature;
   }
-  function getSignature() { return signature; }
   /* Keep a drawn signature. An empty array clears it (the visitor switched
      back to typing), which is why the length is checked before assigning. */
   function setDrawnSignature(strokes) {
@@ -206,7 +205,6 @@
     if (drawnStrokes && drawnStrokes.length) signature = "";
     return drawnStrokes;
   }
-  function signatureStrokes() { return drawnStrokes; }
   /* The typed name, or the address this flow submitted at the gate. */
   function licenseeName(fallback) {
     const typed = signature || String(fallback == null ? "" : fallback).trim();
@@ -242,17 +240,13 @@
     return signaturePayload();
   }
 
+  /* `openGate` already answers a package this view has unlocked — same toast,
+     same continuation — so the grant is never consulted twice on one path. */
   function start(beatId, packageId) {
     const catalog = helpers();
     const beat = catalog && catalog.beatById(beatId);
     const pack = catalog && catalog.packageById(packageId);
     if (!beat || !pack) { showToast("BEAT OR PACKAGE NOT FOUND"); return; }
-    const remembered = grantedEmail(beat.id, pack.id);
-    if (remembered !== null) {
-      showToast("ALREADY UNLOCKED THIS SESSION");
-      goToDownload(beat, pack, remembered);
-      return;
-    }
     if (pack.gate === "instant") { goToDownload(beat, pack, ""); return; }
     openGate(beat, pack, (b, p, email) => { goToDownload(b, p, email); });
   }
@@ -389,7 +383,12 @@
     const natural = el.getBoundingClientRect().height;
     const below = box.h - rect.bottom - edge;
     const above = rect.top - edge;
-    const up = below < Math.min(natural, 200) && above > below;
+    /* Unfold downwards whenever the whole drawer fits below the button; only when
+       it does not — and the side above is the roomier one — does it fold upwards.
+       Deciding on the drawer's *real* height (not a 200px guess) is what keeps the
+       tiers whole: the old guess capped a drawer that was a few pixels too tall and
+       made the visitor scroll for the last tier instead of turning it around. */
+    const up = natural > below && above > below;
     el.classList.toggle("download-menu--up", up);
     if (up) {
       el.style.top = "auto";
@@ -785,7 +784,12 @@
       if (!isFullName(value)) return "FIRST AND LAST NAME REQUIRED — A SINGLE WORD CANNOT SIGN";
       return "";
     }
-    function refresh() {
+    /* The unlock button's whole state — and deliberately NOT the error line.
+       Reporting a refusal makes the card grow, the terms pane takes a scroll
+       from that reflow, and the pane's own scroll listener used to land here:
+       the refusal hid itself in the very frame it was announced. Only a
+       deliberate edit or a mode switch clears it (see `refresh`). */
+    function applyState() {
       const read = termsRead();
       const signed = hasSignature();
       const ready = read && signed;
@@ -807,6 +811,11 @@
           : (!read ? "SCROLL THROUGH THE TERMS TO THE END"
             : (mode === "draw" ? "SIGN YOUR FULL NAME ON THE PAD" : nameProblem()));
       }
+    }
+    /* A visitor editing something also dismisses a refusal that no longer
+       applies. */
+    function refresh() {
+      applyState();
       if (errEl) hideGateError(errEl);
     }
 
@@ -902,8 +911,12 @@
       });
       setTimeout(() => { try { nameInput.focus(); } catch (err) { /* ignore */ } }, 60);
     }
-    if (terms) terms.addEventListener("scroll", refresh, { passive: true });
-    requestAnimationFrame(refresh);
+    /* Reading the terms is not an edit: it moves the button's state and nothing
+       else. `refresh` here is what made a scroll dismiss a refusal. */
+    if (terms) terms.addEventListener("scroll", applyState, { passive: true });
+    /* The first pass is deferred by one frame, because the sheet has to be laid
+       out before its terms pane can report whether it scrolls. */
+    requestAnimationFrame(applyState);
 
     if (submitBtn) submitBtn.addEventListener("click", () => {
       if (!termsRead()) { showGateError(errEl, "READ THE TERMS TO THE END FIRST"); return; }
@@ -1014,132 +1027,60 @@
     requestAnimationFrame(() => modal.classList.add("is-visible"));
 
     const submit = modal.querySelector("[data-gate-submit]");
+    const input = modal.querySelector("#gate-email");
+    const optin = modal.querySelector("#gate-optin");
+    const errEl = modal.querySelector("#gate-error");
+    const hint = modal.querySelector("#gate-hint");
+    const form = modal.querySelector("[data-gate-form]");
+    if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
 
-    // --- EMAIL GATE (MP3) — email + mandatory opt-in, nothing remembered ---
-    if (pack.gate === "email") {
-      const input = modal.querySelector("#gate-email");
-      const optin = modal.querySelector("#gate-optin");
-      const form = modal.querySelector("[data-gate-form]");
-      const errEl = modal.querySelector("#gate-error");
-      if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
-      setTimeout(() => { try { input.focus(); input.select(); } catch (err) {} }, 40);
-
-      // The email itself never prefills and the box never checks itself later
-      // than this render: a fresh gate is always a fresh gate.
-      const hint = modal.querySelector("#gate-hint");
-      function refresh() {
-        const email = String(input && input.value || "").trim();
-        const emailOk = EMAIL_RE.test(email);
-        const ready = emailOk && !!(optin && optin.checked);
-        submit.disabled = !ready;
-        setFieldValid(modal, emailOk);
-        hideGateError(errEl);
-        if (hint) hint.textContent = ready ? "ALL SET — UNLOCK YOUR DOWNLOAD" : "ENTER EMAIL, TICK THE BOX AND SUBMIT";
-      }
-      refresh();
-      const readState = () => ({
-        email: String(input && input.value || "").trim(),
-        optin: !!(optin && optin.checked),
-        stepsOk: true
-      });
-      input && input.addEventListener("input", refresh);
-      optin && optin.addEventListener("change", refresh);
-      input && input.addEventListener("keydown", (ev) => {
-        if (ev.key !== "Enter") return;
-        ev.preventDefault();
-        submitGate(beat, pack, modal, onUnlocked, readState);
-      });
-      submit.addEventListener("click", () => submitGate(beat, pack, modal, onUnlocked, readState));
+    /* STRICT, PACKAGE-SPECIFIC — one wiring for every gate, because only two
+       things ever differ: how many YouTube steps the package promises and the
+       two hint lines. Every gate needs the address AND the mandatory opt-in;
+       the steps sit in front of that:
+         MP3 LEASE         → email + opt-in (no step at all)
+         STANDARD WAV LEASE→ subscribe to the channel, then email + opt-in
+         EXCLUSIVE / PRO   → subscribe + like THIS beat's video, then email +
+                             opt-in. There is no comment step in any of them.
+       `wireYouTubeSteps` only ever fills a slot after a genuine, held visit, so
+       no step can be clicked through. */
+    const STEP_COPY = {
+      email: { idle: "ENTER EMAIL, TICK THE BOX AND SUBMIT", ready: "ALL SET — UNLOCK YOUR DOWNLOAD" },
+      youtube: { idle: "OPEN THE STEP, THEN THE EMAIL", ready: "ALL SET — REVIEW & SIGN" },
+      exclusive: { idle: "OPEN BOTH STEPS, THEN THE EMAIL", ready: "ALL SET — REVIEW & SIGN" }
+    };
+    const copy = STEP_COPY[pack.gate] || STEP_COPY.email;
+    const steps = pack.gate === "youtube" ? [false] : pack.gate === "exclusive" ? [false, false] : [];
+    const stepsOk = () => steps.every(Boolean);
+    const readState = () => ({
+      email: String(input && input.value || "").trim(),
+      optin: !!(optin && optin.checked),
+      stepsOk: stepsOk()
+    });
+    function refresh() {
+      const emailOk = EMAIL_RE.test(String(input && input.value || "").trim());
+      const ready = stepsOk() && emailOk && !!(optin && optin.checked);
+      submit.disabled = !ready;
+      setFieldValid(modal, emailOk);
+      hideGateError(errEl);
+      if (hint) hint.textContent = ready ? copy.ready : copy.idle;
     }
+    if (steps.length) wireYouTubeSteps(modal, steps, refresh);
+    input && input.addEventListener("input", refresh);
+    optin && optin.addEventListener("change", refresh);
+    input && input.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter") return;
+      ev.preventDefault();
+      submitGate(beat, pack, modal, onUnlocked, readState);
+    });
+    submit.addEventListener("click", () => submitGate(beat, pack, modal, onUnlocked, readState));
+    refresh();
 
-    // --- YOUTUBE GATE (WAV) --- one subscribe step (`done` has one slot), then
-    // the email. The step must be genuinely opened and held before it counts —
-    // see `wireYouTubeSteps`.
-    if (pack.gate === "youtube") {
-      const done = [false];
-      const form = modal.querySelector("[data-gate-form]");
-      const input = modal.querySelector("#gate-email");
-      const errEl = modal.querySelector("#gate-error");
-      const optin = modal.querySelector("#gate-optin");
-      const hint = modal.querySelector("#gate-hint");
-      if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
-
-      wireYouTubeSteps(modal, done, refreshSubmit);
-      const stepsOk = () => done.every(Boolean);
-
-      function refreshSubmit() {
-        const emailOk = EMAIL_RE.test(String(input && input.value || "").trim());
-        const checked = optin ? optin.checked : false;
-        const all = stepsOk() && emailOk && checked;
-        submit.disabled = !all;
-        setFieldValid(modal, emailOk);
-        hideGateError(errEl);
-        if (hint) hint.textContent = all ? "ALL SET — REVIEW & SIGN" : "OPEN THE STEP, THEN THE EMAIL";
-      }
-
-      // Initialize submit disabled until all conditions met
-      submit.disabled = true;
-      input && input.addEventListener("input", refreshSubmit);
-      optin && optin.addEventListener("change", refreshSubmit);
-
-      const readState = () => ({
-        email: String(input && input.value || "").trim(),
-        optin: !!(optin && optin.checked),
-        stepsOk: stepsOk()
-      });
-      submit.addEventListener("click", () => submitGate(beat, pack, modal, onUnlocked, readState));
-      input && input.addEventListener("keydown", (ev) => {
-        if (ev.key !== "Enter") return;
-        ev.preventDefault();
-        submitGate(beat, pack, modal, onUnlocked, readState);
-      });
-    }
-
-    // --- EXCLUSIVE GATE (Pro) --- subscribe + like this beat's video, then the
-    // email form. There is no comment step.
-    if (pack.gate === "exclusive") {
-      const done = [false, false];
-      const hint = modal.querySelector("#gate-hint");
-      const form = modal.querySelector("[data-gate-form]");
-      const input = modal.querySelector("#gate-email");
-      const optin = modal.querySelector("#gate-optin");
-      const errEl = modal.querySelector("#gate-error");
-
-      if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
-
-      // Step click handlers for the two YouTube steps — genuinely opened and
-      // held before they count (see `wireYouTubeSteps`).
-      wireYouTubeSteps(modal, done, checkExclusive);
-
-      if (optin) optin.addEventListener("change", () => { checkExclusive(); });
-      if (input) input.addEventListener("input", () => { checkExclusive(); });
-
-      // Unlocked once both steps are opened, the address is valid and the
-      // mandatory opt-in is still ticked.
-      function checkExclusive() {
-        const emailOk = EMAIL_RE.test(String(input && input.value || "").trim());
-        const optOk = optin ? optin.checked : false;
-        const all = done.every(Boolean) && emailOk && optOk;
-        submit.disabled = !all;
-        setFieldValid(modal, emailOk);
-        hideGateError(errEl);
-        if (hint) hint.textContent = all ? "ALL SET — REVIEW & SIGN" : "OPEN BOTH STEPS, THEN THE EMAIL";
-      }
-
-      // Initial state
-      checkExclusive();
-
-      const readState = () => ({
-        email: String(input && input.value || "").trim(),
-        optin: !!(optin && optin.checked),
-        stepsOk: done.every(Boolean)
-      });
-      submit.addEventListener("click", () => submitGate(beat, pack, modal, onUnlocked, readState));
-      input && input.addEventListener("keydown", (ev) => {
-        if (ev.key !== "Enter") return;
-        ev.preventDefault();
-        submitGate(beat, pack, modal, onUnlocked, readState);
-      });
+    /* The MP3 lease is the one gate that opens straight on the field, so the
+       caret goes into it. The address is never prefilled: a fresh gate is
+       always a fresh gate. */
+    if (pack.gate === "email" && input) {
+      setTimeout(() => { try { input.focus(); input.select(); } catch (err) { /* ignore */ } }, 40);
     }
 
     // Cancel + Escape. The outside-click handler is installed once at module
@@ -1196,31 +1137,31 @@
     toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 2600);
   }
 
-  // Foolproof global listener — handles any download trigger across the page.
+  /* One delegated listener for every "DOWNLOAD FREE" trigger on the page —
+     installed once, at module load, in the capture phase, so a re-rendered grid
+     keeps working and no per-button listener is ever left behind. */
   document.addEventListener("click", (event) => {
-    try {
-      const target = event.target;
-      if (!target || !target.closest) return;
-      /* A tap inside the open drawer belongs to the drawer, never to the button. */
-      if (target.closest(".download-menu")) return;
-      const btn = target.closest(".download-btn, .download-dropdown-toggle, .download-trigger, [data-download-trigger]");
-      /* The button is the whole control: a tap that lands on the strip it lives in
-         (a catalog tile's footer is padding around a slim button, and a finger is
-         not a pixel) is the same intent, so the nearest trigger inside that
-         container is opened. Without this a tap that missed the button by a couple
-         of pixels did nothing but follow the tile's own link. */
-      const host = btn ? null : target.closest(".download-actions, .catalog-tile__actions");
-      const trigger = btn
-        ? (btn.closest("[data-download-trigger]") || btn)
-        : (host ? host.querySelector("[data-download-trigger]") : null);
-      if (!trigger || !trigger.getAttribute) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const beatId = trigger.getAttribute("data-beat-id");
-      if (beatId) {
-        openMenu(trigger, beatId);
-      }
-    } catch (e) { /* ignore */ }
+    const target = event.target;
+    if (!target || typeof target.closest !== "function") return;
+    /* A tap inside the open drawer belongs to the drawer, never to the button. */
+    if (target.closest(".download-menu")) return;
+    const btn = target.closest(".download-trigger, [data-download-trigger]");
+    /* The button is the whole control: a tap that lands on the strip it lives in
+       (a catalog tile's footer is padding around a slim button, and a finger is
+       not a pixel) is the same intent, so the nearest trigger inside that
+       container is opened. Without this a tap that missed the button by a couple
+       of pixels did nothing but follow the tile's own link. */
+    const host = btn ? null : target.closest(".download-actions, .catalog-tile__actions");
+    const trigger = btn || (host ? host.querySelector("[data-download-trigger]") : null);
+    if (!trigger) return;
+    event.preventDefault();
+    event.stopPropagation();
+    /* The trigger is a switch, not a one-way opener: a second tap closes the
+       drawer it opened. Re-rendering it instead (the old behaviour) restarted its
+       reveal animation under the finger and read as a second, stray panel. */
+    if (activeMenu && activeMenu.anchor === trigger) { closeMenu(); return; }
+    const beatId = trigger.getAttribute("data-beat-id");
+    if (beatId) openMenu(trigger, beatId);
   }, true);
 
   /* The only memory in this module is the in-page `grants` Map: no storage
@@ -1229,15 +1170,11 @@
      fresh load, and the address a visitor typed only travels forward inside the
      current flow's URL. */
   window.KYROlll_DOWNLOADS = {
-    PACKAGES: window.KYROlll_PACKAGES || [],
     isUnlocked: isUnlocked,
     setSignature: setSignature,
-    getSignature: getSignature,
     setDrawnSignature: setDrawnSignature,
-    signatureStrokes: signatureStrokes,
     signaturePayload: signaturePayload,
     adoptSignature: adoptSignature,
-    encodeStrokes: encodeStrokes,
     licenseeName: licenseeName,
     downloadUrl, start, goToDownload, openMenu, closeMenu, openGate, closeGate,
     deliverablesFor: deliverablesFor,

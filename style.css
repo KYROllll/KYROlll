@@ -207,9 +207,8 @@ button {
   width: .65em;
   height: 1.03em;
   object-fit: contain;
-  /* The brush X is supplied in brown: desaturated here, so the wordmark reads in
-     the same black-and-white palette as everything else. */
-  filter: grayscale(1);
+  /* The brush X keeps its own supplied colour — the artwork is never filtered
+     or re-cut, so the brand's accents survive exactly as drawn. */
 }
 
 .grid-closed {
@@ -517,10 +516,8 @@ body::before {
 }
 body > canvas {
   pointer-events: none !important;
-  /* The falling X is brush artwork in a warm brown; the store is monochrome, so
-     the marks are desaturated at paint time. Greyscale keeps every X identical
-     to the source art, just without the hue. */
-  filter: grayscale(1) !important;
+  /* The falling brush X keeps the warm brown it is drawn in: no filter sits on
+     the canvas, so the marks paint with their own hue over the dark field. */
   /* The falling-X canvas measures the page in JS. It may lag behind a page that
      got shorter (the beat card swapping for a catalog tile, a tighter footer),
      and a canvas taller than the page left a band of empty background below the
@@ -545,9 +542,8 @@ body > canvas {
 .grid-closed__title { font-size: clamp(20px, 3vw, 36px); letter-spacing: -.04em; }
 .grid-closed__box p { font-size: 10px; line-height: 1.7; }
 .footer { border-top: 1px solid var(--hairline); padding-top: 48px; }
-/* The secondary wordmark ships with its brush X in brown; the grayscale filter is
-   what makes the footer monochrome without touching the supplied artwork. */
-.footer__logo { display: block; width: 200px; height: auto; margin: 0 auto 22px; filter: grayscale(1); }
+/* The secondary wordmark — brush X and all — paints in its supplied colour. */
+.footer__logo { display: block; width: 200px; height: auto; margin: 0 auto 22px; }
 .motion-paused .brand-wordmark__layer { animation-play-state: paused !important; }
 @media (max-width: 800px) {
   .brand-hero { padding: 32px 20px 44px; }
@@ -1314,9 +1310,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   height: 30%;
   transform: translate(-50%, -50%);
   opacity: 0.94;
-  /* The label artwork carries colour tints; the store is black and white, so the
-     mark is desaturated at paint time (the supplied SVG is left untouched). */
-  filter: grayscale(1) drop-shadow(0 0 10px rgba(255, 255, 255, 0.28));
+  /* The label artwork keeps its own tints — only the white glow around it is
+     added here, so the supplied SVG is painted exactly as drawn. */
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.28));
   animation: vinylSpin 6s linear infinite;
   will-change: transform;
   backface-visibility: hidden;
@@ -1725,17 +1721,22 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 /* The ambient light: a soft white bloom pouring out of the button into the
    drawer, breathing slowly — the lit-from-within look on an otherwise pure black
    page. One non-interactive pseudo-element on the button's container, so it is a
-   single composited layer and nothing else takes the cost. */
+   single composited layer and nothing else takes the cost.
+   It is pinned to the container's own box (`left`/`right` 0) instead of being a
+   fixed-width disc, so it can never spill sideways out of its tile into the next
+   grid column — the light belongs to the button, not to the page. The vertical
+   overhang is what carries it across the seam into the drawer's first tier,
+   whichever way the drawer unfolds. */
 .download-actions.is-menu-open::after,
 .catalog-tile__actions.is-menu-open::after {
   content: "";
   position: absolute;
-  left: 50%;
-  top: 34%;
-  width: min(520px, 150%);
-  height: 260%;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(closest-side, rgba(255, 255, 255, .22), rgba(255, 255, 255, .07) 46%, transparent 74%);
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 300%;
+  transform: translateY(-50%);
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .22), rgba(255, 255, 255, .07) 52%, transparent 78%);
   filter: blur(10px);
   pointer-events: none;
   z-index: 0;
@@ -1748,8 +1749,10 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 /* The hint keeps its own crispness on top of the bloom. */
 .download-hint { position: relative; z-index: 1; }
 /* The catalog tile drops its 3D hover transform while its drawer is open, so the
-   open drawer is never rendered on a tilted plane. */
-.catalog-tile.is-menu-open { transform: none; perspective: none; }
+   open drawer is never rendered on a tilted plane — and it is lifted above its
+   grid siblings, otherwise a tile that comes later in the DOM paints over the
+   unfolded drawer and clips it in the middle of the grid. */
+.catalog-tile.is-menu-open { position: relative; z-index: 5; transform: none; perspective: none; }
 /* The detail card's sleeve is a positioned sibling that paints after the copy
    column, so the column owning the trigger is lifted while its drawer is open —
    otherwise the cover art sits over the drawer and swallows its taps. */
@@ -1973,6 +1976,7 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
 .gate-steps { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; text-align: left; }
 
 .gate-step {
+  position: relative;      /* its finished-step flash is an `inset: -1px` overlay */
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2165,7 +2169,7 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
 /* ---- The signature sheet: the flower mark behind the signature ---- */
 /* The mark that brands the store closes the licence too — the same resting
    flower the hero and the PDF use, faint, behind whatever is signed. It is the
-   real artwork (desaturated, pointer-transparent, unselectable), so it can never
+   real artwork (faint, pointer-transparent, unselectable), so it can never
    drift from the brand or be mistaken for content. */
 .sign-sheet { position: relative; }
 .sign-sheet > * { position: relative; z-index: 1; }
@@ -2182,7 +2186,6 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
 .sign-watermark img, .license-cert__watermark img {
   width: min(230px, 62%);
   height: auto;
-  filter: grayscale(1);
 }
 .sign-pad__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
 .sign-pad__hint { font-size: 7.5px; letter-spacing: .22em; color: var(--gray); }
@@ -2728,30 +2731,6 @@ html.preloader-armed { overflow-y: hidden; }
   .gate-step.is-done::after { content: none; }
   .gate-step.is-done .gate-step__tick path,
   .gate-field.is-valid .gate-field__tick path { stroke-dashoffset: 0; }
-}
-
-.catalog-tile__art { position: relative; }
-
-/* ---------- Pointer-events & overlay audit fix ---------- */
-.download-trigger,
-.download-dropdown-toggle,
-.download-btn,
-.download-tier,
-.kyrolll-btn,
-.gate-step,
-.gate-modal__actions button,
-.download-menu.is-open .download-tier {
-  pointer-events: auto !important;
-  position: relative;
-  z-index: 130;
-}
-.download-menu.is-open {
-  pointer-events: auto !important;
-  z-index: 140;
-}
-.gate-modal.is-visible {
-  pointer-events: auto !important;
-  z-index: 201;
 }
 
 /* ---------- 14. Touch: no double-tap zoom, no clipped dialog ------------- */

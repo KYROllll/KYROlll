@@ -36,16 +36,20 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   again in `toAscii` (`license-pdf.js`), which uppercases before it sanitises; `KYROlll`
   survives only as an API name (`window.KYROlll_*`), an asset path (`assets/kyrolll-*.png`)
   and the YouTube handle.
-- **One palette, no hue.** The whole storefront is monochrome: deep matte black `#0B0B0B`,
-  pure white `#FFFFFF` and silver `#888888`, plus their equal-channel grey siblings. Every
-  colour literal in `style.css` is an equal-channel grey — no blue, no green, no pink, no
-  brown — so no border, glow, shadow or state can carry a tint. The raster brand artwork is
-  desaturated at paint time instead of being re-cut, because `npm run build:brand` (which owns
-  those images) needs `sharp`: `body > canvas` (the falling-X marks), `.footer__logo`,
-  `.brand-wordmark__mark`, `.vinyl-record__label` and both watermark images carry
-  `filter: grayscale(1)`, and the `theme-color` metas are `#0b0b0b`. The generated PDF is
-  equal-channel by construction (`license-pdf.js`), and the brand-design test asserts both
-  halves: it reads every colour out of the PDF bytes and every colour out of `style.css`.
+- **One palette for the store's own paint — and no filters on the art.** What the storefront
+  *draws* is monochrome: deep matte black `#0B0B0B`, pure white `#FFFFFF` and silver `#888888`,
+  plus their equal-channel grey siblings. Every colour literal in `style.css` is an
+  equal-channel grey — no blue, no green, no pink, no brown — so no border, glow, shadow or
+  state can carry a tint, and the `theme-color` metas are `#0b0b0b`. The supplied raster
+  artwork is **not** desaturated, because the store shows its art rather than tinting it:
+  `body > canvas` (the falling brush X), `.footer__logo`, `.brand-wordmark__mark`,
+  `.vinyl-record__label` and both watermark images paint in the colour they were drawn in —
+  the warm brown of the brush marks included — so no `grayscale()`/`saturate()` belongs in any
+  of their chains. `npm run build:brand` (which needs `sharp`) still owns those files and is
+  still the only thing that may re-cut them. The generated PDF is equal-channel by construction
+  (`license-pdf.js`), and the brand-design test asserts both halves: it reads every colour out
+  of the PDF bytes and every colour literal out of `style.css` (a tinted hex in the stylesheet
+  still fails that half of the audit — so keep new accents in the artwork, not in the CSS).
 - **The dialog is a phone citizen.** `.gate-modal` is measured in *dynamic* viewport units
   (`height: 100vh; height: 100dvh`) and the card scrolls inside it, so the unlock button can
   never hide behind mobile browser chrome; `downloads.js` also pins the page's scroll offset on
@@ -258,25 +262,36 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   the pair reads as one control that unfolds. `positionMenu` only picks the direction — down,
   or `.download-menu--up` welded to the button's top edge when the space below is the cramped
   side — and caps `max-height` to the visible viewport, so a short screen scrolls the tiers
-  inside the drawer instead of running off it. Page scrolling repositions nothing (the drawer
-  travels with its button), so there is no scroll listener to lag behind a swipe; only
-  `visualViewport` resize/scroll is watched, one reposition per frame. Because the drawer is
+  inside the drawer instead of running off it. The direction is decided on the drawer's *real*
+  measured height (`natural > below && above > below`), never on a guess: a drawer that misses
+  the room below by a few pixels turns around instead of capping itself and making the visitor
+  scroll for the last tier. **The trigger is a switch**: a tap on the trigger that owns the open
+  drawer closes it (same delegated listener), because re-rendering it under the finger restarted
+  the reveal animation and read as a second, stray panel. Page scrolling repositions nothing
+  (the drawer travels with its button), so there is no scroll listener to lag behind a swipe;
+  only `visualViewport` resize/scroll is watched, one reposition per frame. Because the drawer is
   part of the button, the delegated click also accepts a tap that lands on that container (a
   tile footer is padding around a slim button, and a finger is not a pixel), and the catalog
   tile drops its 3D hover transform while the drawer is open. `is-menu-open` is set on the
   container, the tile and `.beat-detail` — the last lifts the copy column over the sleeve,
   because the cover art is a positioned sibling painted after it and otherwise swallows the
-  open drawer's taps. The container also carries the **ambient glow**:
+  open drawer's taps. Opening also lifts the tile (`.catalog-tile.is-menu-open` gets
+  `position: relative; z-index: 5`), because a tile later in the grid paints after this one and
+  would otherwise cover an unfolded drawer. The container also carries the **ambient glow**:
   `.is-menu-open::after` is one blurred white bloom pouring out of the button into the drawer
   with a slow breath (`downloadAmbientPulse`, cancelled under reduced motion), and the lit
-  button keeps a white `box-shadow` while `aria-expanded="true"`. One more fix worth keeping:
+  button keeps a white `box-shadow` while `aria-expanded="true"`. The bloom is pinned to the
+  container's own box (`left`/`right: 0`, a percentage height centred on the button) instead of
+  being a fixed-width disc, so the light belongs to the button and can never wander sideways
+  out of its column. One more fix worth keeping:
   `.catalog-tile:focus-within` no longer adds the 3D tilt (only `:hover` does) — it fired on
   mousedown, so the tile rotated under the finger, the slim button slid out from under the
   pointer and the click landed on the container: the button looked dead.
 - `start(beatId, packageId)` resolves the beat + package, then opens that package's gate and
-  continues on success (`gate: "instant"` short-circuits straight to the download page, and a
-  package already granted in this view skips its gate with an "ALREADY UNLOCKED THIS SESSION"
-  toast).
+  continues on success (`gate: "instant"` short-circuits straight to the download page). It does
+  **not** consult the in-page grant itself: `openGate` answers an already-unlocked package with
+  the "ALREADY UNLOCKED THIS SESSION" toast and the same continuation, so the memory is read on
+  exactly one path.
 - `openGate(beat, pack, onUnlocked)` renders `.gate-modal` (backdrop + card) into `<body>`
   and adds `html.gate-open`. Each package asks for exactly what its listing promises:
   `gate: "email"` (MP3 lease) is the address only, `gate: "youtube"` (Standard WAV lease)
@@ -284,7 +299,11 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   package) shows **two**: subscribe, then like this beat's own video
   (`youtubeSteps(channel, video, count)`, one `.gate-step` row per step); each row opens in a
   new tab, and each completed step morphs its number into a tick
-  that draws itself (`.gate-step__tick`, monochrome). **A step is not a click-through.**
+  that draws itself (`.gate-step__tick`, monochrome). All three gates are wired by **one**
+  block: only the step count (`[]` / `[false]` / `[false, false]`) and the two hint lines
+  (`STEP_COPY`) differ, so the three copies of the same input/change/keydown/submit listeners
+  are gone and a fourth package would only add a row to that table. **A step is not a
+  click-through.**
   `wireYouTubeSteps` marks one done only when (a) the click was genuine — a scripted click
   (`isTrusted === false`) is refused outright — and (b) the row has held in its VERIFYING
   state for `STEP_HOLD_MS` (3.5 s), which is what stops the quick-bounce bypass of opening
@@ -316,7 +335,15 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   points spread over at least `SIGN_SPAN_MIN` = 0.3 of the pad's width + height, so a tap, a
   dot or a two-point flick cannot sign). A single word, a blank line, initials and digits are
   all refused, and the refusal is enforced again inside the submit handler — so stripping the
-  button's `disabled` attribute (the one thing a script can do) still unlocks nothing. A touch
+  button's `disabled` attribute (the one thing a script can do) still unlocks nothing. The
+  stage keeps two functions for that reason: `applyState()` moves the button, the stamp and the
+  hint, while `refresh()` is `applyState()` plus `hideGateError`. Only a deliberate edit or a
+  mode switch calls `refresh`; the terms pane's own `scroll` listener calls `applyState`,
+  because reporting a refusal grows the card, the pane takes a scroll from that reflow and the
+  pane's handler used to land in `refresh` — so the refusal hid itself in the frame it was
+  announced (it showed up as an intermittent missing-error failure). The first pass is a
+  `requestAnimationFrame(applyState)`, since a pane cannot say whether it scrolls until the
+  sheet is laid out. A touch
   that slides off the pad keeps its stroke (the pointer is captured; only a mouse ends one on
   `pointerleave`), because a dropped stroke is what made people sign twice. The pad keeps at
   most `SIGN_POINTS` thinned points per stroke and 12 strokes, because the drawing has to fit
