@@ -1,26 +1,34 @@
 /* KYROIII — the elite PDF license generator.
  *
  * A dependency-free PDF writer. Every issued license is a single dark branded
- * document — the 3D flower as the header mark, a unique serial number
- * (`KYRO-2026-<BEAT>-<DIGITS>`), a ruled metadata grid, numbered clauses, two
- * straight pre-filled signature blocks (licensee over licensor) and a
- * document-control footer with a vector barcode — laid out against real font
- * metrics so the grid actually aligns. It is handed to the browser as a normal
- * `download`-attribute link, so it never opens a viewer.
+ * certificate, redesigned around one centered hero: the 3D flower mark in the
+ * middle of the masthead, the KYROIII wordmark beneath it, a full-width silver
+ * divider, then the title, the hero serial block, one ruled metadata row, the
+ * numbered clauses and two pre-filled signature blocks over a document-control
+ * footer with a vector barcode.
  *
- * The LICENSEE block is stamped with the signature the visitor types on the
- * download page (or, when the field is left empty, the address submitted at the
- * gate). Both pads are pre-filled and dated, so no license ever goes out blank.
+ * The LICENSEE block carries the signature captured in the gate's
+ * review-and-sign step on `download.html` (see `downloads.js`). A typed
+ * signature is set large on its rule; a *drawn* one is re-emitted as vector
+ * strokes, so it stays crisp at any zoom and the document stays monochrome.
+ * Both pads are pre-filled and dated, so no license ever goes out blank.
  *
  * The document is 100% ALL CAPS: every string runs through `toAscii`, which
  * uppercases it, so no lowercase letter can reach the page. The palette is
  * strictly monochromatic — deep matte black (#0B0B0B), crisp pure white
- * (#FFFFFF) and silver/grey rules (#888888 and friends) — every equal-channel
- * grey, so there is no blue (or any other hue) anywhere in the document.
+ * (#FFFFFF) and silver/grey rules (#888888 and siblings) — every channel equal,
+ * so there is no blue (or any other hue) anywhere in the document.
  *
  * Every issuance mints a fresh serial (`KYRO-<year>-<SLUG>-<6 random digits>`
  * from `crypto.getRandomValues`), so no two licenses ever share an id, and the
  * serial shown on `download.html` is exactly the one printed in the PDF.
+ *
+ * One layout rule holds the whole document together: it must stay on a single
+ * page. `FOOT_Y` is the hard floor the flow may not cross, and `ensure(...)`
+ * reserves space for every block that must not be split. The exclusive
+ * (stems) package is the tightest fit of the three — it ends ~24 pt above the
+ * floor — so any new block, bigger flower or looser leading has to be paid for
+ * by reclaiming the same space above it.
  */
 (function () {
   "use strict";
@@ -28,6 +36,8 @@
   const CREDIT = "(Prod. by KYROIII)";
   const FLOWER_SRC = "assets/kyrolll-flower-rest.png?v=1";
   const SERIAL_PREFIX = "KYRO";
+  const SUPPORT_EMAIL = "kyrolll00@gmail.com";
+  const STORE_URL = "HTTPS://KYROILL.STORE";
 
   /* ------------------------------------------------------ font metrics */
   /* Adobe AFM advance widths for Helvetica / Helvetica-Bold, ASCII 32..126,
@@ -58,7 +68,7 @@
   function toAscii(value) {
     return String(value == null ? "" : value)
       .toUpperCase()
-      .replace(/\u2014\u2013/g, "-")
+      .replace(/[\u2014\u2013]/g, "-")
       .replace(/[\u2018\u2019]/g, "'")
       .replace(/[\u00ae\u00a9]/g, "(c)")
       .replace(/\u00b7/g, "-")
@@ -173,7 +183,10 @@
   const INNER = 7;                 // inner hairline inset inside the frame
   const COL_X = M + 18;            // content column, clear of the frame
   const COL_W = PAGE_W - M * 2 - 36;
+  const MID = PAGE_W / 2;          // the masthead's centre line
   const FOOT_Y = M + 40;           // flow stops here; footer lives below
+  const MARK = 120;                // the flower mark, centred in the masthead
+  const MARK_TOP = PAGE_H - M - 20;
   /* Strictly monochromatic greys — every channel equal, so the document is deep
      black, crisp white and silver with zero blue cast. The first two are the
      exact brand values: #0B0B0B field and #888888 silver rules. */
@@ -182,14 +195,47 @@
   const HAIR = "0.19 0.19 0.19";         // inner hairline
   const TICK = "0.72 0.72 0.72";         // bright silver corner ticks
   const WHITE = "1 1 1 rg";              // #FFFFFF — crisp pure white
-  const SILVER = "0.8 0.8 0.8 rg";       // signatures / soft silver text
+  const SILVER = "0.8 0.8 0.8 rg";       // the drawn signature / soft silver text
+  const SILVER_RG = "0.8 0.8 0.8";       // the same silver as a stroke colour
   const BODY = "0.85 0.85 0.85 rg";
   const MUTED = "0.55 0.55 0.55 rg";
+
+  /* The signature payload: `{ name, strokes, pad }` where the strokes are
+     normalised 0..1 polylines off the sign pad (`[[[x, y], ...], ...]`) and
+     `pad` is the pad's aspect (`{ w, h }`). A plain string stays supported so a
+     caller that only has a typed name keeps working. */
+  function normalizeSignature(value) {
+    if (!value) return { name: "", strokes: null, pad: null, email: "" };
+    if (typeof value === "string") return { name: value.trim(), strokes: null, pad: null, email: "" };
+    const strokes = Array.isArray(value.strokes)
+      ? value.strokes
+        .map((stroke) => (Array.isArray(stroke) ? stroke : [])
+          .filter((point) => Array.isArray(point) && point.length === 2)
+          .map((point) => [Number(point[0]) || 0, Number(point[1]) || 0]))
+        .filter((stroke) => stroke.length > 1)
+      : null;
+    const pad = value.pad && Number(value.pad.w) > 0 && Number(value.pad.h) > 0
+      ? { w: Number(value.pad.w), h: Number(value.pad.h) } : null;
+    return {
+      name: String(value.name == null ? "" : value.name).trim(),
+      strokes: strokes && strokes.length ? strokes : null,
+      pad: pad,
+      email: String(value.email == null ? "" : value.email).trim()
+    };
+  }
+
+  /* The strokes, as a cache key fragment — exact, because two different
+     drawings must never share a cached blob. */
+  function signatureKey(sig) {
+    const s = normalizeSignature(sig);
+    return s.name + "|" + s.email + "|" + (s.strokes ? JSON.stringify(s.strokes) : "");
+  }
 
   /* ---------------------------------------------------------------- page */
 
   function buildPdf(data) {
     const flower = data.flower;
+    const sig = data.signature;
     const pages = [];
     let current = null;
     let y = 0;                     // current baseline
@@ -209,6 +255,8 @@
       stroke(color, width || 0.6);
       raw(x.toFixed(2) + " " + boxY.toFixed(2) + " " + w.toFixed(2) + " " + h.toFixed(2) + " re S");
     };
+    /* A full-width silver divider — the masthead's cut line. */
+    const rule = (yLine, color, width) => hline(COL_X, COL_X + COL_W, yLine, color, width);
 
     /* One run of text at a baseline. Letter-spacing uses the text-space `Tc`
        operator: the run stays a single string, so the PDF remains searchable
@@ -234,9 +282,9 @@
       return put(cx - w / 2, baseline, str, font, size, color, tracking);
     };
 
-    /* The dark field, the double frame and its corner ticks — the precision
-       cut that reads as an official instrument rather than a poster. */
-    const chrome = (withMark) => {
+    /* The dark field, the double frame with its corner ticks and — the mark the
+       whole page is built around — the flower, centred in the masthead. */
+    const chrome = () => {
       raw(BG + " 0 0 " + PAGE_W + " " + PAGE_H + " re f");
       box(M, M, PAGE_W - M * 2, PAGE_H - M * 2, FRAME, 1);
       box(M + INNER, M + INNER, PAGE_W - (M + INNER) * 2, PAGE_H - (M + INNER) * 2, HAIR, 0.6);
@@ -251,17 +299,16 @@
         hline(c[0], c[0] + t * c[2], c[1], TICK, 1);
         vline(c[0], c[1], c[1] + t * c[3], TICK, 1);
       });
-      if (withMark && flower) {
-        const size = 104;
-        const imgX = COL_X;
-        const imgY = PAGE_H - M - 26 - size;
-        raw("q " + size.toFixed(2) + " 0 0 " + size.toFixed(2) + " " + imgX.toFixed(2) + " " + imgY.toFixed(2) + " cm /Im1 Do Q");
-        box(imgX, imgY, size, size, HAIR, 0.6);
+      if (flower) {
+        const imgX = (PAGE_W - MARK) / 2;
+        const imgY = MARK_TOP - MARK;
+        raw("q " + MARK.toFixed(2) + " 0 0 " + MARK.toFixed(2) + " " + imgX.toFixed(2) + " " + imgY.toFixed(2) + " cm /Im1 Do Q");
+        box(imgX, imgY, MARK, MARK, HAIR, 0.6);
       }
     };
 
     const ensure = (height) => {
-      if (y - height < FOOT_Y) { startPage(false); return true; }
+      if (y - height < FOOT_Y) { startPage(); return true; }
       return false;
     };
 
@@ -270,9 +317,9 @@
     const heading = (label) => {
       ensure(24);
       gap(4);
-      putTracked(COL_X, y, label, "F2", 9, WHITE, 0.4);
+      putTracked(COL_X, y, label, "F2", 10, WHITE, 0.4);
       gap(7);
-      hline(COL_X, COL_X + COL_W, y + 3, HAIR, 0.6);
+      rule(y + 3, HAIR, 0.6);
       gap(7);
     };
     const LEAD = 3.6;
@@ -296,71 +343,96 @@
       });
     };
 
-    /* A ruled metadata table: hairline row underneath, hairline columns between,
-       micro-label over each value. This is the block that makes the page read as
-       a contract sheet rather than a paragraph. */
-    const gridRow = (pairs) => {
-      const colW = COL_W / pairs.length;
-      ensure(48);
-      const rowTop = y + 8;
-      const rowBottom = y - 2;
-      pairs.forEach((pair, i) => {
-        const x = COL_X + colW * i;
-        const inner = colW - 14;
-        putTracked(x, y, pair.label, "F1", 7, MUTED, 0.5);
-        gap(10.5);
-        wrapToWidth(pair.value, "F2", 9.5, inner).slice(0, 2).forEach((line) => {
-          ensure(13);
-          put(x, y, line, "F2", 9.5, WHITE, 0);
-          gap(10);
-        });
-        if (i > 0) vline(x - 7, rowBottom, rowTop, HAIR, 0.6);
+    /* A ruled metadata row: micro-labels on one baseline, bold values on the
+       row below, hairline columns between them and a hairline rule under the
+       lot. It is laid out as a real grid — every column shares the label and
+       value baselines and the row is as tall as its tallest value — because
+       one measured row of four is what buys the centered masthead its room
+       without ever pushing the stems license onto a second page. */
+    const gridRow = (pairs, weights) => {
+      const total = weights.reduce((sum, w) => sum + w, 0);
+      const columns = pairs.map((pair, i) => {
+        const colW = COL_W * weights[i] / total;
+        return {
+          label: pair.label,
+          x: COL_X + COL_W * weights.slice(0, i).reduce((sum, w) => sum + w, 0) / total,
+          lines: wrapToWidth(pair.value, "F2", 9.5, colW - 14).slice(0, 2)
+        };
       });
+      const rows = columns.reduce((max, col) => Math.max(max, col.lines.length), 1);
+      const labelY = y;
+      ensure(10.5 + rows * 10 + 15);
+      columns.forEach((col) => putTracked(col.x, labelY, col.label, "F1", 7, MUTED, 0.5));
+      gap(10.5);
+      for (let r = 0; r < rows; r += 1) {
+        columns.forEach((col) => { if (col.lines[r]) put(col.x, y, col.lines[r], "F2", 9.5, WHITE, 0); });
+        gap(10);
+      }
       gap(2);
-      hline(COL_X, COL_X + COL_W, y + 8, HAIR, 0.6);
+      columns.forEach((col, i) => { if (i > 0) vline(col.x - 7, y + 6, labelY + 8, HAIR, 0.6); });
+      rule(y + 8, HAIR, 0.6);
       gap(12);
     };
 
-    function startPage(withMark) {
+    /* The drawn signature: the pointer polylines off the sign pad, re-emitted as
+       real vector strokes in silver. Nothing rasterised, nothing embedded — the
+       mark stays crisp at any zoom and cannot carry a hue into the document. */
+    const drawSignature = (strokes, pad, bx, by, bw, bh) => {
+      const aspect = pad && pad.w > 0 && pad.h > 0 ? pad.w / pad.h : bw / bh;
+      const scale = Math.min(bw / (aspect * 100), bh / 100);
+      const drawW = aspect * 100 * scale;
+      const drawH = 100 * scale;
+      const x0 = bx + (bw - drawW) / 2;
+      const y0 = by;
+      raw("1 J 1 j 1.05 w");
+      stroke(SILVER_RG, 1.05);
+      strokes.forEach((points) => {
+        let path = "";
+        points.forEach((point, i) => {
+          const px = x0 + Math.min(Math.max(point[0], 0), 1) * drawW;
+          const py = y0 + (1 - Math.min(Math.max(point[1], 0), 1)) * drawH;
+          path += px.toFixed(2) + " " + py.toFixed(2) + (i ? " l " : " m ");
+        });
+        raw(path + "S");
+      });
+      raw("0 J 0 j");
+    };
+
+    function startPage() {
       if (current !== null) pages.push(current);
       current = "";
-      chrome(withMark);
-      y = PAGE_H - M - 40;
+      chrome();
+      y = MARK_TOP - MARK;
     }
 
     /* ------------------------------------------------------- page one */
 
-    startPage(true);
+    startPage();
 
-    const markX = COL_X + (flower ? 148 + 22 : 0);
-    putTracked(markX, PAGE_H - M - 74, "KYROIII", "F2", 26, WHITE, 1.2);
-    putTracked(markX, PAGE_H - M - 92, "FREE MUSIC LICENSE PROGRAM", "F1", 7.5, MUTED, 1.9);
-    y = PAGE_H - M - 142;
-
-    putTracked(COL_X, y, "CERTIFICATE OF FREE LICENSE", "F2", 17, WHITE, 0.9);
-    gap(15);
-    putTracked(COL_X, y, "NON-EXCLUSIVE  ·  WORLDWIDE  ·  PERPETUAL  ·  ROYALTY-FREE", "F1", 7.5, MUTED, 1.5);
-    gap(16);
+    /* Masthead — the centered hero: the mark, the wordmark, the programme name,
+       then the divider the title hangs under. */
+    putCenter(MID, MARK_TOP - MARK - 25, "KYROIII", "F2", 26, WHITE, 1.4);
+    putCenter(MID, MARK_TOP - MARK - 40, "FREE MUSIC LICENSE PROGRAM", "F1", 7.5, MUTED, 1.9);
+    rule(MARK_TOP - MARK - 54, FRAME, 0.9);
+    putCenter(MID, MARK_TOP - MARK - 79, "CERTIFICATE OF FREE LICENSE", "F2", 19, WHITE, 0.9);
+    putCenter(MID, MARK_TOP - MARK - 95, "NON-EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE", "F1", 7.5, MUTED, 1.5);
 
     /* Serial block — the hero of the document. */
-    const serialTop = y + 9;
-    box(COL_X, y - 34, COL_W, 48, FRAME, 1);
-    putTracked(COL_X + 14, serialTop - 12, "LICENSE ID", "F1", 7, MUTED, 1.4);
-    putTracked(COL_X + 14, serialTop - 33, data.serial, "F2", 15, WHITE, 0.9);
-    putRight(COL_X + COL_W - 14, serialTop - 12, "ISSUED", "F1", 7, MUTED, 1.4);
-    putRight(COL_X + COL_W - 14, serialTop - 33, data.issued, "F2", 11, WHITE, 0);
-    /* The metadata grid starts clear of the serial box: the micro-label sits
-       below the box's bottom edge instead of colliding with the serial. */
-    gap(43);
+    const boxTop = MARK_TOP - MARK - 109;
+    const boxH = 46;
+    box(COL_X, boxTop - boxH, COL_W, boxH, FRAME, 1);
+    putTracked(COL_X + 14, boxTop - 13, "LICENSE ID", "F1", 7, MUTED, 1.4);
+    putTracked(COL_X + 14, boxTop - 33, data.serial, "F2", 15, WHITE, 0.9);
+    putRight(COL_X + COL_W - 14, boxTop - 13, "ISSUED", "F1", 7, MUTED, 1.4);
+    putRight(COL_X + COL_W - 14, boxTop - 33, data.issued, "F2", 11, WHITE, 0);
+    y = boxTop - boxH - 40;
+
     gridRow([
       { label: "BEAT", value: data.title },
-      { label: "PACKAGE", value: data.packageName }
-    ]);
-    gridRow([
+      { label: "PACKAGE", value: data.packageName },
       { label: "BPM / KEY", value: data.bpm + " BPM  -  " + data.key },
-      { label: "TERRITORY", value: "WORLDWIDE" },
-      { label: "LICENSOR", value: "KYROIII" }
-    ]);
+      { label: "TERRITORY", value: "WORLDWIDE" }
+    ], [1.7, 1.25, 0.85, 0.85]);
 
     /* ------------------------------------------------------- clauses */
 
@@ -378,19 +450,12 @@
     heading("3.0    WHAT THIS PACKAGE INCLUDES");
     (data.includes || []).forEach(bullet);
 
-    heading("4.0    SUPPORT");
-    ensure(30);
-    putTracked(COL_X, y, "kyrolll00@gmail.com", "F1", 9, BODY, 0);
-    gap(12);
-    putTracked(COL_X, y, data.channel || "youtube.com/@KYROllllll", "F1", 9, BODY, 0);
-    gap(14);
-
     /* --------------------------------------------------- signatures */
     /* Two clean, straight, pre-filled signature blocks close the contract: the
-       licensor KYROIII and the licensee, stamped with the signature typed on the
-       download page (falling back to the address submitted at the gate). Both
-       names are set upright (no script face) in crisp white on their own silver
-       rule, under a micro-label, so the block reads as a signed instrument
+       licensor KYROIII and the licensee, stamped with the signature captured in
+       the gate's review-and-sign step (falling back to the address submitted
+       there). Both names are set upright — no script face — on their own silver
+       rule under a micro-label, so the block reads as a signed instrument
        rather than a blank to fill in. */
     ensure(88);
     const sigTop = y;
@@ -403,13 +468,21 @@
       while (s > 6.5 && measure(toAscii(value), "F2", s) > maxWidth) s -= 0.5;
       return s;
     };
-    const signatureBlock = (x, name, label, micro) => {
+    const signatureBlock = (x, name, label, micro, strokes, pad) => {
       hline(x, x + sigW, sigTop - 42, FRAME, 0.9);
-      putTracked(x, sigTop - 30, name, "F2", fitSize(name, 12, sigW - 8), WHITE, 0.5);
+      if (strokes) {
+        drawSignature(strokes, pad, x + 2, sigTop - 40, sigW - 4, 30);
+      } else {
+        putTracked(x, sigTop - 30, name, "F2", fitSize(name, 12, sigW - 8), WHITE, 0.5);
+      }
       putTracked(x, sigTop - 55, label, "F1", 7, MUTED, 1.2);
       putTracked(x, sigTop - 66, micro, "F1", 6.5, MUTED, 0.9);
     };
-    signatureBlock(COL_X, data.licensee || "-", "LICENSEE SIGNATURE", "SIGNED " + data.issued);
+    const licenseeName = sig.name || "-";
+    /* The micro line under the LICENSEE rule records who this issuance went to:
+       the address the flow submitted at the gate, alongside the date. */
+    const signedLine = "SIGNED " + data.issued + (sig.email ? " - " + sig.email : "");
+    signatureBlock(COL_X, licenseeName, "LICENSEE SIGNATURE", signedLine, sig.strokes, sig.pad);
     signatureBlock(sigX2, "KYROIII", "LICENSOR (KYROIII)", "AUTHORISED SIGNATORY - KYROIII");
     gap(84);
 
@@ -418,9 +491,10 @@
        so the final page would otherwise never reach `pages` at all. */
     if (current !== null) { pages.push(current); current = null; }
 
-    /* The control block names the program, repeats the serial and numbers the
-       page — the marks that make a printed contract feel authoritative. It is
-       appended now that every page is known, so "PAGE n OF m" is always right. */
+    /* The control block names the program, carries the support address, repeats
+       the serial and numbers the page — the marks that make a printed contract
+       feel authoritative. It is appended now that every page is known, so
+       "PAGE n OF m" is always right. */
     const pageCount = pages.length;
     const footRuleY = M + 38;
     const footTextY = M + 28;
@@ -434,7 +508,6 @@
       const barsX = PAGE_W - M - 16 - barsW;
       const barsY = M + 12;
       const barsH = 11;
-      const url = "HTTPS://KYROILL.STORE";
       /* Deterministic from the serial: the same license id always yields the
          same barcode, a different one always yields a different pattern. */
       let seed = 7;
@@ -450,18 +523,19 @@
         bc += x.toFixed(2) + " " + barsY.toFixed(2) + " " + barW.toFixed(2) + " " + barsH.toFixed(2) + " re f\n";
         x += barW + gap;
       }
-      bc += "BT /F1 6 Tf 0 Tc " + MUTED + " " + COL_X.toFixed(2) + " " + barsY.toFixed(2) + " Td (" + escapePdfString(url) + ") Tj ET\n";
+      bc += "BT /F1 6 Tf 0 Tc " + MUTED + " " + COL_X.toFixed(2) + " " + barsY.toFixed(2) + " Td (" + escapePdfString(STORE_URL) + ") Tj ET\n";
       return bc;
     }
 
     pages.forEach((content, i) => {
       const right = "PAGE " + (i + 1) + " OF " + pageCount;
-      const center = (data.serial || "").toUpperCase();
+      const center = toAscii(data.serial || "");
+      const left = toAscii("SUPPORT " + SUPPORT_EMAIL);
       const footer =
         HAIR + " 0.6 RG\n" +
-        COL_X.toFixed(2) + " " + footRuleY.toFixed(2) + " m " + (COL_X + COL_W).toFixed(2) + " " + footRuleY.toFixed(2) + " l S\n" +
-        "BT /F1 7 Tf 0 Tc " + MUTED + " " + COL_X.toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString("KYROIII OPEN RELEASE PROGRAM") + ") Tj ET\n" +
-        "BT /F1 7 Tf 0 Tc " + MUTED + " " + (PAGE_W / 2 - measure(center, "F1", 7) / 2).toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString(center) + ") Tj ET\n" +
+        rule(footRuleY, HAIR, 0.6) + "\n" +
+        "BT /F1 7 Tf 0 Tc " + MUTED + " " + COL_X.toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString(left) + ") Tj ET\n" +
+        "BT /F1 7 Tf 0 Tc " + MUTED + " " + (MID - measure(center, "F1", 7) / 2).toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString(center) + ") Tj ET\n" +
         "BT /F1 7 Tf 0 Tc " + MUTED + " " + (PAGE_W - M - 18 - measure(right, "F1", 7)).toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString(right) + ") Tj ET\n" +
         barcodeBlock();
       pages[i] = content + footer;
@@ -518,12 +592,12 @@
 
   /* ---------------------------------------------------------------- public */
 
-  let cache = new Map(); // beatId::packageId::serial::licensee -> { blob, name }
+  const cache = new Map(); // beatId::packageId::serial::name::strokes -> { blob, name }
 
-  function cacheKey(beat, pack, serial, licensee) {
+  function cacheKey(beat, pack, serial, signature) {
     if (!beat) return "";
     return (beat.id || beat.slug || "beat") + "::" + (pack && pack.id || "pack") + "::" +
-      (serial || "") + "::" + (String(licensee || "").trim().toLowerCase());
+      (serial || "") + "::" + signatureKey(signature);
   }
 
   function saveBlob(blob, name) {
@@ -544,10 +618,7 @@
     return "KYROIII - " + (safe || "BEAT") + " LICENSE.pdf";
   }
 
-  function buildDocument(beat, pack, serial, licensee, flower) {
-    const channel = String(window.KYROlll_YOUTUBE_CHANNEL || "")
-      .replace(/^https?:\/\/(www\.)?/, "")
-      .split("?")[0];
+  function buildDocument(beat, pack, serial, signature, flower) {
     return buildPdf({
       title: beat.title,
       packageName: pack.name,
@@ -555,25 +626,24 @@
       key: String(beat.key),
       issued: new Date().toISOString().slice(0, 10),
       includes: pack.includes || [],
-      channel: channel,
       serial: serial,
-      licensee: String(licensee == null ? "" : licensee).trim(),
+      signature: normalizeSignature(signature),
       flower: flower
     });
   }
 
-  /* Warm the flower ahead of the click. The download page collects the signature
+  /* Warm the flower ahead of the click. The sign step collects the signature
      live, so by the time the visitor signs the only remaining work is the
      document itself — which then builds inside the click. */
   function primeLicenseFlower() {
     return flowerJpeg();
   }
 
-  function saveBuilt(beat, pack, serial, licensee, flower, downloads) {
-    const key = cacheKey(beat, pack, serial, licensee);
+  function saveBuilt(beat, pack, serial, signature, flower, downloads) {
+    const key = cacheKey(beat, pack, serial, signature);
     let entry = cache.get(key);
     if (!entry) {
-      entry = { blob: buildDocument(beat, pack, serial, licensee, flower), name: safeFileName(beat) };
+      entry = { blob: buildDocument(beat, pack, serial, signature, flower), name: safeFileName(beat) };
       cache.set(key, entry);
     }
     try {
@@ -586,24 +656,25 @@
 
   /* Assemble the document and park it in the cache, so a later click can save it
      without awaiting anything first. */
-  async function primeLicensePDF(beat, pack, serial, licensee) {
+  async function primeLicensePDF(beat, pack, serial, signature) {
     if (!beat || !pack) return null;
     const sid = serial || makeLicenseId(beat);
-    const key = cacheKey(beat, pack, sid, licensee);
+    const key = cacheKey(beat, pack, sid, signature);
     const cached = cache.get(key);
     if (cached) return cached.blob;
     const flower = await flowerJpeg();
-    const blob = buildDocument(beat, pack, sid, licensee, flower);
+    const blob = buildDocument(beat, pack, sid, signature, flower);
     cache.set(key, { blob: blob, name: safeFileName(beat) });
     return blob;
   }
 
-  /* `licensee` is the signature typed on the download page (or the gate address
-     when none was typed); it is stamped as the LICENSEE signature. */
-  async function generateLicensePDF(beat, pack, downloads, serial, licensee) {
+  /* `signature` is the signature captured in the gate's review-and-sign step
+     (`{ name, strokes, pad }`, or a plain typed string); it is stamped as the
+     LICENSEE signature. */
+  async function generateLicensePDF(beat, pack, downloads, serial, signature) {
     if (!beat || !pack) { if (downloads && downloads.showToast) downloads.showToast("LICENSE UNAVAILABLE"); return; }
     const sid = serial || makeLicenseId(beat);
-    const key = cacheKey(beat, pack, sid, licensee);
+    const key = cacheKey(beat, pack, sid, signature);
     const cached = cache.get(key);
     if (cached) {
       try { saveBlob(cached.blob, cached.name); if (downloads && downloads.showToast) downloads.showToast("LICENSE PDF DOWNLOADED"); }
@@ -614,7 +685,7 @@
     // `await`, so the save still happens inside the click — which is what Safari
     // and iOS require to download a generated file instead of opening a viewer.
     if (flowerCache !== undefined) {
-      try { saveBuilt(beat, pack, sid, licensee, flowerCache, downloads); }
+      try { saveBuilt(beat, pack, sid, signature, flowerCache, downloads); }
       catch (err) {
         if (typeof console !== "undefined") console.error("KYROIII license PDF failed:", err);
         if (downloads && downloads.showToast) downloads.showToast("LICENSE UNAVAILABLE - TRY AGAIN");
@@ -623,7 +694,7 @@
     }
     try {
       const flower = await flowerJpeg();
-      saveBuilt(beat, pack, sid, licensee, flower, downloads);
+      saveBuilt(beat, pack, sid, signature, flower, downloads);
     } catch (err) {
       /* The still image is the only fragile part and it already degrades to a
          text-only document, so a throw here is a real bug — surface it rather
@@ -635,6 +706,7 @@
 
   window.KYROlll_LICENSE_PDF = {
     makeLicenseId: makeLicenseId,
+    normalizeSignature: normalizeSignature,
     primeLicenseFlower: primeLicenseFlower,
     primeLicensePDF: primeLicensePDF,
     generateLicensePDF: generateLicensePDF

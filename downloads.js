@@ -11,11 +11,23 @@
  * A reload, a new tab, a bookmark or a shared link always re-opens the gate from
  * scratch, and the address is never prefilled.
  *
- * STRICT GATING (all three packages):
- * - MP3 LEASE (gate: email): EMAIL + MANDATORY OPT-IN → SUBMIT → UNLOCK + PDF.
- * - STANDARD WAV LEASE (gate: youtube): YOUTUBE SUB + LIKE → EMAIL + OPT-IN → UNLOCK + PDF.
- * - EXCLUSIVE / PRO PACKAGE (gate: exclusive): YOUTUBE SUB + LIKE →
- *   EMAIL + OPT-IN → UNLOCK (STEMS + MP3 + WAV + PDF).
+ * STRICT GATING (all three packages) — every gate ends the same way:
+ * - MP3 LEASE (gate: email): EMAIL + MANDATORY OPT-IN → REVIEW & SIGN → FILES + PDF.
+ * - STANDARD WAV LEASE (gate: youtube): YOUTUBE SUB + LIKE → EMAIL + OPT-IN → REVIEW & SIGN.
+ * - EXCLUSIVE / PRO PACKAGE (gate: exclusive): the same two YouTube steps →
+ *   EMAIL + OPT-IN → REVIEW & SIGN (STEMS + MP3 + WAV + PDF).
+ *
+ * Two rules make those steps real rather than a click-through. A YouTube step
+ * only counts after a genuine gesture AND a minimum hold (`STEP_HOLD_MS`), so
+ * opening it and bouncing straight back cannot mark it done; and the REVIEW &
+ * SIGN stage that closes every gate only unlocks once the terms have actually
+ * been read to the end and a signature — typed or drawn on the pad — has been
+ * captured. That signature is what the PDF license prints in its LICENSEE
+ * block (see `license-pdf.js`).
+ *
+ * Files are handed over under their professional studio names —
+ * `KYROIII - <BEAT> (<BPM> BPM - <KEY>).<ext>` — built from the beat's own
+ * metadata, so an engineer can read the tempo and key off the filename.
  *
  * The only outbound request is the address itself: a real `fetch` POST to the
  * newsletter provider (Formspree) with `Accept: application/json`, so every
@@ -62,6 +74,39 @@
     showToast("DOWNLOAD STARTED — CHECK YOUR DOWNLOADS");
   }
 
+  /* ------------------------------------------------- professional file names
+     A studio engineer should be able to read the tempo and the key straight
+     off the filename, so every hand-over is renamed on the way out:
+     `KYROIII - FLESH (130 BPM - AM).mp3`. Audio files take that convention
+     exactly; the tracked-stems archive carries the same stem plus its own
+     label, so a zip is never mistaken for a take. Only the extension stays
+     lowercase — everything else is in the store's ALL-CAPS voice. */
+  const AUDIO_EXT = /^\.(mp3|wav|m4a|aac|aiff|aif|flac|ogg)$/i;
+  function callName(beat) {
+    const title = String((beat && beat.title) || "").trim();
+    const tail = title.split(/\s+-\s+/).pop() || "";
+    return String(tail || (beat && beat.slug) || (beat && beat.id) || "BEAT").toUpperCase();
+  }
+  function proFileName(beat, item) {
+    if (!beat || !item || !item.file) return (item && item.name) || "";
+    const ext = (String(item.file).match(/\.[A-Za-z0-9]+$/) || [""])[0].toLowerCase();
+    const stem = "KYROIII - " + callName(beat) + " (" + beat.bpm + " BPM - " +
+      String(beat.key || "").toUpperCase() + ")";
+    if (AUDIO_EXT.test(ext)) return stem + ext;
+    const label = String(item.label || "").toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim();
+    return (label ? stem + " - " + label : stem) + ext;
+  }
+  /* The files a package hands over, named for the studio. */
+  function deliverablesFor(beatId, packageId) {
+    const h = helpers();
+    if (!h || !h.deliverablesFor) return [];
+    const beat = h.beatById ? h.beatById(beatId) : null;
+    return h.deliverablesFor(beatId, packageId).map((item) => {
+      const name = proFileName(beat, item);
+      return name ? Object.assign({}, item, { name: name }) : item;
+    });
+  }
+
   /* -------------------------------------------------------------- the flow */
   /* A one-shot token handed from a passed gate to `download.html`. It is not
      stored anywhere: it only says "this browser passed the gate in this flow a
@@ -78,6 +123,13 @@
       "&package=" + encodeURIComponent(packageId) + "&t=" + grantToken();
     const address = String(email == null ? "" : email).trim();
     if (address) url += "&email=" + encodeURIComponent(address);
+    /* The signature captured in the REVIEW & SIGN stage rides along too: the
+       typed name as `?sign=`, a drawing packed as `?sig=`. Like the address it
+       is never stored — losing the URL loses the signature. */
+    const payload = signaturePayload();
+    if (payload.name) url += "&sign=" + encodeURIComponent(payload.name);
+    const packed = encodeStrokes(payload.strokes);
+    if (packed) url += "&sig=" + encodeURIComponent(packed);
     return url;
   }
   function goToDownload(beat, pack, email) {
@@ -103,20 +155,71 @@
   }
 
   /* --------------------------------------------------- the licensee identity
-     The LICENSEE line of the license is the signature the visitor types on the
-     download page; when nothing is typed it falls back to the address this flow
-     submitted at the gate (carried in `?email=…`). Both live here because this
-     module already owns "who this flow is", `license-pdf.js` only reads the
-     result — and neither is stored anywhere. */
+     The LICENSEE block of the license carries the signature captured in the
+     gate's REVIEW & SIGN stage: a typed name, or a drawing made on the pad.
+     When neither is given it falls back to the address this flow submitted at
+     the gate (carried in `?email=…`), so a license can never go out blank.
+     Everything about "who this flow is" lives here and none of it is stored:
+     the signature is handed forward in the flow's URL exactly like the
+     address is (`downloadUrl`), and `license-pdf.js` only reads the result. */
+  const SIGN_PAD = { w: 600, h: 220 };   // the pad's canvas, so a drawing keeps its aspect
+  const SIGN_POINTS = 320;               // per stroke and in total — a URL, not a canvas dump
   let signature = "";
+  let drawnStrokes = null;
   function setSignature(value) {
     signature = String(value == null ? "" : value).trim().slice(0, 64);
+    if (signature) drawnStrokes = null;  // a typed name replaces a drawing
     return signature;
   }
   function getSignature() { return signature; }
+  /* Keep a drawn signature. An empty array clears it (the visitor switched
+     back to typing), which is why the length is checked before assigning. */
+  function setDrawnSignature(strokes) {
+    drawnStrokes = Array.isArray(strokes) && strokes.length
+      ? strokes
+        .map((stroke) => (Array.isArray(stroke) ? stroke : [])
+          .map((point) => [Number(point && point[0]) || 0, Number(point && point[1]) || 0])
+          .slice(0, SIGN_POINTS))
+        .filter((stroke) => stroke.length > 1)
+        .slice(0, 12)
+      : null;
+    if (drawnStrokes && drawnStrokes.length) signature = "";
+    return drawnStrokes;
+  }
+  function signatureStrokes() { return drawnStrokes; }
+  /* The typed name, or the address this flow submitted at the gate. */
   function licenseeName(fallback) {
     const typed = signature || String(fallback == null ? "" : fallback).trim();
-    return typed.trim();
+    return String(typed || "").trim();
+  }
+  /* What `license-pdf.js` stamps into the LICENSEE block. */
+  function signaturePayload() {
+    return { name: signature, strokes: drawnStrokes, pad: drawnStrokes ? SIGN_PAD : null };
+  }
+  /* The drawing, packed small enough to ride in the flow's URL: each point is
+     hundredths of the pad box, strokes separated by `~`. */
+  function encodeStrokes(strokes) {
+    if (!strokes || !strokes.length) return "";
+    const hundred = (value) => String(Math.round(Math.min(Math.max(Number(value) || 0, 0), 1) * 100));
+    return strokes.map((stroke) => stroke.slice(0, SIGN_POINTS)
+      .map((point) => hundred(point[0]) + ":" + hundred(point[1])).join(","))
+      .filter(Boolean).join("~");
+  }
+  function decodeStrokes(value) {
+    const text = String(value == null ? "" : value).trim();
+    if (!text) return null;
+    const strokes = text.split("~").map((stroke) => stroke.split(",").map((point) => {
+      const pair = String(point).split(":");
+      const x = Number(pair[0]), y = Number(pair[1]);
+      return Number.isFinite(x) && Number.isFinite(y) ? [x / 100, y / 100] : null;
+    }).filter(Boolean)).filter((stroke) => stroke.length > 1);
+    return strokes.length ? strokes : null;
+  }
+  /* Take the signature the sign stage handed forward. */
+  function adoptSignature(name, packedStrokes) {
+    if (packedStrokes) setDrawnSignature(decodeStrokes(packedStrokes));
+    if (name) setSignature(name);
+    return signaturePayload();
   }
 
   function start(beatId, packageId) {
@@ -227,11 +330,22 @@
     if (!gate) return;
     const node = gate;
     gate = null;
+    clearStepTimers();
     if (gateKeyHandler) { document.removeEventListener("keydown", gateKeyHandler); gateKeyHandler = null; }
     document.removeEventListener("click", closeGate); // defensive
     node.classList.remove("is-visible");
     document.documentElement.classList.remove("gate-open");
     setTimeout(() => node.remove(), 260);
+  }
+
+  /* Every stage of a gate is rendered into the same card, so the CANCEL and
+     backdrop controls are (re)bound after each render — `stageTitle` keeps the
+     beat in the heading, `kicker` names the package. */
+  function wireGateDismiss(modal) {
+    modal.querySelectorAll("[data-gate-cancel]").forEach((el) => {
+      el.removeEventListener("click", closeGate);
+      el.addEventListener("click", closeGate);
+    });
   }
 
   function gateShell(pack, beat, stageTitle, body) {
@@ -302,6 +416,78 @@
       step(1, video, "LIKE THIS VIDEO", "THE BEAT YOU ARE GRABBING");
   }
 
+  /* ------------------------------------------------- STRICT STEP VERIFICATION
+     A YouTube step is not a click-through any more. It counts only after
+     1) a genuine gesture — a trusted click, not a scripted one, and
+     2) a real visit: the row holds in a VERIFYING state for `STEP_HOLD_MS` and
+        cannot be marked done before that, so opening the tab and bouncing
+        straight back (the quick-bounce bypass) leaves the gate shut.
+     If the page actually lost focus to the opened tab during the hold — the
+     strongest evidence of a real visit — the hold is allowed to finish early
+     (never before `STEP_QUICK_MS`). A blocked popup still completes on the
+     full hold, so a real visitor is never trapped.
+     Re-clicking a step while it verifies does nothing at all: no second tab and
+     no shortened hold. */
+  const STEP_HOLD_MS = 3500;
+  const STEP_QUICK_MS = 1200;
+  const stepTimers = new Set();
+  let lastLeftAt = 0;
+  let leftWatch = false;
+  function watchDeparture() {
+    if (leftWatch) return;
+    leftWatch = true;
+    const mark = () => { lastLeftAt = Date.now(); };
+    document.addEventListener("visibilitychange", () => { if (document.hidden) mark(); });
+    window.addEventListener("blur", mark);
+  }
+  function clearStepTimers() {
+    stepTimers.forEach((timer) => clearTimeout(timer));
+    stepTimers.clear();
+  }
+  function wireYouTubeSteps(modal, done, refresh) {
+    function verify(step, index) {
+      const start = Date.now();
+      const go = step.querySelector(".gate-step__go");
+      step.dataset.verifying = "on";
+      step.classList.add("is-verifying");
+      step.setAttribute("aria-busy", "true");
+      if (go) go.textContent = "VERIFYING";
+      watchDeparture();
+      const update = () => {
+        const elapsed = Date.now() - start;
+        const need = lastLeftAt >= start ? STEP_QUICK_MS : STEP_HOLD_MS;
+        if (elapsed < need) {
+          if (go) go.textContent = "VERIFYING " + Math.max(1, Math.ceil((need - elapsed) / 1000));
+          const next = setTimeout(update, 200);
+          stepTimers.delete(timer);
+          timer = next;
+          stepTimers.add(timer);
+          return;
+        }
+        clearTimeout(timer);
+        stepTimers.delete(timer);
+        step.dataset.verifying = "";
+        step.classList.remove("is-verifying");
+        step.removeAttribute("aria-busy");
+        done[index] = true;
+        step.classList.add("is-done");
+        if (go) go.textContent = "OPENED";
+        refresh();
+      };
+      let timer = setTimeout(update, 200);
+      stepTimers.add(timer);
+    }
+    Array.prototype.slice.call(modal.querySelectorAll("[data-gate-step]")).forEach((step) => {
+      step.addEventListener("click", (event) => {
+        const index = Number(step.getAttribute("data-gate-step"));
+        if (!Number.isFinite(index) || index < 0 || index >= done.length) return;
+        if (done[index] || step.dataset.verifying === "on") { event.preventDefault(); return; }
+        if (event && event.isTrusted === false) { event.preventDefault(); return; }
+        verify(step, index);
+      });
+    });
+  }
+
   /* YouTube gate body - for the Standard WAV package: sub + like → email */
   function youtubeGateBody(pack, beat) {
     const channel = window.KYROlll_YOUTUBE_CHANNEL || "https://www.youtube.com/";
@@ -309,7 +495,7 @@
     return '<p class="gate-modal__copy">THREE QUICK STEPS TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>' +
       '<div class="gate-steps">' + youtubeSteps(channel, video) + '</div>' +
       emailGateBody(pack, { hint: false }) +
-      '<p class="gate-modal__hint" id="gate-hint">COMPLETE STEPS 1-2, THEN THE EMAIL</p>';
+      '<p class="gate-modal__hint" id="gate-hint">OPEN BOTH STEPS, THEN THE EMAIL</p>';
   }
 
   /* Exclusive gate body - for the Pro package: the same two YouTube steps as the
@@ -320,7 +506,7 @@
     return '<p class="gate-modal__copy">TWO QUICK STEPS TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>' +
       '<div class="gate-steps">' + youtubeSteps(channel, video) + '</div>' +
       emailGateBody(pack, { hint: false, submit: "UNLOCK EXCLUSIVE" }) +
-      '<p class="gate-modal__hint" id="gate-hint">COMPLETE STEPS 1-2, THEN THE EMAIL</p>';
+      '<p class="gate-modal__hint" id="gate-hint">OPEN BOTH STEPS, THEN THE EMAIL</p>';
   }
 
   function showSuccessModal() {
@@ -339,6 +525,215 @@
     document.documentElement.classList.add("gate-open");
     requestAnimationFrame(() => modal.classList.add("is-visible"));
     return modal;
+  }
+
+  /* ---------------------------------------------- REVIEW & SIGN (the last step)
+     Every gate now ends here instead of jumping straight to the download page:
+     the modal turns into the license itself — the terms to read, then a
+     signature to capture (typed, or drawn on the pad with mouse or finger).
+     Only when the terms have been read to the end and a signature exists does
+     SIGN & UNLOCK come alive; it is that signature which is stamped into the
+     LICENSEE block of the PDF. Nothing is stored — the signature is handed
+     forward in the download URL, exactly like the address. */
+  function termsHTML(beat, pack) {
+    const includes = (pack.includes || []).map((line) =>
+      '<li>' + escapeHTML(line) + '</li>').join("");
+    return '<p class="sign-terms__lead">A FREE, NON-EXCLUSIVE, WORLDWIDE, PERPETUAL LICENSE TO ' +
+        escapeHTML(beat.title) + ' — THE ' + escapeHTML(pack.name) + '.</p>' +
+      '<p class="sign-terms__item"><span class="sign-terms__no">1.0</span>100% FREE FOR NON-PROFIT AND ' +
+        'COMMERCIAL / PROFIT USE. RELEASE IT ON SPOTIFY, APPLE MUSIC, YOUTUBE OR ANYWHERE. NO ROYALTIES, ' +
+        'NO HIDDEN FEES, NO CATCH.</p>' +
+      '<p class="sign-terms__item"><span class="sign-terms__no">2.0</span>THE ONLY RULE — CREDIT ' +
+        '(PROD. BY KYROIII) IN THE SONG TITLE OR DESCRIPTION.</p>' +
+      '<p class="sign-terms__item"><span class="sign-terms__no">3.0</span>WHAT THIS PACKAGE INCLUDES:</p>' +
+      '<ul class="sign-terms__list">' + includes + '</ul>' +
+      '<p class="sign-terms__item"><span class="sign-terms__no">4.0</span>YOUR SIGNATURE IS STAMPED INTO ' +
+        'THE LICENSEE BLOCK OF THE PDF CERTIFICATE, WHICH CARRIES ITS OWN UNIQUE SERIAL AND THIS BEAT\'S ' +
+        'TEMPO AND KEY. NOTHING IS SAVED TO YOUR DEVICE.</p>' +
+      '<p class="sign-terms__end">END OF TERMS</p>';
+  }
+
+  function showSignStage(beat, pack, email, onUnlocked) {
+    const modal = gate;
+    const card = modal && modal.querySelector(".gate-modal__card");
+    if (!modal || !card) return;
+    card.className = "gate-modal__card gate-modal__card--sign";
+    card.innerHTML =
+      '<span class="gate-modal__kicker">' + escapeHTML(pack.name) + '</span>' +
+      '<h2 class="gate-modal__title" id="gate-title">LICENSE REVIEW &amp; SIGNATURE</h2>' +
+      '<p class="gate-modal__copy">READ THE TERMS, SIGN YOUR NAME, AND YOUR FILES UNLOCK.</p>' +
+      '<div class="sign-terms" data-sign-terms role="region" tabindex="0" aria-label="License terms">' +
+        termsHTML(beat, pack) +
+      '</div>' +
+      '<div class="sign-modes" role="group" aria-label="Signature style">' +
+        '<button type="button" class="sign-mode is-active" data-sign-mode="type">TYPE</button>' +
+        '<button type="button" class="sign-mode" data-sign-mode="draw">DRAW</button>' +
+      '</div>' +
+      '<label class="gate-field" data-sign-field for="sign-name">' +
+        '<span class="gate-field__label">YOUR SIGNATURE' +
+          '<span class="gate-field__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +
+        '<input class="gate-input" id="sign-name" name="signature" type="text" autocomplete="off" ' +
+          'spellcheck="false" maxlength="48" placeholder="TYPE YOUR FULL NAME">' +
+      '</label>' +
+      '<div class="sign-pad" data-sign-pad hidden>' +
+        '<canvas class="sign-pad__canvas" data-sign-canvas width="' + SIGN_PAD.w + '" height="' + SIGN_PAD.h + '"></canvas>' +
+        '<div class="sign-pad__row"><span class="sign-pad__hint">DRAG TO SIGN — MOUSE OR FINGER</span>' +
+          '<button type="button" class="sign-pad__clear" data-sign-clear>CLEAR</button></div>' +
+      '</div>' +
+      '<span class="license-cert__stamp" data-sign-stamp data-stamped="false"></span>' +
+      '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
+      '<div class="gate-modal__actions">' +
+        '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
+        '<button type="button" class="kyrolll-btn" data-sign-submit disabled>SIGN &amp; UNLOCK</button>' +
+      '</div>' +
+      /* The initial hint already states the required order, so the card reads
+         correctly in the frame before the first `refresh()`. */
+      '<p class="gate-modal__hint" id="gate-hint">SCROLL THROUGH THE TERMS TO THE END</p>';
+    wireGateDismiss(modal);
+
+    const terms = card.querySelector("[data-sign-terms]");
+    const field = card.querySelector("[data-sign-field]");
+    const nameInput = card.querySelector("#sign-name");
+    const pad = card.querySelector("[data-sign-pad]");
+    const canvas = card.querySelector("[data-sign-canvas]");
+    const stamp = card.querySelector("[data-sign-stamp]");
+    const errEl = card.querySelector("#gate-error");
+    const hint = card.querySelector("#gate-hint");
+    const submitBtn = card.querySelector("[data-sign-submit]");
+
+    let mode = "type";
+    let strokes = [];
+    let current = null;
+    const ctx = canvas && canvas.getContext ? canvas.getContext("2d") : null;
+
+    /* Terms read to the end (or short enough to fit without scrolling). */
+    function termsRead() {
+      if (!terms) return true;
+      return terms.scrollHeight <= terms.clientHeight + 4 ||
+        terms.scrollTop + terms.clientHeight >= terms.scrollHeight - 6;
+    }
+    function typedName() { return String(nameInput && nameInput.value || "").trim(); }
+    function drawPoints() { return strokes.reduce((sum, stroke) => sum + stroke.length, 0); }
+    function hasSignature() {
+      return mode === "draw" ? (strokes.length > 0 && drawPoints() >= 6) : typedName().length >= 2;
+    }
+    function refresh() {
+      const read = termsRead();
+      const signed = hasSignature();
+      const ready = read && signed;
+      if (submitBtn) submitBtn.disabled = !ready;
+      if (field) field.classList.toggle("is-valid", mode === "type" && typedName().length >= 2);
+      if (stamp) {
+        const label = mode === "draw"
+          ? (hasSignature() ? "SIGNATURE CAPTURED — " + strokes.length + " STROKE" + (strokes.length === 1 ? "" : "S") : "NOTHING SIGNED YET")
+          : (typedName() ? typedName().toUpperCase() : "NOTHING SIGNED YET");
+        stamp.textContent = label;
+        stamp.dataset.stamped = hasSignature() ? "true" : "false";
+      }
+      if (hint) {
+        hint.textContent = ready ? "ALL SET — SIGN & UNLOCK"
+          : (!read ? "SCROLL THROUGH THE TERMS TO THE END" : "SIGN ABOVE TO UNLOCK YOUR FILES");
+      }
+      if (errEl) hideGateError(errEl);
+    }
+
+    /* ----------------------------------------------------------- the pad */
+    function paint() {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2.6;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      strokes.forEach((stroke) => {
+        ctx.beginPath();
+        stroke.forEach((point, i) => {
+          const x = point[0] * canvas.width, y = point[1] * canvas.height;
+          if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+        });
+        ctx.stroke();
+      });
+    }
+    function pointAt(event) {
+      const rect = canvas.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / (rect.width || 1);
+      const y = (event.clientY - rect.top) / (rect.height || 1);
+      return [Math.min(Math.max(x, 0), 1), Math.min(Math.max(y, 0), 1)];
+    }
+    if (canvas) {
+      canvas.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        if (canvas.setPointerCapture) { try { canvas.setPointerCapture(event.pointerId); } catch (err) { /* ignore */ } }
+        current = [pointAt(event)];
+        strokes.push(current);
+        paint();
+        refresh();
+      });
+      canvas.addEventListener("pointermove", (event) => {
+        if (!current) return;
+        event.preventDefault();
+        const point = pointAt(event);
+        const last = current[current.length - 1];
+        /* Thin the trail: a point is only kept when the pen really moved, which
+           keeps both the drawing and its URL payload small. */
+        if (current.length >= SIGN_POINTS) return;
+        if (Math.abs(point[0] - last[0]) + Math.abs(point[1] - last[1]) < 0.004) return;
+        current.push(point);
+        paint();
+        refresh();
+      });
+      ["pointerup", "pointercancel", "pointerleave"].forEach((type) =>
+        canvas.addEventListener(type, () => { current = null; }));
+    }
+    const clearBtn = card.querySelector("[data-sign-clear]");
+    if (clearBtn) clearBtn.addEventListener("click", () => {
+      strokes = [];
+      current = null;
+      paint();
+      refresh();
+    });
+
+    /* ------------------------------------------------------- the mode tabs */
+    card.querySelectorAll("[data-sign-mode]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const next = btn.getAttribute("data-sign-mode") === "draw" ? "draw" : "type";
+        if (next === mode) return;
+        mode = next;
+        card.querySelectorAll("[data-sign-mode]").forEach((other) =>
+          other.classList.toggle("is-active", other === btn));
+        if (field) field.hidden = mode !== "type";
+        if (pad) pad.hidden = mode !== "draw";
+        setDrawnSignature([]);
+        setSignature("");
+        if (mode === "draw" && canvas) { canvas.focus && canvas.focus(); }
+        else if (nameInput) { try { nameInput.focus(); } catch (err) { /* ignore */ } }
+        refresh();
+      });
+    });
+
+    if (nameInput) {
+      nameInput.addEventListener("input", refresh);
+      nameInput.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        submitBtn && submitBtn.click();
+      });
+      setTimeout(() => { try { nameInput.focus(); } catch (err) { /* ignore */ } }, 60);
+    }
+    if (terms) terms.addEventListener("scroll", refresh, { passive: true });
+    requestAnimationFrame(refresh);
+
+    if (submitBtn) submitBtn.addEventListener("click", () => {
+      if (!termsRead()) { showGateError(errEl, "READ THE TERMS TO THE END FIRST"); return; }
+      if (!hasSignature()) { showGateError(errEl, "TYPE OR DRAW YOUR SIGNATURE TO UNLOCK"); return; }
+      /* Capture the signature — typed or drawn — and hand it to the flow. */
+      if (mode === "draw") setDrawnSignature(strokes);
+      else { setDrawnSignature([]); setSignature(typedName()); }
+      submitBtn.disabled = true;
+      if (hint) hint.textContent = "SIGNED — UNLOCKING YOUR FILES…";
+      closeGate();
+      finalizeGate(beat, pack, onUnlocked, email);
+    });
   }
 
   /* Common completion: show the success beat, remember the grant for this page
@@ -393,8 +788,9 @@
     if (hint) hint.textContent = "RECORDING YOUR EMAIL...";
     postSubscribe(state.email).then((res) => {
       if (!res.ok && typeof console !== "undefined") console.warn("KYROIII newsletter post failed:", res.error);
-      closeGate();
-      finalizeGate(beat, pack, onUnlocked, state.email);
+      /* The address is recorded; the gate now hands over to the REVIEW & SIGN
+         stage, which is what actually unlocks the files. */
+      showSignStage(beat, pack, state.email, onUnlocked);
     });
   }
 
@@ -478,14 +874,8 @@
       const hint = modal.querySelector("#gate-hint");
       if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
 
-      // Step click handlers
-      modal.querySelectorAll("[data-gate-step]").forEach((step) => {
-        step.addEventListener("click", () => {
-          const i = Number(step.getAttribute("data-gate-step"));
-          if (!done[i]) { done[i] = true; step.classList.add("is-done"); step.querySelector(".gate-step__go").textContent = "DONE ✓"; }
-          refreshSubmit();
-        });
-      });
+      // Step click handlers — each step must be genuinely opened and held.
+      wireYouTubeSteps(modal, done, refreshSubmit);
 
       function refreshSubmit() {
         const emailOk = EMAIL_RE.test(String(input && input.value || "").trim());
@@ -493,7 +883,7 @@
         submit.disabled = !(done[0] && done[1] && emailOk && checked);
         setFieldValid(modal, emailOk);
         hideGateError(errEl);
-        if (hint) hint.textContent = (done[0] && done[1] && emailOk && checked) ? "ALL SET — UNLOCK YOUR DOWNLOAD" : "COMPLETE STEPS 1-2, THEN THE EMAIL";
+        if (hint) hint.textContent = (done[0] && done[1] && emailOk && checked) ? "ALL SET — REVIEW & SIGN" : "OPEN BOTH STEPS, THEN THE EMAIL";
       }
 
       // Initialize submit disabled until all conditions met
@@ -526,14 +916,9 @@
 
       if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
 
-      // Step click handlers for the two YouTube steps
-      modal.querySelectorAll("[data-gate-step]").forEach((step) => {
-        step.addEventListener("click", () => {
-          const i = Number(step.getAttribute("data-gate-step"));
-          if (i < 2 && !done[i]) { done[i] = true; step.classList.add("is-done"); step.querySelector(".gate-step__go").textContent = "DONE"; }
-          checkExclusive();
-        });
-      });
+      // Step click handlers for the two YouTube steps — genuinely opened and
+      // held before they count (see `wireYouTubeSteps`).
+      wireYouTubeSteps(modal, done, checkExclusive);
 
       if (optin) optin.addEventListener("change", () => { checkExclusive(); });
       if (input) input.addEventListener("input", () => { checkExclusive(); });
@@ -547,7 +932,7 @@
         submit.disabled = !all;
         setFieldValid(modal, emailOk);
         hideGateError(errEl);
-        if (hint) hint.textContent = all ? "ALL SET — UNLOCK YOUR DOWNLOAD" : "COMPLETE STEPS 1-2, THEN THE EMAIL";
+        if (hint) hint.textContent = all ? "ALL SET — REVIEW & SIGN" : "OPEN BOTH STEPS, THEN THE EMAIL";
       }
 
       // Initial state
@@ -567,7 +952,7 @@
     }
 
     // Cancel + outside-click handler
-    modal.querySelectorAll("[data-gate-cancel]").forEach((el) => el.addEventListener("click", closeGate));
+    wireGateDismiss(modal);
     const outsideClick = (e) => { if (gate && !gate.contains(e.target)) closeGate(); };
     document.addEventListener("click", outsideClick, true);
     gateKeyHandler = (ev) => { if (ev.key === "Escape") { closeGate(); document.removeEventListener("click", outsideClick, true); } };
@@ -646,9 +1031,15 @@
     isUnlocked: isUnlocked,
     setSignature: setSignature,
     getSignature: getSignature,
+    setDrawnSignature: setDrawnSignature,
+    signatureStrokes: signatureStrokes,
+    signaturePayload: signaturePayload,
+    adoptSignature: adoptSignature,
+    encodeStrokes: encodeStrokes,
     licenseeName: licenseeName,
     downloadUrl, start, goToDownload, openMenu, closeMenu, openGate, closeGate,
-    deliverablesFor: (beatId, packageId) => (helpers() ? helpers().deliverablesFor(beatId, packageId) : []),
+    deliverablesFor: deliverablesFor,
+    proFileName: proFileName,
     newsletterEndpoint, postSubscribe,
     downloadItem, showToast
   };

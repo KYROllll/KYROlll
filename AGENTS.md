@@ -193,7 +193,8 @@ payment gateway.
   `gate` is the whole behaviour: `email` asks for an address, `youtube` adds a subscribe +
   like before that address, `exclusive` is that same two-step flow with its own copy and
   submit label (there is **no** comment step), and `instant` (kept for a package that should
-  skip the gate, unused today) goes straight to the download page. Every gate requires the address **and** the opt-in checkbox. `includes` is the plain-language
+  skip the gate, unused today) goes straight to the download page. Every gate requires the address **and** the opt-in checkbox, and every gate then closes with the same
+  REVIEW & SIGN stage (below). `includes` is the plain-language
   list of what the package hands over (MP3 → tagged MP3 + license; WAV → tagged MP3 +
   high-quality WAV + license; exclusive → tagged MP3 + WAV + tracked stems + full rights +
   email opt-in) and is printed verbatim in the generated license.
@@ -202,7 +203,10 @@ payment gateway.
   `preview`, `youtube` (the beat's own video, used by the "like" step) and `deliverables`
   — a map of package id → an array of `{ file, name, label }`, where `file` is a
   **same-origin** path, `name` is what the browser saves it as and `label` is shown on the
-  download page. The license is never listed: the download page always generates one.
+  download page. `downloads.js` re-derives that `name` from the beat's own metadata on the
+  way out (see the studio filenames below), so the `name` in the data is only the fallback
+  for a caller with no beat in hand. The license is never listed: the download page always
+  generates one.
 - `window.KYROlll_HELPERS` — `escapeHTML`, `beatById(idOrSlug)`, `packageById(id)`,
   `deliverablesFor(beatId, packageId)`, `videoFor(beatId)` and `newsletterEndpoint()`.
 - `window.KYROlll_NEWSLETTER` — `{ provider, username, endpoint }`, where the email gate sends a
@@ -232,7 +236,14 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   and adds `html.gate-open`. `gate: "youtube"` and `gate: "exclusive"` show the same two
   numbered steps (`.gate-step`, built by one shared `youtubeSteps` helper) that open the
   channel and the beat video in new tabs; each completed step morphs its number into a tick
-  that draws itself (`.gate-step__tick`, monochrome). Every gate renders the same real
+  that draws itself (`.gate-step__tick`, monochrome). **A step is not a click-through.**
+  `wireYouTubeSteps` marks one done only when (a) the click was genuine — a scripted click
+  (`isTrusted === false`) is refused outright — and (b) the row has held in its VERIFYING
+  state for `STEP_HOLD_MS` (3.5 s), which is what stops the quick-bounce bypass of opening
+  the tab and submitting immediately. The hold is shortened to `STEP_QUICK_MS` (1.2 s) only
+  when the page really lost focus to the opened tab during it; a blocked popup still
+  completes on the full hold, so a real visitor is never trapped. Re-clicking a step while
+  it verifies does nothing: no second tab and no shortened hold. Every gate renders the same real
   `<form data-gate-form>` (with `action` pointed at
   the provider, so the flow degrades without scripting) holding one email field
   (`#gate-email`), the mandatory opt-in checkbox (`#gate-optin`, ticked and `required`), an
@@ -241,18 +252,37 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   once the address is well formed, the box is ticked and every step is done, so a plain click
   cannot skip anything; Enter on the field runs the same `submitGate`, which is also where a
   malformed address is refused with `#gate-error`. Escape or CANCEL closes. `submitGate` posts
-  the address with `postSubscribe` and then calls `onUnlocked(beat, pack, email)` — the
-  address travels on to `download.html` in the URL (below) instead of being stored.
+  the address with `postSubscribe` and then hands the *same* card over to the sign stage
+  (below) instead of leaving for the download page — the files stay locked until the license
+  is signed.
+- `showSignStage(beat, pack, email, onUnlocked)` is the last screen of every gate: the terms
+  in their own scroll pane (`.sign-terms`), a TYPE / DRAW switch (`.sign-mode`), the signature
+  field (`#sign-name`) or the pad (`.sign-pad__canvas`, pointer events, monochrome white ink,
+  `touch-action: none`), the live stamp (`[data-sign-stamp]`) and the one action that unlocks,
+  `[data-sign-submit]` (**SIGN & UNLOCK**). The button only comes alive once the terms have
+  been read **to the end** — `scrollHeight <= clientHeight`, or the pane scrolled to the
+  bottom — *and* a signature exists (2+ characters typed, or a drawing of 6+ points). The pad
+  keeps at most `SIGN_POINTS` thinned points per stroke and 12 strokes, because the drawing
+  has to fit in a URL. On SIGN & UNLOCK the signature is captured and `finalizeGate` runs.
 - `downloadUrl(beatId, packageId, email)` is the hand-off to the download page: the URL carries
   a one-shot grant token (`?t=<random hex>`, minted fresh when a gate is passed) and, when there
-  is one, the address just submitted (`?email=…`). **Neither is stored anywhere** — the token
-  only means "this flow passed the gate a moment ago", so the download page does not ask a
-  second time, while a cold link (a bookmark, a shared URL, a new browser) has no token and is
-  gated over the page.
-- `setSignature(value)` / `getSignature()` / `licenseeName(fallback)` are the licensee
-  identity: the page feeds the typed signature in, and `licenseeName(fallback)` returns it or
-  falls back to the address the flow submitted at the gate. Nothing about it is stored —
-  `license-pdf.js` only reads the result.
+  is one, the address just submitted (`?email=…`), the signed name (`?sign=…`) and a drawing
+  (`?sig=<points packed as hundredths, strokes joined by ~>`). **None of it is stored
+  anywhere** — the token only means "this flow passed the gate a moment ago", so the download
+  page does not ask a second time, while a cold link (a bookmark, a shared URL, a new browser)
+  has no token and is gated over the page.
+- `setSignature(value)` / `setDrawnSignature(strokes)` / `licenseeName(fallback)` /
+  `signaturePayload()` / `adoptSignature(name, packed)` are the licensee identity: a typed name
+  clears any drawing and vice versa, `licenseeName(fallback)` returns the typed name or the
+  address the flow submitted at the gate, and `signaturePayload()` returns the
+  `{ name, strokes, pad }` that `license-pdf.js` stamps. Nothing about it is stored — the
+  download page re-adopts it from the URL, and `license-pdf.js` only reads the result.
+- Every hand-over is renamed for the studio: `proFileName(beat, item)` builds
+  `KYROIII - <BEAT> (<BPM> BPM - <KEY>).<ext>` (beat name from the tail of the title, key
+  uppercased, only the extension lowercase) for audio, plus the file's own `label` for
+  anything else — so the pro package hands over
+  `KYROIII - FLESH (130 BPM - AM) - TRACKED STEMS.zip`. `deliverablesFor` applies it, which is
+  why both the download page's row and the saved file carry it.
 - `downloadItem` builds a detached `<a download>` for a same-origin file, so nothing navigates
   the page away. The href carries `?dl=1&name=<friendly name>`, which is what lets `server.mjs`
   answer with `Content-Disposition: attachment` — that header, not the `download` attribute, is
@@ -267,16 +297,20 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   `style.css` under "10. Free downloads, package menu, gates & download page".
 
 `license-pdf.js` is the whole license: a dependency-free PDF writer (`window.KYROlll_LICENSE_PDF`
-= `{ makeLicenseId, primeLicensePDF, generateLicensePDF }`). `makeLicenseId(beat)` mints a fresh
-`KYRO-<year>-<SLUG>-<6 random digits>` per issuance from `crypto.getRandomValues`, so no two
-licenses ever share an id; `download-page.js` mints it once per page view and passes it to the
-PDF, so the id on screen is the id in the document. The document is an A4 certificate — dark
-field, double frame with corner ticks, the flower still as an embedded `/DCTDecode` JPEG in the
-header, a hero serial block, a ruled metadata table, numbered clauses 1.0–4.0, two **straight,
-pre-filled signature blocks** (LICENSEE SIGNATURE, stamped with the signature typed on the
-download page — or the address submitted at the gate when that field is left empty — and
-LICENSOR (KYROIII)) and a footer carrying a vector barcode plus `HTTPS://KYROILL.STORE` — held
-to a **single page** for every package.
+= `{ makeLicenseId, normalizeSignature, primeLicensePDF, generateLicensePDF }`).
+`makeLicenseId(beat)` mints a fresh `KYRO-<year>-<SLUG>-<6 random digits>` per issuance from
+`crypto.getRandomValues`, so no two licenses ever share an id; `download-page.js` mints it once
+per page view and passes it to the PDF, so the id on screen is the id in the document. The
+document is an A4 certificate built around one centered masthead: the flower still as an
+embedded `/DCTDecode` JPEG at the middle of the page, the `KYROIII` wordmark under it, a
+full-width silver divider, then the title, the hero serial block, **one** ruled metadata row
+(BEAT / PACKAGE / BPM / KEY / TERRITORY), numbered clauses 1.0–3.0, two **straight, pre-filled
+signature blocks** and a footer carrying the support address, the serial, a vector barcode and
+`HTTPS://KYROILL.STORE` — held to a **single page** for every package. The LICENSEE block shows
+the signature captured in the gate's sign step: a typed name set large on its rule, or a
+**hand-drawn signature re-emitted as vector strokes** (`drawSignature`, silver, round caps) in
+the same box. The micro-line under that rule records who the issuance went to —
+`SIGNED <date> - <address>` — and the LICENSOR side is `KYROIII`.
 
 Three rules hold that document together and are easy to break by accident:
 
@@ -290,9 +324,13 @@ equal-channel grey siblings: zero blue, zero hue of any kind. The barcode bars a
 - **It fits one page.** `FOOT_Y` (where the flow stops above the footer rule) and the
   `ensure(...)` reservations are the page-count knobs. The footer needs a rule, a row of control
   text and a row for the barcode + link, and the exclusive package is the tightest fit of the
-  three (its signature block lands with ~15 pt to spare). Moving the footer up without
-  reclaiming the same space above it — smaller headings, the metadata grid starting below the
-  serial box — pushes the exclusive license onto a second page.
+  three (its signature block lands with ~26 pt to spare). **The centered masthead is paid for
+  above the clauses, not below them**: it spends ~70 pt more than the old corner layout, and
+  that is reclaimed by the single metadata row (whose `gridRow` lays all four columns on shared
+  baselines — walk the columns sequentially and every value after the first drifts down the
+  page) and by dropping the old 4.0 SUPPORT section into the footer. Nothing may be pushed up
+  without reclaiming the same space: bigger flower, looser leading or a fourth clause puts the
+  exclusive license onto a second page.
 
 Letter-spacing uses the text-space `Tc` operator, so each run stays one string and the PDF
 remains searchable and copyable. Base-14 Helvetica with real AFM metrics (`measure`,
@@ -306,21 +344,24 @@ instead of opening it in a viewer.
 `download-page.js` fills `download.html` from the `?beat=`/`?package=` params and gives the
 hand-off the full luxury treatment: a glass hero with the live 3D flower (`.dl-hero__flower`,
 one `.logo-stage` with no preloader veil), a glassmorphism file card with one row per file, and a
-`.license-cert` block that shows the minted serial (`#license-serial`) over an interactive
-signature field (`#license-signature`) whose typed name is echoed live in the stamp line
-(`#license-stamp`) and stamped straight into the PDF's LICENSEE block, over a single
-**DOWNLOAD LICENSE (.PDF)** action (`[data-license-pdf]`). Typing re-primes the cached blob
-~220 ms later, so the click still saves a ready file synchronously; leaving the field empty
-falls back to the gate address, so the document is never unsigned. It prebuilds the license at load
+`.license-cert` block that shows the minted serial (`#license-serial`) over the signature that
+came with the flow — `boot()` adopts `?sign=` / `?sig=` through `adoptSignature` before anything
+is rendered, so the stamp line (`#license-stamp`) shows the name signed in the gate, or replays
+a hand-drawn one as an inline SVG (`.license-cert__mark`), and the PDF carries the same mark. The
+`#license-signature` field is a re-sign: typing a new name replaces the signature (and the
+prebuilt blob, ~220 ms after the last keystroke) and clears any drawing, and an empty one falls
+back to the gate address, so the document is never unsigned. It prebuilds the license at load
 (`primeLicensePDF`) so the click saves a ready blob, and probes each file with a `HEAD` so a row
 whose file is missing is dimmed to "UNAVAILABLE" instead of handing over the storefront's HTML.
 There is no raw-text preview, no `.txt` and no COPY button. The page content paints immediately
 and never waits on the flower; if WebGL fails the still `kyrolll-flower-rest.png` simply
 remains. The page itself remembers nothing: `boot()` trusts only the one-shot `?t=` grant token
 `downloads.js` mints when a gate is passed, so a cold link — a shared URL, a bookmark, a new
-browser — is gated over the page and the flow is the same from any entry point. The LICENSEE
-signature is the typed `#license-signature` value, falling back to the `?email=` value from
-that same flow (updated live if a gate happens to run on this page) — never a stored address.
+browser — is gated over the page and the flow is the same from any entry point (and that cold
+gate runs the same REVIEW & SIGN stage in place, so the signature never has to make the
+round trip). The LICENSEE signature is the one captured in the sign step, or the typed
+`#license-signature` value on top of it, falling back to the `?email=` value from that same
+flow (updated live if a gate happens to run on this page) — never a stored address.
 
 `server.mjs` (the static preview server) is what actually makes a download a download: for a
 same-origin file requested with `?dl`/`?name` it answers `Content-Disposition: attachment` with
@@ -369,15 +410,24 @@ Tests that ship with the repo:
 - `brand-design.test.mjs` is Playwright-based and checks the storefront layout, the
   tagged audio preview, the "DOWNLOAD FREE" package menu and all three gated paths
   (the MP3 email gate, the YouTube gate and the two-step exclusive gate — it asserts the
-  comment step is gone), ending on the download page — its 3D flower branding, the metadata
-  chips, the file rows and the certificate block (a minted `KYRO-YYYY-FLESH-NNNNNN` serial, no
-  raw text). It then downloads the PDF license and asserts
+  comment step is gone). A YouTube step is watched through its hold: it is not done the moment
+  it is clicked, it reports VERIFYING, and only then draws its tick. Every gate must then reach
+  the REVIEW & SIGN stage, where the test proves the order is enforced — SIGN & UNLOCK is locked
+  with a signature alone until the terms pane is scrolled to the end — and it signs `Jordan Vega`
+  (typed) or inks the pad with real pointer strokes (hand-drawn, on the pro flow), then lands on
+  the download page: its 3D flower branding, the metadata chips, the file rows under their
+  studio names (`KYROIII - FLESH (130 BPM - AM).mp3`, `… .wav`, `… - TRACKED STEMS.zip`) and the
+  certificate block (a minted `KYRO-YYYY-FLESH-NNNNNN` serial, no raw text). It then downloads
+  the PDF license (asserting the saved filename is exactly `KYROIII - FLESH (130 BPM - AM).mp3`)
+  and asserts
   the `PROD. BY KYROIII` credit, the commercial grant, the package's `includes`, the embedded
-  flower image, the **ALL-CAPS** rule (no lowercase in any drawn string), the monochrome palette
-  (every colour an equal-channel grey, so zero blue), the footer barcode + `HTTPS://KYROILL.STORE`,
-  the LICENSEE signature carrying the address submitted at the gate, `PAGE 1 OF 1` and three
-  distinct serials — straight from the PDF bytes. It types a signature and downloads again to
-  prove the typed name is stamped into LICENSEE (uppercased) on the next issuance. It also
+  flower image, the centred masthead, the **ALL-CAPS** rule (no lowercase in any drawn string),
+  the monochrome palette (every colour an equal-channel grey, so zero blue), the footer barcode +
+  `HTTPS://KYROILL.STORE`, the LICENSEE block carrying the signature and the address the flow
+  submitted, `PAGE 1 OF 1` and three distinct serials — straight from the PDF bytes. The
+  hand-drawn signature is verified as real vector ink: multi-point paths inside the LICENSEE
+  column, which no typed license contains. Re-signing on the download page then downloads again,
+  proving the new name replaces the old one in caps on the next issuance. It also
   asserts the gate posts a valid address to the configured newsletter provider (and never a
   malformed one, and never on a re-opened gate), that a package passed on the download page is
   remembered in-page only (the gate never re-opens, nothing is re-posted, and the memory is gone
@@ -393,6 +443,11 @@ Downloads are plain same-origin files. All three packages sit behind a gate (an 
 YouTube subscribe + like for the WAV and the exclusive — there is no comment step), which are
 lead-capture courtesies rather than enforcement — the files themselves are public and nothing on
 the server blocks them, and the grant token that skips the second ask is just a URL parameter.
+The strict half of "genuine interaction" is what a static page can actually enforce: a trusted
+click and a real dwell on each step (`STEP_HOLD_MS`), plus a signature captured in the sign
+step. A departure to the opened tab only ever *shortens* that hold — it is recorded, never
+required — because a blocked popup would otherwise strand a real visitor, and because a
+headless browser reports no blur at all (measured, so no check can depend on it).
 The gate is remembered for the current page view only (`grants`), so a visitor who passes it and
 comes back in the same view is not asked twice — while a reload, a new tab or another browser is
 asked again from scratch, and no gate can ever be skipped by anything that outlives the page. The

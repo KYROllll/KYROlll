@@ -35,13 +35,39 @@
   const granted = !!params.get("t");
 
   /* The address submitted at that gate — the fallback LICENSEE signature. The
-     typed signature itself lives in `downloads.js` (this page only feeds it),
-     and `licenseeName()` is what both the stamp line and the PDF read. */
+     signature itself lives in `downloads.js` (this page only feeds it), and
+     `licenseeName()` is what both the stamp line and the PDF read. */
   let licensee = String(params.get("email") || "").trim();
   const licenseeName = () => {
     const d = downloads();
     return d ? d.licenseeName(licensee) : licensee;
   };
+  /* What the PDF stamps into its LICENSEE block: the signature captured in the
+     gate's REVIEW & SIGN stage — a typed name or a drawing — with the gate's
+     address as the fallback name, so the block is never blank. */
+  const signature = () => {
+    const d = downloads();
+    const payload = (d && d.signaturePayload) ? d.signaturePayload() : { name: "", strokes: null };
+    return {
+      name: payload.name || licensee || "",
+      strokes: payload.strokes || null,
+      pad: payload.pad || null,
+      email: licensee || ""
+    };
+  };
+  function strokeSVG(strokes, pad) {
+    const box = { w: 170, h: 46 };
+    pad = (pad && pad.w && pad.h) ? pad : { w: 600, h: 220 };
+    const aspect = pad.w / pad.h;
+    const scale = Math.min(box.w / (aspect * 100), box.h / 100);
+    const w = aspect * 100 * scale;
+    const h = 100 * scale;
+    const x0 = (box.w - w) / 2;
+    const paths = strokes.map((stroke) => "<path d=\"M" + stroke.map((point) =>
+      (x0 + point[0] * w).toFixed(2) + " " + ((1 - point[1]) * h).toFixed(2)).join("L") + "\"/>").join("");
+    return '<svg class="license-cert__mark" viewBox="0 0 ' + box.w + " " + box.h +
+      '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Drawn signature">' + paths + "</svg>";
+  }
 
   const kickerEl = document.getElementById("download-kicker");
   const titleEl = document.getElementById("download-title");
@@ -160,14 +186,21 @@
     btn.textContent = "UNAVAILABLE";
   }
 
-  /* The live signature stamp: the name shown under the serial is exactly what
-     the PDF prints in its LICENSEE block — the typed signature when there is
-     one, otherwise the address submitted at the gate. */
+  /* The live signature stamp: exactly what the PDF prints in its LICENSEE block
+     — the name signed in the gate's sign step (or typed here afterwards), or
+     the drawing itself, replayed as vector strokes, with the address submitted
+     at the gate as the fallback. */
   function refreshStamp(animate) {
     if (!stampEl) return;
-    const value = licenseeName();
-    stampEl.textContent = value ? value.toUpperCase() : "SIGN ABOVE TO STAMP YOUR LICENSE";
-    stampEl.dataset.stamped = value ? "true" : "false";
+    const sig = signature();
+    const value = sig.strokes ? "" : licenseeName();
+    if (sig.strokes) {
+      stampEl.innerHTML = strokeSVG(sig.strokes, sig.pad) +
+        '<span class="license-cert__mark-note">DRAWN SIGNATURE STAMPED ON YOUR PDF</span>';
+    } else {
+      stampEl.textContent = value ? value.toUpperCase() : "SIGN ABOVE TO STAMP YOUR LICENSE";
+    }
+    stampEl.dataset.stamped = (sig.strokes || value) ? "true" : "false";
     if (animate && value) {
       stampEl.classList.remove("is-stamped");
       // Force the animation to restart on every stamp.
@@ -209,7 +242,7 @@
       if (event && typeof event.preventDefault === "function") event.preventDefault();
       // Stamp the LICENSEE block with the signature just typed, falling back to
       // the address submitted at the gate in this flow — both read live.
-      window.KYROlll_LICENSE_PDF.generateLicensePDF(beat, pack, d, serial, licenseeName());
+      window.KYROlll_LICENSE_PDF.generateLicensePDF(beat, pack, d, serial, signature());
     });
   }
 
@@ -219,7 +252,7 @@
      file instead of opening it in its viewer. */
   function prebuildLicense() {
     if (!window.KYROlll_LICENSE_PDF || !window.KYROlll_LICENSE_PDF.primeLicensePDF) return;
-    window.KYROlll_LICENSE_PDF.primeLicensePDF(beat, pack, serial, licenseeName()).catch((err) => {
+    window.KYROlll_LICENSE_PDF.primeLicensePDF(beat, pack, serial, signature()).catch((err) => {
       /* Non-fatal: the click falls back to building on demand. */
       if (typeof console !== "undefined") console.warn("KYROIII license prebuild failed:", err);
     });
@@ -228,9 +261,13 @@
   function boot() {
     try {
       if (!beat || !pack) { showError(); return; }
+      /* The signature captured in the gate's sign step arrives in this flow's
+         URL (`?sign=` / `?sig=`) and is adopted before anything is rendered, so
+         the stamp and the prebuilt PDF carry it too. Nothing is stored. */
+      const d = downloads();
+      if (d && d.adoptSignature && granted) d.adoptSignature(params.get("sign"), params.get("sig"));
       prebuildLicense();
       showLicensePanel();
-      const d = downloads();
       // Without the grant token from a just-passed gate this is a cold entry
       // point, so the package's gate opens over the page — nothing about this
       // browser is consulted, because nothing about it is remembered.

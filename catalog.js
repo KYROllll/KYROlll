@@ -7,8 +7,10 @@
  * Every beat is 100% free. There is no cart, no checkout and no payment
  * gateway: every package is unlocked behind a lightweight gate (an email, plus
  * a YouTube subscribe + like for the WAV and the exclusive — see
- * `downloads.js`). Nothing is written down, so a fresh visit asks again; only
- * the current page view remembers a package it already unlocked. */
+ * `downloads.js`). Every gate then closes with a REVIEW & SIGN stage, and the
+ * signature captured there is stamped into the PDF license. Nothing is written
+ * down, so a fresh visit asks again; only the current page view remembers a
+ * package it already unlocked. */
 (function () {
   "use strict";
 
@@ -27,10 +29,11 @@
   window.KYROlll_NEWSLETTER = { provider: "formspree", username: "", endpoint: "https://formspree.io/f/xgaoppwo" };
 
   // The three free ways a beat leaves the store. `gate` is the whole behaviour:
-  //   "email"    → Email input + mandatory opt-in → submit → unlock + PDF.
-  //   "youtube"  → YouTube Sub & Like (two steps), then the same email form → unlock + PDF.
-  //   "exclusive"→ YouTube Sub & Like (the same two steps as the WAV), then the
-  //     same email form (mandatory opt-in) → submit → unlock Stems+MP3+WAV+PDF.
+  //   "email"    → Email input + mandatory opt-in → submit → REVIEW & SIGN → files + PDF.
+  //   "youtube"  → YouTube Sub & Like (two verified steps), then the same email
+  //     form → REVIEW & SIGN → files + PDF.
+  //   "exclusive"→ the same two YouTube steps as the WAV, then the same email
+  //     form (mandatory opt-in) → REVIEW & SIGN → Stems+MP3+WAV+PDF.
   // `includes` is the plain-language list of what the package hands over; it is
   // printed in the generated license (see `downloads.js`).
   window.KYROlll_PACKAGES = [
@@ -73,9 +76,12 @@
   // `deliverables` maps a package to the files the download page hands over:
   // each entry is `{ file, name, label }`, a same-origin `file`, the `name` the
   // browser saves it as and the `label` shown on the download page. The `name`
-  // is authored in caps too — the only lowercase left in it is the file
-  // extension, so the file the visitor keeps is still a normal `.mp3`/`.wav`.
-  // The license is not listed here — the download page always generates one.
+  // below is the fallback; `downloads.js` re-derives every hand-over from the
+  // beat's own metadata as `KYROIII - <BEAT> (<BPM> BPM - <KEY>).<ext>`, so an
+  // engineer can read the tempo and key straight off the filename. Only the
+  // extension is lowercase, so the file the visitor keeps is still a normal
+  // `.mp3`/`.wav`. The license is not listed here — the download page always
+  // generates one.
   window.KYROlll_CATALOG = [
     {
       id: "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af",
@@ -88,16 +94,16 @@
       youtube: "https://youtu.be/8OhRJQn2YCU",
       deliverables: {
         mp3: [
-          { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (MP3 320KBPS).mp3", label: "TAGGED MP3" }
+          { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (130 BPM - AM).mp3", label: "TAGGED MP3" }
         ],
         wav: [
-          { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (MP3 320KBPS).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/flesh.wav", name: "KYROIII - FLESH (WAV 24-BIT).wav", label: "HIGH-QUALITY WAV" }
+          { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (130 BPM - AM).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/flesh.wav", name: "KYROIII - FLESH (130 BPM - AM).wav", label: "HIGH-QUALITY WAV" }
         ],
         exclusive: [
-          { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (MP3 320KBPS).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/flesh.wav", name: "KYROIII - FLESH (WAV 24-BIT).wav", label: "HIGH-QUALITY WAV" },
-          { file: "assets/previews/flesh-stems.zip", name: "KYROIII - FLESH (TRACKED STEMS).zip", label: "TRACKED STEMS" }
+          { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (130 BPM - AM).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/flesh.wav", name: "KYROIII - FLESH (130 BPM - AM).wav", label: "HIGH-QUALITY WAV" },
+          { file: "assets/previews/flesh-stems.zip", name: "KYROIII - FLESH (130 BPM - AM) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
       }
     }

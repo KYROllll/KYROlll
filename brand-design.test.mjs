@@ -102,6 +102,54 @@ async function pickPackage(page, packageId) {
   await page.locator(`.download-tier[data-package="${packageId}"]`).click();
 }
 
+// Every gate now closes with the REVIEW & SIGN stage: the terms have to be read
+// to the end AND a signature captured before SIGN & UNLOCK comes alive.
+const signStage = (page) => page.locator('.gate-modal__card--sign');
+async function readTerms(page) {
+  await page.locator('[data-sign-terms]').evaluate(el => {
+    el.scrollTop = el.scrollHeight;
+    el.dispatchEvent(new Event('scroll'));
+  });
+}
+// Type a signature, read the terms and unlock.
+async function signLicense(page, name) {
+  await signStage(page).waitFor();
+  await page.locator('#sign-name').fill(name);
+  await readTerms(page);
+  await page.locator('[data-sign-submit]').click();
+}
+// Ink a two-stroke signature on the pad with real pointer input.
+async function drawSignature(page) {
+  await page.locator('[data-sign-mode="draw"]').click();
+  const box = await page.locator('[data-sign-canvas]').boundingBox();
+  const at = (fx, fy) => ({ x: box.x + box.width * fx, y: box.y + box.height * fy });
+  const stroke = async points => {
+    const first = at(points[0][0], points[0][1]);
+    await page.mouse.move(first.x, first.y);
+    await page.mouse.down();
+    for (const [fx, fy] of points.slice(1)) { const p = at(fx, fy); await page.mouse.move(p.x, p.y); }
+    await page.mouse.up();
+  };
+  await stroke([[0.10, 0.72], [0.16, 0.30], [0.24, 0.66], [0.32, 0.26], [0.40, 0.70]]);
+  await stroke([[0.48, 0.52], [0.58, 0.24], [0.70, 0.62], [0.82, 0.30], [0.92, 0.56]]);
+}
+// The multi-point vector paths in a PDF — only a drawn signature emits those.
+const drawnPaths = text => [...text.matchAll(/m ((?:[\d.]+ [\d.]+ l )+)/g)]
+  .map(m => m[1].trim().split(/ l /))
+  .filter(path => path.length >= 2);
+
+// A YouTube step is not a click-through: it only counts once its hold has run, so
+// the bypass (click, bounce, submit) is refused.
+async function openSteps(page) {
+  await page.locator('[data-gate-step="0"]').click();
+  await page.locator('[data-gate-step="1"]').click();
+  assert.equal(await page.locator('.gate-step.is-done').count(), 0, 'a step is not done the moment it is clicked');
+  assert.equal(await page.locator('.gate-step.is-verifying').count(), 2, 'both held steps report they are verifying');
+  assert.match(await page.locator('[data-gate-step="0"] .gate-step__go').innerText(), /VERIFYING/);
+  await page.locator('.gate-step.is-done').first().waitFor({ timeout: 15000 });
+  await page.waitForFunction(() => document.querySelectorAll('.gate-step.is-done').length === 2, null, { timeout: 15000 });
+}
+
 try {
   browser = await chromium.launch({ headless: true });
   const desktop = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
@@ -154,7 +202,27 @@ try {
   await mp3Page.locator('#gate-optin').check();
   assert.equal(await mp3Page.locator('[data-gate-submit]').isDisabled(), false);
   await mp3Page.locator('[data-gate-submit]').click();
+  // The address is in; the gate now opens the LICENSE REVIEW & SIGNATURE stage
+  // on the same card instead of leaving for the download page — the files stay
+  // locked until the terms are read and the license is signed.
+  await signStage(mp3Page).waitFor();
+  assert.equal(await mp3Page.evaluate(() => new URLSearchParams(location.search).has('t')), false, 'the gate has not left for the download page yet');
+  assert.equal(await mp3Page.locator('.gate-step').count(), 0, 'the sign stage replaces the gate body');
+  assert.equal(await mp3Page.locator('[data-sign-submit]').isDisabled(), true, 'SIGN & UNLOCK starts locked');
+  assert.match(await mp3Page.locator('#gate-hint').innerText(), /SCROLL THROUGH THE TERMS/);
+  assert(await mp3Page.locator('[data-sign-terms]').evaluate(el => el.scrollHeight > el.clientHeight + 4), 'the terms are longer than their pane, so they really have to be read');
+  assert.match(await mp3Page.locator('[data-sign-terms]').innerText(), /NON-PROFIT AND COMMERCIAL/);
+  assert.match(await mp3Page.locator('[data-sign-terms]').innerText(), /PROD\. BY KYROIII/);
+  await mp3Page.locator('#sign-name').fill('Jordan Vega');
+  assert.equal(await mp3Page.locator('[data-sign-submit]').isDisabled(), true, 'a signature alone never unlocks — the terms must be read too');
+  await readTerms(mp3Page);
+  assert(await mp3Page.locator('[data-sign-terms]').evaluate(el => el.scrollTop > 0), 'the terms pane really scrolled to the end');
+  assert.equal(await mp3Page.locator('.gate-modal__card--sign .gate-field.is-valid').count(), 1, 'a signature ticks its field');
+  assert.match(await mp3Page.locator('[data-sign-stamp]').innerText(), /JORDAN VEGA/, 'the stamp previews exactly what the PDF will print');
+  assert.equal(await mp3Page.locator('[data-sign-submit]').isDisabled(), false, 'read terms + a signature unlocks SIGN & UNLOCK');
+  await mp3Page.locator('[data-sign-submit]').click();
   await mp3Page.waitForURL(/download\.html\?beat=.*&package=mp3/);
+  assert.match(mp3Page.url(), /sign=Jordan(%20|\+)Vega/, 'the signature is handed forward in the flow URL');
   await noGateMemory(mp3Page, 'after the MP3 gate');
   assert.equal(subscribeRequests.length, 1, 'the valid address is posted to the provider');
   assert.equal(subscribeRequests[0].url, PROVIDER, 'posted to the configured Formspree endpoint');
@@ -174,11 +242,17 @@ try {
   const serial = await mp3Page.locator('#license-serial').innerText();
   assert.match(serial, /^KYRO-\d{4}-FLESH-\d{6}$/);
   serials.push(serial);
+  // The hand-over is named the way an engineer reads it: the beat, its tempo and
+  // its key, straight off the filename.
+  // The value handed to the download (and shown on the page) is exactly the
+  // studio name; only its rendering is uppercased by the stylesheet.
+  assert.equal(await mp3Page.locator('.download-item__name').textContent(), 'KYROIII - FLESH (130 BPM - AM).mp3');
+  assert.match(await mp3Page.locator('#license-stamp').innerText(), /JORDAN VEGA/, 'the signature captured in the gate is stamped on the page too');
   const [mp3] = await Promise.all([
     mp3Page.waitForEvent('download'),
     mp3Page.locator('[data-file-index="0"]').click(),
   ]);
-  assert.match(mp3.suggestedFilename(), /\.mp3$/i);
+  assert.equal(mp3.suggestedFilename(), 'KYROIII - FLESH (130 BPM - AM).mp3');
   // The luxury PDF license: a real file, not a viewer, with a valid PDF header,
   // the serial on the page and in the document, and the whole deal in the copy.
   const [pdf] = await Promise.all([
@@ -200,11 +274,17 @@ try {
   assert(pdfText.includes('PAGE 1 OF 1'), 'document-control footer, one page for every package');
   // Strict ALL CAPS branding: no lowercase letter survives anywhere in the doc.
   assert.deepEqual(pdfRuns(pdfText).filter(run => /[a-z]/.test(run)), [], 'every PDF string is uppercase');
-  // Immaculate signatures: both sides pre-filled, the licensee with the address
-  // submitted at the gate. (Parentheses are escaped by the PDF writer.)
-  assert(pdfText.includes('MP3-BUYER@EXAMPLE.COM'), 'the LICENSEE signature carries the submitted address');
+  // Immaculate signatures: both sides pre-filled and dated, the LICENSEE with
+  // the signature captured in the gate's sign step. (Parentheses are escaped by
+  // the PDF writer.)
+  assert(pdfText.includes('JORDAN VEGA'), 'the LICENSEE block carries the signature captured in the gate');
   assert(pdfText.includes('LICENSOR \\(KYROIII\\)'), 'the LICENSOR signature block');
   assert(pdfText.includes('SIGNED '), 'the licensee block is dated');
+  // The redesign: the flower mark leads a centred masthead, and the whole page
+  // lays out as one ruled certificate strip.
+  assert(pdfText.includes('FREE MUSIC LICENSE PROGRAM'));
+  assert(pdfText.includes('NON-EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE'));
+  assert.equal(drawnPaths(pdfText).length, 0, 'a typed license carries no drawn strokes');
   // Monochromatic cyberpunk palette: matte black #0B0B0B, white type and
   // silver #888888 rules — and no blue channel anywhere.
   assert(pdfText.includes('0.043 0.043 0.043 rg'), 'deep matte black field (#0B0B0B)');
@@ -219,22 +299,24 @@ try {
   assert(pdfText.includes('HTTPS://KYROILL.STORE'), 'the store link is printed in the footer');
   assert(/1 1 1 rg\n[\d.]+ [\d.]+ [\d.]+ [\d.]+ re f/.test(pdfText), 'vector barcode drawn in the footer');
 
-  // The interactive signature: what the visitor types is stamped live into the
-  // LICENSEE block of the next PDF, and the ALL-CAPS rule still holds over it.
-  await mp3Page.locator('#license-signature').fill('Jordan Vega');
+  // Re-signing on the download page still re-stamps the next PDF live, and the
+  // ALL-CAPS rule holds over the new name.
+  await mp3Page.locator('#license-signature').fill('Matan Kaplan');
   await mp3Page.waitForFunction(() => {
     const stamp = document.getElementById('license-stamp');
-    return stamp && stamp.dataset.stamped === 'true' && /JORDAN VEGA/.test(stamp.textContent || '');
+    return stamp && stamp.dataset.stamped === 'true' && /MATAN KAPLAN/.test(stamp.textContent || '');
   }, null, { timeout: 5000 });
   const [signedPdf] = await Promise.all([
     mp3Page.waitForEvent('download'),
     mp3Page.locator('[data-license-pdf]').click(),
   ]);
   const signedText = (await readFile(await signedPdf.path())).toString('latin1');
-  assert(signedText.includes('JORDAN VEGA'), 'the typed signature is stamped into the LICENSEE block');
-  assert(!signedText.includes('Jordan Vega'), 'the signature is stamped in caps, exactly as the PDF is');
+  assert(signedText.includes('MATAN KAPLAN'), 're-signing re-stamps the LICENSEE block');
+  assert(!signedText.includes('JORDAN VEGA'), 'the previous signature is replaced, not appended');
+  assert(!signedText.includes('Matan Kaplan'), 'the signature is stamped in caps, exactly as the PDF is');
   assert.equal(signedText.includes(serial), true, 'the signed copy keeps this issuance serial');
   assert.deepEqual(pdfRuns(signedText).filter(run => /[a-z]/.test(run)), [], 'the signed license is uppercase too');
+  assert.equal(signedText.includes('PAGE 1 OF 1'), true, 'the signed license still fits one page');
   await shot(mp3Page, 'download-mp3');
   await mp3Page.close();
 
@@ -245,16 +327,22 @@ try {
   await wavPage.locator('.gate-modal').waitFor();
   assert.equal(await wavPage.locator('.gate-step').count(), 2);
   assert.equal(await wavPage.locator('[data-gate-submit]').isDisabled(), true);
-  await wavPage.locator('[data-gate-step="0"]').click();
-  await wavPage.locator('[data-gate-step="1"]').click();
+  // Each step has to be genuinely opened — and held — before it counts.
+  await openSteps(wavPage);
   assert.equal(await wavPage.locator('[data-gate-submit]').isDisabled(), true, 'the two steps alone never unlock — the email is still required');
   await wavPage.locator('#gate-email').fill('wav-buyer@example.com');
   assert.equal(await wavPage.locator('[data-gate-submit]').isDisabled(), false);
   await wavPage.locator('[data-gate-submit]').click();
+  await signLicense(wavPage, 'Wav Buyer');
   await wavPage.waitForURL(/package=wav/);
   assert.equal(subscribeRequests.length, 2, 'the WAV gate posts its address too');
   assert.match(await wavPage.locator('#download-list').innerText(), /HIGH-QUALITY WAV/i);
   assert.equal(await wavPage.locator('.download-item').count(), 2); // tagged MP3 + high-quality WAV
+  // Every hand-over carries the beat's tempo and key, audio or archive alike.
+  assert.deepEqual(await wavPage.locator('.download-item__name').allTextContents(), [
+    'KYROIII - FLESH (130 BPM - AM).mp3',
+    'KYROIII - FLESH (130 BPM - AM).wav',
+  ]);
   // The license panel is the same certificate block on every package: serial
   // minted, one PDF action, no raw text.
   const wavSerial = await wavPage.locator('#license-serial').innerText();
@@ -269,7 +357,8 @@ try {
   ]);
   const wavText = (await readFile(await wavPdf.path())).toString('latin1');
   assert(wavText.includes(wavSerial), 'the WAV license carries its own serial');
-  assert(wavText.includes('WAV-BUYER@EXAMPLE.COM'), 'the WAV license carries its own licensee');
+  assert(wavText.includes('WAV BUYER'), 'the WAV license carries its own signature');
+  assert(wavText.includes('WAV-BUYER@EXAMPLE.COM'), 'the WAV license records the address this issuance went to');
   assert.deepEqual(pdfRuns(wavText).filter(run => /[a-z]/.test(run)), [], 'the WAV license is uppercase too');
   await shot(wavPage, 'download-wav');
   await wavPage.close();
@@ -294,8 +383,7 @@ try {
   assert.equal(await proPage.locator('.gate-step').count(), 2, 'the Pro gate carries no comment step');
   assert.equal(await proPage.locator('#gate-comment').count(), 0, 'the comment step is gone');
   assert.equal(await proPage.locator('[data-gate-submit]').isDisabled(), true);
-  await proPage.locator('[data-gate-step="0"]').click();
-  await proPage.locator('[data-gate-step="1"]').click();
+  await openSteps(proPage);
   // Each completed step draws its own tick and still cannot unlock alone.
   assert.equal(await proPage.locator('.gate-step.is-done .gate-step__tick').count(), 2, 'both steps show their tick');
   assert.equal(await proPage.locator('[data-gate-submit]').isDisabled(), true, 'the steps alone never unlock');
@@ -305,13 +393,29 @@ try {
   assert.equal(subscribeRequests.length, 2, 'a malformed address is never sent to the provider');
   await proPage.locator('#gate-email').fill('producer@example.com');
   await proPage.locator('[data-gate-submit]').click();
+  // This license is signed by hand: the pad takes real pointer strokes, and the
+  // drawing travels on to the download page and into the PDF as vector paths.
+  await signStage(proPage).waitFor();
+  await drawSignature(proPage);
+  assert.match(await proPage.locator('[data-sign-stamp]').innerText(), /SIGNATURE CAPTURED/, 'the drawn signature is captured');
+  assert.equal(await proPage.locator('[data-sign-submit]').isDisabled(), true, 'a drawing still cannot skip reading the terms');
+  await readTerms(proPage);
+  assert.equal(await proPage.locator('[data-sign-submit]').isDisabled(), false);
+  await proPage.locator('[data-sign-submit]').click();
   await proPage.waitForURL(/package=exclusive/);
+  assert.match(proPage.url(), /sig=/, 'the drawing is handed forward, packed into the flow URL');
+  assert(await proPage.locator('.license-cert__mark path').count() >= 2, 'the download page replays the drawn signature');
   assert.equal(subscribeRequests.length, 3, 'the valid address is posted to the newsletter provider');
   assert.equal(subscribeRequests[2].url, endpoint, 'posted to the configured provider endpoint');
   assert.match(subscribeRequests[2].body, /email=producer%40example\.com/);
   assert.match(subscribeRequests[2].body, /embed=1/);
   assert.match(await proPage.locator('#download-list').innerText(), /TRACKED STEMS/i);
   assert.equal(await proPage.locator('.download-item').count(), 3); // MP3 + WAV + stems (license is its own panel)
+  assert.deepEqual(await proPage.locator('.download-item__name').allTextContents(), [
+    'KYROIII - FLESH (130 BPM - AM).mp3',
+    'KYROIII - FLESH (130 BPM - AM).wav',
+    'KYROIII - FLESH (130 BPM - AM) - TRACKED STEMS.zip',
+  ]);
   const proSerial = await proPage.locator('#license-serial').innerText();
   assert.match(proSerial, /^KYRO-\d{4}-FLESH-\d{6}$/);
   serials.push(proSerial);
@@ -323,8 +427,16 @@ try {
     proPage.locator('[data-license-pdf]').click(),
   ]);
   const proText = (await readFile(await proPdf.path())).toString('latin1');
-  assert(proText.includes('PRODUCER@EXAMPLE.COM'), 'the exclusive license is signed with the submitted address');
+  assert(proText.includes('PRODUCER@EXAMPLE.COM'), 'the exclusive license records the address this issuance went to');
   assert(proText.includes('PAGE 1 OF 1'), 'the exclusive package still fits one page');
+  // The hand-drawn signature reaches the PDF as real vector strokes, inside the
+  // LICENSEE column, and the document stays monochrome and uppercase.
+  const ink = drawnPaths(proText);
+  assert(ink.length >= 2, `the drawn signature is stamped into the PDF as vector strokes: ${ink.length}`);
+  const inkX = ink.flatMap(path => path.map(point => Number(String(point).split(' ')[0])));
+  assert(Math.max(...inkX) < 300, 'the drawn strokes sit inside the LICENSEE column');
+  assert.equal(drawnPaths(proText).length, ink.length, 'the signs are stable');
+  assert.deepEqual(pdfRuns(proText).filter(run => /[a-z]/.test(run)), [], 'the hand-signed license is uppercase too');
 
   // Fresh state every time: the very browser that just unlocked this package is
   // asked again, from scratch, with nothing remembered and nothing written.
@@ -353,10 +465,10 @@ try {
   // Smart session memory: once the gate is passed in this view the package is
   // remembered in-page, so the same package is not asked for twice — while the
   // browser still stores nothing at all.
-  await coldPage.locator('[data-gate-step="0"]').click();
-  await coldPage.locator('[data-gate-step="1"]').click();
+  await openSteps(coldPage);
   await coldPage.locator('#gate-email').fill('cold-entrant@example.com');
   await coldPage.locator('[data-gate-submit]').click();
+  await signLicense(coldPage, 'Cold Entrant');
   // The success beat holds ~1.4 s and then the page paints its file rows.
   await coldPage.locator('.download-item').first().waitFor({ timeout: 15000 });
   assert.match(await coldPage.locator('#download-list').innerText(), /TRACKED STEMS/i);
@@ -390,7 +502,7 @@ try {
   await playback.close();
 
   assert.deepEqual(errors, []);
-  console.log('Passed storefront layout, tagged audio preview, and the free-download menu + all three gates (two-step Pro gate, in-page session memory with empty storage, Formspree posts, a typed signature stamped into an ALL-CAPS monochrome PDF license).');
+  console.log('Passed storefront layout, tagged audio preview, and the free-download menu + all three gates (held YouTube steps, the REVIEW & SIGN stage with read-to-the-end terms and a typed or hand-drawn signature stamped into the single-page ALL-CAPS monochrome PDF license, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts).');
 } finally {
   await browser?.close();
   server.close();
