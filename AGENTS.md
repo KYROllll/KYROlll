@@ -86,6 +86,14 @@ npx esbuild background-x.js --bundle --minify \
 
 Bump the `?v=N` query on the matching `<script>` tag in `index.html` afterwards.
 
+The same rule covers the storefront's own `style.css` and hand-written scripts
+(`downloads.js`, `script.js`, …): the `?v=N` query is the **only** cache-buster, so an
+edit that ships without bumping it is invisible to every browser that already holds the
+old URL. Bump the matching tag on **all** pages that link it — `index.html`,
+`download.html` and `support.html` each carry their own copy, and the three drifting
+apart is how `style.css?v=128` outlived the drawer fix that shipped in `style.css` after
+it. A version only ever needs to move forwards.
+
 `assets/brand-logo.min.js` bundles `three` (r186) plus one `three/addons` helper
 (`BufferGeometryUtils`'s `mergeVertices`). It **can** be rebuilt here — install the
 matching three in a throwaway directory, build there so `three` resolves, and let the same
