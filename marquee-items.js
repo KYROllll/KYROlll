@@ -1,4 +1,4 @@
-/* KYROlll — marquee ticker content.
+/* KYROIII — marquee ticker content.
  *
  * Every headline below scrolls across the white strip under the hero, alongside
  * the live "NEW DROP" lines and the studio counts that marquee.js derives from
@@ -12,9 +12,9 @@
  *  - Comment a line out (//) to retire an update without deleting it.
  */
 window.KYROlll_MARQUEE = [
-  "KYROlll — ORIGINAL SOUND — FREE BEATS, STEMS & STUDIO SESSIONS",
+  "KYROIII — ORIGINAL SOUND — FREE BEATS, STEMS & STUDIO SESSIONS",
   "STUDIO UPDATE — NEW TONES IN THE WORKSHOP — MASTERING FRESH OUT OF THE OVEN",
   "FREE DOWNLOADS — GRAB THE MP3 INSTANTLY — SUBSCRIBE OR LEAVE AN EMAIL TO UNLOCK MORE",
   "DROP ALERT — FOLLOW THE CRATE — EVERY NEW BEAT LANDS HERE FIRST",
-  "KYROlll — EVERY DROP IS ORIGINAL PRODUCTION"
+  "KYROIII — EVERY DROP IS ORIGINAL PRODUCTION"
 ];

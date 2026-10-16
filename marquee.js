@@ -1,4 +1,4 @@
-/* KYROlll — live marquee ticker.
+/* KYROIII — live marquee ticker.
  *
  * Renders the white announcement strip under the hero from live sources:
  *   1. Every catalog beat (newest first) is turned into a "NEW DROP — …"
@@ -36,7 +36,7 @@
   function headlineItems() {
     const catalog = window.KYROlll_CATALOG || [];
     const drops = catalog.slice().reverse().map((beat) =>
-      "NEW DROP — " + beat.title + " — " + beat.bpm + " BPM // " + beat.key + " — IN THE CRATE"
+      "NEW DROP — " + beat.title + " — " + beat.bpm + " BPM // " + String(beat.key).toUpperCase() + " — IN THE CRATE"
     );
     // Studio intelligence, computed from the catalog so the ticker never drifts
     // from what the shop actually holds: the live release count plus the single
@@ -49,12 +49,12 @@
       );
       const newest = catalog[catalog.length - 1];
       if (newest) {
-        studio.push("FRESHEST OUT THE STUDIO — " + newest.title + " — " + newest.bpm + " BPM // " + newest.key);
+        studio.push("FRESHEST OUT THE STUDIO — " + newest.title + " — " + newest.bpm + " BPM // " + String(newest.key).toUpperCase());
       }
     }
     const news = (window.KYROlll_MARQUEE || []).filter((item) => item && item.trim());
     const items = drops.concat(studio, news);
-    return items.length ? items : ["KYROlll — ORIGINAL SOUND"];
+    return items.length ? items : ["KYROIII — ORIGINAL SOUND"];
   }
 
   // Linear travel speed in CSS pixels per second — constant no matter how many

@@ -1,4 +1,4 @@
-/* KYROlll — the elite PDF license generator.
+/* KYROIII — the elite PDF license generator.
  *
  * A dependency-free PDF writer. Every issued license is a single dark branded
  * document — the 3D flower as the header mark, a unique serial number
@@ -7,6 +7,10 @@
  * document-control footer with a vector barcode — laid out against real font
  * metrics so the grid actually aligns. It is handed to the browser as a normal
  * `download`-attribute link, so it never opens a viewer.
+ *
+ * The LICENSEE block is stamped with the signature the visitor types on the
+ * download page (or, when the field is left empty, the address submitted at the
+ * gate). Both pads are pre-filled and dated, so no license ever goes out blank.
  *
  * The document is 100% ALL CAPS: every string runs through `toAscii`, which
  * uppercases it, so no lowercase letter can reach the page. The palette is
@@ -329,7 +333,7 @@
     startPage(true);
 
     const markX = COL_X + (flower ? 148 + 22 : 0);
-    putTracked(markX, PAGE_H - M - 74, "KYROlll", "F2", 26, WHITE, 1.2);
+    putTracked(markX, PAGE_H - M - 74, "KYROIII", "F2", 26, WHITE, 1.2);
     putTracked(markX, PAGE_H - M - 92, "FREE MUSIC LICENSE PROGRAM", "F1", 7.5, MUTED, 1.9);
     y = PAGE_H - M - 142;
 
@@ -355,7 +359,7 @@
     gridRow([
       { label: "BPM / KEY", value: data.bpm + " BPM  -  " + data.key },
       { label: "TERRITORY", value: "WORLDWIDE" },
-      { label: "LICENSOR", value: "KYROlll" }
+      { label: "LICENSOR", value: "KYROIII" }
     ]);
 
     /* ------------------------------------------------------- clauses */
@@ -383,10 +387,11 @@
 
     /* --------------------------------------------------- signatures */
     /* Two clean, straight, pre-filled signature blocks close the contract: the
-       licensor KYROIII and the licensee, who is stamped with the address
-       submitted at the gate. Both names are set upright (no script face) in
-       crisp white on their own silver rule, under a micro-label, so the block
-       reads as a signed instrument rather than a blank to fill in. */
+       licensor KYROIII and the licensee, stamped with the signature typed on the
+       download page (falling back to the address submitted at the gate). Both
+       names are set upright (no script face) in crisp white on their own silver
+       rule, under a micro-label, so the block reads as a signed instrument
+       rather than a blank to fill in. */
     ensure(88);
     const sigTop = y;
     const sigW = (COL_W - 40) / 2;
@@ -404,8 +409,8 @@
       putTracked(x, sigTop - 55, label, "F1", 7, MUTED, 1.2);
       putTracked(x, sigTop - 66, micro, "F1", 6.5, MUTED, 0.9);
     };
-    signatureBlock(COL_X, data.licensee || "-", "LICENSEE", "SIGNED " + data.issued);
-    signatureBlock(sigX2, "KYROIII", "LICENSOR (KYROIII)", "AUTHORISED SIGNATORY - KYROLLL");
+    signatureBlock(COL_X, data.licensee || "-", "LICENSEE SIGNATURE", "SIGNED " + data.issued);
+    signatureBlock(sigX2, "KYROIII", "LICENSOR (KYROIII)", "AUTHORISED SIGNATORY - KYROIII");
     gap(84);
 
     /* ------------------------------------------------ document footer */
@@ -455,7 +460,7 @@
       const footer =
         HAIR + " 0.6 RG\n" +
         COL_X.toFixed(2) + " " + footRuleY.toFixed(2) + " m " + (COL_X + COL_W).toFixed(2) + " " + footRuleY.toFixed(2) + " l S\n" +
-        "BT /F1 7 Tf 0 Tc " + MUTED + " " + COL_X.toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString("KYROLLL OPEN RELEASE PROGRAM") + ") Tj ET\n" +
+        "BT /F1 7 Tf 0 Tc " + MUTED + " " + COL_X.toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString("KYROIII OPEN RELEASE PROGRAM") + ") Tj ET\n" +
         "BT /F1 7 Tf 0 Tc " + MUTED + " " + (PAGE_W / 2 - measure(center, "F1", 7) / 2).toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString(center) + ") Tj ET\n" +
         "BT /F1 7 Tf 0 Tc " + MUTED + " " + (PAGE_W - M - 18 - measure(right, "F1", 7)).toFixed(2) + " " + footTextY.toFixed(2) + " Td (" + escapePdfString(right) + ") Tj ET\n" +
         barcodeBlock();
@@ -536,7 +541,7 @@
 
   function safeFileName(beat) {
     const safe = toAscii(beat.title).replace(/[^A-Za-z0-9 .,-]/g, " ").trim().replace(/\s+/g, " ");
-    return "KYROlll - " + (safe || "BEAT") + " LICENSE.pdf";
+    return "KYROIII - " + (safe || "BEAT") + " LICENSE.pdf";
   }
 
   function buildDocument(beat, pack, serial, licensee, flower) {
@@ -557,8 +562,8 @@
     });
   }
 
-  /* Warm the flower ahead of the click. The signature modal collects the name
-     first, so by the time the visitor signs, the only remaining work is the
+  /* Warm the flower ahead of the click. The download page collects the signature
+     live, so by the time the visitor signs the only remaining work is the
      document itself — which then builds inside the click. */
   function primeLicenseFlower() {
     return flowerJpeg();
@@ -593,8 +598,8 @@
     return blob;
   }
 
-  /* `licensee` is the name the visitor typed into the signature modal; it is
-     embedded as the LICENSEE signature. */
+  /* `licensee` is the signature typed on the download page (or the gate address
+     when none was typed); it is stamped as the LICENSEE signature. */
   async function generateLicensePDF(beat, pack, downloads, serial, licensee) {
     if (!beat || !pack) { if (downloads && downloads.showToast) downloads.showToast("LICENSE UNAVAILABLE"); return; }
     const sid = serial || makeLicenseId(beat);
@@ -611,7 +616,7 @@
     if (flowerCache !== undefined) {
       try { saveBuilt(beat, pack, sid, licensee, flowerCache, downloads); }
       catch (err) {
-        if (typeof console !== "undefined") console.error("KYROlll license PDF failed:", err);
+        if (typeof console !== "undefined") console.error("KYROIII license PDF failed:", err);
         if (downloads && downloads.showToast) downloads.showToast("LICENSE UNAVAILABLE - TRY AGAIN");
       }
       return;
@@ -623,7 +628,7 @@
       /* The still image is the only fragile part and it already degrades to a
          text-only document, so a throw here is a real bug — surface it rather
          than swallowing it. */
-      if (typeof console !== "undefined") console.error("KYROlll license PDF failed:", err);
+      if (typeof console !== "undefined") console.error("KYROIII license PDF failed:", err);
       if (downloads && downloads.showToast) downloads.showToast("LICENSE UNAVAILABLE - TRY AGAIN");
     }
   }

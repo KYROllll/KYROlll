@@ -1,9 +1,9 @@
-/* KYROlll — page-load preloader.
+/* KYROIII — page-load preloader.
  *
  * The fixed veil covers the very first paint and shows the 3D flower (mounted
  * by brand-logo.min.js into its own .logo-stage) already fully open and turning
  * on the same shared clock as the hero flower, so the rotation the veil shows is
- * the rotation the hero carries on with after the hand-off. The "KYROlll"
+ * the rotation the hero carries on with after the hand-off. The "KYROIII"
  * wordmark holds still: beneath it only the white progress bar moves.
  *
  * The veil lifts at a true 100%: the bar only reaches the end once the page has

@@ -17,7 +17,7 @@ let vinylTimer = 0;
 window.addEventListener("pagehide", () => previewPlayer.stop());
 
 function specLine(beat) {
-  return `${beat.bpm} BPM // ${beat.key}`;
+  return `${beat.bpm} BPM // ${String(beat.key).toUpperCase()}`;
 }
 
 function youtubeHTML(beat, show) {
@@ -122,7 +122,7 @@ function buildGrid() {
   if (catalogHeading) catalogHeading.hidden = detail;
   grid.setAttribute("aria-label", detail ? "Beat details" : "Available beats");
 
-  document.title = detail && list.length ? `${list[0].title} — KYROlll` : "KYROlll — FREE BEATS & ORIGINAL PRODUCTION";
+  document.title = detail && list.length ? `${list[0].title} — KYROIII` : "KYROIII — FREE BEATS & ORIGINAL PRODUCTION";
 
   if (!list.length) {
     const panel = document.createElement("article");

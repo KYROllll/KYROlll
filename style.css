@@ -57,16 +57,12 @@ html, body, main, .viewport, .grid, .beat-detail, .beat-detail__content {
   box-sizing: border-box;
 }
 
-.brand-name { text-transform: none; }
-
-/* Brand casing: the page uppercases by default, but the wordmark is always
-   written "KYROlll" — the all-caps form is never correct. Any label that spells
-   the brand opts out of the transform and authors its other words in caps. */
-.header-brand,
-.marquee-banner,
-.page-panel__title,
-.beat-navigation a,
-.page-nav a { text-transform: none; }
+/* Brand casing: the wordmark is KYROIII (K-Y-R-O-I-I-I) and it is itself
+   all-caps, so the page-wide uppercase transform leaves it exactly as authored.
+   Every other string is authored in caps too — the transform is the belt to the
+   source's braces. The only opt-outs are the email field (`.gate-input`) and the
+   wordmark itself. */
+.brand-name { letter-spacing: .06em; }
 
 :focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
 
@@ -699,9 +695,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   font-weight: 800;
   font-size: 11px;
   letter-spacing: 0.25em;
-  /* The ticker itself is authored in caps; opting out of the transform keeps the
-     brand spelled "KYROlll" while every other headline still reads in caps. */
-  text-transform: none;
+  /* Authored in caps — the wordmark is KYROIII and every headline matches. */
+  text-transform: uppercase;
   position: relative;
   width: 100%;
 }
@@ -867,7 +862,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 
 /* ==========================================================================
-   KYROlll — MASTERCLASS OVERHAUL
+   KYROIII — MASTERCLASS OVERHAUL
    Hero intro & scroll storytelling · exact release title · vinyl flower
    auto-slide · 3D glowing BUY button · audio-reactive player · fluid mobile.
    --------------------------------------------------------------------------
@@ -1881,9 +1876,34 @@ html.gate-open { overflow: hidden; }
 
 .gate-step:hover,
 .gate-step:focus-visible { background: var(--white); border-color: var(--white); color: var(--black); }
-.gate-step.is-done { border-color: #6ad17a; }
+
+/* A finished step: the number morphs into a tick that draws itself, the row
+   springs a hair and a hairline flash sweeps out of the edge. Monochrome on
+   purpose — white on black, no accent colour anywhere. */
+.gate-step.is-done {
+  border-color: var(--white);
+  animation: gate-step-pop .5s cubic-bezier(.16, 1, .3, 1);
+}
+.gate-step.is-done::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 1px solid rgba(255, 255, 255, .5);
+  pointer-events: none;
+  animation: gate-step-flash .65s ease-out forwards;
+}
+@keyframes gate-step-pop {
+  0% { transform: scale(1); }
+  32% { transform: scale(1.014); }
+  100% { transform: scale(1); }
+}
+@keyframes gate-step-flash {
+  from { opacity: .85; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.035); }
+}
 
 .gate-step__num {
+  position: relative;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
@@ -1892,12 +1912,41 @@ html.gate-open { overflow: hidden; }
   border: 1px solid currentColor;
   font-size: 11px;
   font-weight: 800;
+  overflow: hidden;
 }
+.gate-step__num > span:first-child { transition: opacity .18s ease, transform .3s ease; }
+.gate-step.is-done .gate-step__num > span:first-child { opacity: 0; transform: scale(.4); }
+.gate-step__tick,
+.gate-field__tick { display: grid; place-items: center; opacity: 0; }
+.gate-step__tick { position: absolute; inset: 0; }
+.gate-step__tick svg,
+.gate-field__tick svg { width: 13px; height: 13px; overflow: visible; }
+.gate-step__tick path,
+.gate-field__tick path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 26;
+  stroke-dashoffset: 26;
+}
+.gate-step.is-done .gate-step__tick { opacity: 1; }
+.gate-step.is-done .gate-step__tick path { animation: gate-tick .42s cubic-bezier(.65, 0, .45, 1) forwards .06s; }
+@keyframes gate-tick { to { stroke-dashoffset: 0; } }
 
 .gate-step__body { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; }
 .gate-step__title { font-size: 10px; font-weight: 800; letter-spacing: .12em; }
 .gate-step__meta { font-size: 8px; letter-spacing: .06em; opacity: .6; }
 .gate-step__go { flex: 0 0 auto; font-size: 8px; font-weight: 800; letter-spacing: .12em; }
+
+/* The address field earns the same tick the moment it is well formed, so the
+   form reads as "done" before the submit is even pressed. */
+.gate-field__label { display: flex; align-items: center; gap: 6px; }
+.gate-field__tick { width: 11px; height: 11px; transform: scale(.5); margin-top: -1px; transition: opacity .2s ease, transform .3s cubic-bezier(.16, 1.4, .3, 1); }
+.gate-field__tick path { stroke: var(--white); }
+.gate-field.is-valid .gate-field__tick { opacity: 1; transform: scale(1); }
+.gate-field.is-valid .gate-field__tick path { animation: gate-tick .4s cubic-bezier(.65, 0, .45, 1) forwards; }
 
 /* ---- the download page & the free license ---- */
 
@@ -1959,7 +2008,28 @@ html.gate-open { overflow: hidden; }
   line-height: 1.9;
   letter-spacing: .06em;
   color: var(--gray);
-  text-transform: none;
+}
+
+/* The beat's metadata: three quiet chips, nothing more. */
+.dl-meta {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+.dl-meta:empty { display: none; }
+.dl-meta__chip {
+  border: 1px solid rgba(255, 255, 255, .16);
+  background: rgba(255, 255, 255, .032);
+  padding: 6px 11px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .24em;
+  color: var(--gray);
+  animation: glass-card-in .55s cubic-bezier(.16, 1, .3, 1) both;
 }
 
 /* Glassmorphism card: translucent, blurred, hairline edge, soft depth. */
@@ -2029,7 +2099,7 @@ html.gate-open { overflow: hidden; }
 .download-item__index { flex: 0 0 auto; font-size: 10px; font-weight: 800; letter-spacing: .1em; color: var(--gray); font-variant-numeric: tabular-nums; }
 .download-item__body { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 auto; text-align: left; }
 .download-item__label { font-size: 8px; font-weight: 800; letter-spacing: .24em; color: var(--gray); }
-.download-item__name { font-size: 12px; letter-spacing: .03em; color: var(--white); overflow-wrap: anywhere; text-transform: none; }
+.download-item__name { font-size: 12px; letter-spacing: .03em; color: var(--white); overflow-wrap: anywhere; }
 .download-item__btn { flex: 0 0 auto; }
 
 /* A file the server does not actually have: dim the row and refuse the click
@@ -2072,9 +2142,48 @@ html.gate-open { overflow: hidden; }
   line-height: 1.8;
   letter-spacing: .05em;
   color: var(--gray);
-  text-transform: none;
 }
 .license-cert__btn { align-self: flex-start; }
+
+/* The interactive signature: one ruled line, typed in caps, and the stamp line
+   underneath showing exactly the name the PDF will carry. */
+.license-cert__sign { display: flex; flex-direction: column; gap: 7px; margin-top: 8px; }
+.license-cert__sign-label { font-size: 8px; font-weight: 800; letter-spacing: .3em; color: var(--gray); }
+.license-cert__sign-input {
+  width: 100%;
+  max-width: 420px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .28);
+  color: var(--white);
+  font-family: inherit;
+  font-size: clamp(15px, 2.4vw, 19px);
+  font-weight: 800;
+  letter-spacing: .12em;
+  padding: 8px 2px;
+  box-sizing: border-box;
+  /* Display only: the document itself is forced uppercase by the PDF writer. */
+  text-transform: uppercase;
+  transition: border-color .2s ease;
+}
+.license-cert__sign-input::placeholder { font-size: 11px; font-weight: 700; letter-spacing: .18em; color: rgba(255, 255, 255, .32); }
+.license-cert__sign-input:focus { outline: none; border-bottom-color: var(--white); }
+.license-cert__stamp {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  color: var(--gray);
+  border-left: 2px solid rgba(255, 255, 255, .16);
+  padding-left: 10px;
+  overflow-wrap: anywhere;
+}
+.license-cert__stamp[data-stamped="true"] { color: var(--white); border-left-color: var(--white); }
+.license-cert__stamp.is-stamped { animation: license-stamp .5s cubic-bezier(.16, 1, .3, 1); }
+@keyframes license-stamp {
+  0% { opacity: .15; letter-spacing: .42em; transform: translateY(-3px); filter: blur(2px); }
+  100% { opacity: 1; letter-spacing: .18em; transform: translateY(0); filter: blur(0); }
+}
 
 .download-list__empty { padding: 22px 0; text-align: center; font-size: 9px; letter-spacing: .2em; color: var(--gray); }
 
@@ -2104,7 +2213,6 @@ html.gate-open { overflow: hidden; }
   line-height: 1.65;
   letter-spacing: .06em;
   color: #cfcfcf;
-  text-transform: none;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-style: italic;
   border-left: 2px solid rgba(255,255,255,0.15);
@@ -2156,7 +2264,7 @@ html.gate-open { overflow: hidden; }
   to { stroke-dashoffset: 0; }
 }
 .gate-modal--success .gate-modal__card { text-align: center; }
-.gate-modal__card--success .gate-modal__copy { text-transform: none; letter-spacing: .04em; }
+.gate-modal__card--success .gate-modal__copy { letter-spacing: .04em; }
 .gate-modal__backdrop--static { cursor: default; }
 
 
@@ -2197,7 +2305,7 @@ html.gate-open { overflow: hidden; }
 
 .page-panel__kicker { display: block; font-size: 8px; font-weight: 800; letter-spacing: .32em; color: var(--gray); }
 .page-panel__title { margin-top: 8px; font-size: clamp(22px, 4vw, 36px); font-weight: 800; letter-spacing: -.02em; }
-.page-panel__sub { margin-top: 10px; font-size: 10px; line-height: 1.8; letter-spacing: .06em; color: var(--gray); text-transform: none; }
+.page-panel__sub { margin-top: 10px; font-size: 10px; line-height: 1.8; letter-spacing: .06em; color: var(--gray); }
 
 /* ---------- Page-load preloader ------------------------------------------- */
 /* While the veil is armed the page behind it is frozen: no scrolling under a
@@ -2274,7 +2382,7 @@ html.preloader-armed { overflow-y: hidden; }
   font-weight: 800;
   letter-spacing: .5em;
   text-indent: .5em;
-  text-transform: none; /* keep the brand's exact casing: KYROlll */
+  text-transform: none; /* keep the brand's exact casing: KYROIII */
   color: var(--white);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2326,6 +2434,16 @@ html.preloader-armed { overflow-y: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   .kyrolll-toast { transition: none; }
+  /* The ticks still arrive — they just arrive already drawn. */
+  .gate-step.is-done,
+  .gate-step.is-done::after,
+  .gate-step.is-done .gate-step__tick path,
+  .gate-field.is-valid .gate-field__tick path,
+  .license-cert__stamp.is-stamped,
+  .dl-meta__chip { animation: none; }
+  .gate-step.is-done::after { content: none; }
+  .gate-step.is-done .gate-step__tick path,
+  .gate-field.is-valid .gate-field__tick path { stroke-dashoffset: 0; }
 }
 
 .catalog-tile__art { position: relative; }

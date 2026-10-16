@@ -1,18 +1,21 @@
-/* KYROlll — the free-download layer.
+/* KYROIII — the free-download layer.
  *
  * Unifies the "DOWNLOAD FREE" package menu, the lightweight gates (YouTube +
  * email) and the actual browser downloads. No cart, no checkout, no backend.
  *
- * NOTHING IS REMEMBERED — there is no gate memory at all:
+ * SMART SESSION MEMORY — nothing is ever written down:
  * - no `localStorage`, no `sessionStorage`, no cookie and no unlock set;
- * - no prefilled address and no "already unlocked" shortcut.
- * Every click on a package opens its gate from scratch, every time.
+ * - a package unlocked in this view is remembered in one plain in-page Map
+ *   (`grants`), so the visitor is never made to pass the same gate twice in
+ *   one session — and the memory evaporates with the page.
+ * A reload, a new tab, a bookmark or a shared link always re-opens the gate from
+ * scratch, and the address is never prefilled.
  *
  * STRICT GATING (all three packages):
- * - MP3 LEASE (gate: email): Email input + mandatory opt-in → submit → unlock + PDF.
- * - STANDARD WAV LEASE (gate: youtube): YouTube Sub + Like → Email + mandatory opt-in → unlock + PDF.
- * - EXCLUSIVE / PRO PACKAGE (gate: exclusive): YouTube Sub + Like → Comment →
- *   Email + mandatory opt-in → unlock (Stems+MP3+WAV+PDF).
+ * - MP3 LEASE (gate: email): EMAIL + MANDATORY OPT-IN → SUBMIT → UNLOCK + PDF.
+ * - STANDARD WAV LEASE (gate: youtube): YOUTUBE SUB + LIKE → EMAIL + OPT-IN → UNLOCK + PDF.
+ * - EXCLUSIVE / PRO PACKAGE (gate: exclusive): YOUTUBE SUB + LIKE →
+ *   EMAIL + OPT-IN → UNLOCK (STEMS + MP3 + WAV + PDF).
  *
  * The only outbound request is the address itself: a real `fetch` POST to the
  * newsletter provider (Formspree) with `Accept: application/json`, so every
@@ -80,11 +83,53 @@
   function goToDownload(beat, pack, email) {
     window.location.assign(downloadUrl(beat.id, pack.id, email));
   }
+  /* ------------------------------------------------------ session memory
+     One unlocked package per beat, remembered only for the life of this page.
+     It is a plain Map — no `localStorage`, no `sessionStorage`, no cookie and
+     no server — so the store keeps asking on the next visit and the browser
+     keeps nothing. */
+  const grants = new Map();
+  function grantKey(beatId, packageId) { return String(beatId) + "::" + String(packageId); }
+  function grantedEmail(beatId, packageId) {
+    const key = grantKey(beatId, packageId);
+    return grants.has(key) ? grants.get(key) : null;
+  }
+  function rememberGrant(beatId, packageId, email) {
+    grants.set(grantKey(beatId, packageId), String(email == null ? "" : email).trim());
+  }
+  /* True only while this page view holds a grant for that package. */
+  function isUnlocked(beatId, packageId) {
+    return !!beatId && !!packageId && grants.has(grantKey(beatId, packageId));
+  }
+
+  /* --------------------------------------------------- the licensee identity
+     The LICENSEE line of the license is the signature the visitor types on the
+     download page; when nothing is typed it falls back to the address this flow
+     submitted at the gate (carried in `?email=…`). Both live here because this
+     module already owns "who this flow is", `license-pdf.js` only reads the
+     result — and neither is stored anywhere. */
+  let signature = "";
+  function setSignature(value) {
+    signature = String(value == null ? "" : value).trim().slice(0, 64);
+    return signature;
+  }
+  function getSignature() { return signature; }
+  function licenseeName(fallback) {
+    const typed = signature || String(fallback == null ? "" : fallback).trim();
+    return typed.trim();
+  }
+
   function start(beatId, packageId) {
     const catalog = helpers();
     const beat = catalog && catalog.beatById(beatId);
     const pack = catalog && catalog.packageById(packageId);
     if (!beat || !pack) { showToast("BEAT OR PACKAGE NOT FOUND"); return; }
+    const remembered = grantedEmail(beat.id, pack.id);
+    if (remembered !== null) {
+      showToast("ALREADY UNLOCKED THIS SESSION");
+      goToDownload(beat, pack, remembered);
+      return;
+    }
     if (pack.gate === "instant") { goToDownload(beat, pack, ""); return; }
     openGate(beat, pack, (b, p, email) => { goToDownload(b, p, email); });
   }
@@ -197,6 +242,12 @@
         '<h2 class="gate-modal__title" id="gate-title">' + titleText + '</h2>' + body + '</div>';
   }
 
+  /* The animated tick used by every completed step (and by the email field once
+     the address is valid). The path draws itself on `.is-done` / `.is-valid`. */
+  function tickSVG() {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.6 12.7 9.7 17.6 19.4 6.9"/></svg>';
+  }
+
   /* The email form used by every gate: one address field, the mandatory opt-in
      checkbox (required and pre-ticked, so it must be deliberately kept) and a
      real POST action so the form also works with scripting out of the way. */
@@ -204,14 +255,21 @@
     const endpoint = newsletterEndpoint();
     return '<form class="gate-form" data-gate-form novalidate' +
         (endpoint ? ' action="' + escapeHTML(endpoint) + '" method="post"' : '') + '>' +
-        '<label class="gate-field"><span class="gate-field__label">EMAIL</span>' +
+        '<label class="gate-field" data-gate-field><span class="gate-field__label">EMAIL' +
+          '<span class="gate-field__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +
           '<input class="gate-input" id="gate-email" name="email" type="email" inputmode="email" autocomplete="off" spellcheck="false" placeholder="you@email.com" required>' +
         '</label>' +
-        '<label class="gate-optin"><input type="checkbox" id="gate-optin" name="opt_in" checked required><span>' + (optin || "Email me future beat drops &amp; updates") + '</span></label>' +
+        '<label class="gate-optin"><input type="checkbox" id="gate-optin" name="opt_in" checked required><span>' + (optin || "EMAIL ME FUTURE BEAT DROPS &amp; UPDATES") + '</span></label>' +
         '<input type="hidden" name="embed" value="1">' +
         '<input type="hidden" name="tag" value="beat-download">' +
-        '<input type="hidden" name="_subject" value="KYROlll beat download">' +
+        '<input type="hidden" name="_subject" value="KYROIII BEAT DOWNLOAD">' +
       '</form>';
+  }
+
+  /* The address field turns into a satisfied tick the moment it is well formed. */
+  function setFieldValid(modal, ok) {
+    const field = modal.querySelector("[data-gate-field]");
+    if (field) field.classList.toggle("is-valid", !!ok);
   }
 
   /* Email gate body — the gate every package passes through. `opts.hint: false`
@@ -219,62 +277,50 @@
      steps carries a richer hint of its own (and two #gate-hint nodes in one
      dialog would be a duplicate id). */
   function emailGateBody(pack, opts) {
-    return '<p class="gate-modal__copy">Enter your email to unlock the ' + escapeHTML(pack.name.toLowerCase()) + '.</p>' +
+    const label = (opts && opts.submit) || "UNLOCK DOWNLOAD";
+    return '<p class="gate-modal__copy">ENTER YOUR EMAIL TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>' +
       emailFormHTML(opts && opts.optin) +
       '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
       '<div class="gate-modal__actions">' +
         '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
-        '<button type="button" class="kyrolll-btn" data-gate-submit disabled>UNLOCK DOWNLOAD</button>' +
+        '<button type="button" class="kyrolll-btn" data-gate-submit disabled>' + escapeHTML(label) + '</button>' +
       '</div>' +
       ((opts && opts.hint === false) ? '' : '<p class="gate-modal__hint" id="gate-hint">ENTER EMAIL, TICK THE BOX AND SUBMIT</p>');
   }
 
-  /* YouTube gate body - for WAV package: sub + like → email */
+  /* The two YouTube steps, shared by the WAV gate and the Pro gate so both read
+     exactly the same: open the channel, open the beat's own video. Each step
+     carries the tick that draws itself once it has been opened. */
+  function youtubeSteps(channel, video) {
+    const step = (n, href, title, meta) =>
+      '<a class="gate-step" href="' + escapeHTML(href) + '" target="_blank" rel="noopener noreferrer" data-gate-step="' + n + '">' +
+        '<span class="gate-step__num"><span>' + (n + 1) + '</span><span class="gate-step__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +
+        '<span class="gate-step__body"><span class="gate-step__title">' + title + '</span><span class="gate-step__meta">' + meta + '</span></span>' +
+        '<span class="gate-step__go">OPEN ↗</span>' +
+      '</a>';
+    return step(0, channel, "SUBSCRIBE", "TO THE KYROIII CHANNEL") +
+      step(1, video, "LIKE THIS VIDEO", "THE BEAT YOU ARE GRABBING");
+  }
+
+  /* YouTube gate body - for the Standard WAV package: sub + like → email */
   function youtubeGateBody(pack, beat) {
     const channel = window.KYROlll_YOUTUBE_CHANNEL || "https://www.youtube.com/";
     const video = helpers() ? helpers().videoFor(beat.id) : channel;
-    return '<p class="gate-modal__copy">Three quick steps to unlock the ' + escapeHTML(pack.name.toLowerCase()) + '.</p>' +
-      '<div class="gate-steps">' +
-        '<a class="gate-step" href="' + escapeHTML(channel) + '" target="_blank" rel="noopener noreferrer" data-gate-step="0">' +
-          '<span class="gate-step__num">1</span><span class="gate-step__body"><span class="gate-step__title">SUBSCRIBE</span><span class="gate-step__meta">To the KYROlll channel</span></span><span class="gate-step__go">OPEN ↗</span>' +
-        '</a>' +
-        '<a class="gate-step" href="' + escapeHTML(video) + '" target="_blank" rel="noopener noreferrer" data-gate-step="1">' +
-          '<span class="gate-step__num">2</span><span class="gate-step__body"><span class="gate-step__title">LIKE THIS VIDEO</span><span class="gate-step__meta">The beat you are grabbing</span></span><span class="gate-step__go">OPEN ↗</span>' +
-        '</a>' +
-      '</div>' +
+    return '<p class="gate-modal__copy">THREE QUICK STEPS TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>' +
+      '<div class="gate-steps">' + youtubeSteps(channel, video) + '</div>' +
       emailGateBody(pack, { hint: false }) +
       '<p class="gate-modal__hint" id="gate-hint">COMPLETE STEPS 1-2, THEN THE EMAIL</p>';
   }
 
-  /* Exclusive gate body - for Pro package: sub + like → comment → email with mandatory opt-in */
+  /* Exclusive gate body - for the Pro package: the same two YouTube steps as the
+     Standard WAV, then the email form. There is no comment step. */
   function exclusiveGateBody(pack, beat) {
     const channel = window.KYROlll_YOUTUBE_CHANNEL || "https://www.youtube.com/";
     const video = helpers() ? helpers().videoFor(beat.id) : channel;
-    return '<p class="gate-modal__copy">Four high-value steps to unlock the ' + escapeHTML(pack.name.toLowerCase()) + '.</p>' +
-      '<div class="gate-steps">' +
-        '<a class="gate-step" href="' + escapeHTML(channel) + '" target="_blank" rel="noopener noreferrer" data-gate-step="0">' +
-          '<span class="gate-step__num">1</span><span class="gate-step__body"><span class="gate-step__title">SUBSCRIBE</span><span class="gate-step__meta">To the KYROlll channel</span></span><span class="gate-step__go">OPEN ↗</span>' +
-        '</a>' +
-        '<a class="gate-step" href="' + escapeHTML(video) + '" target="_blank" rel="noopener noreferrer" data-gate-step="1">' +
-          '<span class="gate-step__num">2</span><span class="gate-step__body"><span class="gate-step__title">LIKE THIS VIDEO</span><span class="gate-step__meta">The beat you are grabbing</span></span><span class="gate-step__go">OPEN ↗</span>' +
-        '</a>' +
-        '<div class="gate-step gate-step--comment" data-gate-step="2">' +
-          '<span class="gate-step__num">3</span>' +
-          '<span class="gate-step__body">' +
-            '<span class="gate-step__title">COMMENT ON THE VIDEO</span>' +
-            '<span class="gate-step__meta">Paste a verification comment</span>' +
-            '<textarea class="gate-input gate-comment" id="gate-comment" placeholder="Paste your comment to verify..." rows="2"></textarea>' +
-          '</span>' +
-          '<span class="gate-step__go">DONE</span>' +
-        '</div>' +
-      '</div>' +
-      emailFormHTML() +
-      '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
-      '<div class="gate-modal__actions">' +
-        '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
-        '<button type="button" class="kyrolll-btn" data-gate-submit disabled>UNLOCK EXCLUSIVE</button>' +
-      '</div>' +
-      '<p class="gate-modal__hint" id="gate-hint">COMPLETE ALL STEPS TO UNLOCK</p>';
+    return '<p class="gate-modal__copy">TWO QUICK STEPS TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>' +
+      '<div class="gate-steps">' + youtubeSteps(channel, video) + '</div>' +
+      emailGateBody(pack, { hint: false, submit: "UNLOCK EXCLUSIVE" }) +
+      '<p class="gate-modal__hint" id="gate-hint">COMPLETE STEPS 1-2, THEN THE EMAIL</p>';
   }
 
   function showSuccessModal() {
@@ -287,7 +333,7 @@
           '<svg class="checkmark__svg" viewBox="0 0 52 52"><circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark__path" fill="none" d="M14 27 21 34 38 17"/></svg>' +
         '</div>' +
         '<h3 class="gate-modal__title">ALL SET</h3>' +
-        '<p class="gate-modal__copy">Gate passed. Unlocking your download page…</p>' +
+        '<p class="gate-modal__copy">GATE PASSED. UNLOCKING YOUR DOWNLOAD PAGE…</p>' +
       '</div>';
     document.body.appendChild(modal);
     document.documentElement.classList.add("gate-open");
@@ -295,9 +341,11 @@
     return modal;
   }
 
-  /* Common completion: show the success beat, then proceed and hand the
-     just-submitted address to the next step. Nothing is written down. */
+  /* Common completion: show the success beat, remember the grant for this page
+     view only, then proceed and hand the just-submitted address to the next
+     step. Nothing is ever written down. */
   function finalizeGate(beat, pack, onUnlocked, email) {
+    rememberGrant(beat.id, pack.id, email);
     const sm = showSuccessModal();
     setTimeout(() => {
       if (sm && sm.parentNode) sm.remove();
@@ -344,7 +392,7 @@
     const hint = modal.querySelector("#gate-hint");
     if (hint) hint.textContent = "RECORDING YOUR EMAIL...";
     postSubscribe(state.email).then((res) => {
-      if (!res.ok && typeof console !== "undefined") console.warn("KYROlll newsletter post failed:", res.error);
+      if (!res.ok && typeof console !== "undefined") console.warn("KYROIII newsletter post failed:", res.error);
       closeGate();
       finalizeGate(beat, pack, onUnlocked, state.email);
     });
@@ -353,6 +401,15 @@
   /* ---------------------------------------------------------- openGate dispatcher */
   function openGate(beat, pack, onUnlocked) {
     closeGate();
+    /* Session memory, consulted first: a package already unlocked during this
+       view never asks again (and this page's memory is all it is — see
+       `grants`). A reload or a new tab has no memory and asks from scratch. */
+    const remembered = grantedEmail(beat.id, pack.id);
+    if (remembered !== null) {
+      showToast("ALREADY UNLOCKED THIS SESSION");
+      if (onUnlocked) onUnlocked(beat, pack, remembered);
+      return;
+    }
     const modal = document.createElement("div");
     modal.className = "gate-modal";
     
@@ -388,8 +445,10 @@
       const hint = modal.querySelector("#gate-hint");
       function refresh() {
         const email = String(input && input.value || "").trim();
-        const ready = EMAIL_RE.test(email) && !!(optin && optin.checked);
+        const emailOk = EMAIL_RE.test(email);
+        const ready = emailOk && !!(optin && optin.checked);
         submit.disabled = !ready;
+        setFieldValid(modal, emailOk);
         hideGateError(errEl);
         if (hint) hint.textContent = ready ? "ALL SET — UNLOCK YOUR DOWNLOAD" : "ENTER EMAIL, TICK THE BOX AND SUBMIT";
       }
@@ -432,6 +491,7 @@
         const emailOk = EMAIL_RE.test(String(input && input.value || "").trim());
         const checked = optin ? optin.checked : false;
         submit.disabled = !(done[0] && done[1] && emailOk && checked);
+        setFieldValid(modal, emailOk);
         hideGateError(errEl);
         if (hint) hint.textContent = (done[0] && done[1] && emailOk && checked) ? "ALL SET — UNLOCK YOUR DOWNLOAD" : "COMPLETE STEPS 1-2, THEN THE EMAIL";
       }
@@ -454,11 +514,11 @@
       });
     }
 
-    // --- EXCLUSIVE GATE (Pro) ---
+    // --- EXCLUSIVE GATE (Pro) --- the same two YouTube steps as the WAV gate,
+    // then the email form. There is no comment step.
     if (pack.gate === "exclusive") {
-      const done = [false, false, false];
+      const done = [false, false];
       const hint = modal.querySelector("#gate-hint");
-      const commentField = modal.querySelector("#gate-comment");
       const form = modal.querySelector("[data-gate-form]");
       const input = modal.querySelector("#gate-email");
       const optin = modal.querySelector("#gate-optin");
@@ -466,11 +526,8 @@
 
       if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
 
-      // Nothing is prefilled and nothing is remembered: the field starts empty.
-      setTimeout(() => { try { input.focus(); input.select(); } catch (err) {} }, 40);
-
-      // Step click handlers for steps 0 and 1 (YouTube)
-      modal.querySelectorAll("[data-gate-step='0'],[data-gate-step='1']").forEach((step) => {
+      // Step click handlers for the two YouTube steps
+      modal.querySelectorAll("[data-gate-step]").forEach((step) => {
         step.addEventListener("click", () => {
           const i = Number(step.getAttribute("data-gate-step"));
           if (i < 2 && !done[i]) { done[i] = true; step.classList.add("is-done"); step.querySelector(".gate-step__go").textContent = "DONE"; }
@@ -478,29 +535,19 @@
         });
       });
 
-      // Step 2: Comment verification
-      if (commentField) {
-        commentField.addEventListener("input", () => {
-          done[2] = (commentField.value.trim().length > 0);
-          checkExclusive();
-        });
-      }
-      if (optin) {
-        optin.addEventListener("change", () => { checkExclusive(); });
-      }
-      if (input) {
-        input.addEventListener("input", () => { checkExclusive(); });
-      }
+      if (optin) optin.addEventListener("change", () => { checkExclusive(); });
+      if (input) input.addEventListener("input", () => { checkExclusive(); });
 
-      // Check if all steps done (including valid email + consent)
+      // Unlocked once both steps are opened, the address is valid and the
+      // mandatory opt-in is still ticked.
       function checkExclusive() {
-        const commentOk = (commentField && commentField.value.trim().length > 0);
         const emailOk = EMAIL_RE.test(String(input && input.value || "").trim());
         const optOk = optin ? optin.checked : false;
-        const all = done[0] && done[1] && commentOk && emailOk && optOk;
+        const all = done[0] && done[1] && emailOk && optOk;
         submit.disabled = !all;
+        setFieldValid(modal, emailOk);
         hideGateError(errEl);
-        if (hint) hint.textContent = all ? "ALL SET — UNLOCK YOUR DOWNLOAD" : "COMPLETE ALL STEPS TO UNLOCK";
+        if (hint) hint.textContent = all ? "ALL SET — UNLOCK YOUR DOWNLOAD" : "COMPLETE STEPS 1-2, THEN THE EMAIL";
       }
 
       // Initial state
@@ -509,7 +556,7 @@
       const readState = () => ({
         email: String(input && input.value || "").trim(),
         optin: !!(optin && optin.checked),
-        stepsOk: done[0] && done[1] && !!(commentField && commentField.value.trim().length > 0)
+        stepsOk: done[0] && done[1]
       });
       submit.addEventListener("click", () => submitGate(beat, pack, modal, onUnlocked, readState));
       input && input.addEventListener("keydown", (ev) => {
@@ -543,7 +590,7 @@
     body.set("opt_in", "yes");
     body.set("embed", "1");
     body.set("tag", "beat-download");
-    body.set("_subject", "KYROlll beat download");
+    body.set("_subject", "KYROIII BEAT DOWNLOAD");
     return fetch(endpoint, {
       method: "POST",
       headers: {
@@ -589,13 +636,17 @@
     } catch (e) { /* ignore */ }
   }, true);
 
-  /* No gate memory exists in this module: no storage write, no unlock set and
-     no remembered address. `isUnlocked` is permanently false — every click
-     re-opens the gate — and the address a visitor typed only travels forward
-     inside the current flow's URL. */
+  /* The only memory in this module is the in-page `grants` Map: no storage
+     write, no cookie, no unlock set that outlives the page and no remembered
+     address. `isUnlocked` answers from that Map alone, so it is false on every
+     fresh load, and the address a visitor typed only travels forward inside the
+     current flow's URL. */
   window.KYROlll_DOWNLOADS = {
     PACKAGES: window.KYROlll_PACKAGES || [],
-    isUnlocked: () => false,
+    isUnlocked: isUnlocked,
+    setSignature: setSignature,
+    getSignature: getSignature,
+    licenseeName: licenseeName,
     downloadUrl, start, goToDownload, openMenu, closeMenu, openGate, closeGate,
     deliverablesFor: (beatId, packageId) => (helpers() ? helpers().deliverablesFor(beatId, packageId) : []),
     newsletterEndpoint, postSubscribe,

@@ -1,4 +1,4 @@
-// Hero intro, scroll storytelling and reveal-on-scroll for the KYROlll storefront.
+// Hero intro, scroll storytelling and reveal-on-scroll for the KYROIII storefront.
 //
 // Everything visual lives in CSS: this file only publishes a single 0 → 1
 // scroll progress onto the hero (`--hero-p`) and flips a class on sections as

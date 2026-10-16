@@ -1,4 +1,4 @@
-/* KYROlll — shared catalog and free download packages.
+/* KYROIII — shared catalog and free download packages.
  *
  * Loaded by every page so the store, the download menu and the download page
  * all agree on the same beats, packages and files. It is plain data plus tiny
@@ -7,7 +7,8 @@
  * Every beat is 100% free. There is no cart, no checkout and no payment
  * gateway: every package is unlocked behind a lightweight gate (an email, plus
  * a YouTube subscribe + like for the WAV and the exclusive — see
- * `downloads.js`). Nothing is remembered, so each click asks again. */
+ * `downloads.js`). Nothing is written down, so a fresh visit asks again; only
+ * the current page view remembers a package it already unlocked. */
 (function () {
   "use strict";
 
@@ -28,8 +29,8 @@
   // The three free ways a beat leaves the store. `gate` is the whole behaviour:
   //   "email"    → Email input + mandatory opt-in → submit → unlock + PDF.
   //   "youtube"  → YouTube Sub & Like (two steps), then the same email form → unlock + PDF.
-  //   "exclusive"→ YouTube Sub & Like → Comment verification → the same email form
-  //     (mandatory opt-in) → submit → unlock Stems+MP3+WAV+PDF. No signature prompt.
+  //   "exclusive"→ YouTube Sub & Like (the same two steps as the WAV), then the
+  //     same email form (mandatory opt-in) → submit → unlock Stems+MP3+WAV+PDF.
   // `includes` is the plain-language list of what the package hands over; it is
   // printed in the generated license (see `downloads.js`).
   window.KYROlll_PACKAGES = [
@@ -38,29 +39,29 @@
       name: "MP3 LEASE",
       tag: "EMAIL GATE",
       gate: "email",
-      blurb: "Enter your email to unlock the download instantly.",
-      includes: ["Tagged MP3 audio file", "Free license"]
+      blurb: "ENTER YOUR EMAIL TO UNLOCK THE DOWNLOAD INSTANTLY.",
+      includes: ["TAGGED MP3 AUDIO FILE", "FREE LICENSE"]
     },
     {
       id: "wav",
       name: "STANDARD WAV LEASE",
       tag: "SUBSCRIBE + LIKE",
       gate: "youtube",
-      blurb: "Tagged MP3 + high-quality WAV + license. Subscribe, like, and enter your email to unlock.",
-      includes: ["Tagged MP3 audio file", "High-quality WAV", "Free license"]
+      blurb: "TAGGED MP3 + HIGH-QUALITY WAV + LICENSE. SUBSCRIBE, LIKE, AND ENTER YOUR EMAIL TO UNLOCK.",
+      includes: ["TAGGED MP3 AUDIO FILE", "HIGH-QUALITY WAV", "FREE LICENSE"]
     },
     {
       id: "exclusive",
       name: "EXCLUSIVE / PRO PACKAGE",
       tag: "MULTI-STEP",
       gate: "exclusive",
-      blurb: "Full stems + MP3 + WAV + license. Follow YouTube, comment, and email steps to unlock.",
+      blurb: "FULL STEMS + MP3 + WAV + LICENSE. SUBSCRIBE, LIKE, AND ENTER YOUR EMAIL TO UNLOCK.",
       includes: [
-        "Tagged MP3 audio file",
-        "High-quality WAV",
-        "Tracked stems",
-        "Full rights / license",
-        "Email opt-in for future drops"
+        "TAGGED MP3 AUDIO FILE",
+        "HIGH-QUALITY WAV",
+        "TRACKED STEMS",
+        "FULL RIGHTS / LICENSE",
+        "EMAIL OPT-IN FOR FUTURE DROPS"
       ]
     }
   ];
@@ -71,8 +72,10 @@
   //
   // `deliverables` maps a package to the files the download page hands over:
   // each entry is `{ file, name, label }`, a same-origin `file`, the `name` the
-  // browser saves it as and the `label` shown on the download page. The license
-  // is not listed here — the download page always generates one.
+  // browser saves it as and the `label` shown on the download page. The `name`
+  // is authored in caps too — the only lowercase left in it is the file
+  // extension, so the file the visitor keeps is still a normal `.mp3`/`.wav`.
+  // The license is not listed here — the download page always generates one.
   window.KYROlll_CATALOG = [
     {
       id: "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af",
@@ -85,16 +88,16 @@
       youtube: "https://youtu.be/8OhRJQn2YCU",
       deliverables: {
         mp3: [
-          { file: "assets/previews/flesh.mp3", name: "KYROlll - FLESH (MP3 320kbps).mp3", label: "TAGGED MP3" }
+          { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (MP3 320KBPS).mp3", label: "TAGGED MP3" }
         ],
         wav: [
-          { file: "assets/previews/flesh.mp3", name: "KYROlll - FLESH (MP3 320kbps).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/flesh.wav", name: "KYROlll - FLESH (WAV 24-bit).wav", label: "HIGH-QUALITY WAV" }
+          { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (MP3 320KBPS).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/flesh.wav", name: "KYROIII - FLESH (WAV 24-BIT).wav", label: "HIGH-QUALITY WAV" }
         ],
         exclusive: [
-          { file: "assets/previews/flesh.mp3", name: "KYROlll - FLESH (MP3 320kbps).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/flesh.wav", name: "KYROlll - FLESH (WAV 24-bit).wav", label: "HIGH-QUALITY WAV" },
-          { file: "assets/previews/flesh-stems.zip", name: "KYROlll - FLESH (TRACKED STEMS).zip", label: "TRACKED STEMS" }
+          { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (MP3 320KBPS).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/flesh.wav", name: "KYROIII - FLESH (WAV 24-BIT).wav", label: "HIGH-QUALITY WAV" },
+          { file: "assets/previews/flesh-stems.zip", name: "KYROIII - FLESH (TRACKED STEMS).zip", label: "TRACKED STEMS" }
         ]
       }
     }

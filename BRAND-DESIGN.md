@@ -1,4 +1,4 @@
-# KYROlll — underground / pearl study
+# KYROIII — underground / pearl study
 
 ## Brand assets
 
@@ -63,7 +63,7 @@ continue to be enforced by the existing checkout logic.
 
 ## Hero
 
-The hero is a centered single column: the layered KYROlll wordmark (with the
+The hero is a centered single column: the layered KYROIII wordmark (with the
 brown brush X), a minimal "EXPLORE BEATS" cue, then the flower as the dominant
 centerpiece. The redundant tagline was removed so the flower has full breathing
 room. The catalog and compact 2+1 lease offer follow the hero directly; token

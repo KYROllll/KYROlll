@@ -1,4 +1,4 @@
-// Browser integration checks for the free-download KYROlll store.
+// Browser integration checks for the free-download KYROIII store.
 // Covers the storefront layout, the tagged audio preview, the "DOWNLOAD FREE"
 // package menu and all three unlock paths (instant MP3, YouTube gate, email gate).
 import assert from 'node:assert/strict';
@@ -148,6 +148,8 @@ try {
   assert.equal(subscribeRequests.length, 0, 'a malformed address is never sent to the provider');
   await mp3Page.locator('#gate-optin').uncheck();
   await mp3Page.locator('#gate-email').fill('mp3-buyer@example.com');
+  // A well-formed address earns the field its own tick, right in the label.
+  assert.equal(await mp3Page.locator('.gate-field.is-valid').count(), 1, 'a valid address ticks the field');
   assert.equal(await mp3Page.locator('[data-gate-submit]').isDisabled(), true, 'the opt-in is mandatory');
   await mp3Page.locator('#gate-optin').check();
   assert.equal(await mp3Page.locator('[data-gate-submit]').isDisabled(), false);
@@ -216,6 +218,23 @@ try {
   // Clean footer: vector barcode + the official store link, uppercase.
   assert(pdfText.includes('HTTPS://KYROILL.STORE'), 'the store link is printed in the footer');
   assert(/1 1 1 rg\n[\d.]+ [\d.]+ [\d.]+ [\d.]+ re f/.test(pdfText), 'vector barcode drawn in the footer');
+
+  // The interactive signature: what the visitor types is stamped live into the
+  // LICENSEE block of the next PDF, and the ALL-CAPS rule still holds over it.
+  await mp3Page.locator('#license-signature').fill('Jordan Vega');
+  await mp3Page.waitForFunction(() => {
+    const stamp = document.getElementById('license-stamp');
+    return stamp && stamp.dataset.stamped === 'true' && /JORDAN VEGA/.test(stamp.textContent || '');
+  }, null, { timeout: 5000 });
+  const [signedPdf] = await Promise.all([
+    mp3Page.waitForEvent('download'),
+    mp3Page.locator('[data-license-pdf]').click(),
+  ]);
+  const signedText = (await readFile(await signedPdf.path())).toString('latin1');
+  assert(signedText.includes('JORDAN VEGA'), 'the typed signature is stamped into the LICENSEE block');
+  assert(!signedText.includes('Jordan Vega'), 'the signature is stamped in caps, exactly as the PDF is');
+  assert.equal(signedText.includes(serial), true, 'the signed copy keeps this issuance serial');
+  assert.deepEqual(pdfRuns(signedText).filter(run => /[a-z]/.test(run)), [], 'the signed license is uppercase too');
   await shot(mp3Page, 'download-mp3');
   await mp3Page.close();
 
@@ -255,9 +274,10 @@ try {
   await shot(wavPage, 'download-wav');
   await wavPage.close();
 
-  // Package 3 — Exclusive / Pro: the email gate. A malformed address is refused
-  // (and the opt-in is on by default); a valid one unlocks the stems package and
-  // is posted to the configured newsletter provider.
+  // Package 3 — Exclusive / Pro: the same two YouTube steps as the WAV package
+  // (there is no comment step any more), then the email gate. A malformed
+  // address is refused (and the opt-in is on by default); a valid one unlocks
+  // the stems package and is posted to the configured newsletter provider.
   const proPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce', acceptDownloads: true });
   await proPage.goto(`${url}/?beat=flesh`);
   const endpoint = await proPage.evaluate(() => window.KYROlll_NEWSLETTER && window.KYROlll_NEWSLETTER.endpoint);
@@ -271,9 +291,14 @@ try {
   // The email gate is a real <form> pointing at that provider endpoint.
   assert.equal(await proPage.locator('[data-gate-form]').getAttribute('action'), endpoint);
   assert.equal(await proPage.locator('[data-gate-form]').getAttribute('method'), 'post');
+  assert.equal(await proPage.locator('.gate-step').count(), 2, 'the Pro gate carries no comment step');
+  assert.equal(await proPage.locator('#gate-comment').count(), 0, 'the comment step is gone');
+  assert.equal(await proPage.locator('[data-gate-submit]').isDisabled(), true);
   await proPage.locator('[data-gate-step="0"]').click();
   await proPage.locator('[data-gate-step="1"]').click();
-  await proPage.locator('#gate-comment').fill('subscribed + liked, this beat is hard');
+  // Each completed step draws its own tick and still cannot unlock alone.
+  assert.equal(await proPage.locator('.gate-step.is-done .gate-step__tick').count(), 2, 'both steps show their tick');
+  assert.equal(await proPage.locator('[data-gate-submit]').isDisabled(), true, 'the steps alone never unlock');
   await proPage.locator('#gate-email').fill('not-an-email');
   await proPage.locator('#gate-email').press('Enter');
   assert.equal(await proPage.locator('#gate-error').isVisible(), true);
@@ -309,7 +334,8 @@ try {
   await proPage.locator('.download-tier[data-package="exclusive"]').click();
   await proPage.locator('.gate-modal').waitFor();
   assert.equal(await proPage.locator('#gate-email').inputValue(), '', 'the address is never remembered');
-  assert.equal(await proPage.locator('#gate-comment').inputValue(), '', 'the comment is never remembered');
+  assert.equal(await proPage.locator('#gate-comment').count(), 0, 'there is no comment step at all');
+  assert.equal(await proPage.locator('.gate-step.is-done').count(), 0, 'the steps start unopened again');
   assert.equal(await proPage.locator('[data-gate-submit]').isDisabled(), true, 'the gate starts closed again');
   assert.equal(subscribeRequests.length, 3, 're-opening a gate posts nothing');
   await noGateMemory(proPage, 'after three gates in one browser');
@@ -322,6 +348,26 @@ try {
   await coldPage.locator('.gate-modal').waitFor();
   assert.equal(await coldPage.locator('#gate-email').inputValue(), '');
   assert.match(await coldPage.locator('#download-list').innerText(), /UNLOCK THIS PACKAGE/i);
+  assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), false, 'a cold entry starts with no grant');
+
+  // Smart session memory: once the gate is passed in this view the package is
+  // remembered in-page, so the same package is not asked for twice — while the
+  // browser still stores nothing at all.
+  await coldPage.locator('[data-gate-step="0"]').click();
+  await coldPage.locator('[data-gate-step="1"]').click();
+  await coldPage.locator('#gate-email').fill('cold-entrant@example.com');
+  await coldPage.locator('[data-gate-submit]').click();
+  // The success beat holds ~1.4 s and then the page paints its file rows.
+  await coldPage.locator('.download-item').first().waitFor({ timeout: 15000 });
+  assert.match(await coldPage.locator('#download-list').innerText(), /TRACKED STEMS/i);
+  assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), true, 'the pass is remembered for this view');
+  await noGateMemory(coldPage, 'after a gate passed on the download page itself');
+  const postsBeforeMemory = subscribeRequests.length;
+  await coldPage.evaluate(id => { window.KYROlll_DOWNLOADS.start(id, 'exclusive'); }, BEAT_ID);
+  await coldPage.waitForFunction(() => new URLSearchParams(location.search).has('t') && !!window.KYROlll_DOWNLOADS);
+  assert.equal(await coldPage.locator('.gate-modal').count(), 0, 'a remembered grant never re-opens the gate');
+  assert.equal(subscribeRequests.length, postsBeforeMemory, 'a remembered grant posts nothing');
+  assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), false, 'the memory does not outlive the page');
   await coldPage.close();
 
   // A gate closes on Escape wherever focus sits (the YouTube gate focuses
@@ -344,7 +390,7 @@ try {
   await playback.close();
 
   assert.deepEqual(errors, []);
-  console.log('Passed storefront layout, tagged audio preview, and the free-download menu + all three gates (fresh every time, Formspree posts and an ALL-CAPS monochrome PDF license).');
+  console.log('Passed storefront layout, tagged audio preview, and the free-download menu + all three gates (two-step Pro gate, in-page session memory with empty storage, Formspree posts, a typed signature stamped into an ALL-CAPS monochrome PDF license).');
 } finally {
   await browser?.close();
   server.close();
