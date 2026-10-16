@@ -32,22 +32,37 @@ strip, local renderer and background bundles, and `email-template.html`. Ship
 these generated files with the storefront. The renderer has no external CDN
 dependency.
 
-## Falling brown-X background
+## One palette: black, white, silver
 
-`background-x.js` paints the brown brush X (`assets/kyrolll-brown-x.png`) onto an
-absolute document-height canvas behind the storefront. Sprites drift downward
-with gentle rotation until they land at a page coordinate, where they remain
-still as the visitor scrolls past. New page height adds marks without moving
-the existing ones. The canvas honors reduced-motion, the shared pause toggle
-(via the `motion-toggle` event), and tab visibility.
+The storefront is strictly monochrome — deep matte black `#0B0B0B`, pure white
+`#FFFFFF`, silver `#888888` and their equal-channel grey siblings. Every colour
+literal in `style.css` is an equal-channel grey, and the generated PDF is
+monochromatic by construction (`license-pdf.js` draws only equal-channel greys).
+
+The supplied artwork is never re-cut for this: the brush and wordmark images are
+desaturated at paint time (`filter: grayscale(1)` on `body > canvas`,
+`.footer__logo`, `.brand-wordmark__mark`, `.vinyl-record__label` and the two
+watermark images), so `npm run build:brand` remains the single source of truth
+for every raster asset and a rebuild cannot reintroduce a hue.
+
+## Falling-X background
+
+`background-x.js` paints the brush X (`assets/kyrolll-brown-x.png`, desaturated
+by the canvas's `filter`) onto an absolute document-height canvas behind the
+storefront. Sprites drift downward with gentle rotation until they land at a
+page coordinate, where they remain still as the visitor scrolls past. New page
+height adds marks without moving the existing ones. The canvas honors
+reduced-motion, the shared pause toggle (via the `motion-toggle` event), and tab
+visibility.
 
 ## Secondary mark and compact catalog
 
 `assets/logos/kyrolll-secondary-source.png` is the provided
 `Downloads/Untitled design-28.png` reference. The build extracts its gray wordmark
-and brown brush X into transparent PNGs. The footer uses the full secondary
-logo; the layered live-text main title uses its original brown X. The top banner
-keeps only the motion control, leaving the hero as the sole brand mark above the catalog.
+and brush X into transparent PNGs. The footer uses the full secondary logo; the
+layered live-text main title uses the extracted brush mark, desaturated by CSS so
+the identity stays black and white. The top banner keeps only the motion control,
+leaving the hero as the sole brand mark above the catalog.
 
 To intentionally replace that reference:
 

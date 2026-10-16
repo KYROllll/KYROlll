@@ -11,7 +11,10 @@
  * review-and-sign step on `download.html` (see `downloads.js`). A typed
  * signature is set large on its rule; a *drawn* one is re-emitted as vector
  * strokes, so it stays crisp at any zoom and the document stays monochrome.
- * Both pads are pre-filled and dated, so no license ever goes out blank.
+ * Both pads are pre-filled and dated, so no license ever goes out blank — and
+ * the same flower mark anchors that block as a faint watermark (`/GS1 gs`), so
+ * the store's mark closes the contract as well as opening it. Reusing the
+ * already-embedded `/DCTDecode` image costs the document nothing.
  *
  * The document is 100% ALL CAPS: every string runs through `toAscii`, which
  * uppercases it, so no lowercase letter can reach the page. The palette is
@@ -38,6 +41,8 @@
   const SERIAL_PREFIX = "KYRO";
   const SUPPORT_EMAIL = "kyrolll00@gmail.com";
   const STORE_URL = "HTTPS://KYROILL.STORE";
+  const WATERMARK_ALPHA = 0.08;     // the flower mark behind the LICENSEE block
+  const WATERMARK_SIZE = 42;        // points — it sits inside the block's own box
 
   /* ------------------------------------------------------ font metrics */
   /* Adobe AFM advance widths for Helvetica / Helvetica-Bold, ASCII 32..126,
@@ -482,6 +487,16 @@
     /* The micro line under the LICENSEE rule records who this issuance went to:
        the address the flow submitted at the gate, alongside the date. */
     const signedLine = "SIGNED " + data.issued + (sig.email ? " - " + sig.email : "");
+    /* The flower watermark anchors the licensee half of the contract: the same
+       mark that leads the masthead, drawn from the already-embedded image at
+       `WATERMARK_ALPHA` (an `/ExtGState` soft mask), centred inside the
+       signature box so it can never collide with the rules or the clauses. */
+    if (flower) {
+      const wmX = COL_X + (sigW - WATERMARK_SIZE) / 2;
+      const wmY = sigTop - 52;
+      raw("q /GS1 gs " + WATERMARK_SIZE.toFixed(2) + " 0 0 " + WATERMARK_SIZE.toFixed(2) + " " +
+        wmX.toFixed(2) + " " + wmY.toFixed(2) + " cm /Im1 Do Q");
+    }
     signatureBlock(COL_X, licenseeName, "LICENSEE SIGNATURE", signedLine, sig.strokes, sig.pad);
     signatureBlock(sigX2, "KYROIII", "LICENSOR (KYROIII)", "AUTHORISED SIGNATORY - KYROIII");
     gap(84);
@@ -541,9 +556,13 @@
       pages[i] = content + footer;
     });
 
-    /* ---- assemble: objects are emitted in number order -------------------- */
+    /* ---- assemble: objects are emitted in number order --------------------
+       1 catalog, 2 pages, 3 Helvetica, 4 Helvetica-Bold, 5 the watermark's
+       graphics state, 6 the flower image, then two objects per page (the page
+       and its content stream) from 7 on. */
+    const FIRST_PAGE_OBJ = 7;
     const kids = [];
-    for (let i = 0; i < pageCount; i += 1) kids.push((6 + i * 2) + " 0 R");
+    for (let i = 0; i < pageCount; i += 1) kids.push((FIRST_PAGE_OBJ + i * 2) + " 0 R");
 
     const chunks = [];
     let position = 0;
@@ -558,30 +577,34 @@
     putObject(2, toBytes("2 0 obj << /Type /Pages /Kids [" + kids.join(" ") + "] /Count " + pageCount + " >> endobj\n"));
     putObject(3, toBytes("3 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> endobj\n"));
     putObject(4, toBytes("4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >> endobj\n"));
+    /* The constant alpha used by the LICENSEE watermark: `/ca` for fills, `/CA`
+       for strokes, so the same 0.08 applies whichever way the mark is painted. */
+    putObject(5, toBytes("5 0 obj << /Type /ExtGState /ca " + WATERMARK_ALPHA + " /CA " + WATERMARK_ALPHA + " >> endobj\n"));
     if (flower) {
-      putObject(5, toBytes("5 0 obj << /Type /XObject /Subtype /Image /Width " + flower.width + " /Height " + flower.height +
+      putObject(6, toBytes("6 0 obj << /Type /XObject /Subtype /Image /Width " + flower.width + " /Height " + flower.height +
         " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + flower.bytes.length + " >> stream\n"));
       push(flower.bytes);
       push(toBytes("\nendstream\nendobj\n"));
     } else {
-      putObject(5, toBytes("5 0 obj << >> endobj\n"));
+      putObject(6, toBytes("6 0 obj << >> endobj\n"));
     }
     /* Two base-14 faces carry the whole document — Helvetica (F1) and
        Helvetica-Bold (F2) — so nothing is embedded and no third font is
        needed (the signatures are straight, not script). */
     pages.forEach((content, i) => {
-      const pageObj = 6 + i * 2;
+      const pageObj = FIRST_PAGE_OBJ + i * 2;
       const contentObj = pageObj + 1;
       const stream = toBytes(content);
       putObject(pageObj, toBytes(pageObj + " 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 " + PAGE_W + " " + PAGE_H + "]" +
-        " /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Im1 5 0 R >> >> /Contents " + contentObj + " 0 R >> endobj\n"));
+        " /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Im1 6 0 R >>" +
+        " /ExtGState << /GS1 5 0 R >> >> /Contents " + contentObj + " 0 R >> endobj\n"));
       putObject(contentObj, toBytes(contentObj + " 0 obj << /Length " + stream.length + " >> stream\n"));
       push(stream);
       push(toBytes("\nendstream\nendobj\n"));
     });
 
     const xrefStart = position;
-    const total = 6 + pageCount * 2;
+    const total = FIRST_PAGE_OBJ + pageCount * 2;
     let xref = "xref\n0 " + total + "\n0000000000 65535 f \n";
     for (let i = 1; i < total; i += 1) xref += String(offsets[i]).padStart(10, "0") + " 00000 n \n";
     xref += "trailer << /Size " + total + " /Root 1 0 R >>\nstartxref\n" + xrefStart + "\n%%EOF\n";

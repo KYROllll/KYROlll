@@ -60,6 +60,53 @@ async function setupPage(options = {}) {
 }
 const shot = (page, name) => page.screenshot({ path: join(tmpdir(), 'opencode', `kyrolll-${name}.png`), fullPage: true });
 const noOverflow = async page => assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'horizontal overflow');
+
+// The monochrome identity, checked on what the browser actually paints: every
+// colour any element resolves to — text, borders, outlines, fills, strokes,
+// carets and both shadow kinds — must be an equal-channel grey. A single blue
+// tint anywhere on the page fails this.
+const noHue = async (page, label) => {
+  const report = await page.evaluate(() => {
+    const plain = ['color', 'backgroundColor', 'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor', 'outlineColor', 'textDecorationColor', 'caretColor', 'fill', 'stroke', 'columnRuleColor', 'boxShadow', 'textShadow'];
+    const runs = value => [...String(value).matchAll(/rgba?\(([^)]*)\)/g)]
+      .map(m => m[1].split(',').slice(0, 3).map(Number))
+      .filter(rgb => rgb.length === 3 && rgb.every(Number.isFinite));
+    const bad = [];
+    let inspected = 0;
+    document.querySelectorAll('*').forEach(el => {
+      const cs = getComputedStyle(el);
+      inspected += 1;
+      plain.forEach(prop => runs(cs[prop]).forEach(rgb => {
+        if (!(rgb[0] === rgb[1] && rgb[1] === rgb[2])) bad.push(el.tagName + '.' + (el.className || '-') + ' ' + prop + ' = ' + cs[prop]);
+      }));
+    });
+    return { bad: [...new Set(bad)], inspected };
+  });
+  assert(report.inspected > 50, `${label}: the audit really walked the page (${report.inspected} elements)`);
+  assert.deepEqual(report.bad, [], `${label}: every rendered colour is an equal-channel grey (zero blue)`);
+};
+
+// The ALL-CAPS identity, checked on what actually renders: every text node that
+// is authored with a lowercase letter must resolve to `text-transform: uppercase`
+// (a string that is already caps — the wordmark, say — is left as authored).
+const noLowercase = async (page, label) => {
+  const report = await page.evaluate(() => {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const bad = [];
+    let node, nodes = 0;
+    while ((node = walker.nextNode())) {
+      nodes += 1;
+      const text = node.textContent.trim();
+      if (!/[a-z]/.test(text)) continue;
+      const el = node.parentElement;
+      if (!el || el.closest('script, style, template, noscript')) continue;
+      if (getComputedStyle(el).textTransform !== 'uppercase') bad.push(el.tagName + '.' + (el.className || '-') + ' :: ' + text.slice(0, 40));
+    }
+    return { bad: [...new Set(bad)], nodes };
+  });
+  assert(report.nodes > 5, `${label}: the audit really walked the text nodes (${report.nodes})`);
+  assert.deepEqual(report.bad, [], `${label}: every text node renders in the ALL-CAPS brand voice`);
+};
 const CARD = '#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af';
 const BEAT_ID = '6c56eda2-df4a-45b0-b9b7-68f8efdbb1af';
 const PROVIDER = 'https://formspree.io/f/xgaoppwo';
@@ -103,7 +150,8 @@ async function pickPackage(page, packageId) {
 }
 
 // Every gate now closes with the REVIEW & SIGN stage: the terms have to be read
-// to the end AND a signature captured before SIGN & UNLOCK comes alive.
+// to the end AND a real signature captured — a FULL name (first and last) typed,
+// or a genuine drawing on the pad — before SIGN & UNLOCK comes alive.
 const signStage = (page) => page.locator('.gate-modal__card--sign');
 async function readTerms(page) {
   await page.locator('[data-sign-terms]').evaluate(el => {
@@ -163,6 +211,8 @@ try {
   assert.equal(await desktop.locator('.brand-logo-container .logo-stage.is-built').count(), 1);
   assert.equal(await desktop.evaluate(() => document.documentElement.classList.contains('preloader-armed')), false);
   await noOverflow(desktop);
+  await noHue(desktop, 'the storefront');
+  await noLowercase(desktop, 'the storefront');
   assert.equal(await desktop.locator('#grid .catalog-tile').count(), 1);
   assert.match(await desktop.locator(CARD).innerText(), /FLESH/i);
   await shot(desktop, 'desktop');
@@ -213,6 +263,29 @@ try {
   assert(await mp3Page.locator('[data-sign-terms]').evaluate(el => el.scrollHeight > el.clientHeight + 4), 'the terms are longer than their pane, so they really have to be read');
   assert.match(await mp3Page.locator('[data-sign-terms]').innerText(), /NON-PROFIT AND COMMERCIAL/);
   assert.match(await mp3Page.locator('[data-sign-terms]').innerText(), /PROD\. BY KYROIII/);
+  // The signature sheet carries the store's flower mark as a watermark, and the
+  // name that signs the license must be a FULL one: first AND last.
+  assert.equal(await mp3Page.locator('.sign-watermark img').count(), 1, 'the flower watermark anchors the signature sheet');
+  assert.match(await mp3Page.locator('.sign-watermark img').getAttribute('src'), /kyrolll-flower-rest\.png/);
+  await mp3Page.locator('#sign-name').fill('Madonna');
+  await readTerms(mp3Page);
+  assert.equal(await mp3Page.locator('[data-sign-submit]').isDisabled(), true, 'a single word cannot sign the license');
+  assert.match(await mp3Page.locator('#gate-hint').innerText(), /FIRST AND LAST/);
+  // Zero bypasses: even with the disabled attribute stripped — the one thing a
+  // script could reach for — the single-word signature is still refused.
+  await mp3Page.evaluate(() => {
+    const btn = document.querySelector('[data-sign-submit]');
+    btn.disabled = false;
+    btn.click();
+  });
+  assert.equal(await mp3Page.locator('#gate-error').isVisible(), true, 'the refused signature reports why');
+  assert.match(await mp3Page.locator('#gate-error').innerText(), /FIRST AND LAST NAME REQUIRED/);
+  assert.equal(await mp3Page.evaluate(() => new URLSearchParams(location.search).has('t')), false, 'a one-word signature never unlocks');
+  assert.equal(await mp3Page.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'mp3'), BEAT_ID), false, 'nothing was granted');
+  // Back to the top of the terms, so the order check below still starts from
+  // "terms not read yet".
+  await mp3Page.locator('[data-sign-terms]').evaluate(el => { el.scrollTop = 0; el.dispatchEvent(new Event('scroll')); });
+  assert.equal(await mp3Page.locator('[data-sign-submit]').isDisabled(), true, 'an unread license stays locked');
   await mp3Page.locator('#sign-name').fill('Jordan Vega');
   assert.equal(await mp3Page.locator('[data-sign-submit]').isDisabled(), true, 'a signature alone never unlocks — the terms must be read too');
   await readTerms(mp3Page);
@@ -238,6 +311,10 @@ try {
   assert.equal(await mp3Page.locator('#license-view').count(), 0);
   assert.equal(await mp3Page.locator('[data-license-download]').count(), 0);
   assert.equal(await mp3Page.locator('[data-license-copy]').count(), 0);
+  // The certificate block carries the same flower watermark the PDF prints.
+  assert.equal(await mp3Page.locator('.license-cert__watermark img').count(), 1, 'the certificate block carries the flower watermark');
+  await noHue(mp3Page, 'the download page');
+  await noLowercase(mp3Page, 'the download page');
   assert.equal(await mp3Page.locator('[data-license-pdf]').count(), 1);
   const serial = await mp3Page.locator('#license-serial').innerText();
   assert.match(serial, /^KYRO-\d{4}-FLESH-\d{6}$/);
@@ -247,6 +324,7 @@ try {
   // The value handed to the download (and shown on the page) is exactly the
   // studio name; only its rendering is uppercased by the stylesheet.
   assert.equal(await mp3Page.locator('.download-item__name').textContent(), 'KYROIII - FLESH (130 BPM - AM).mp3');
+  assert.equal(await mp3Page.locator('.download-item__name').evaluate(el => getComputedStyle(el).textTransform), 'uppercase', 'the row is rendered in the ALL-CAPS voice');
   assert.match(await mp3Page.locator('#license-stamp').innerText(), /JORDAN VEGA/, 'the signature captured in the gate is stamped on the page too');
   const [mp3] = await Promise.all([
     mp3Page.waitForEvent('download'),
@@ -271,6 +349,11 @@ try {
   assert(pdfText.includes('CERTIFICATE OF FREE LICENSE'));
   assert(pdfText.includes('TAGGED MP3 AUDIO FILE')); // this package's includes
   assert(pdfText.includes('Im1 Do'), 'the flower mark is embedded in the header');
+  // The same embedded mark is stamped again as the LICENSEE watermark, through
+  // the soft-mask graphics state — the store's flower closes the contract.
+  assert.equal((pdfText.match(/\/Im1 Do/g) || []).length, 2, 'the flower is drawn twice: the masthead and the signature watermark');
+  assert.match(pdfText, /\/ExtGState << \/GS1 5 0 R >>/, 'the watermark graphics state is in the page resources');
+  assert.match(pdfText, /q \/GS1 gs 42\.00 0 0 42\.00 [\d.]+ [\d.]+ cm \/Im1 Do Q/, 'the watermark is a real, faint flower draw');
   assert(pdfText.includes('PAGE 1 OF 1'), 'document-control footer, one page for every package');
   // Strict ALL CAPS branding: no lowercase letter survives anywhere in the doc.
   assert.deepEqual(pdfRuns(pdfText).filter(run => /[a-z]/.test(run)), [], 'every PDF string is uppercase');
@@ -482,6 +565,55 @@ try {
   assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), false, 'the memory does not outlive the page');
   await coldPage.close();
 
+  // A phone is where the store is used most — and where a dialog that measures
+  // itself in `100vh` hides its own unlock button behind the browser chrome. The
+  // whole flow is walked at 390×844 with touch on: the menu and the card inside
+  // the visible viewport, the steps answering on the first tap, the pad owning
+  // the gesture, and the unlock button reachable by scrolling the dialog itself.
+  const phone = await setupPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
+  await phone.goto(`${url}/?beat=flesh`);
+  await noOverflow(phone);
+  await phone.locator(`${CARD} .download-trigger`).click();
+  await phone.locator('.download-menu.is-open').waitFor();
+  assert(await phone.evaluate(() => {
+    const box = document.querySelector('.download-menu').getBoundingClientRect();
+    return box.left >= -1 && box.right <= innerWidth + 1 && box.top >= -1 && box.bottom <= innerHeight + 1;
+  }), 'the package menu lands inside the phone viewport');
+  await phone.locator('.download-tier[data-package="exclusive"]').click();
+  await phone.locator('.gate-modal').waitFor();
+  assert(await phone.evaluate(() => {
+    const card = document.querySelector('.gate-modal__card');
+    const box = card.getBoundingClientRect();
+    return box.left >= -1 && box.right <= innerWidth + 1 && box.bottom <= innerHeight + 1;
+  }), 'the gate card fits the phone viewport');
+  assert(await phone.evaluate(() => document.documentElement.classList.contains('gate-open')), 'the page behind the dialog is locked');
+  assert.equal(await phone.locator('.gate-step').first().evaluate(el => getComputedStyle(el).touchAction), 'manipulation', 'a step answers on the first tap');
+  assert(parseFloat(await phone.locator('#gate-email').evaluate(el => getComputedStyle(el).fontSize)) >= 16, 'the field is large enough that iOS does not zoom the page');
+  await openSteps(phone);
+  await phone.locator('#gate-email').fill('phone-buyer@example.com');
+  await phone.locator('[data-gate-submit]').click();
+  await signStage(phone).waitFor();
+  assert.equal(await phone.locator('[data-sign-canvas]').evaluate(el => getComputedStyle(el).touchAction), 'none', 'the pad owns the gesture, so a stroke is never a page scroll');
+  assert.equal(await phone.locator('.sign-watermark img').count(), 1);
+  await noLowercase(phone, 'the sign sheet');
+  await phone.locator('[data-sign-submit]').scrollIntoViewIfNeeded();
+  assert(await phone.evaluate(() => {
+    const box = document.querySelector('[data-sign-submit]').getBoundingClientRect();
+    return box.top >= -1 && box.bottom <= innerHeight + 1;
+  }), 'the unlock button is reachable inside the phone viewport');
+  await phone.locator('#sign-name').fill('Ada Lovelace');
+  await readTerms(phone);
+  assert.equal(await phone.locator('[data-sign-submit]').isDisabled(), false, 'a full name unlocks on a phone too');
+  await phone.locator('[data-sign-submit]').click();
+  await phone.waitForURL(/package=exclusive/);
+  await noOverflow(phone);
+  await noHue(phone, 'the phone flow');
+  assert.equal(await phone.locator('.license-cert__watermark img').count(), 1, 'the certificate carries the flower watermark on a phone too');
+  assert.equal(await phone.locator('.download-item').count(), 3);
+  assert(await phone.evaluate(() => document.body.style.position === ''), 'the page is released when the dialog closes');
+  await shot(phone, 'phone');
+  await phone.close();
+
   // A gate closes on Escape wherever focus sits (the YouTube gate focuses
   // nothing), and the page is released back to the storefront.
   const escPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce' });
@@ -501,8 +633,28 @@ try {
   }, null, { timeout: 15000 });
   await playback.close();
 
+  // The palette and the ALL-CAPS rule are asserted at the source as well, so a
+  // tinted literal cannot slip into the stylesheet unnoticed.
+  const cssText = await readFile(new URL('./style.css', import.meta.url), 'utf8');
+  const literal = value => (value.includes(',')
+    ? value.split(',').slice(0, 3).map(part => Number(part.trim()))
+    : (value.length <= 4 ? value.slice(0, 3).split('').map(c => parseInt(c + c, 16)) : [0, 2, 4].map(i => parseInt(value.slice(i, i + 2), 16))));
+  const cssColours = [
+    ...[...cssText.matchAll(/#([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\b/g)].map(m => m[1]),
+    ...[...cssText.matchAll(/rgba?\(([^)]*)\)/g)].map(m => m[1]),
+  ];
+  assert(cssColours.length > 100, 'the stylesheet declares a full palette');
+  const cssTinted = [...new Set(cssColours)].filter(value => {
+    const [r, g, b] = literal(value);
+    return !(r === g && g === b);
+  });
+  assert.deepEqual(cssTinted, [], `every colour literal in style.css is an equal-channel grey: ${cssTinted.join(', ')}`);
+  assert.match(cssText, /html \{ text-transform: uppercase; \}/, 'the page-wide ALL-CAPS rule');
+  assert.match(cssText, /input::placeholder, textarea::placeholder \{ text-transform: uppercase; \}/, 'placeholders are uppercase too');
+  assert.equal(/\.gate-input[^}]*text-transform: none/.test(cssText), false, 'no casing opt-out is left on the fields');
+
   assert.deepEqual(errors, []);
-  console.log('Passed storefront layout, tagged audio preview, and the free-download menu + all three gates (held YouTube steps, the REVIEW & SIGN stage with read-to-the-end terms and a typed or hand-drawn signature stamped into the single-page ALL-CAPS monochrome PDF license, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts).');
+  console.log('Passed storefront layout, tagged audio preview, and the free-download menu + all three gates (held YouTube steps, the REVIEW & SIGN stage with read-to-the-end terms, a full-name-or-drawing signature and a single-word signature refused even with the disabled attribute stripped, the flower watermark on the sheet / the certificate / the PDF, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts, and the whole flow walked at 390x844 with touch).');
 } finally {
   await browser?.close();
   server.close();

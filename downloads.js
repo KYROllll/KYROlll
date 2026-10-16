@@ -21,9 +21,12 @@
  * only counts after a genuine gesture AND a minimum hold (`STEP_HOLD_MS`), so
  * opening it and bouncing straight back cannot mark it done; and the REVIEW &
  * SIGN stage that closes every gate only unlocks once the terms have actually
- * been read to the end and a signature — typed or drawn on the pad — has been
- * captured. That signature is what the PDF license prints in its LICENSEE
- * block (see `license-pdf.js`).
+ * been read to the end and a signature — a FULL NAME (first and last) typed, or
+ * a real drawing on the pad — has been captured. A single word, a blank line and
+ * a token dot are all refused (`isFullName` / `hasSignature`), so there is no
+ * bypass to the files. That signature is what the PDF license prints in its
+ * LICENSEE block (see `license-pdf.js`), over the flower watermark that ties the
+ * signature sheet to the store's mark.
  *
  * Files are handed over under their professional studio names —
  * `KYROIII - <BEAT> (<BPM> BPM - <KEY>).<ext>` — built from the beat's own
@@ -164,6 +167,22 @@
      address is (`downloadUrl`), and `license-pdf.js` only reads the result. */
   const SIGN_PAD = { w: 600, h: 220 };   // the pad's canvas, so a drawing keeps its aspect
   const SIGN_POINTS = 320;               // per stroke and in total — a URL, not a canvas dump
+  const SIGN_INK_MIN = 8;                // points a real drawing needs before it counts
+  const SIGN_SPAN_MIN = 0.3;             // of the pad's width + height, so a dot cannot sign
+
+  /* A name that signs a license is a FULL name: two to four name parts, each of
+     them a word (letters, with an optional hyphen/apostrophe inside) at least
+     two letters long, and nothing else in the string. A single word (`MADONNA`),
+     a lone initial (`J V`), a line of spaces and a row of digits are all refused
+     — so the unlock button cannot be reached without a genuine first AND last
+     name. */
+  function isFullName(value) {
+    const parts = String(value == null ? "" : value).trim().split(/\s+/).filter(Boolean);
+    if (parts.length < 2 || parts.length > 4) return false;
+    return parts.every((part) =>
+      /^[A-Za-z][A-Za-z'\u2019.\-]*$/.test(part) && part.replace(/[^A-Za-z]/g, "").length >= 2);
+  }
+
   let signature = "";
   let drawnStrokes = null;
   function setSignature(value) {
@@ -239,6 +258,15 @@
 
   /* ------------------------------------------------------ menu */
   let activeMenu = null;
+  /* The viewport the fixed panel must fit inside. On a phone the visual viewport
+     is the honest measurement — it shrinks with the keyboard and moves with the
+     pinch — so the menu is clamped to what the visitor can actually see. */
+  function viewportBox() {
+    const vv = window.visualViewport;
+    const w = (vv && vv.width) || window.innerWidth;
+    const h = (vv && vv.height) || window.innerHeight;
+    return { w: w || window.innerWidth, h: h || window.innerHeight };
+  }
   function openMenu(trigger, beatId) {
     closeMenu();
     const catalog = helpers();
@@ -261,9 +289,6 @@
       '<div class="download-menu__list">' + packs + '</div>';
     document.body.appendChild(menu);
     activeMenu = { el: menu, anchor: trigger };
-    requestAnimationFrame(() => {
-      menu.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
     menu.querySelectorAll(".download-tier").forEach((btn) => {
       btn.addEventListener("click", (ev) => {
         ev.stopPropagation();
@@ -274,12 +299,25 @@
     trigger.setAttribute("aria-expanded", "true");
     menu.classList.add("is-open");
     positionMenu();
-    window.addEventListener("scroll", guardMenuScroll, true);
+    /* Keep the fixed panel glued to its trigger — one reposition per frame, never
+       one per scroll event — and watch the visual viewport too, so the keyboard
+       or a pinch can never leave the panel floating away from its button. (The
+       old smooth `scrollIntoView` here fought the page's own scroll on touch; the
+       clamping in `positionMenu` is what actually keeps the panel on screen.) */
+    window.addEventListener("scroll", guardMenuScroll, { capture: true, passive: true });
     window.addEventListener("resize", closeMenu, true);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", guardMenuScroll);
+      window.visualViewport.addEventListener("scroll", guardMenuScroll);
+    }
     document.addEventListener("keydown", handleMenuKey);
     document.addEventListener("click", handleMenuOutside, true);
   }
-  function guardMenuScroll() { positionMenu(); }
+  let menuFrame = 0;
+  function guardMenuScroll() {
+    if (menuFrame) return;
+    menuFrame = requestAnimationFrame(() => { menuFrame = 0; positionMenu(); });
+  }
   function handleMenuOutside(e) {
     if (activeMenu && !activeMenu.el.contains(e.target) && !activeMenu.anchor.contains(e.target)) closeMenu();
   }
@@ -290,25 +328,33 @@
     if (activeMenu.el) activeMenu.el.classList.remove("is-open");
     activeMenu.el.remove();
     activeMenu = null;
+    if (menuFrame) { cancelAnimationFrame(menuFrame); menuFrame = 0; }
     window.removeEventListener("scroll", guardMenuScroll, true);
     window.removeEventListener("resize", closeMenu, true);
+    if (window.visualViewport) {
+      window.visualViewport.removeEventListener("resize", guardMenuScroll);
+      window.visualViewport.removeEventListener("scroll", guardMenuScroll);
+    }
     document.removeEventListener("keydown", handleMenuKey);
     document.removeEventListener("click", handleMenuOutside, true);
   }
   function positionMenu() {
     if (!activeMenu) return;
     const { el, anchor } = activeMenu;
+    const box = viewportBox();
     const rect = anchor.getBoundingClientRect();
-    const width = Math.max(rect.width, 300);
+    /* On a phone the panel is as wide as the screen allows rather than as wide
+       as the trigger, so the tiers keep a readable measure. */
+    const width = Math.min(Math.max(rect.width, 300), box.w - 24);
     let left = rect.left + rect.width / 2 - width / 2;
-    left = Math.max(12, Math.min(left, window.innerWidth - width - 12));
+    left = Math.max(12, Math.min(left, box.w - width - 12));
     el.style.width = width + "px";
     el.style.left = left + "px";
     let top = Math.max(12, rect.bottom + 10);
-    let maxHeight = window.innerHeight - top - 12;
+    let maxHeight = box.h - top - 12;
     if (maxHeight < 140) {
-      top = Math.max(12, window.innerHeight - 140 - 12);
-      maxHeight = window.innerHeight - top - 12;
+      top = Math.max(12, box.h - 140 - 12);
+      maxHeight = box.h - top - 12;
     }
     el.style.top = top + "px";
     el.style.maxHeight = Math.max(80, maxHeight) + "px";
@@ -326,15 +372,53 @@
   let gate = null;
   let gateKeyHandler = null;
 
+  /* The page behind an open gate is locked the way a phone respects: a plain
+     `overflow: hidden` alone makes iOS jump to the top, so the scroll offset is
+     pinned on the body and restored when the gate closes. Nothing is stored —
+     it lives for the length of the dialog. */
+  let pageLocked = false;
+  let lockedAt = 0;
+  function lockPage() {
+    document.documentElement.classList.add("gate-open");
+    if (pageLocked) return;
+    pageLocked = true;
+    lockedAt = window.pageYOffset || document.documentElement.scrollTop || 0;
+    document.body.style.position = "fixed";
+    document.body.style.top = -lockedAt + "px";
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.width = "100%";
+  }
+  function unlockPage() {
+    document.documentElement.classList.remove("gate-open");
+    if (!pageLocked) return;
+    pageLocked = false;
+    const y = lockedAt;
+    lockedAt = 0;
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.left = "";
+    document.body.style.right = "";
+    document.body.style.width = "";
+    window.scrollTo(0, y);
+  }
+
+  /* One outside-click handler for the life of the page. It used to be installed
+     per gate and only removed on Escape, so every gate left another listener
+     behind and each tap ran over the whole stack — the mobile freeze. */
+  function handleGateOutside(event) {
+    if (gate && !gate.contains(event.target)) closeGate();
+  }
+  document.addEventListener("click", handleGateOutside, true);
+
   function closeGate() {
     if (!gate) return;
     const node = gate;
     gate = null;
     clearStepTimers();
     if (gateKeyHandler) { document.removeEventListener("keydown", gateKeyHandler); gateKeyHandler = null; }
-    document.removeEventListener("click", closeGate); // defensive
     node.classList.remove("is-visible");
-    document.documentElement.classList.remove("gate-open");
+    unlockPage();
     setTimeout(() => node.remove(), 260);
   }
 
@@ -522,7 +606,7 @@
         '<p class="gate-modal__copy">GATE PASSED. UNLOCKING YOUR DOWNLOAD PAGE…</p>' +
       '</div>';
     document.body.appendChild(modal);
-    document.documentElement.classList.add("gate-open");
+    lockPage();
     requestAnimationFrame(() => modal.classList.add("is-visible"));
     return modal;
   }
@@ -561,7 +645,7 @@
     card.innerHTML =
       '<span class="gate-modal__kicker">' + escapeHTML(pack.name) + '</span>' +
       '<h2 class="gate-modal__title" id="gate-title">LICENSE REVIEW &amp; SIGNATURE</h2>' +
-      '<p class="gate-modal__copy">READ THE TERMS, SIGN YOUR NAME, AND YOUR FILES UNLOCK.</p>' +
+      '<p class="gate-modal__copy">READ THE TERMS, SIGN YOUR FULL NAME, AND YOUR FILES UNLOCK.</p>' +
       '<div class="sign-terms" data-sign-terms role="region" tabindex="0" aria-label="License terms">' +
         termsHTML(beat, pack) +
       '</div>' +
@@ -569,18 +653,26 @@
         '<button type="button" class="sign-mode is-active" data-sign-mode="type">TYPE</button>' +
         '<button type="button" class="sign-mode" data-sign-mode="draw">DRAW</button>' +
       '</div>' +
-      '<label class="gate-field" data-sign-field for="sign-name">' +
-        '<span class="gate-field__label">YOUR SIGNATURE' +
-          '<span class="gate-field__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +
-        '<input class="gate-input" id="sign-name" name="signature" type="text" autocomplete="off" ' +
-          'spellcheck="false" maxlength="48" placeholder="TYPE YOUR FULL NAME">' +
-      '</label>' +
-      '<div class="sign-pad" data-sign-pad hidden>' +
-        '<canvas class="sign-pad__canvas" data-sign-canvas width="' + SIGN_PAD.w + '" height="' + SIGN_PAD.h + '"></canvas>' +
-        '<div class="sign-pad__row"><span class="sign-pad__hint">DRAG TO SIGN — MOUSE OR FINGER</span>' +
-          '<button type="button" class="sign-pad__clear" data-sign-clear>CLEAR</button></div>' +
+      /* The signature sheet: the flower watermark sits behind whatever is signed,
+         so the mark that brands the store also closes the license. */
+      '<div class="sign-sheet">' +
+        '<span class="sign-watermark" aria-hidden="true">' +
+          '<img src="assets/kyrolll-flower-rest.png?v=1" alt="" loading="lazy" decoding="async">' +
+        '</span>' +
+        '<label class="gate-field" data-sign-field for="sign-name">' +
+          '<span class="gate-field__label">FULL NAME — FIRST AND LAST' +
+            '<span class="gate-field__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +
+          '<input class="gate-input" id="sign-name" name="signature" type="text" autocomplete="off" ' +
+            'autocapitalize="characters" enterkeyhint="done" spellcheck="false" maxlength="48" ' +
+            'placeholder="TYPE YOUR FULL NAME">' +
+        '</label>' +
+        '<div class="sign-pad" data-sign-pad hidden>' +
+          '<canvas class="sign-pad__canvas" data-sign-canvas width="' + SIGN_PAD.w + '" height="' + SIGN_PAD.h + '"></canvas>' +
+          '<div class="sign-pad__row"><span class="sign-pad__hint">DRAG TO SIGN — MOUSE OR FINGER</span>' +
+            '<button type="button" class="sign-pad__clear" data-sign-clear>CLEAR</button></div>' +
+        '</div>' +
+        '<span class="license-cert__stamp" data-sign-stamp data-stamped="false"></span>' +
       '</div>' +
-      '<span class="license-cert__stamp" data-sign-stamp data-stamped="false"></span>' +
       '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
       '<div class="gate-modal__actions">' +
         '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
@@ -606,6 +698,18 @@
     let current = null;
     const ctx = canvas && canvas.getContext ? canvas.getContext("2d") : null;
 
+    /* A crisp pen on a retina phone: the bitmap is scaled by the device pixel
+       ratio (capped at 2×) while the strokes stay normalised 0..1, so the ink is
+       sharp on any screen and the drawing — and the payload it travels in — is
+       identical everywhere. */
+    if (canvas && ctx) {
+      const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 1), 2);
+      if (dpr > 1) {
+        canvas.width = Math.round(SIGN_PAD.w * dpr);
+        canvas.height = Math.round(SIGN_PAD.h * dpr);
+      }
+    }
+
     /* Terms read to the end (or short enough to fit without scrolling). */
     function termsRead() {
       if (!terms) return true;
@@ -614,25 +718,50 @@
     }
     function typedName() { return String(nameInput && nameInput.value || "").trim(); }
     function drawPoints() { return strokes.reduce((sum, stroke) => sum + stroke.length, 0); }
-    function hasSignature() {
-      return mode === "draw" ? (strokes.length > 0 && drawPoints() >= 6) : typedName().length >= 2;
+    /* How much of the pad the drawing actually covers: a tap, a dot or a two-point
+       flick fails this, so the pad cannot be satisfied with a stray mark. */
+    function strokeSpan() {
+      if (!strokes.length) return 0;
+      let minX = 1, maxX = 0, minY = 1, maxY = 0;
+      strokes.forEach((stroke) => stroke.forEach((point) => {
+        minX = Math.min(minX, point[0]); maxX = Math.max(maxX, point[0]);
+        minY = Math.min(minY, point[1]); maxY = Math.max(maxY, point[1]);
+      }));
+      return (maxX - minX) + (maxY - minY);
+    }
+    function drawingValid() {
+      return strokes.length > 0 && drawPoints() >= SIGN_INK_MIN && strokeSpan() >= SIGN_SPAN_MIN;
+    }
+    /* The one gate on the unlock button: a FULL name typed, or a real drawing.
+       Nothing weaker can enable it. */
+    function hasSignature() { return mode === "draw" ? drawingValid() : isFullName(typedName()); }
+    function nameProblem() {
+      const value = typedName();
+      if (!value) return "ENTER YOUR FULL NAME — FIRST AND LAST";
+      if (!isFullName(value)) return "FIRST AND LAST NAME REQUIRED — A SINGLE WORD CANNOT SIGN";
+      return "";
     }
     function refresh() {
       const read = termsRead();
       const signed = hasSignature();
       const ready = read && signed;
       if (submitBtn) submitBtn.disabled = !ready;
-      if (field) field.classList.toggle("is-valid", mode === "type" && typedName().length >= 2);
+      if (field) field.classList.toggle("is-valid", mode === "type" && isFullName(typedName()));
       if (stamp) {
-        const label = mode === "draw"
-          ? (hasSignature() ? "SIGNATURE CAPTURED — " + strokes.length + " STROKE" + (strokes.length === 1 ? "" : "S") : "NOTHING SIGNED YET")
-          : (typedName() ? typedName().toUpperCase() : "NOTHING SIGNED YET");
+        let label = "NOTHING SIGNED YET";
+        if (mode === "draw") {
+          if (drawingValid()) label = "SIGNATURE CAPTURED — " + strokes.length + " STROKE" + (strokes.length === 1 ? "" : "S");
+          else if (strokes.length) label = "KEEP DRAWING — SIGN YOUR FULL NAME";
+        } else if (typedName()) {
+          label = typedName().toUpperCase();
+        }
         stamp.textContent = label;
         stamp.dataset.stamped = hasSignature() ? "true" : "false";
       }
       if (hint) {
         hint.textContent = ready ? "ALL SET — SIGN & UNLOCK"
-          : (!read ? "SCROLL THROUGH THE TERMS TO THE END" : "SIGN ABOVE TO UNLOCK YOUR FILES");
+          : (!read ? "SCROLL THROUGH THE TERMS TO THE END"
+            : (mode === "draw" ? "SIGN YOUR FULL NAME ON THE PAD" : nameProblem()));
       }
       if (errEl) hideGateError(errEl);
     }
@@ -642,7 +771,7 @@
       if (!ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 2.6;
+      ctx.lineWidth = 2.6 * (canvas.width / SIGN_PAD.w);
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       strokes.forEach((stroke) => {
@@ -682,8 +811,17 @@
         paint();
         refresh();
       });
-      ["pointerup", "pointercancel", "pointerleave"].forEach((type) =>
+      /* A stroke ends when the pen lifts. On touch it must NOT end because the
+         finger slid past an edge (the pointer is captured, so the drawing keeps
+         going) — a dropped stroke is exactly the "had to sign it twice" bug. */
+      ["pointerup", "pointercancel"].forEach((type) =>
         canvas.addEventListener(type, () => { current = null; }));
+      canvas.addEventListener("pointerleave", (event) => {
+        if (event && event.pointerType !== "mouse") return;
+        current = null;
+      });
+      /* No long-press menu / text selection while signing on a phone. */
+      canvas.addEventListener("contextmenu", (event) => event.preventDefault());
     }
     const clearBtn = card.querySelector("[data-sign-clear]");
     if (clearBtn) clearBtn.addEventListener("click", () => {
@@ -725,7 +863,12 @@
 
     if (submitBtn) submitBtn.addEventListener("click", () => {
       if (!termsRead()) { showGateError(errEl, "READ THE TERMS TO THE END FIRST"); return; }
-      if (!hasSignature()) { showGateError(errEl, "TYPE OR DRAW YOUR SIGNATURE TO UNLOCK"); return; }
+      if (!hasSignature()) {
+        showGateError(errEl, mode === "draw"
+          ? "DRAW YOUR FULL SIGNATURE ON THE PAD TO UNLOCK"
+          : (nameProblem() || "TYPE YOUR FULL NAME TO UNLOCK"));
+        return;
+      }
       /* Capture the signature — typed or drawn — and hand it to the flow. */
       if (mode === "draw") setDrawnSignature(strokes);
       else { setDrawnSignature([]); setSignature(typedName()); }
@@ -744,6 +887,7 @@
     const sm = showSuccessModal();
     setTimeout(() => {
       if (sm && sm.parentNode) sm.remove();
+      unlockPage();
       if (onUnlocked) onUnlocked(beat, pack, email || "");
     }, 1400);
   }
@@ -822,7 +966,7 @@
     modal.innerHTML = gateShell(pack, beat, null, body);
     document.body.appendChild(modal);
     gate = modal;
-    document.documentElement.classList.add("gate-open");
+    lockPage();
     requestAnimationFrame(() => modal.classList.add("is-visible"));
 
     const submit = modal.querySelector("[data-gate-submit]");
@@ -951,11 +1095,10 @@
       });
     }
 
-    // Cancel + outside-click handler
+    // Cancel + Escape. The outside-click handler is installed once at module
+    // load (`handleGateOutside`), so no gate can leave another one behind.
     wireGateDismiss(modal);
-    const outsideClick = (e) => { if (gate && !gate.contains(e.target)) closeGate(); };
-    document.addEventListener("click", outsideClick, true);
-    gateKeyHandler = (ev) => { if (ev.key === "Escape") { closeGate(); document.removeEventListener("click", outsideClick, true); } };
+    gateKeyHandler = (ev) => { if (ev.key === "Escape") closeGate(); };
     document.addEventListener("keydown", gateKeyHandler);
   }
 

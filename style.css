@@ -1,12 +1,17 @@
+/* ONE PALETTE, NO HUE. The whole store is deep matte black, pure white and
+   silver rules — every colour literal in this file is an equal-channel grey, so
+   there is no blue (and no other hue) anywhere: not in a border, not in a glow,
+   not in a shadow. The three brand values the store is built on are the PDF's
+   own (`license-pdf.js`): #0B0B0B field, #FFFFFF type, #888888 silver. */
 :root {
   color-scheme: dark;
-  --black: #080809;
-  --white: #f3f3f1;
-  --gray: #a4a4aa;
-  --ground: #080809;
-  --paper: #111113;
-  --hairline: #303034;
-  --accent: #8d6655;
+  --black: #0b0b0b;
+  --white: #ffffff;
+  --gray: #888888;
+  --ground: #0b0b0b;
+  --paper: #111111;
+  --hairline: #2e2e2e;
+  --accent: #888888;
   --layout-max: 1440px;
 }
 
@@ -34,7 +39,7 @@ html {
 body {
   position: relative;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  background: radial-gradient(ellipse at 80% 18%, #41251d24, transparent 44%), var(--ground);
+  background: radial-gradient(ellipse at 80% 18%, rgba(255, 255, 255, 0.06), transparent 44%), var(--ground);
   color: var(--white);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -57,11 +62,20 @@ html, body, main, .viewport, .grid, .beat-detail, .beat-detail__content {
   box-sizing: border-box;
 }
 
-/* Brand casing: the wordmark is KYROIII (K-Y-R-O-I-I-I) and it is itself
-   all-caps, so the page-wide uppercase transform leaves it exactly as authored.
-   Every other string is authored in caps too — the transform is the belt to the
-   source's braces. The only opt-outs are the email field (`.gate-input`) and the
-   wordmark itself. */
+/* ALL-CAPS BRAND IDENTITY. The wordmark is KYROIII (K-Y-R-O-I-I-I) and it is
+   itself all caps, so the transform leaves it exactly as authored. Every other
+   string is authored in caps as well — the transform is the belt to the source's
+   braces, and it covers the whole storefront: headings, buttons, labels, form
+   fields, their placeholders, gate copy, menus and the download page. Inputs are
+   included on purpose (only the *value* a visitor types keeps its own casing in
+   the submitted data — what is rendered is shouted in the brand voice). */
+html { text-transform: uppercase; }   /* every text node inherits it */
+/* Form controls do not reliably inherit the casing (Safari), so the fields,
+   buttons and their placeholders are set explicitly. */
+input, textarea, select, button, optgroup, option { text-transform: uppercase; }
+input::placeholder, textarea::placeholder { text-transform: uppercase; }
+::file-selector-button { text-transform: uppercase; }
+
 .brand-name { letter-spacing: .06em; }
 
 :focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
@@ -71,12 +85,12 @@ html, body, main, .viewport, .grid, .beat-detail, .beat-detail__content {
 /* One thin, minimal scrollbar for the whole site (no second track). */
 html {
   scrollbar-width: thin;
-  scrollbar-color: #3a3a3f transparent;
+  scrollbar-color: #3a3a3a transparent;
 }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #3a3a3f; border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: #55555c; }
+::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #565656; }
 
 main {
   width: 100%;
@@ -179,7 +193,7 @@ button {
   inset: 0;
   z-index: -1;
   color: transparent;
-  -webkit-text-stroke: 1px #9b9ba3;
+  -webkit-text-stroke: 1px #9c9c9c;
   /* Offset the live lettering; the reference brush mark stays crisp. */
   transform: translate(-.16em, -.16em);
   pointer-events: none;
@@ -193,13 +207,16 @@ button {
   width: .65em;
   height: 1.03em;
   object-fit: contain;
+  /* The brush X is supplied in brown: desaturated here, so the wordmark reads in
+     the same black-and-white palette as everything else. */
+  filter: grayscale(1);
 }
 
 .grid-closed {
   grid-column: 1 / -1;
   padding: 64px 20px;
   text-align: center;
-  background: #101012b3;
+  background: #101010b3;
   color: var(--white);
 }
 
@@ -397,7 +414,7 @@ button {
 /* Support contact: a solid dark button with clean white text rather than a
    bare hyperlink, so the footer's one call to action reads as a deliberate
    control against the dark page. It sits on a slightly lifted surface
-   (#17171a) because the footer ground is already --black, so a same-colour
+   (#171717) because the footer ground is already --black, so a same-colour
    fill would only ever show its border. */
 .footer__support {
   display: inline-flex;
@@ -407,9 +424,9 @@ button {
   min-height: 38px;
   margin-top: 16px;
   padding: 11px 22px;
-  background: #17171a;
+  background: #171717;
   color: var(--white);
-  border: 1px solid #4a4a50;
+  border: 1px solid #4a4a4a;
   border-radius: 4px;
   font-size: 10px;
   font-weight: 800;
@@ -420,7 +437,7 @@ button {
   transition: background .15s ease, border-color .15s ease, color .15s ease;
 }
 .footer__support:hover {
-  background: #242429;
+  background: #242424;
   border-color: var(--white);
 }
 
@@ -500,6 +517,10 @@ body::before {
 }
 body > canvas {
   pointer-events: none !important;
+  /* The falling X is brush artwork in a warm brown; the store is monochrome, so
+     the marks are desaturated at paint time. Greyscale keeps every X identical
+     to the source art, just without the hue. */
+  filter: grayscale(1) !important;
   /* The falling-X canvas measures the page in JS. It may lag behind a page that
      got shorter (the beat card swapping for a catalog tile, a tighter footer),
      and a canvas taller than the page left a band of empty background below the
@@ -520,11 +541,13 @@ body > canvas {
 .header { padding: 20px 40px; }
 .catalog-heading { scroll-margin-top: 20px; display: flex; align-items: center; justify-content: flex-end; padding: 24px 40px; }
 .catalog-heading.catalog-heading--empty { padding-block: 0; }
-.grid-closed { min-height: 240px; display: grid; place-items: center; background: repeating-linear-gradient(125deg, transparent 0 18px, #ffffff03 18px 19px), #0d0d0f; }
+.grid-closed { min-height: 240px; display: grid; place-items: center; background: repeating-linear-gradient(125deg, transparent 0 18px, #ffffff03 18px 19px), #0d0d0d; }
 .grid-closed__title { font-size: clamp(20px, 3vw, 36px); letter-spacing: -.04em; }
 .grid-closed__box p { font-size: 10px; line-height: 1.7; }
 .footer { border-top: 1px solid var(--hairline); padding-top: 48px; }
-.footer__logo { display: block; width: 200px; height: auto; margin: 0 auto 22px; }
+/* The secondary wordmark ships with its brush X in brown; the grayscale filter is
+   what makes the footer monochrome without touching the supplied artwork. */
+.footer__logo { display: block; width: 200px; height: auto; margin: 0 auto 22px; filter: grayscale(1); }
 .motion-paused .brand-wordmark__layer { animation-play-state: paused !important; }
 @media (max-width: 800px) {
   .brand-hero { padding: 32px 20px 44px; }
@@ -791,7 +814,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   height: 32%;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: radial-gradient(circle, #b8860b 0%, #8b6508 60%, #333 100%);
+  background: radial-gradient(circle, #888888 0%, #666666 60%, #333 100%);
   border: 4px solid #000;
 }
 .beat-detail.vinyl-open .vinyl-record,
@@ -911,7 +934,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   inset: auto 0 0;
   height: 52%;
   background:
-    linear-gradient(to bottom, transparent, rgba(8, 8, 9, 0.92)),
+    linear-gradient(to bottom, transparent, rgba(8, 8, 8, 0.92)),
     radial-gradient(ellipse at 50% 130%, rgba(255, 255, 255, 0.07), transparent 62%);
   opacity: calc(var(--hero-p) * 0.9);
   pointer-events: none;
@@ -962,8 +985,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .brand-tagline__text {
   position: relative;
   display: inline-block;
-  color: #eafff2;
-  text-shadow: 0 0 6px rgba(57, 255, 139, 0.55), 0 0 16px rgba(57, 255, 139, 0.22);
+  color: #fafafa;
+  text-shadow: 0 0 6px rgba(205, 205, 205, 0.55), 0 0 16px rgba(205, 205, 205, 0.22);
   animation: tagline-flicker 3.4s steps(1, end) infinite;
 }
 
@@ -978,14 +1001,14 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 
 .brand-tagline__text::before {
-  color: #39ff8b;
-  text-shadow: 0 0 8px rgba(57, 255, 139, 0.75);
+  color: #cdcdcd;
+  text-shadow: 0 0 8px rgba(205, 205, 205, 0.75);
   animation: tagline-slice-green 3.4s steps(1, end) infinite;
 }
 
 .brand-tagline__text::after {
-  color: #ff3ea5;
-  text-shadow: 0 0 8px rgba(255, 62, 165, 0.75);
+  color: #6e6e6e;
+  text-shadow: 0 0 8px rgba(110, 110, 110, 0.75);
   animation: tagline-slice-pink 3.4s steps(1, end) infinite;
 }
 
@@ -1001,7 +1024,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .brand-tagline__heart svg { display: block; width: 100%; height: 100%; }
 
 .brand-tagline__heart-body {
-  fill: #ff2e9a;
+  fill: #626262;
   animation: heart-fill 3.4s steps(1, end) infinite;
 }
 
@@ -1028,24 +1051,24 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 
 @keyframes tagline-flicker {
-  0%, 100% { color: #eafff2; text-shadow: 0 0 6px rgba(57, 255, 139, 0.5), 0 0 16px rgba(57, 255, 139, 0.2); }
-  6% { color: #bfffd8; text-shadow: 0 0 10px rgba(57, 255, 139, 0.75); }
-  7% { color: #eafff2; text-shadow: 0 0 6px rgba(57, 255, 139, 0.5), 0 0 16px rgba(57, 255, 139, 0.2); }
-  13% { color: #ffd6ec; text-shadow: 0 0 10px rgba(255, 62, 165, 0.7); }
-  14% { color: #eafff2; text-shadow: 0 0 6px rgba(57, 255, 139, 0.5), 0 0 16px rgba(57, 255, 139, 0.2); }
-  26% { color: #ffe3f2; text-shadow: 0 0 12px rgba(255, 62, 165, 0.8); }
-  27% { color: #eafff2; }
+  0%, 100% { color: #fafafa; text-shadow: 0 0 6px rgba(205, 205, 205, 0.5), 0 0 16px rgba(205, 205, 205, 0.2); }
+  6% { color: #efefef; text-shadow: 0 0 10px rgba(205, 205, 205, 0.75); }
+  7% { color: #fafafa; text-shadow: 0 0 6px rgba(205, 205, 205, 0.5), 0 0 16px rgba(205, 205, 205, 0.2); }
+  13% { color: #e0e0e0; text-shadow: 0 0 10px rgba(110, 110, 110, 0.7); }
+  14% { color: #fafafa; text-shadow: 0 0 6px rgba(205, 205, 205, 0.5), 0 0 16px rgba(205, 205, 205, 0.2); }
+  26% { color: #eaeaea; text-shadow: 0 0 12px rgba(110, 110, 110, 0.8); }
+  27% { color: #fafafa; }
   33% { opacity: 0.7; }
   34% { opacity: 1; }
-  44% { color: #c8ffdc; text-shadow: 0 0 12px rgba(57, 255, 139, 0.85); }
-  45% { color: #eafff2; text-shadow: 0 0 6px rgba(57, 255, 139, 0.5), 0 0 16px rgba(57, 255, 139, 0.2); }
-  58% { color: #ffd6ec; text-shadow: 0 0 11px rgba(255, 62, 165, 0.75); }
-  59% { color: #eafff2; }
+  44% { color: #f1f1f1; text-shadow: 0 0 12px rgba(205, 205, 205, 0.85); }
+  45% { color: #fafafa; text-shadow: 0 0 6px rgba(205, 205, 205, 0.5), 0 0 16px rgba(205, 205, 205, 0.2); }
+  58% { color: #e0e0e0; text-shadow: 0 0 11px rgba(110, 110, 110, 0.75); }
+  59% { color: #fafafa; }
   72% { opacity: 0.78; }
   73% { opacity: 1; }
-  84% { color: #8bffb4; text-shadow: 0 0 14px rgba(57, 255, 139, 0.9); }
-  86% { color: #ffb8de; text-shadow: 0 0 14px rgba(255, 62, 165, 0.9); }
-  88% { color: #eafff2; text-shadow: 0 0 6px rgba(57, 255, 139, 0.5); }
+  84% { color: #e1e1e1; text-shadow: 0 0 14px rgba(205, 205, 205, 0.9); }
+  86% { color: #cacaca; text-shadow: 0 0 14px rgba(110, 110, 110, 0.9); }
+  88% { color: #fafafa; text-shadow: 0 0 6px rgba(205, 205, 205, 0.5); }
 }
 
 @keyframes tagline-slice-green {
@@ -1073,26 +1096,26 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 
 @keyframes heart-glitch {
-  0%, 24%, 78%, 100% { transform: translateY(0.06em); filter: drop-shadow(0 0 5px rgba(255, 46, 154, 0.7)); }
-  26% { transform: translate(-1px, 0.03em); filter: drop-shadow(0 0 6px rgba(57, 255, 139, 0.85)); }
-  29% { transform: translate(1px, 0.09em); filter: drop-shadow(0 0 6px rgba(255, 62, 165, 0.9)); }
-  32% { transform: translate(-1px, 0.06em) scale(1.08); filter: drop-shadow(0 0 9px rgba(57, 255, 139, 0.8)); }
+  0%, 24%, 78%, 100% { transform: translateY(0.06em); filter: drop-shadow(0 0 5px rgba(98, 98, 98, 0.7)); }
+  26% { transform: translate(-1px, 0.03em); filter: drop-shadow(0 0 6px rgba(205, 205, 205, 0.85)); }
+  29% { transform: translate(1px, 0.09em); filter: drop-shadow(0 0 6px rgba(110, 110, 110, 0.9)); }
+  32% { transform: translate(-1px, 0.06em) scale(1.08); filter: drop-shadow(0 0 9px rgba(205, 205, 205, 0.8)); }
   35% { transform: translate(0, 0.06em); }
-  80% { transform: translate(-1px, 0.03em); filter: drop-shadow(0 0 7px rgba(57, 255, 139, 0.9)); }
-  84% { transform: translate(1px, 0.1em) scale(1.06); filter: drop-shadow(0 0 8px rgba(255, 62, 165, 0.9)); }
+  80% { transform: translate(-1px, 0.03em); filter: drop-shadow(0 0 7px rgba(205, 205, 205, 0.9)); }
+  84% { transform: translate(1px, 0.1em) scale(1.06); filter: drop-shadow(0 0 8px rgba(110, 110, 110, 0.9)); }
   88% { transform: translate(0, 0.06em); }
 }
 
 @keyframes heart-fill {
-  0%, 24%, 78%, 100% { fill: #ff2e9a; }
-  26% { fill: #5cffa8; }
-  27% { fill: #ff2e9a; }
-  32% { fill: #8bffc0; }
-  33% { fill: #ff2e9a; }
-  82% { fill: #5cffa8; }
-  84% { fill: #ff2e9a; }
-  87% { fill: #8bffc0; }
-  88% { fill: #ff2e9a; }
+  0%, 24%, 78%, 100% { fill: #626262; }
+  26% { fill: #d6d6d6; }
+  27% { fill: #626262; }
+  32% { fill: #e2e2e2; }
+  33% { fill: #626262; }
+  82% { fill: #d6d6d6; }
+  84% { fill: #626262; }
+  87% { fill: #e2e2e2; }
+  88% { fill: #626262; }
 }
 
 .motion-paused .brand-tagline,
@@ -1258,7 +1281,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   transform: translateX(0) rotate(0deg);
   background:
     repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 7px),
-    radial-gradient(circle at 50% 50%, #1b1b1e 0%, #101012 42%, #050506 72%, #17171a 100%);
+    radial-gradient(circle at 50% 50%, #1b1b1b 0%, #101010 42%, #050505 72%, #171717 100%);
   border-radius: 50%;
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.72);
   z-index: 1;
@@ -1270,7 +1293,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 
 .vinyl-record::before {
   inset: 9%;
-  background: repeating-radial-gradient(circle, #131316, #131316 3px, #232327 4px, #0d0d0f 5px);
+  background: repeating-radial-gradient(circle, #131313, #131313 3px, #232323 4px, #0d0d0d 5px);
   opacity: 0.85;
 }
 
@@ -1278,7 +1301,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .vinyl-record::after {
   width: 36%;
   height: 36%;
-  background: radial-gradient(circle at 50% 38%, #24242a, #0b0b0d 72%);
+  background: radial-gradient(circle at 50% 38%, #242424, #0b0b0b 72%);
   border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.9);
 }
@@ -1291,7 +1314,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   height: 30%;
   transform: translate(-50%, -50%);
   opacity: 0.94;
-  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.28));
+  /* The label artwork carries colour tints; the store is black and white, so the
+     mark is desaturated at paint time (the supplied SVG is left untouched). */
+  filter: grayscale(1) drop-shadow(0 0 10px rgba(255, 255, 255, 0.28));
   animation: vinylSpin 6s linear infinite;
   will-change: transform;
   backface-visibility: hidden;
@@ -1513,12 +1538,12 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   transition: background .15s ease, color .15s ease, border-color .15s ease;
 }
 
-.kyrolll-btn:hover { background: #c8c8ce; border-color: #c8c8ce; }
+.kyrolll-btn:hover { background: #c8c8c8; border-color: #c8c8c8; }
 
 .kyrolll-btn--ghost {
   background: var(--black);
   color: var(--white);
-  border-color: #48484e;
+  border-color: #484848;
 }
 
 .kyrolll-btn--ghost:hover {
@@ -1585,7 +1610,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 
 .download-trigger:focus-visible { outline: 2px solid var(--white); outline-offset: 3px; }
-.download-trigger[aria-expanded="true"] { background: #e2e2e5; }
+.download-trigger[aria-expanded="true"] { background: #e2e2e2; }
 .download-trigger__caret { font-size: 10px; transform: translateY(-1px); }
 
 .download-hint {
@@ -1642,8 +1667,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   flex-direction: column;
   gap: 8px;
   padding: 14px;
-  background: #101012;
-  border: 1px solid #48484e;
+  background: #101010;
+  border: 1px solid #484848;
   box-shadow: 0 30px 80px rgba(0, 0, 0, .7);
   transform-origin: top center;
   opacity: 0;
@@ -1667,7 +1692,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   flex-direction: column;
   gap: 4px;
   padding: 2px 2px 10px;
-  border-bottom: 1px solid #242427;
+  border-bottom: 1px solid #242424;
 }
 
 .download-menu__kicker { font-size: 8px; font-weight: 800; letter-spacing: .28em; color: var(--gray); }
@@ -1724,19 +1749,28 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 
 /* The gates: one small glass dialog reused by every gated package. It reuses
    the shared `.kyrolll-btn` action row and the `.kyrolll-toast`. */
-html.gate-open { overflow: hidden; }
+/* The page behind the dialog is locked (the JS also pins the scroll offset, so
+   iOS cannot jump to the top) and the dialog itself is measured in *dynamic*
+   viewport units — `100vh` on a phone is the large viewport, which is exactly
+   how the unlock button used to end up behind the browser chrome. */
+html.gate-open,
+html.gate-open body { overflow: hidden; overscroll-behavior: none; }
 
 .gate-modal {
   position: fixed;
   inset: 0;
   z-index: 200;
-  display: grid;
-  place-items: center;
-  padding: 20px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  height: 100dvh;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  overscroll-behavior: contain;
 }
 
 .gate-modal__backdrop {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, .82);
   backdrop-filter: blur(6px);
@@ -1750,10 +1784,12 @@ html.gate-open { overflow: hidden; }
 .gate-modal__card {
   position: relative;
   width: min(420px, 100%);
-  max-height: calc(100vh - 60px);
+  max-height: 100%;
   overflow-y: auto;
-  background: #101012;
-  border: 1px solid #48484e;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: #101010;
+  border: 1px solid #484848;
   box-shadow: 0 40px 100px rgba(0, 0, 0, .7);
   padding: 28px 24px 32px;
   text-align: center;
@@ -1791,7 +1827,7 @@ html.gate-open { overflow: hidden; }
   font-size: 11px;
   line-height: 1.6;
   letter-spacing: .04em;
-  color: #c8c8ce;
+  color: #c8c8c8;
 }
 
 .gate-field { display: block; margin-bottom: 12px; text-align: left; }
@@ -1801,16 +1837,18 @@ html.gate-open { overflow: hidden; }
   width: 100%;
   background: #ffffff;
   border: 1px solid #ffffff;
-  color: #0b0b0d;
+  color: #0b0b0b;
   font-family: inherit;
   font-size: 13px;
   letter-spacing: .04em;
   padding: 12px;
   box-sizing: border-box;
-  text-transform: none;
+  /* ALL-CAPS identity: the field renders in the brand voice. Only the value the
+     visitor typed keeps its own casing, which is what travels to the provider. */
+  text-transform: uppercase;
 }
 
-.gate-input::placeholder { color: #9a9aa2; }
+.gate-input::placeholder { color: #9b9b9b; text-transform: uppercase; }
 .gate-input:focus { outline: none; border-color: #ffffff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .3); }
 
 .gate-optin {
@@ -1821,17 +1859,20 @@ html.gate-open { overflow: hidden; }
   text-align: left;
   font-size: 9px;
   letter-spacing: .08em;
-  color: #c8c8ce;
+  color: #c8c8c8;
   cursor: pointer;
 }
 .gate-optin input { flex: 0 0 auto; width: 15px; height: 15px; accent-color: var(--white); }
 
+/* The error line is the one place that has to cut through: monochrome still, but
+   pure white on a faint white wash rather than a hue. */
 .gate-error {
   margin: 4px 0 12px;
-  border: 1px solid #ff5555;
-  color: #ff8080;
+  border: 1px solid #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: .08em;
   line-height: 1.6;
   padding: 9px 10px;
@@ -1996,7 +2037,7 @@ html.gate-open { overflow: hidden; }
   font-size: 8.5px;
   line-height: 1.75;
   letter-spacing: .07em;
-  color: #c8c8ce;
+  color: #c8c8c8;
 }
 .sign-terms__no {
   position: absolute;
@@ -2007,7 +2048,7 @@ html.gate-open { overflow: hidden; }
   color: var(--gray);
 }
 .sign-terms__list { margin: 0 0 10px; padding: 0 0 0 34px; list-style: none; }
-.sign-terms__list li { font-size: 8.5px; line-height: 1.8; letter-spacing: .07em; color: #c8c8ce; }
+.sign-terms__list li { font-size: 8.5px; line-height: 1.8; letter-spacing: .07em; color: #c8c8c8; }
 .sign-terms__list li::before { content: "— "; color: var(--gray); }
 .sign-terms__end {
   margin: 14px 0 0;
@@ -2033,7 +2074,7 @@ html.gate-open { overflow: hidden; }
   transition: background .15s ease, border-color .15s ease, color .15s ease;
 }
 .sign-mode:hover,
-.sign-mode:focus-visible { border-color: #6a6a70; color: var(--white); }
+.sign-mode:focus-visible { border-color: #6a6a6a; color: var(--white); }
 .sign-mode.is-active { background: var(--white); border-color: var(--white); color: var(--black); }
 
 .sign-pad { margin: 0 0 12px; }
@@ -2041,10 +2082,38 @@ html.gate-open { overflow: hidden; }
   display: block;
   width: 100%;
   height: auto;
-  background: #0b0b0d;
+  background: #0b0b0b;
   border: 1px solid rgba(255, 255, 255, .3);
   cursor: crosshair;
+  /* The pad owns the gesture completely: no page scroll, no double-tap zoom, no
+     long-press selection or callout stealing a stroke mid-signature. */
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* ---- The signature sheet: the flower mark behind the signature ---- */
+/* The mark that brands the store closes the licence too — the same resting
+   flower the hero and the PDF use, faint, behind whatever is signed. It is the
+   real artwork (desaturated, pointer-transparent, unselectable), so it can never
+   drift from the brand or be mistaken for content. */
+.sign-sheet { position: relative; }
+.sign-sheet > * { position: relative; z-index: 1; }
+.sign-watermark {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  opacity: .07;
+  pointer-events: none;
+  user-select: none;
+}
+.sign-watermark img, .license-cert__watermark img {
+  width: min(230px, 62%);
+  height: auto;
+  filter: grayscale(1);
 }
 .sign-pad__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
 .sign-pad__hint { font-size: 7.5px; letter-spacing: .22em; color: var(--gray); }
@@ -2061,7 +2130,7 @@ html.gate-open { overflow: hidden; }
   transition: border-color .15s ease, color .15s ease;
 }
 .sign-pad__clear:hover,
-.sign-pad__clear:focus-visible { border-color: #6a6a70; color: var(--white); }
+.sign-pad__clear:focus-visible { border-color: #6a6a6a; color: var(--white); }
 
 /* ---- the download page & the free license ---- */
 
@@ -2085,7 +2154,7 @@ html.gate-open { overflow: hidden; }
   width: min(760px, 130%);
   aspect-ratio: 1;
   transform: translateX(-50%);
-  background: radial-gradient(circle at 50% 44%, rgba(141, 102, 85, .34), rgba(141, 102, 85, .07) 44%, transparent 68%);
+  background: radial-gradient(circle at 50% 44%, rgba(109, 109, 109, 0.34), rgba(109, 109, 109, 0.07) 44%, transparent 68%);
   filter: blur(8px);
   pointer-events: none;
   z-index: 0;
@@ -2219,13 +2288,14 @@ html.gate-open { overflow: hidden; }
 
 /* A file the server does not actually have: dim the row and refuse the click
    rather than handing over something that is not the file. */
-.download-item.is-missing { opacity: .5; border-color: rgba(255, 85, 85, .35); }
-.download-item.is-missing:hover { transform: none; border-color: rgba(255, 85, 85, .35); }
+.download-item.is-missing { opacity: .5; border-color: rgba(121, 121, 121, 0.35); }
+.download-item.is-missing:hover { transform: none; border-color: rgba(121, 121, 121, 0.35); }
 .download-item__btn[disabled] { cursor: not-allowed; }
 
 /* The license: no raw text any more — a certificate block that shows the
    serial the PDF will carry, over one front-and-center PDF action. */
 .license-cert {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -2236,6 +2306,20 @@ html.gate-open { overflow: hidden; }
   border: 1px solid rgba(255, 255, 255, .1);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07);
 }
+/* The certificate's own flower watermark — the same mark as the PDF's LICENSEE
+   block, so the page and the document read as one instrument. */
+.license-cert > *:not(.license-cert__watermark) { position: relative; z-index: 1; }
+.license-cert__watermark {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  opacity: .06;
+  pointer-events: none;
+  user-select: none;
+}
+.license-cert__watermark img { width: min(200px, 52%); }
 .license-cert__kicker {
   font-size: 8px;
   font-weight: 800;
@@ -2361,7 +2445,7 @@ html.gate-open { overflow: hidden; }
   height: clamp(72px, 12vw, 92px);
   margin: 0 auto clamp(16px, 4vw, 22px);
   border-radius: 50%;
-  box-shadow: 0 0 0 rgba(212, 185, 170, 0.4), 0 24px 60px rgba(0, 0, 0, .55);
+  box-shadow: 0 0 0 rgba(190, 190, 190, 0.4), 0 24px 60px rgba(0, 0, 0, .55);
   animation: checkmark-pop .5s cubic-bezier(.25, .8, .25, 1.4) both .12s;
 }
 @keyframes checkmark-pop {
@@ -2401,7 +2485,7 @@ html.gate-open { overflow: hidden; }
 }
 
 /* Empty-state panel (e.g. no beats available). */
-.page-empty { margin-top: 24px; border: 1px dashed #3a3a3f; padding: 40px 20px; text-align: center; }
+.page-empty { margin-top: 24px; border: 1px dashed #3a3a3a; padding: 40px 20px; text-align: center; }
 .page-empty__title { display: block; font-size: clamp(18px, 3vw, 28px); font-weight: 800; letter-spacing: -.02em; }
 .page-empty p { margin: 12px auto 18px; max-width: 44ch; font-size: 10px; line-height: 1.8; color: var(--gray); }
 
@@ -2448,7 +2532,7 @@ html.preloader-armed { overflow-y: hidden; }
   z-index: 400;
   display: none; /* armed by the inline head script when JS runs */
   place-items: center;
-  background: radial-gradient(120% 90% at 50% 38%, #17171c 0%, #0b0b0e 52%, #080809 100%);
+  background: radial-gradient(120% 90% at 50% 38%, #171717 0%, #0b0b0b 52%, #080808 100%);
   opacity: 1;
   pointer-events: auto;
   transition: opacity .55s ease;
@@ -2596,3 +2680,45 @@ html.preloader-armed { overflow-y: hidden; }
   z-index: 201;
 }
 
+/* ---------- 14. Touch: no double-tap zoom, no clipped dialog ------------- */
+
+/* Every interactive control answers on the first tap. Without this a phone adds
+   the ~300 ms double-tap-zoom wait, which is what "the button does not respond,
+   so I tapped it again" actually is. */
+.download-trigger,
+.download-tier,
+.kyrolll-btn,
+.gate-step,
+.sign-mode,
+.sign-pad__clear,
+.gate-optin,
+.license-cert__sign-input {
+  touch-action: manipulation;
+}
+
+@media (max-width: 640px) {
+  /* The dialog takes the phone's whole width (the 16px gutters are wasted on a
+     390px screen) and pins to the top, so a card taller than the screen scrolls
+     inside its own box with its first line always reachable. */
+  .gate-modal {
+    align-items: flex-start;
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .gate-modal__card,
+  .gate-modal__card--sign { width: 100%; padding: 22px 16px 26px; }
+
+  /* A tenth of the viewport goes to the browser chrome: the terms pane is sized
+     from the *small* viewport height so the signature and the unlock button are
+     on screen at the same time as the end of the terms. */
+  .sign-terms { max-height: min(200px, 26svh); }
+  .sign-watermark img { width: min(170px, 54%); }
+
+  /* 16px is the smallest font iOS will not zoom the page for on focus — a zoom
+     mid-signature is what left the dialog half off screen. */
+  .gate-input,
+  .license-cert__sign-input { font-size: 16px; }
+  .sign-pad__canvas { touch-action: none; }
+
+  /* The toast sits above the home indicator rather than under it. */
+  .kyrolll-toast { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); width: max-content; max-width: calc(100% - 24px); }
+}

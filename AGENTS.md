@@ -24,12 +24,37 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   address the visitor submits, which is posted to the newsletter provider (below).
 - **Brand casing.** The wordmark is `KYROIII` (K-Y-R-O-I-I-I) and it is itself all caps, so
   the page-wide uppercase does not change it. Every other visible string — headlines, buttons,
-  labels, gate copy, catalog blurbs and package names, file names, the support page — is
-  authored in ALL CAPS as well, and `body { text-transform: uppercase }` is only the backstop.
-  The two deliberate opt-outs are `.gate-input` (an address must not be shouted at the reader)
-  and the wordmark itself. The PDF is forced again in `toAscii` (`license-pdf.js`), which
-  uppercases before it sanitises; `KYROlll` survives only as an API name
-  (`window.KYROlll_*`), an asset path (`assets/kyrolll-*.png`) and the YouTube handle.
+  labels, gate copy, form fields and their placeholders, catalog blurbs and package names, file
+  names, the support page — is authored in ALL CAPS as well, and `html { text-transform:
+  uppercase }` is the backstop for every text node (`input`/`textarea`/`select`/`button` and
+  `::placeholder` are set explicitly too, because Safari does not reliably inherit the casing
+  into form controls). There are **no casing opt-outs** left: the two `text-transform: none`
+  rules that survive are the wordmark's own layer (its text is already `KYROIII` and the
+  transform would only be a no-op) and the preloader name, for the same reason. Only the
+  *value* a visitor types keeps its own casing — it is what travels to the provider and into
+  the flow URL — while everything rendered is shouted in the brand voice. The PDF is forced
+  again in `toAscii` (`license-pdf.js`), which uppercases before it sanitises; `KYROlll`
+  survives only as an API name (`window.KYROlll_*`), an asset path (`assets/kyrolll-*.png`)
+  and the YouTube handle.
+- **One palette, no hue.** The whole storefront is monochrome: deep matte black `#0B0B0B`,
+  pure white `#FFFFFF` and silver `#888888`, plus their equal-channel grey siblings. Every
+  colour literal in `style.css` is an equal-channel grey — no blue, no green, no pink, no
+  brown — so no border, glow, shadow or state can carry a tint. The raster brand artwork is
+  desaturated at paint time instead of being re-cut, because `npm run build:brand` (which owns
+  those images) needs `sharp`: `body > canvas` (the falling-X marks), `.footer__logo`,
+  `.brand-wordmark__mark`, `.vinyl-record__label` and both watermark images carry
+  `filter: grayscale(1)`, and the `theme-color` metas are `#0b0b0b`. The generated PDF is
+  equal-channel by construction (`license-pdf.js`), and the brand-design test asserts both
+  halves: it reads every colour out of the PDF bytes and every colour out of `style.css`.
+- **The dialog is a phone citizen.** `.gate-modal` is measured in *dynamic* viewport units
+  (`height: 100vh; height: 100dvh`) and the card scrolls inside it, so the unlock button can
+  never hide behind mobile browser chrome; `downloads.js` also pins the page's scroll offset on
+  the body while a gate is open (a plain `overflow: hidden` makes iOS jump to the top) and
+  restores it on close. Inputs render at 16px on phones, so iOS does not zoom the page on
+  focus, and every control on the path carries `touch-action: manipulation` (no 300 ms
+  double-tap-zoom wait) while the signature pad keeps `touch-action: none` (it owns the
+  gesture). One outside-click handler is installed for the life of the page — it used to be
+  installed per gate and only removed on Escape, so every gate left another listener behind.
 - `hero-intro.js` drives the hero scroll storytelling: it publishes a 0 → 1
   scroll progress onto `.brand-hero` as the `--hero-p` custom property (all hero
   movement is `calc()`-ed from it in CSS) and reveals the sections below the fold.
@@ -257,13 +282,22 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   is signed.
 - `showSignStage(beat, pack, email, onUnlocked)` is the last screen of every gate: the terms
   in their own scroll pane (`.sign-terms`), a TYPE / DRAW switch (`.sign-mode`), the signature
-  field (`#sign-name`) or the pad (`.sign-pad__canvas`, pointer events, monochrome white ink,
-  `touch-action: none`), the live stamp (`[data-sign-stamp]`) and the one action that unlocks,
-  `[data-sign-submit]` (**SIGN & UNLOCK**). The button only comes alive once the terms have
-  been read **to the end** — `scrollHeight <= clientHeight`, or the pane scrolled to the
-  bottom — *and* a signature exists (2+ characters typed, or a drawing of 6+ points). The pad
-  keeps at most `SIGN_POINTS` thinned points per stroke and 12 strokes, because the drawing
-  has to fit in a URL. On SIGN & UNLOCK the signature is captured and `finalizeGate` runs.
+  sheet — the flower mark as a faint watermark (`.sign-watermark`) behind the field
+  (`#sign-name`) or the pad (`.sign-pad__canvas`, pointer events, monochrome white ink,
+  `touch-action: none`, DPR-scaled bitmap so the ink is crisp on a retina phone) — the live
+  stamp (`[data-sign-stamp]`) and the one action that unlocks, `[data-sign-submit]`
+  (**SIGN & UNLOCK**). The button only comes alive once the terms have been read **to the
+  end** — `scrollHeight <= clientHeight`, or the pane scrolled to the bottom — *and* a real
+  signature exists: a **FULL name** typed (`isFullName`: 2–4 name parts, each at least two
+  letters, letters only) or a **genuine drawing** (`drawingValid`: `SIGN_INK_MIN` = 8 thinned
+  points spread over at least `SIGN_SPAN_MIN` = 0.3 of the pad's width + height, so a tap, a
+  dot or a two-point flick cannot sign). A single word, a blank line, initials and digits are
+  all refused, and the refusal is enforced again inside the submit handler — so stripping the
+  button's `disabled` attribute (the one thing a script can do) still unlocks nothing. A touch
+  that slides off the pad keeps its stroke (the pointer is captured; only a mouse ends one on
+  `pointerleave`), because a dropped stroke is what made people sign twice. The pad keeps at
+  most `SIGN_POINTS` thinned points per stroke and 12 strokes, because the drawing has to fit
+  in a URL. On SIGN & UNLOCK the signature is captured and `finalizeGate` runs.
 - `downloadUrl(beatId, packageId, email)` is the hand-off to the download page: the URL carries
   a one-shot grant token (`?t=<random hex>`, minted fresh when a gate is passed) and, when there
   is one, the address just submitted (`?email=…`), the signed name (`?sign=…`) and a drawing
@@ -309,8 +343,15 @@ signature blocks** and a footer carrying the support address, the serial, a vect
 `HTTPS://KYROILL.STORE` — held to a **single page** for every package. The LICENSEE block shows
 the signature captured in the gate's sign step: a typed name set large on its rule, or a
 **hand-drawn signature re-emitted as vector strokes** (`drawSignature`, silver, round caps) in
-the same box. The micro-line under that rule records who the issuance went to —
-`SIGNED <date> - <address>` — and the LICENSOR side is `KYROIII`.
+the same box. Behind that block sits the document's second flower — the *same* embedded mark,
+drawn again at `WATERMARK_ALPHA` (0.08) through the `/GS1` `/ExtGState`, so the watermark costs
+the file nothing and cannot carry a hue. The micro-line under that rule records who the
+issuance went to — `SIGNED <date> - <address>` — and the LICENSOR side is `KYROIII`.
+
+Object numbering is positional and easy to break: 1 catalog, 2 pages, 3 Helvetica, 4
+Helvetica-Bold, **5 the watermark's `/ExtGState`, 6 the flower image**, then two objects per
+page from `FIRST_PAGE_OBJ` (7). Adding or removing an object above the pages means moving that
+constant, the `/GS1`/`/Im1` resource references and the `total` xref count together.
 
 Three rules hold that document together and are easy to break by accident:
 
@@ -413,8 +454,10 @@ Tests that ship with the repo:
   comment step is gone). A YouTube step is watched through its hold: it is not done the moment
   it is clicked, it reports VERIFYING, and only then draws its tick. Every gate must then reach
   the REVIEW & SIGN stage, where the test proves the order is enforced — SIGN & UNLOCK is locked
-  with a signature alone until the terms pane is scrolled to the end — and it signs `Jordan Vega`
-  (typed) or inks the pad with real pointer strokes (hand-drawn, on the pro flow), then lands on
+  with a signature alone until the terms pane is scrolled to the end, a single-word name
+  (`Madonna`) stays locked and is *still* refused after its `disabled` attribute is stripped —
+  and it signs `Jordan Vega` (typed) or inks the pad with real pointer strokes (hand-drawn, on the
+  pro flow), then lands on
   the download page: its 3D flower branding, the metadata chips, the file rows under their
   studio names (`KYROIII - FLESH (130 BPM - AM).mp3`, `… .wav`, `… - TRACKED STEMS.zip`) and the
   certificate block (a minted `KYRO-YYYY-FLESH-NNNNNN` serial, no raw text). It then downloads
@@ -426,7 +469,10 @@ Tests that ship with the repo:
   `HTTPS://KYROILL.STORE`, the LICENSEE block carrying the signature and the address the flow
   submitted, `PAGE 1 OF 1` and three distinct serials — straight from the PDF bytes. The
   hand-drawn signature is verified as real vector ink: multi-point paths inside the LICENSEE
-  column, which no typed license contains. Re-signing on the download page then downloads again,
+  column, which no typed license contains. The flower watermark is asserted in all three places it
+  is stamped — the signature sheet (`.sign-watermark img`), the certificate block
+  (`.license-cert__watermark img`) and the PDF (the second `/Im1 Do`, drawn through `/GS1 gs`).
+  Re-signing on the download page then downloads again,
   proving the new name replaces the old one in caps on the next issuance. It also
   asserts the gate posts a valid address to the configured newsletter provider (and never a
   malformed one, and never on a re-opened gate), that a package passed on the download page is
@@ -444,8 +490,9 @@ YouTube subscribe + like for the WAV and the exclusive — there is no comment s
 lead-capture courtesies rather than enforcement — the files themselves are public and nothing on
 the server blocks them, and the grant token that skips the second ask is just a URL parameter.
 The strict half of "genuine interaction" is what a static page can actually enforce: a trusted
-click and a real dwell on each step (`STEP_HOLD_MS`), plus a signature captured in the sign
-step. A departure to the opened tab only ever *shortens* that hold — it is recorded, never
+click and a real dwell on each step (`STEP_HOLD_MS`), plus a **full name and a signature**
+captured in the sign step (a single word, a blank field and a token dot are all refused before
+the unlock button will move, and `submitGate` refuses them again if the attribute is stripped). A departure to the opened tab only ever *shortens* that hold — it is recorded, never
 required — because a blocked popup would otherwise strand a real visitor, and because a
 headless browser reports no blur at all (measured, so no check can depend on it).
 The gate is remembered for the current page view only (`grants`), so a visitor who passes it and
