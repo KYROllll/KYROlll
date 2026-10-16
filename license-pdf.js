@@ -663,13 +663,6 @@
     });
   }
 
-  /* Warm the flower ahead of the click. The sign step collects the signature
-     live, so by the time the visitor signs the only remaining work is the
-     document itself — which then builds inside the click. */
-  function primeLicenseFlower() {
-    return flowerJpeg();
-  }
-
   function saveBuilt(beat, pack, serial, signature, flower, downloads) {
     const key = cacheKey(beat, pack, serial, signature);
     let entry = cache.get(key);
@@ -738,7 +731,6 @@
   window.KYROlll_LICENSE_PDF = {
     makeLicenseId: makeLicenseId,
     normalizeSignature: normalizeSignature,
-    primeLicenseFlower: primeLicenseFlower,
     primeLicensePDF: primeLicensePDF,
     generateLicensePDF: generateLicensePDF
   };
