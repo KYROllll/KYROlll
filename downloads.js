@@ -253,6 +253,10 @@
 
   /* ------------------------------------------------------ menu */
   let activeMenu = null;
+  /* The breathing room the drawer keeps from the visible edge of the viewport.
+     Both the positioner and the scroll that makes room for the drawer measure
+     with it, so the two can never disagree. */
+  const MENU_EDGE = 12;
   /* The viewport the drawer must fit inside. On a phone the visual viewport is
      the honest measurement — it shrinks with the keyboard and moves with the
      pinch — so the drawer is only ever clamped to what the visitor can see. */
@@ -261,6 +265,14 @@
     const top = vv ? vv.offsetTop : 0;
     const height = (vv && vv.height) || window.innerHeight;
     return { top: top, bottom: top + height };
+  }
+  /* How a page scroll is asked for: the storefront's own motion switch — the
+     `motion-paused` class `brand-logo.js` owns — and the OS preference decide
+     whether the section glides into view or simply lands there. */
+  function scrollBehavior() {
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce || document.documentElement.classList.contains("motion-paused")) return "auto";
+    return "smooth";
   }
   /* The drawer is rendered inside the trigger's own container, so it is part of
      the same element as the button instead of a panel floating over the page:
@@ -311,6 +323,12 @@
       });
     });
     trigger.setAttribute("aria-expanded", "true");
+    positionMenu();
+    /* Give the drawer the room its full list needs before it unfolds, so the
+       whole menu lands in view (see `revealDrawerRoom`). The instant branch of
+       that scroll has already happened by here, so the drawer is measured again
+       against where the page now sits. */
+    revealDrawerRoom();
     positionMenu();
     /* Re-check available room while scrolling so the attached drawer keeps its
        full visible height without ever detaching from its trigger. */
@@ -376,7 +394,7 @@
     const box = viewportBox();
     const rect = anchor.getBoundingClientRect();
     const hostRect = host.getBoundingClientRect();
-    const edge = 12;
+    const edge = MENU_EDGE;
     const anchorLeft = rect.left - hostRect.left - host.clientLeft;
     const anchorTop = rect.top - hostRect.top - host.clientTop;
     el.style.left = anchorLeft + "px";
@@ -402,6 +420,46 @@
     }
     const room = Math.max(0, up ? above : below);
     el.style.maxHeight = Math.min(natural, room) + "px";
+    /* The measurement the scroll below works from, so it never re-measures and
+       can never disagree with the decision just taken here. */
+    activeMenu.geometry = { natural: natural, up: up };
+  }
+
+  /* The one page scroll this module makes, and only when it buys something: the
+     page glides by the smallest amount that brings the drawer's *whole* box
+     inside the visible viewport, so the full list — MP3 lease, WAV lease, Pro
+     package — lands in view instead of the visitor having to scroll inside the
+     drawer for the last tier, and a button that sits low (or partly off the
+     fold) still hangs its drawer where it can be read.
+     It is a no-op when the drawer is already whole, and when the drawer is taller
+     than the visible band can ever be (`positionMenu` keeps a margin at each end,
+     so nothing the page does can fit it): there the drawer keeps the capped,
+     internally scrollable height it already has. `positionMenu` still runs on
+     every scroll frame, so the drawer can never overhang while the page is
+     moving. */
+  function revealDrawerRoom() {
+    const plan = activeMenu && activeMenu.geometry;
+    if (!plan) return;
+    const box = viewportBox();
+    const rect = activeMenu.anchor.getBoundingClientRect();
+    const edge = MENU_EDGE;
+    /* Where the drawer's own box lands, measured off the button it is welded to:
+       above the button when it unfolds upwards, below it otherwise. A scroll
+       moves both boxes together, so these two overflows are exactly what the
+       drawer is missing at each end. */
+    const top = plan.up ? rect.top - plan.natural : rect.bottom;
+    const bottom = plan.up ? rect.top : rect.bottom + plan.natural;
+    /* A drawer taller than the visible band (the viewport minus a margin at each
+       end) can never be made whole by scrolling — only its capped, internally
+       scrollable height can hold it — so the page stays exactly where it is. That
+       also guarantees at most one of the two overflows below is positive, which is
+       what makes this a single, exact correction rather than a chase. */
+    if (plan.natural > (box.bottom - box.top) - 2 * edge) return;
+    const overTop = (box.top + edge) - top;
+    const overBottom = bottom - (box.bottom - edge);
+    const delta = overBottom > 0 ? overBottom : overTop > 0 ? -overTop : 0;
+    if (!delta) return;
+    window.scrollBy({ top: delta, behavior: scrollBehavior() });
   }
 
   /* escapeHTML for gate body rendering */

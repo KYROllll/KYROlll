@@ -1636,9 +1636,17 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
      trigger's own measured width, which is what makes the drawer exactly as wide
      as the button it unfolds from. */
   width: 100%;
-  background: #101010;
-  border: 1px solid #484848;
-  /* The seam with the button: one continuous white edge around the pair. */
+  /* A glass sheet, not an opaque slab: it wears the same treatment as the detail
+     card it unfolds from, so the drawer reads as the card catching one more pane
+     of light instead of a separate solid panel. Equal-channel greys only — the
+     blur does all the work, per the storefront's monochrome rule. */
+  background:
+    radial-gradient(120% 100% at 50% 0%, rgba(255, 255, 255, .1), rgba(255, 255, 255, .02) 58%),
+    rgba(11, 11, 11, .84);
+  backdrop-filter: blur(12px) saturate(1.15);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  /* Crisp silver edges with the pure-white seam along the button's own edge. */
+  border: 1px solid var(--gray);
   border-top-color: var(--white);
   box-shadow: 0 30px 80px rgba(0, 0, 0, .7), 0 0 34px rgba(255, 255, 255, .13);
   transform-origin: top center;
@@ -1659,7 +1667,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .download-menu--up {
   top: auto;
   bottom: 100%;
-  border-top-color: #484848;
+  border-top-color: var(--gray);
   border-bottom-color: var(--white);
   transform-origin: bottom center;
   transform: translate3d(0, 6px, 0);

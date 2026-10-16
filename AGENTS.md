@@ -275,7 +275,16 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   the toast (260) live on `<body>` and win from the root stacking context — and while closed it
   is also `visibility: hidden`, so an unopened drawer is inert to pointer and keyboard, while
   every `.download-tier` re-states `pointer-events: auto` so a tap always lands on the option
-  itself. The direction is decided on the drawer's *real*
+  itself. The drawer is a **glass** sheet — the same `backdrop-filter` treatment the detail card
+  wears (equal-channel greys only, per the monochrome rule), with a silver edge and the pure-white
+  seam along the button. `openMenu` also makes room for it: `positionMenu` hands its measurement
+  (`{ natural, up }`) to `revealDrawerRoom`, which scrolls the page by the smallest amount that
+  brings the drawer's *whole* box inside the visible viewport — so a short window gives the three
+  packages their own room instead of a drawer the visitor has to scroll inside. It is a no-op when
+  the drawer is already whole and when the drawer is taller than the visible band at any scroll
+  position (there the capped, internally scrollable height stands); the scroll is `smooth` unless
+  `prefers-reduced-motion` or the store's own `motion-paused` switch asks for `auto`.
+  The direction is decided on the drawer's *real*
   measured height (`natural > below && above > below`), never on a guess: a drawer that misses
   the room below by a few pixels turns around instead of capping itself and making the visitor
   scroll for the last tier. **The trigger is a switch**: a tap on the trigger that owns the open
