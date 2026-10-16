@@ -5,9 +5,9 @@
  * helpers, with no DOM access, so it is safe to include before anything else.
  *
  * Every beat is 100% free. There is no cart, no checkout and no payment
- * gateway: each package either downloads instantly or is unlocked behind a
- * lightweight gate (a YouTube subscribe + like, or an email — see
- * `downloads.js`). */
+ * gateway: every package is unlocked behind a lightweight gate (an email, plus
+ * a YouTube subscribe + like for the WAV and the exclusive — see
+ * `downloads.js`). Nothing is remembered, so each click asks again. */
 (function () {
   "use strict";
 
@@ -16,20 +16,20 @@
   // the channel and asks to subscribe.
   window.KYROlll_YOUTUBE_CHANNEL = "https://www.youtube.com/@KYROllllll?sub_confirmation=1";
 
-  // Where the email gate delivers a new subscriber. The endpoint is a form POST
-  // URL — the gate posts to it through a hidden iframe, so the page never
-  // navigates. Formspree is wired up here; any provider that accepts a form POST
-  // (Buttondown's embed endpoint, a Beehiiv subscribe form, …) works by putting
-  // its action URL in `endpoint` (or, for Buttondown, just its `username`). Left
-  // blank, the gate still unlocks the files and only remembers the address
-  // locally.
+  // Where the email gate delivers a new subscriber. The gate `fetch`es this URL
+  // with `Accept: application/json`, so the submission is recorded by the
+  // provider instead of navigating the page. Formspree is wired up here; any
+  // provider that accepts a form POST and answers with CORS (Buttondown's embed
+  // endpoint, a Beehiiv subscribe form, …) works by putting its action URL in
+  // `endpoint` (or, for Buttondown, just its `username`). Left blank, the gate
+  // still unlocks the files and sends nothing.
   window.KYROlll_NEWSLETTER = { provider: "formspree", username: "", endpoint: "https://formspree.io/f/xgaoppwo" };
 
-  // The three free ways a beat leaves the store. `gate` is the initial behaviour:
-  //   "email"    → Email input + submit → instant unlock + PDF.
-  //   "youtube"  → YouTube Sub & Like (two steps), then Email input + submit → unlock + PDF.
-  //   "exclusive"→ YouTube Sub & Like → Comment verification → Email with mandatory opt-in
-  //     checkbox → submit → unlock Stems+MP3+WAV+PDF. No signature prompt.
+  // The three free ways a beat leaves the store. `gate` is the whole behaviour:
+  //   "email"    → Email input + mandatory opt-in → submit → unlock + PDF.
+  //   "youtube"  → YouTube Sub & Like (two steps), then the same email form → unlock + PDF.
+  //   "exclusive"→ YouTube Sub & Like → Comment verification → the same email form
+  //     (mandatory opt-in) → submit → unlock Stems+MP3+WAV+PDF. No signature prompt.
   // `includes` is the plain-language list of what the package hands over; it is
   // printed in the generated license (see `downloads.js`).
   window.KYROlll_PACKAGES = [
@@ -38,7 +38,7 @@
       name: "MP3 LEASE",
       tag: "EMAIL GATE",
       gate: "email",
-      blurb: "Enter your email to unlock instant download.",
+      blurb: "Enter your email to unlock the download instantly.",
       includes: ["Tagged MP3 audio file", "Free license"]
     },
     {

@@ -61,6 +61,24 @@ async function setupPage(options = {}) {
 const shot = (page, name) => page.screenshot({ path: join(tmpdir(), 'opencode', `kyrolll-${name}.png`), fullPage: true });
 const noOverflow = async page => assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'horizontal overflow');
 const CARD = '#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af';
+const BEAT_ID = '6c56eda2-df4a-45b0-b9b7-68f8efdbb1af';
+const PROVIDER = 'https://formspree.io/f/xgaoppwo';
+
+// Nothing about a gate may be remembered: the storefront writes no gate state
+// at all (no unlock set, no remembered address).
+const noGateMemory = async (page, label) => {
+  const storage = await page.evaluate(() => ({
+    local: Object.keys(localStorage),
+    session: Object.keys(sessionStorage),
+  }));
+  assert.deepEqual(storage.local, [], `${label}: localStorage stays empty`);
+  assert.deepEqual(storage.session, [], `${label}: sessionStorage stays empty`);
+};
+
+// Every string drawn on a PDF page, unescaped — the material for the ALL-CAPS
+// check (structural tokens like `endobj` are not text and are irrelevant).
+const pdfRuns = (text) => [...text.matchAll(/\(((?:[^()\\]|\\.)*)\) Tj/g)]
+  .map(m => m[1].replace(/\\([()\\])/g, '$1'));
 
 // Open the beat page, open the package menu and pick a package.
 async function pickPackage(page, packageId) {
@@ -112,12 +130,35 @@ try {
   await shot(direct, 'beat-detail');
   await direct.close();
 
-  // Package 1 — MP3 Lease: instant, no gate. The menu leads straight to the
-  // clean download page, which lists the tagged MP3 and issues the license as
-  // a PDF (no raw text preview, no .txt, no copy button).
+  // Package 1 — MP3 Lease: the email gate. It asks from scratch every single
+  // time: the submit stays locked until the address is valid AND the mandatory
+  // opt-in is ticked, a malformed address is refused (and never posted), and a
+  // valid one unlocks the clean download page — the tagged MP3 plus the PDF
+  // license (no raw text preview, no .txt, no copy button).
+  const serials = [];
   const mp3Page = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce', acceptDownloads: true });
   await pickPackage(mp3Page, 'mp3');
+  await mp3Page.locator('.gate-modal').waitFor();
+  assert.equal(await mp3Page.locator('#gate-optin').isChecked(), true, 'the opt-in starts ticked');
+  assert.equal(await mp3Page.locator('#gate-email').inputValue(), '', 'no remembered address is prefilled');
+  assert.equal(await mp3Page.locator('[data-gate-submit]').isDisabled(), true, 'no address, no unlock');
+  await mp3Page.locator('#gate-email').fill('not-an-email');
+  await mp3Page.locator('#gate-email').press('Enter');
+  assert.equal(await mp3Page.locator('#gate-error').isVisible(), true);
+  assert.equal(subscribeRequests.length, 0, 'a malformed address is never sent to the provider');
+  await mp3Page.locator('#gate-optin').uncheck();
+  await mp3Page.locator('#gate-email').fill('mp3-buyer@example.com');
+  assert.equal(await mp3Page.locator('[data-gate-submit]').isDisabled(), true, 'the opt-in is mandatory');
+  await mp3Page.locator('#gate-optin').check();
+  assert.equal(await mp3Page.locator('[data-gate-submit]').isDisabled(), false);
+  await mp3Page.locator('[data-gate-submit]').click();
   await mp3Page.waitForURL(/download\.html\?beat=.*&package=mp3/);
+  await noGateMemory(mp3Page, 'after the MP3 gate');
+  assert.equal(subscribeRequests.length, 1, 'the valid address is posted to the provider');
+  assert.equal(subscribeRequests[0].url, PROVIDER, 'posted to the configured Formspree endpoint');
+  assert.match(subscribeRequests[0].body, /email=mp3-buyer%40example\.com/);
+  assert.match(subscribeRequests[0].body, /opt_in=yes/);
+  assert.match(subscribeRequests[0].body, /embed=1/);
   assert.match(await mp3Page.title(), /MP3 LEASE/);
   assert.equal(await mp3Page.locator('.dl-hero__flower').count(), 1); // the 3D flower branding
   assert.equal(await mp3Page.locator('.download-item').count(), 1); // the tagged MP3 (license is its own panel)
@@ -130,6 +171,7 @@ try {
   assert.equal(await mp3Page.locator('[data-license-pdf]').count(), 1);
   const serial = await mp3Page.locator('#license-serial').innerText();
   assert.match(serial, /^KYRO-\d{4}-FLESH-\d{6}$/);
+  serials.push(serial);
   const [mp3] = await Promise.all([
     mp3Page.waitForEvent('download'),
     mp3Page.locator('[data-file-index="0"]').click(),
@@ -147,45 +189,80 @@ try {
   assert.equal(pdfText.slice(0, 5), '%PDF-');
   assert(pdfText.includes('%%EOF'));
   assert(pdfText.includes(serial), 'the serial shown on the page is printed in the PDF');
-  assert(pdfText.includes('Prod. by KYROIII')); // the one credit rule
+  assert(pdfText.includes('PROD. BY KYROIII')); // the one credit rule
   assert(pdfText.includes('COMMERCIAL')); // commercial / profit use is granted
   assert(pdfText.includes('NON-PROFIT'));
   assert(pdfText.includes('CERTIFICATE OF FREE LICENSE'));
-  assert(pdfText.includes('Tagged MP3 audio file')); // this package's includes
+  assert(pdfText.includes('TAGGED MP3 AUDIO FILE')); // this package's includes
   assert(pdfText.includes('Im1 Do'), 'the flower mark is embedded in the header');
-  assert(pdfText.includes('PAGE 1 OF 1'), 'document-control footer');
+  assert(pdfText.includes('PAGE 1 OF 1'), 'document-control footer, one page for every package');
+  // Strict ALL CAPS branding: no lowercase letter survives anywhere in the doc.
+  assert.deepEqual(pdfRuns(pdfText).filter(run => /[a-z]/.test(run)), [], 'every PDF string is uppercase');
+  // Immaculate signatures: both sides pre-filled, the licensee with the address
+  // submitted at the gate. (Parentheses are escaped by the PDF writer.)
+  assert(pdfText.includes('MP3-BUYER@EXAMPLE.COM'), 'the LICENSEE signature carries the submitted address');
+  assert(pdfText.includes('LICENSOR \\(KYROIII\\)'), 'the LICENSOR signature block');
+  assert(pdfText.includes('SIGNED '), 'the licensee block is dated');
+  // Monochromatic cyberpunk palette: matte black #0B0B0B, white type and
+  // silver #888888 rules — and no blue channel anywhere.
+  assert(pdfText.includes('0.043 0.043 0.043 rg'), 'deep matte black field (#0B0B0B)');
+  assert(pdfText.includes('0.533 0.533 0.533'), 'silver frame (#888888)');
+  // `x y z rg` for fills, `x y z width RG` for strokes.
+  const colors = [...pdfText.matchAll(/(?:([\d.]+) ([\d.]+) ([\d.]+) rg)|(?:([\d.]+) ([\d.]+) ([\d.]+) [\d.]+ RG)/g)]
+    .map(m => [m[1] ?? m[4], m[2] ?? m[5], m[3] ?? m[6]]);
+  assert(colors.length > 0, 'the document paints its own colors');
+  const tinted = colors.filter(c => c[0] !== c[1] || c[1] !== c[2]);
+  assert.equal(tinted.length, 0, `every color is an equal-channel grey (zero blue): ${JSON.stringify(tinted)}`);
+  // Clean footer: vector barcode + the official store link, uppercase.
+  assert(pdfText.includes('HTTPS://KYROILL.STORE'), 'the store link is printed in the footer');
+  assert(/1 1 1 rg\n[\d.]+ [\d.]+ [\d.]+ [\d.]+ re f/.test(pdfText), 'vector barcode drawn in the footer');
   await shot(mp3Page, 'download-mp3');
   await mp3Page.close();
 
   // Package 2 — Standard WAV Lease: the YouTube gate. Both steps must be opened
   // before the unlock enables, then the page lists the MP3 + WAV.
-  const wavPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce' });
+  const wavPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce', acceptDownloads: true });
   await pickPackage(wavPage, 'wav');
   await wavPage.locator('.gate-modal').waitFor();
   assert.equal(await wavPage.locator('.gate-step').count(), 2);
   assert.equal(await wavPage.locator('[data-gate-submit]').isDisabled(), true);
   await wavPage.locator('[data-gate-step="0"]').click();
   await wavPage.locator('[data-gate-step="1"]').click();
+  assert.equal(await wavPage.locator('[data-gate-submit]').isDisabled(), true, 'the two steps alone never unlock — the email is still required');
+  await wavPage.locator('#gate-email').fill('wav-buyer@example.com');
   assert.equal(await wavPage.locator('[data-gate-submit]').isDisabled(), false);
   await wavPage.locator('[data-gate-submit]').click();
   await wavPage.waitForURL(/package=wav/);
+  assert.equal(subscribeRequests.length, 2, 'the WAV gate posts its address too');
   assert.match(await wavPage.locator('#download-list').innerText(), /HIGH-QUALITY WAV/i);
   assert.equal(await wavPage.locator('.download-item').count(), 2); // tagged MP3 + high-quality WAV
   // The license panel is the same certificate block on every package: serial
   // minted, one PDF action, no raw text.
-  assert.match(await wavPage.locator('#license-serial').innerText(), /^KYRO-\d{4}-FLESH-\d{6}$/);
+  const wavSerial = await wavPage.locator('#license-serial').innerText();
+  assert.match(wavSerial, /^KYRO-\d{4}-FLESH-\d{6}$/);
+  serials.push(wavSerial);
   assert.equal(await wavPage.locator('#license-view').count(), 0);
   assert.equal(await wavPage.locator('.download-list__empty').count(), 0);
+  // This package's own license is stamped with this flow's address.
+  const [wavPdf] = await Promise.all([
+    wavPage.waitForEvent('download'),
+    wavPage.locator('[data-license-pdf]').click(),
+  ]);
+  const wavText = (await readFile(await wavPdf.path())).toString('latin1');
+  assert(wavText.includes(wavSerial), 'the WAV license carries its own serial');
+  assert(wavText.includes('WAV-BUYER@EXAMPLE.COM'), 'the WAV license carries its own licensee');
+  assert.deepEqual(pdfRuns(wavText).filter(run => /[a-z]/.test(run)), [], 'the WAV license is uppercase too');
   await shot(wavPage, 'download-wav');
   await wavPage.close();
 
   // Package 3 — Exclusive / Pro: the email gate. A malformed address is refused
   // (and the opt-in is on by default); a valid one unlocks the stems package and
   // is posted to the configured newsletter provider.
-  const proPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce' });
+  const proPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce', acceptDownloads: true });
   await proPage.goto(`${url}/?beat=flesh`);
   const endpoint = await proPage.evaluate(() => window.KYROlll_NEWSLETTER && window.KYROlll_NEWSLETTER.endpoint);
   assert.match(endpoint, /^https:\/\//, 'a newsletter provider endpoint is configured');
+  assert.equal(endpoint, PROVIDER, 'the Formspree endpoint the gate posts to');
   await proPage.locator(`${CARD} .download-trigger`).click();
   await proPage.locator('.download-menu.is-open').waitFor();
   await proPage.locator('.download-tier[data-package="exclusive"]').click();
@@ -193,22 +270,59 @@ try {
   assert.equal(await proPage.locator('#gate-optin').isChecked(), true);
   // The email gate is a real <form> pointing at that provider endpoint.
   assert.equal(await proPage.locator('[data-gate-form]').getAttribute('action'), endpoint);
+  assert.equal(await proPage.locator('[data-gate-form]').getAttribute('method'), 'post');
+  await proPage.locator('[data-gate-step="0"]').click();
+  await proPage.locator('[data-gate-step="1"]').click();
+  await proPage.locator('#gate-comment').fill('subscribed + liked, this beat is hard');
   await proPage.locator('#gate-email').fill('not-an-email');
-  await proPage.locator('[data-gate-submit]').click();
+  await proPage.locator('#gate-email').press('Enter');
   assert.equal(await proPage.locator('#gate-error').isVisible(), true);
-  assert.equal(subscribeRequests.length, 0, 'a malformed address is never sent to the provider');
+  assert.equal(subscribeRequests.length, 2, 'a malformed address is never sent to the provider');
   await proPage.locator('#gate-email').fill('producer@example.com');
   await proPage.locator('[data-gate-submit]').click();
   await proPage.waitForURL(/package=exclusive/);
-  assert.equal(subscribeRequests.length, 1, 'the valid address is posted to the newsletter provider');
-  assert.equal(subscribeRequests[0].url, endpoint, 'posted to the configured provider endpoint');
-  assert.match(subscribeRequests[0].body, /email=producer%40example\.com/);
-  assert.match(subscribeRequests[0].body, /embed=1/);
+  assert.equal(subscribeRequests.length, 3, 'the valid address is posted to the newsletter provider');
+  assert.equal(subscribeRequests[2].url, endpoint, 'posted to the configured provider endpoint');
+  assert.match(subscribeRequests[2].body, /email=producer%40example\.com/);
+  assert.match(subscribeRequests[2].body, /embed=1/);
   assert.match(await proPage.locator('#download-list').innerText(), /TRACKED STEMS/i);
   assert.equal(await proPage.locator('.download-item').count(), 3); // MP3 + WAV + stems (license is its own panel)
-  assert.match(await proPage.locator('#license-serial').innerText(), /^KYRO-\d{4}-FLESH-\d{6}$/);
+  const proSerial = await proPage.locator('#license-serial').innerText();
+  assert.match(proSerial, /^KYRO-\d{4}-FLESH-\d{6}$/);
+  serials.push(proSerial);
   assert.equal(await proPage.locator('#license-view').count(), 0);
+  // Every issuance mints its own serial — no two licenses ever share an id.
+  assert.equal(new Set(serials).size, serials.length, 'no two licenses share a serial');
+  const [proPdf] = await Promise.all([
+    proPage.waitForEvent('download'),
+    proPage.locator('[data-license-pdf]').click(),
+  ]);
+  const proText = (await readFile(await proPdf.path())).toString('latin1');
+  assert(proText.includes('PRODUCER@EXAMPLE.COM'), 'the exclusive license is signed with the submitted address');
+  assert(proText.includes('PAGE 1 OF 1'), 'the exclusive package still fits one page');
+
+  // Fresh state every time: the very browser that just unlocked this package is
+  // asked again, from scratch, with nothing remembered and nothing written.
+  await proPage.goto(`${url}/?beat=flesh`);
+  await proPage.locator(`${CARD} .download-trigger`).click();
+  await proPage.locator('.download-menu.is-open').waitFor();
+  await proPage.locator('.download-tier[data-package="exclusive"]').click();
+  await proPage.locator('.gate-modal').waitFor();
+  assert.equal(await proPage.locator('#gate-email').inputValue(), '', 'the address is never remembered');
+  assert.equal(await proPage.locator('#gate-comment').inputValue(), '', 'the comment is never remembered');
+  assert.equal(await proPage.locator('[data-gate-submit]').isDisabled(), true, 'the gate starts closed again');
+  assert.equal(subscribeRequests.length, 3, 're-opening a gate posts nothing');
+  await noGateMemory(proPage, 'after three gates in one browser');
   await proPage.close();
+
+  // A cold download link (no grant token from a gate) is gated over the page,
+  // so the flow is identical from any entry point.
+  const coldPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce' });
+  await coldPage.goto(`${url}/download.html?beat=${BEAT_ID}&package=exclusive`);
+  await coldPage.locator('.gate-modal').waitFor();
+  assert.equal(await coldPage.locator('#gate-email').inputValue(), '');
+  assert.match(await coldPage.locator('#download-list').innerText(), /UNLOCK THIS PACKAGE/i);
+  await coldPage.close();
 
   // A gate closes on Escape wherever focus sits (the YouTube gate focuses
   // nothing), and the page is released back to the storefront.
@@ -230,7 +344,7 @@ try {
   await playback.close();
 
   assert.deepEqual(errors, []);
-  console.log('Passed storefront layout, tagged audio preview, and the free-download menu + all three gates.');
+  console.log('Passed storefront layout, tagged audio preview, and the free-download menu + all three gates (fresh every time, Formspree posts and an ALL-CAPS monochrome PDF license).');
 } finally {
   await browser?.close();
   server.close();

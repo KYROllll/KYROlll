@@ -1,18 +1,22 @@
 /* KYROlll — the clean download page.
+ * * `download.html?beat=<id>&package=<id>` is where every package lands once its
+ * gate has been passed: the 3D flower, a glass hero, one download row per file
+ * and the license panel. The license itself is never shown as raw text — it is
+ * issued as a PDF from `license-pdf.js`, with a unique serial the page mints up
+ * front so the id on screen is the id in the document. There is no backend —
+ * the files are public, so the gate is a courtesy.
  *
- * `download.html?beat=<id>&package=<id>` is where every package lands once it
- * is unlocked: the 3D flower, a glass hero, one download row per file and the
- * license panel. The license itself is never shown as raw text — it is issued
- * as a PDF from `license-pdf.js`, with a unique serial the page mints up front
- * so the id on screen is the id in the document. A direct link to a gated
- * package this browser has not unlocked re-opens that package's gate over the
- * page, so the flow is safe from any entry point. There is no backend — the
- * files are public, so the gate is a courtesy, and everything it remembers
- * stays in `localStorage`.
+ * NOTHING IS REMEMBERED HERE EITHER. There is no `localStorage`, no
+ * `sessionStorage` and no unlock set: the page only trusts the one-shot grant
+ * token (`?t=…`) that `downloads.js` mints when a gate is passed in this very
+ * flow. Arriving without it — a bookmark, a shared link, a fresh browser — the
+ * package's gate opens over the page and asks again, from scratch.
  *
- * The licensee name/email stamped in the PDF is pulled automatically from
- * localStorage (the address entered at the gate) — no interactive signature
- * modal is needed, so PDF generation can never break on a missing name. */
+ * The licensee signature is stamped with the address submitted at that gate,
+ * carried in this flow's query string (`?email=…`) — no storage and no
+ * interactive signature modal, so PDF generation can never break on a missing
+ * name.
+ */
 (function () {
   "use strict";
 
@@ -23,6 +27,14 @@
   const params = new URLSearchParams(location.search);
   const beat = helpers() && helpers().beatById(params.get("beat") || "");
   const pack = helpers() && helpers().packageById(params.get("package") || "");
+
+  /* The one-shot grant token: proof that a gate was passed a moment ago, in
+     this flow. It is never written down, so a cold link gets the gate. */
+  const granted = !!params.get("t");
+
+  /* The address submitted at that gate — the LICENSEE signature in the PDF. */
+  let licensee = String(params.get("email") || "").trim();
+  const licenseeName = () => licensee;
 
   const kickerEl = document.getElementById("download-kicker");
   const titleEl = document.getElementById("download-title");
@@ -37,17 +49,6 @@
      id shown here is exactly the id printed in the document — and the prebuilt
      blob is cached under that same serial. */
   const serial = (window.KYROlll_LICENSE_PDF && beat && window.KYROlll_LICENSE_PDF.makeLicenseId(beat)) || "";
-
-  /* The licensee name stamped in the PDF: auto-pulled from the remembered
-     email/address the visitor entered at the gate. No signature modal. */
-  function licenseeName() {
-    try {
-      const stored = localStorage.getItem("kyrolll_licensee");
-      if (stored) return stored;
-    } catch (err) {}
-    const email = (downloads() && downloads().readEmail ? downloads().readEmail() : "") || "";
-    return email || "";
-  }
 
   function fileRowHTML(item, index) {
     return (
@@ -150,8 +151,8 @@
     licenseWired = true;
     pdfBtn.addEventListener("click", (event) => {
       if (event && typeof event.preventDefault === "function") event.preventDefault();
-      // Stamp the licensee name/email automatically from localStorage —
-      // no interactive signature modal is needed.
+      // Stamp the LICENSEE signature with the address submitted at the gate in
+      // this flow — read live, so a gate passed on this page is included.
       window.KYROlll_LICENSE_PDF.generateLicensePDF(beat, pack, d, serial, licenseeName());
     });
   }
@@ -174,15 +175,20 @@
       prebuildLicense();
       showLicensePanel();
       const d = downloads();
-      // A gated package only renders its files once this browser has unlocked
-      // it; otherwise the gate opens over the page and reveals them on success.
-      if (d && pack.gate !== "instant" && !d.isUnlocked(beat.id, pack.id)) {
+      // Without the grant token from a just-passed gate this is a cold entry
+      // point, so the package's gate opens over the page — nothing about this
+      // browser is consulted, because nothing about it is remembered.
+      if (d && pack.gate !== "instant" && !granted) {
         kickerEl.textContent = pack.name;
         titleEl.textContent = beat.title;
         subEl.textContent = "One quick step and your files unlock.";
         metaEl.textContent = beat.bpm + " BPM // " + beat.key;
         listEl.innerHTML = '<div class="download-list__empty">UNLOCK THIS PACKAGE TO REVEAL YOUR FILES.</div>';
-        d.openGate(beat, pack, render);
+        d.openGate(beat, pack, (b, p, email) => {
+          if (email) licensee = String(email).trim();
+          prebuildLicense();
+          render();
+        });
       } else {
         render();
       }

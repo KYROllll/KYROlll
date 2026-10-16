@@ -1,17 +1,26 @@
 /* KYROlll — the free-download layer.
- * 
- * Unifies the "DOWNLOAD FREE" package menu, the lightweight gates (YouTube +
- * email) and the actual browser downloads. No network calls, no cart, no
- * checkout: the only state is what lives in `localStorage` (unlocked packages,
- * remembered email and the marketing list).
  *
- * STRICT GATING:
- * - MP3 LEASE (gate: email): Email input + submit → instant unlock + PDF.
- * - STANDARD WAV LEASE (gate: youtube): YouTube Sub + Like → Email input + submit → unlock + PDF.
- * - EXCLUSIVE / PRO PACKAGE (gate: exclusive): YouTube Sub + Like → Comment verification → 
- *   Email with mandatory opt-in checkbox + submit → unlock (Stems+MP3+WAV+PDF).
- * 
- * No signature prompt: the PDF stamps email/name automatically from localStorage.
+ * Unifies the "DOWNLOAD FREE" package menu, the lightweight gates (YouTube +
+ * email) and the actual browser downloads. No cart, no checkout, no backend.
+ *
+ * NOTHING IS REMEMBERED — there is no gate memory at all:
+ * - no `localStorage`, no `sessionStorage`, no cookie and no unlock set;
+ * - no prefilled address and no "already unlocked" shortcut.
+ * Every click on a package opens its gate from scratch, every time.
+ *
+ * STRICT GATING (all three packages):
+ * - MP3 LEASE (gate: email): Email input + mandatory opt-in → submit → unlock + PDF.
+ * - STANDARD WAV LEASE (gate: youtube): YouTube Sub + Like → Email + mandatory opt-in → unlock + PDF.
+ * - EXCLUSIVE / PRO PACKAGE (gate: exclusive): YouTube Sub + Like → Comment →
+ *   Email + mandatory opt-in → unlock (Stems+MP3+WAV+PDF).
+ *
+ * The only outbound request is the address itself: a real `fetch` POST to the
+ * newsletter provider (Formspree) with `Accept: application/json`, so every
+ * submitted address lands in the provider's dashboard. A failed post never
+ * blocks the files — they are free — it is logged and the unlock continues.
+ *
+ * The address the visitor just typed is carried forward to `download.html` in
+ * that one flow's query string (see `downloadUrl`), never stored.
  */
 (function () {
   "use strict";
@@ -51,18 +60,33 @@
   }
 
   /* -------------------------------------------------------------- the flow */
-  function downloadUrl(beatId, packageId) {
-    return "download.html?beat=" + encodeURIComponent(beatId) + "&package=" + encodeURIComponent(packageId);
+  /* A one-shot token handed from a passed gate to `download.html`. It is not
+     stored anywhere: it only says "this browser passed the gate in this flow a
+     moment ago", so the download page does not ask a second time. Loading the
+     same URL cold (no token) re-opens the gate, which is the whole point. */
+  function grantToken() {
+    const bytes = new Uint8Array(8);
+    if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+    else for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+    return Array.prototype.map.call(bytes, (b) => ("0" + b.toString(16)).slice(-2)).join("");
   }
-  function goToDownload(beat, pack) {
-    window.location.assign(downloadUrl(beat.id, pack.id));
+  function downloadUrl(beatId, packageId, email) {
+    let url = "download.html?beat=" + encodeURIComponent(beatId) +
+      "&package=" + encodeURIComponent(packageId) + "&t=" + grantToken();
+    const address = String(email == null ? "" : email).trim();
+    if (address) url += "&email=" + encodeURIComponent(address);
+    return url;
+  }
+  function goToDownload(beat, pack, email) {
+    window.location.assign(downloadUrl(beat.id, pack.id, email));
   }
   function start(beatId, packageId) {
     const catalog = helpers();
     const beat = catalog && catalog.beatById(beatId);
     const pack = catalog && catalog.packageById(packageId);
     if (!beat || !pack) { showToast("BEAT OR PACKAGE NOT FOUND"); return; }
-    openGate(beat, pack, () => { goToDownload(beat, pack); });
+    if (pack.gate === "instant") { goToDownload(beat, pack, ""); return; }
+    openGate(beat, pack, (b, p, email) => { goToDownload(b, p, email); });
   }
 
   /* ------------------------------------------------------ menu */
@@ -173,25 +197,36 @@
         '<h2 class="gate-modal__title" id="gate-title">' + titleText + '</h2>' + body + '</div>';
   }
 
-  /* Email gate body - used for MP3 instant gate */
-  function emailGateBody(pack, opts) {
+  /* The email form used by every gate: one address field, the mandatory opt-in
+     checkbox (required and pre-ticked, so it must be deliberately kept) and a
+     real POST action so the form also works with scripting out of the way. */
+  function emailFormHTML(optin) {
     const endpoint = newsletterEndpoint();
-    /* Mandatory opt-in for EVERY gate — no bypass under any circumstances */
-    return '<p class="gate-modal__copy">Enter your email to unlock the ' + escapeHTML(pack.name.toLowerCase()) + '.</p>' +
-      '<form class="gate-form" data-gate-form novalidate' +
+    return '<form class="gate-form" data-gate-form novalidate' +
         (endpoint ? ' action="' + escapeHTML(endpoint) + '" method="post"' : '') + '>' +
         '<label class="gate-field"><span class="gate-field__label">EMAIL</span>' +
-          '<input class="gate-input" id="gate-email" name="email" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="you@email.com" required>' +
+          '<input class="gate-input" id="gate-email" name="email" type="email" inputmode="email" autocomplete="off" spellcheck="false" placeholder="you@email.com" required>' +
         '</label>' +
-        '<label class="gate-optin"><input type="checkbox" id="gate-optin" name="opt_in"' + ((opts && opts.optinRequired) ? ' required' : '') + '><span>Email me future beat drops &amp; updates</span></label>' +
-        (endpoint ? '<input type="hidden" name="embed" value="1"><input type="hidden" name="tag" value="beat-download"><input type="hidden" name="_subject" value="KYROlll beat download">' : '') +
-      '</form>' +
+        '<label class="gate-optin"><input type="checkbox" id="gate-optin" name="opt_in" checked required><span>' + (optin || "Email me future beat drops &amp; updates") + '</span></label>' +
+        '<input type="hidden" name="embed" value="1">' +
+        '<input type="hidden" name="tag" value="beat-download">' +
+        '<input type="hidden" name="_subject" value="KYROlll beat download">' +
+      '</form>';
+  }
+
+  /* Email gate body — the gate every package passes through. `opts.hint: false`
+     suppresses its own hint line, because a gate that already shows numbered
+     steps carries a richer hint of its own (and two #gate-hint nodes in one
+     dialog would be a duplicate id). */
+  function emailGateBody(pack, opts) {
+    return '<p class="gate-modal__copy">Enter your email to unlock the ' + escapeHTML(pack.name.toLowerCase()) + '.</p>' +
+      emailFormHTML(opts && opts.optin) +
       '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
       '<div class="gate-modal__actions">' +
         '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
         '<button type="button" class="kyrolll-btn" data-gate-submit disabled>UNLOCK DOWNLOAD</button>' +
       '</div>' +
-      '<p class="gate-modal__hint" id="gate-hint">ENTER EMAIL AND SUBMIT</p>';
+      ((opts && opts.hint === false) ? '' : '<p class="gate-modal__hint" id="gate-hint">ENTER EMAIL, TICK THE BOX AND SUBMIT</p>');
   }
 
   /* YouTube gate body - for WAV package: sub + like → email */
@@ -207,8 +242,8 @@
           '<span class="gate-step__num">2</span><span class="gate-step__body"><span class="gate-step__title">LIKE THIS VIDEO</span><span class="gate-step__meta">The beat you are grabbing</span></span><span class="gate-step__go">OPEN ↗</span>' +
         '</a>' +
       '</div>' +
-      emailGateBody(pack, { optinRequired: true }) +
-      '<p class="gate-modal__hint" id="gate-hint">COMPLETE STEPS 1-2 AND ENTER EMAIL TO UNLOCK</p>';
+      emailGateBody(pack, { hint: false }) +
+      '<p class="gate-modal__hint" id="gate-hint">COMPLETE STEPS 1-2, THEN THE EMAIL</p>';
   }
 
   /* Exclusive gate body - for Pro package: sub + like → comment → email with mandatory opt-in */
@@ -233,13 +268,7 @@
           '<span class="gate-step__go">DONE</span>' +
         '</div>' +
       '</div>' +
-      '<form class="gate-form" data-gate-form novalidate>' +
-        '<label class="gate-field"><span class="gate-field__label">EMAIL</span>' +
-          '<input class="gate-input" id="gate-email" name="email" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="you@email.com" required>' +
-        '</label>' +
-        '<label class="gate-optin"><input type="checkbox" id="gate-optin" name="opt_in" checked required><span>Email me future beat drops &amp; updates</span></label>' +
-        '<input type="hidden" name="embed" value="1"><input type="hidden" name="tag" value="beat-download"><input type="hidden" name="_subject" value="KYROlll beat download">' +
-      '</form>' +
+      emailFormHTML() +
       '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
       '<div class="gate-modal__actions">' +
         '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
@@ -266,13 +295,59 @@
     return modal;
   }
 
-  /* Common completion: mark unlocked, show success, proceed */
-  function finalizeGate(beat, pack, onUnlocked) {
+  /* Common completion: show the success beat, then proceed and hand the
+     just-submitted address to the next step. Nothing is written down. */
+  function finalizeGate(beat, pack, onUnlocked, email) {
     const sm = showSuccessModal();
     setTimeout(() => {
       if (sm && sm.parentNode) sm.remove();
-      if (onUnlocked) onUnlocked(beat, pack);
+      if (onUnlocked) onUnlocked(beat, pack, email || "");
     }, 1400);
+  }
+
+  /* ------------------------------------------------------------ gate errors */
+  function showGateError(el, message) {
+    if (!el) return;
+    el.textContent = message;
+    el.hidden = false;
+  }
+  function hideGateError(el) {
+    if (!el) return;
+    el.hidden = true;
+    el.textContent = "";
+  }
+
+  /* ------------------------------------------------------- the one submission
+     Every gate funnels through here: validate, POST the address, unlock. The
+     button is only ever enabled once the whole form is valid, so this is also
+     the Enter-key and defensive path. */
+  function submitGate(beat, pack, modal, onUnlocked, read) {
+    const errEl = modal.querySelector("#gate-error");
+    const submit = modal.querySelector("[data-gate-submit]");
+    const input = modal.querySelector("#gate-email");
+    const state = (read && read()) || {};
+    if (!EMAIL_RE.test(String(state.email || ""))) {
+      showGateError(errEl, "ENTER A VALID EMAIL ADDRESS");
+      try { if (input) input.focus(); } catch (err) { /* ignore */ }
+      return;
+    }
+    if (!state.optin) {
+      showGateError(errEl, "TICK THE BOX TO UNLOCK YOUR DOWNLOAD");
+      return;
+    }
+    if (!state.stepsOk) {
+      showGateError(errEl, "COMPLETE THE STEPS ABOVE TO UNLOCK");
+      return;
+    }
+    hideGateError(errEl);
+    if (submit) submit.disabled = true;
+    const hint = modal.querySelector("#gate-hint");
+    if (hint) hint.textContent = "RECORDING YOUR EMAIL...";
+    postSubscribe(state.email).then((res) => {
+      if (!res.ok && typeof console !== "undefined") console.warn("KYROlll newsletter post failed:", res.error);
+      closeGate();
+      finalizeGate(beat, pack, onUnlocked, state.email);
+    });
   }
 
   /* ---------------------------------------------------------- openGate dispatcher */
@@ -288,8 +363,8 @@
     } else if (pack.gate === "exclusive") {
       body = exclusiveGateBody(pack, beat);
     } else {
-      // email gate (MP3 instant)
-      body = emailGateBody(pack, { optinRequired: pack.gate === "exclusive" });
+      // email gate — the first stop for the MP3 lease
+      body = emailGateBody(pack, {});
     }
     modal.innerHTML = gateShell(pack, beat, null, body);
     document.body.appendChild(modal);
@@ -299,45 +374,39 @@
 
     const submit = modal.querySelector("[data-gate-submit]");
 
-    // --- EMAIL GATE (MP3) — direct, bulletproof ---
+    // --- EMAIL GATE (MP3) — email + mandatory opt-in, nothing remembered ---
     if (pack.gate === "email") {
       const input = modal.querySelector("#gate-email");
       const optin = modal.querySelector("#gate-optin");
+      const form = modal.querySelector("[data-gate-form]");
+      const errEl = modal.querySelector("#gate-error");
+      if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
       setTimeout(() => { try { input.focus(); input.select(); } catch (err) {} }, 40);
 
-      function isReady() {
+      // The email itself never prefills and the box never checks itself later
+      // than this render: a fresh gate is always a fresh gate.
+      const hint = modal.querySelector("#gate-hint");
+      function refresh() {
         const email = String(input && input.value || "").trim();
-        // MP3 (email gate): email required; checkbox optional
-        return EMAIL_RE.test(email);
+        const ready = EMAIL_RE.test(email) && !!(optin && optin.checked);
+        submit.disabled = !ready;
+        hideGateError(errEl);
+        if (hint) hint.textContent = ready ? "ALL SET — UNLOCK YOUR DOWNLOAD" : "ENTER EMAIL, TICK THE BOX AND SUBMIT";
       }
-
-      const handleSubmit = (ev) => {
-        if (ev && ev.cancelable && ev.type === "submit") ev.preventDefault();
-        const email = String(input && input.value || "").trim();
-        if (!EMAIL_RE.test(email)) {
-          const errEl = modal.querySelector("#gate-error");
-          if (errEl) { errEl.textContent = "ENTER A VALID EMAIL ADDRESS"; errEl.hidden = false; }
-          try { input && input.focus(); } catch (e) {}
-          return;
-        }
-        const checked = optin ? optin.checked : false;
-        const form = modal.querySelector("[data-gate-form]");
-        const wantsUpdates = checked;
-        if (wantsUpdates && newsletterEndpoint()) {
-          const advance = () => { closeGate(); finalizeGate(beat, pack, onUnlocked); };
-          postSubscribeForm(form, advance);
-        } else {
-          closeGate();
-          finalizeGate(beat, pack, onUnlocked);
-        }
-      };
-
-      function refresh() { submit.disabled = !isReady(); }
-      submit.disabled = !isReady();
+      refresh();
+      const readState = () => ({
+        email: String(input && input.value || "").trim(),
+        optin: !!(optin && optin.checked),
+        stepsOk: true
+      });
       input && input.addEventListener("input", refresh);
-      input && input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") handleSubmit(ev); });
       optin && optin.addEventListener("change", refresh);
-      submit.addEventListener("click", handleSubmit);
+      input && input.addEventListener("keydown", (ev) => {
+        if (ev.key !== "Enter") return;
+        ev.preventDefault();
+        submitGate(beat, pack, modal, onUnlocked, readState);
+      });
+      submit.addEventListener("click", () => submitGate(beat, pack, modal, onUnlocked, readState));
     }
 
     // --- YOUTUBE GATE (WAV) ---
@@ -348,6 +417,7 @@
       const errEl = modal.querySelector("#gate-error");
       const optin = modal.querySelector("#gate-optin");
       const hint = modal.querySelector("#gate-hint");
+      if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
 
       // Step click handlers
       modal.querySelectorAll("[data-gate-step]").forEach((step) => {
@@ -362,7 +432,8 @@
         const emailOk = EMAIL_RE.test(String(input && input.value || "").trim());
         const checked = optin ? optin.checked : false;
         submit.disabled = !(done[0] && done[1] && emailOk && checked);
-        if (hint) hint.textContent = (done[0] && done[1] && emailOk && checked) ? "ALL SET — UNLOCK YOUR DOWNLOAD" : "COMPLETE STEPS 1-2 AND ENTER EMAIL TO UNLOCK";
+        hideGateError(errEl);
+        if (hint) hint.textContent = (done[0] && done[1] && emailOk && checked) ? "ALL SET — UNLOCK YOUR DOWNLOAD" : "COMPLETE STEPS 1-2, THEN THE EMAIL";
       }
 
       // Initialize submit disabled until all conditions met
@@ -370,24 +441,17 @@
       input && input.addEventListener("input", refreshSubmit);
       optin && optin.addEventListener("change", refreshSubmit);
 
-      const handleSubmit = () => {
-        if (submit.disabled) return;
-        const email = String(input.value || "").trim();
-        if (!EMAIL_RE.test(email)) {
-          if (errEl) { errEl.textContent = "ENTER A VALID EMAIL ADDRESS"; errEl.hidden = false; }
-          if (input) try { input.focus(); } catch (err) {}
-          return;
-        }
-        if (!optin || !optin.checked) {
-          if (errEl) { errEl.textContent = "YOU MUST CHECK CONSENT TO UNLOCK"; errEl.hidden = false; }
-          return;
-        }
-        const wantsUpdates = optin.checked;
-        const advance = () => { closeGate(); finalizeGate(beat, pack, onUnlocked); };
-        if (form && wantsUpdates && newsletterEndpoint()) postSubscribeForm(form, advance); else advance();
-      };
-
-      submit.addEventListener("click", handleSubmit);
+      const readState = () => ({
+        email: String(input && input.value || "").trim(),
+        optin: !!(optin && optin.checked),
+        stepsOk: done[0] && done[1]
+      });
+      submit.addEventListener("click", () => submitGate(beat, pack, modal, onUnlocked, readState));
+      input && input.addEventListener("keydown", (ev) => {
+        if (ev.key !== "Enter") return;
+        ev.preventDefault();
+        submitGate(beat, pack, modal, onUnlocked, readState);
+      });
     }
 
     // --- EXCLUSIVE GATE (Pro) ---
@@ -402,7 +466,7 @@
 
       if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
 
-      // Remembered email
+      // Nothing is prefilled and nothing is remembered: the field starts empty.
       setTimeout(() => { try { input.focus(); input.select(); } catch (err) {} }, 40);
 
       // Step click handlers for steps 0 and 1 (YouTube)
@@ -435,34 +499,24 @@
         const optOk = optin ? optin.checked : false;
         const all = done[0] && done[1] && commentOk && emailOk && optOk;
         submit.disabled = !all;
+        hideGateError(errEl);
         if (hint) hint.textContent = all ? "ALL SET — UNLOCK YOUR DOWNLOAD" : "COMPLETE ALL STEPS TO UNLOCK";
       }
 
       // Initial state
       checkExclusive();
 
-      const handleSubmit = (ev) => {
-        if (ev && ev.cancelable) ev.preventDefault();
-        if (submit.disabled) return;
-
-        const email = String(input.value || "").trim();
-        if (!EMAIL_RE.test(email)) {
-          if (errEl) { errEl.textContent = "ENTER A VALID EMAIL ADDRESS"; errEl.hidden = false; }
-          return;
-        }
-        // Mandatory consent checkbox for exclusive
-        if (!optin || !optin.checked) {
-          if (errEl) { errEl.textContent = "YOU MUST CHECK CONSENT TO UNLOCK"; errEl.hidden = false; }
-          return;
-        }
-
-        const wantsUpdates = optin.checked;
-        const advance = () => { closeGate(); finalizeGate(beat, pack, onUnlocked); };
-        if (form && wantsUpdates && newsletterEndpoint()) postSubscribeForm(form, advance); else advance();
-      };
-
-      submit.addEventListener("click", handleSubmit);
-      input.addEventListener("keydown", (ev) => { if (ev.key === "Enter") handleSubmit(ev); });
+      const readState = () => ({
+        email: String(input && input.value || "").trim(),
+        optin: !!(optin && optin.checked),
+        stepsOk: done[0] && done[1] && !!(commentField && commentField.value.trim().length > 0)
+      });
+      submit.addEventListener("click", () => submitGate(beat, pack, modal, onUnlocked, readState));
+      input && input.addEventListener("keydown", (ev) => {
+        if (ev.key !== "Enter") return;
+        ev.preventDefault();
+        submitGate(beat, pack, modal, onUnlocked, readState);
+      });
     }
 
     // Cancel + outside-click handler
@@ -473,22 +527,34 @@
     document.addEventListener("keydown", gateKeyHandler);
   }
 
-  /* Real Formspree AJAX — every submitted email recorded in dashboard */
-  function postSubscribeForm(form, done) {
-    const emailInput = form && form.querySelector ? form.querySelector('input[name="email"]') : null;
-    const optinInput = form && form.querySelector ? form.querySelector('input[name="opt_in"]') : null;
-    const email = emailInput ? String(emailInput.value || "").trim() : "";
-    const optIn = optinInput ? !!optinInput.checked : false;
-    if (!email) { if (done) done(); return; }
-    const data = new FormData();
-    data.append("email", email);
-    data.append("opt_in", optIn ? "yes" : "no");
-    fetch("https://formspree.io/f/xgaoppwo", {
+  /* --------------------------------------------------- newsletter submission
+     A real AJAX POST to the configured provider (Formspree), with
+     `Accept: application/json` so the provider answers JSON instead of a
+     redirect and the address lands in the dashboard. The body is
+     form-urlencoded — a CORS-safelisted content type, so no preflight — which
+     is the same shape the provider's own form sends. The promise never
+     rejects; a failure is reported to the caller and the free files still
+     unlock. */
+  function postSubscribe(email) {
+    const endpoint = newsletterEndpoint();
+    if (!endpoint) return Promise.resolve({ ok: false, error: "no newsletter endpoint configured" });
+    const body = new URLSearchParams();
+    body.set("email", String(email || "").trim());
+    body.set("opt_in", "yes");
+    body.set("embed", "1");
+    body.set("tag", "beat-download");
+    body.set("_subject", "KYROlll beat download");
+    return fetch(endpoint, {
       method: "POST",
-      headers: { "Accept": "application/json" },
-      body: data
-    }).catch(() => { /* ignore — unlock proceeds regardless */ });
-    if (done) done();
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+      },
+      body: body.toString()
+    }).then((res) => {
+      if (!res || !res.ok) return { ok: false, error: "HTTP " + (res ? res.status : "0") };
+      return { ok: true };
+    }).catch((err) => ({ ok: false, error: (err && err.message) || "network error" }));
   }
 
   /* toast */
@@ -513,7 +579,6 @@
     try {
       const btn = event.target.closest && event.target.closest(".download-btn, .download-dropdown-toggle, .download-trigger, [data-download-trigger]");
       if (!btn) return;
-      console.log("DOWNLOAD CLICKED SUCCESSFULLY");
       event.preventDefault();
       event.stopPropagation();
       const trigger = btn.closest && btn.closest("[data-download-trigger]") ? btn.closest("[data-download-trigger]") : btn;
@@ -524,13 +589,16 @@
     } catch (e) { /* ignore */ }
   }, true);
 
+  /* No gate memory exists in this module: no storage write, no unlock set and
+     no remembered address. `isUnlocked` is permanently false — every click
+     re-opens the gate — and the address a visitor typed only travels forward
+     inside the current flow's URL. */
   window.KYROlll_DOWNLOADS = {
     PACKAGES: window.KYROlll_PACKAGES || [],
-    readEmail: () => "", writeEmail: () => {}, readLicensee: () => "", writeLicensee: () => {},
-    isUnlocked: () => false, markUnlocked: () => {},
+    isUnlocked: () => false,
     downloadUrl, start, goToDownload, openMenu, closeMenu, openGate, closeGate,
     deliverablesFor: (beatId, packageId) => (helpers() ? helpers().deliverablesFor(beatId, packageId) : []),
-    newsletterEndpoint,
+    newsletterEndpoint, postSubscribe,
     downloadItem, showToast
   };
   } catch (e) { /* ignore top-level errors */ }

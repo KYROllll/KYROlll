@@ -14,10 +14,12 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   checkout, no payment gateway, no Supabase, no worker and no server-side state.
   `catalog.js` holds the shared data (beats plus the three free packages) and
   `downloads.js` — with `download-page.js` for the landing page — is the whole
-  "commerce" layer: the "DOWNLOAD FREE" trigger opens a three-package menu, and a
-  package either downloads instantly or is unlocked behind a local gate (a YouTube
-  subscribe + like, or an email). Everything the visitor leaves is kept in `localStorage`
-  only; nothing leaves the browser.
+  "commerce" layer: the "DOWNLOAD FREE" trigger opens a three-package menu, and every
+  package then sits behind its gate (an email, plus a YouTube subscribe + like for the WAV
+  and the exclusive). **No gate is ever remembered** — no `localStorage`, no
+  `sessionStorage`, no unlock set and nothing prefilled — so every click on a package asks
+  again from scratch. The one thing that can leave the browser is the address the visitor
+  submits, which is posted to the newsletter provider (below).
 - `hero-intro.js` drives the hero scroll storytelling: it publishes a 0 → 1
   scroll progress onto `.brand-hero` as the `--hero-p` custom property (all hero
   movement is `calc()`-ed from it in CSS) and reveals the sections below the fold.
@@ -28,8 +30,9 @@ about *running* the app in this sandbox, not about the app's own behaviour.
 
 - `docker-compose.base44.yml` runs a single service, `web` (`node server.mjs`,
   host port 3000 → container 8080). It bind-mounts the checkout and runs live
-  from source. There is no worker service any more — the storefront has no
-  cross-origin calls to make, so nothing needs a second port or a CORS default.
+  from source. There is no worker service any more — the storefront's only cross-origin
+  call is the newsletter POST, which the provider answers with CORS headers, so nothing
+  needs a second port or a proxy.
 
 ## Built assets (`assets/*.min.js`)
 
@@ -175,10 +178,12 @@ payment gateway.
   (`?sub_confirmation=1` makes YouTube show its own subscribe prompt). Currently
   `https://www.youtube.com/@KYROllllll?sub_confirmation=1`.
 - `window.KYROlll_PACKAGES` — exactly three options per beat:
-  `mp3` (`"MP3 LEASE"`, `gate: "instant"`), `wav` (`"STANDARD WAV LEASE"`,
-  `gate: "youtube"`) and `exclusive` (`"EXCLUSIVE / PRO PACKAGE"`, `gate: "email"`).
-  `gate` is the whole behaviour: `instant` goes straight to the download page, `youtube`
-  asks for a subscribe + like, `email` asks for an address. `includes` is the plain-language
+  `mp3` (`"MP3 LEASE"`, `gate: "email"`), `wav` (`"STANDARD WAV LEASE"`,
+  `gate: "youtube"`) and `exclusive` (`"EXCLUSIVE / PRO PACKAGE"`, `gate: "exclusive"`).
+  `gate` is the whole behaviour: `email` asks for an address, `youtube` adds a subscribe +
+  like before that address, `exclusive` adds the comment step as well, and `instant`
+  (kept for a package that should skip the gate, unused today) goes straight to the download
+  page. Every gate requires the address **and** the opt-in checkbox. `includes` is the plain-language
   list of what the package hands over (MP3 → tagged MP3 + license; WAV → tagged MP3 +
   high-quality WAV + license; exclusive → tagged MP3 + WAV + tracked stems + full rights +
   email opt-in) and is printed verbatim in the generated license.
@@ -191,35 +196,43 @@ payment gateway.
 - `window.KYROlll_HELPERS` — `escapeHTML`, `beatById(idOrSlug)`, `packageById(id)`,
   `deliverablesFor(beatId, packageId)`, `videoFor(beatId)` and `newsletterEndpoint()`.
 - `window.KYROlll_NEWSLETTER` — `{ provider, username, endpoint }`, where the email gate sends a
-  new subscriber. The endpoint is a form action URL — these providers have no CORS for `fetch`,
-  so the address is only deliverable as a real form POST (made through a hidden iframe). The repo
-  ships with a **Formspree** form wired to `endpoint`; swap it for any other provider that
-  accepts a form POST (Buttondown's `embed-subscribe` URL, a Beehiiv subscribe form, …) — for
-  Buttondown just set `username`. Left blank, the gate still unlocks the files and only
-  remembers the address locally.
+  new subscriber. The repo ships with a **Formspree** form wired to `endpoint`
+  (`https://formspree.io/f/xgaoppwo`), posted to with `fetch` and `Accept: application/json` so
+  the submission lands in the dashboard; swap it for any provider that accepts a form POST and
+  answers with CORS (Buttondown's `embed-subscribe` URL, a Beehiiv subscribe form, …) — for
+  Buttondown just set `username`. Left blank, the gate still unlocks the files and sends nothing.
 
 `downloads.js` exposes `window.KYROlll_DOWNLOADS` and owns the whole interaction. It has
-**no backend** — no Supabase and no worker, and no `fetch` to an API; the only outbound request
-is the email gate's subscribe POST (a plain form submit to the configured newsletter provider):
+**no backend** — no Supabase, no worker and no storage of any kind (the old
+`readEmail`/`writeEmail`/`markUnlocked` API is gone; `isUnlocked` is permanently `false` so a
+package can never ride a remembered unlock). The only outbound request is the email gate's
+subscribe POST (`postSubscribe`: `fetch(endpoint)` with `Accept: application/json` and a
+form-urlencoded body — the shape Formspree records in its dashboard):
 
 - The `[data-download-trigger]` button (delegated once on `document`, so a re-rendered
   grid keeps working) opens the `.download-menu` — the old downward-only license dropdown,
   relabelled, anchored under the trigger and clamped so it can never run off screen.
-- `start(beatId, packageId)` resolves the beat + package, then either walks an instant (or
-  already-unlocked) package to `download.html?beat=…&package=…`, or opens that package's
-  gate and continues on success.
+- `start(beatId, packageId)` resolves the beat + package, then opens that package's gate and
+  continues on success (`gate: "instant"` short-circuits straight to the download page).
 - `openGate(beat, pack, onUnlocked)` renders `.gate-modal` (backdrop + card) into `<body>`
   and adds `html.gate-open`. `gate: "youtube"` shows two numbered steps (`.gate-step`) that
-  open the channel and the beat video in new tabs; the confirm button stays disabled until
-  both are opened. `gate: "email"` renders a real `<form data-gate-form>` with one email field
-  (`#gate-email`), an opt-in checkbox (`#gate-optin`, checked by default), an inline error
-  (`#gate-error`), and the CANCEL/backdrop (`[data-gate-cancel]`) + submit (`[data-gate-submit]`)
-  row; Enter submits, Escape or CANCEL closes, and a remembered address prefills the field. A
-  malformed address is refused with `#gate-error`. When a provider is configured and the opt-in
-  is checked, the form is posted through a throwaway hidden iframe (`postSubscribeForm`) so the
-  page never navigates and the POST survives the move to `download.html`; the address itself is
-  never required to be confirmed. Passing either gate writes the package to the unlock set and
-  runs `onUnlocked`.
+  open the channel and the beat video in new tabs; `gate: "exclusive"` adds the comment step
+  on top. Every gate renders the same real `<form data-gate-form>` (with `action` pointed at
+  the provider, so the flow degrades without scripting) holding one email field
+  (`#gate-email`), the mandatory opt-in checkbox (`#gate-optin`, ticked and `required`), an
+  inline error (`#gate-error`) and the CANCEL/backdrop (`[data-gate-cancel]`) + submit
+  (`[data-gate-submit]`) row. The field always starts **empty** and the submit only enables
+  once the address is well formed, the box is ticked and every step is done, so a plain click
+  cannot skip anything; Enter on the field runs the same `submitGate`, which is also where a
+  malformed address is refused with `#gate-error`. Escape or CANCEL closes. `submitGate` posts
+  the address with `postSubscribe` and then calls `onUnlocked(beat, pack, email)` — the
+  address travels on to `download.html` in the URL (below) instead of being stored.
+- `downloadUrl(beatId, packageId, email)` is the hand-off to the download page: the URL carries
+  a one-shot grant token (`?t=<random hex>`, minted fresh when a gate is passed) and, when there
+  is one, the address just submitted (`?email=…`). **Neither is stored anywhere** — the token
+  only means "this flow passed the gate a moment ago", so the download page does not ask a
+  second time, while a cold link (a bookmark, a shared URL, a new browser) has no token and is
+  gated over the page.
 - `downloadItem` builds a detached `<a download>` for a same-origin file, so nothing navigates
   the page away. The href carries `?dl=1&name=<friendly name>`, which is what lets `server.mjs`
   answer with `Content-Disposition: attachment` — that header, not the `download` attribute, is
@@ -234,12 +247,32 @@ is the email gate's subscribe POST (a plain form submit to the configured newsle
   `style.css` under "10. Free downloads, package menu, gates & download page".
 
 `license-pdf.js` is the whole license: a dependency-free PDF writer (`window.KYROlll_LICENSE_PDF`
-= `{ makeLicenseId, primeLicensePDF, generateLicensePDF }`). `makeLicenseId(beat)` mints
-`KYRO-<year>-<SLUG>-<6 digits>` from `crypto.getRandomValues`; `download-page.js` mints it once
-per page view and passes it to the PDF, so the id on screen is the id in the document. The
-document is an A4 certificate — dark field, double frame with corner ticks, the flower still as
-an embedded `/DCTDecode` JPEG in the header, a hero serial block, a ruled metadata table,
-numbered clauses 1.0–4.0 and a signature block — held to a **single page** for every package.
+= `{ makeLicenseId, primeLicensePDF, generateLicensePDF }`). `makeLicenseId(beat)` mints a fresh
+`KYRO-<year>-<SLUG>-<6 random digits>` per issuance from `crypto.getRandomValues`, so no two
+licenses ever share an id; `download-page.js` mints it once per page view and passes it to the
+PDF, so the id on screen is the id in the document. The document is an A4 certificate — dark
+field, double frame with corner ticks, the flower still as an embedded `/DCTDecode` JPEG in the
+header, a hero serial block, a ruled metadata table, numbered clauses 1.0–4.0, two **straight,
+pre-filled signature blocks** (LICENSEE, stamped with the address submitted at the gate, and
+LICENSOR (KYROIII)) and a footer carrying a vector barcode plus `HTTPS://KYROILL.STORE` — held
+to a **single page** for every package.
+
+Three rules hold that document together and are easy to break by accident:
+
+- **It is 100% ALL CAPS.** Every string goes through `toAscii`, which uppercases before it
+  sanitises, so no lowercase letter can reach a page whatever the source data says. The two
+  signature faces are upright Helvetica, not a script font — that is why no third font object
+  exists and the whole document is Helvetica / Helvetica-Bold.
+- **It is monochromatic.** `#0B0B0B` field, `#FFFFFF` type, `#888888` silver rules and their
+equal-channel grey siblings: zero blue, zero hue of any kind. The barcode bars are drawn white
+  (`1 1 1 rg`) — black bars on the black field are invisible.
+- **It fits one page.** `FOOT_Y` (where the flow stops above the footer rule) and the
+  `ensure(...)` reservations are the page-count knobs. The footer needs a rule, a row of control
+  text and a row for the barcode + link, and the exclusive package is the tightest fit of the
+  three (its signature block lands with ~15 pt to spare). Moving the footer up without
+  reclaiming the same space above it — smaller headings, the metadata grid starting below the
+  serial box — pushes the exclusive license onto a second page.
+
 Letter-spacing uses the text-space `Tc` operator, so each run stays one string and the PDF
 remains searchable and copyable. Base-14 Helvetica with real AFM metrics (`measure`,
 `wrapToWidth`) does all the layout. The old jsPDF path is gone; `buildPdf` still degrades to a
@@ -258,9 +291,11 @@ one `.logo-stage` with no preloader veil), a glassmorphism file card with one ro
 whose file is missing is dimmed to "UNAVAILABLE" instead of handing over the storefront's HTML.
 There is no raw-text preview, no `.txt` and no COPY button. The page content paints immediately
 and never waits on the flower; if WebGL fails the still `kyrolll-flower-rest.png` simply
-remains. A deep link to a gated package
-the browser has not unlocked yet re-opens that gate over the page, so the flow is the same from
-any entry point.
+remains. The page itself remembers nothing: `boot()` trusts only the one-shot `?t=` grant token
+`downloads.js` mints when a gate is passed, so a cold link — a shared URL, a bookmark, a new
+browser — is gated over the page and the flow is the same from any entry point. The LICENSEE
+signature is the `?email=` value from that same flow (updated live if a gate happens to run on
+this page), never a stored address.
 
 `server.mjs` (the static preview server) is what actually makes a download a download: for a
 same-origin file requested with `?dl`/`?name` it answers `Content-Disposition: attachment` with
@@ -271,11 +306,12 @@ the storefront HTML with a `200`, which is exactly what makes a "download" open 
 WAV. None of this exists on a static host (there is no `server.mjs`), so the client-side pieces —
 the prebuilt PDF and the `download` attribute — carry the flow there.
 
-Nothing the visitor leaves is stored server-side. The unlock set is `kyrolll_unlocked`,
-the remembered address is `kyrolll_download_email` and the opt-ins are `kyrolll_marketing_list`
-(a list of `{ email, at }`) — all `localStorage`, for prefill/again. The one exception is the
-email gate itself: with a provider configured and the opt-in checked, the address is posted to
-that newsletter provider (and only then).
+Nothing the visitor leaves is stored anywhere — not server-side and not in the browser. There is
+no unlock set, no remembered address, no marketing list and no `kyrolll_licensee`: those
+`localStorage` keys are gone, and the brand-design test asserts both `localStorage` and
+`sessionStorage` stay empty across three passes through the gates. The only thing that leaves the
+browser is the address the visitor submits at a gate, which is `fetch`-posted to the configured
+newsletter provider (and only there).
 
 `script.js` renders one `.download-trigger` per beat (a `--compact` variant on a catalog
 tile) and nothing else about downloads. There is no `checkout.js`, no sold/exclusive state
@@ -304,13 +340,17 @@ Tests that ship with the repo:
 - `preview-player.test.mjs` is `node:test` based and needs no browser:
   `node --test preview-player.test.mjs`
 - `brand-design.test.mjs` is Playwright-based and checks the storefront layout, the
-  tagged audio preview, the "DOWNLOAD FREE" package menu and all three unlock paths
-  (instant MP3, the YouTube gate and the email gate), ending on the download page — its
-  3D flower branding, the file rows and the certificate block (a minted
-  `KYRO-YYYY-FLESH-NNNNNN` serial, no raw text), then downloads the PDF license and asserts
-  the `(Prod. by KYROIII)` credit, the commercial grant, the package's `includes` and the
-  embedded flower image straight from the PDF bytes. It also asserts the email gate posts a
-  valid address to the configured newsletter provider (and never a malformed one). It needs
+  tagged audio preview, the "DOWNLOAD FREE" package menu and all three gated paths
+  (the MP3 email gate, the YouTube gate and the exclusive multi-step gate), ending on the
+  download page — its 3D flower branding, the file rows and the certificate block (a minted
+  `KYRO-YYYY-FLESH-NNNNNN` serial, no raw text). It then downloads the PDF license and asserts
+  the `PROD. BY KYROIII` credit, the commercial grant, the package's `includes`, the embedded
+  flower image, the **ALL-CAPS** rule (no lowercase in any drawn string), the monochrome palette
+  (every colour an equal-channel grey, so zero blue), the footer barcode + `HTTPS://KYROILL.STORE`,
+  the LICENSEE signature carrying the address submitted at the gate, `PAGE 1 OF 1` and three
+  distinct serials — straight from the PDF bytes. It also asserts the gate posts a valid address
+  to the configured newsletter provider (and never a malformed one, and never on a re-opened
+  gate), and that nothing is written to `localStorage`/`sessionStorage`. It needs
   Chromium + root `node_modules`,
   which the sandbox does not install. To run it without touching the checkout, copy the repo
   into a `node:22` container and install there:
@@ -318,13 +358,14 @@ Tests that ship with the repo:
 
 ## Deliberate behaviour worth knowing
 
-Downloads are plain same-origin files. The MP3 downloads instantly; the other two
-packages sit behind local gates (a YouTube subscribe + like, or an email), which are
-lead-capture courtesies rather than enforcement — the files themselves are public and
-nothing on the server blocks them. Since the unlock set and the address live only in
-`localStorage`, a new browser (or cleared storage) is asked again. The email itself is the one
-thing that can leave the browser: with `KYROlll_NEWSLETTER` configured and the opt-in checked,
-the gate posts the address to that provider.
+Downloads are plain same-origin files. All three packages sit behind a gate (an email, plus a
+YouTube subscribe + like for the WAV and a comment step for the exclusive), which are
+lead-capture courtesies rather than enforcement — the files themselves are public and nothing on
+the server blocks them, and the grant token that skips the second ask is just a URL parameter.
+Nothing is remembered, so the same browser is asked again on every single click, and the careful
+consequence is that a gate can never be skipped by having passed it before. The email is the one
+thing that can leave the browser: with `KYROlll_NEWSLETTER` configured, the gate posts the address
+to that provider (the opt-in box is a required part of every gate).
 
 `index.html` pre-renders the active release's beat card so a direct beat link
 (`?beat=…`) paints without a flash; `script.js` replaces the grid contents right after

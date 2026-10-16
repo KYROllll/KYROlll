@@ -2,16 +2,21 @@
  *
  * A dependency-free PDF writer. Every issued license is a single dark branded
  * document — the 3D flower as the header mark, a unique serial number
- * (`KYRO-2026-<BEAT>-<DIGITS>`), a ruled metadata grid, numbered clauses, a
- * two-party signature block (the licensee's typed signature over the licensor's)
- * and a document-control footer — laid out against real font metrics so the grid
- * actually aligns. It is handed to the browser as a normal `download`-attribute
- * link, so it never opens a viewer.
+ * (`KYRO-2026-<BEAT>-<DIGITS>`), a ruled metadata grid, numbered clauses, two
+ * straight pre-filled signature blocks (licensee over licensor) and a
+ * document-control footer with a vector barcode — laid out against real font
+ * metrics so the grid actually aligns. It is handed to the browser as a normal
+ * `download`-attribute link, so it never opens a viewer.
  *
- * The palette is strictly neutral — deep black, crisp white and silver, no
- * colour cast of any kind. The page mints one serial per view and the signature
- * modal hands back the licensee's name, so the serial and the signature shown on
- * `download.html` are exactly the ones printed in the PDF.
+ * The document is 100% ALL CAPS: every string runs through `toAscii`, which
+ * uppercases it, so no lowercase letter can reach the page. The palette is
+ * strictly monochromatic — deep matte black (#0B0B0B), crisp pure white
+ * (#FFFFFF) and silver/grey rules (#888888 and friends) — every equal-channel
+ * grey, so there is no blue (or any other hue) anywhere in the document.
+ *
+ * Every issuance mints a fresh serial (`KYRO-<year>-<SLUG>-<6 random digits>`
+ * from `crypto.getRandomValues`), so no two licenses ever share an id, and the
+ * serial shown on `download.html` is exactly the one printed in the PDF.
  */
 (function () {
   "use strict";
@@ -42,7 +47,10 @@
   ];
 
   /* Helvetica is the base-14 font, so nothing is embedded; the only characters
-     it cannot draw are the typographic ones, which fold to ASCII first. */
+     it cannot draw are the typographic ones, which fold to ASCII first. Every
+     string in the document goes through here, and the very first thing it does
+     is force uppercase — so the finished PDF can never contain a lowercase
+     letter, whatever the source data says. */
   function toAscii(value) {
     return String(value == null ? "" : value)
       .toUpperCase()
@@ -161,14 +169,15 @@
   const INNER = 7;                 // inner hairline inset inside the frame
   const COL_X = M + 18;            // content column, clear of the frame
   const COL_W = PAGE_W - M * 2 - 36;
-  const FOOT_Y = M + 30;           // flow stops here; footer lives below
-  /* Strictly neutral greys — every channel equal, so the document is deep black,
-     crisp white and silver with no blue cast anywhere. */
-  const BG = "0.031 0.031 0.031 rg";     // the deep black field
-  const FRAME = "0.5 0.5 0.5";           // minimalist silver frame
+  const FOOT_Y = M + 40;           // flow stops here; footer lives below
+  /* Strictly monochromatic greys — every channel equal, so the document is deep
+     black, crisp white and silver with zero blue cast. The first two are the
+     exact brand values: #0B0B0B field and #888888 silver rules. */
+  const BG = "0.043 0.043 0.043 rg";     // #0B0B0B — the deep matte black field
+  const FRAME = "0.533 0.533 0.533";     // #888888 — minimalist silver frame
   const HAIR = "0.19 0.19 0.19";         // inner hairline
   const TICK = "0.72 0.72 0.72";         // bright silver corner ticks
-  const WHITE = "1 1 1 rg";
+  const WHITE = "1 1 1 rg";              // #FFFFFF — crisp pure white
   const SILVER = "0.8 0.8 0.8 rg";       // signatures / soft silver text
   const BODY = "0.85 0.85 0.85 rg";
   const MUTED = "0.55 0.55 0.55 rg";
@@ -260,7 +269,7 @@
       putTracked(COL_X, y, label, "F2", 9, WHITE, 0.4);
       gap(7);
       hline(COL_X, COL_X + COL_W, y + 3, HAIR, 0.6);
-      gap(9);
+      gap(7);
     };
     const LEAD = 3.6;
     const paragraph = (text, size) => {
@@ -322,12 +331,12 @@
     const markX = COL_X + (flower ? 148 + 22 : 0);
     putTracked(markX, PAGE_H - M - 74, "KYROlll", "F2", 26, WHITE, 1.2);
     putTracked(markX, PAGE_H - M - 92, "FREE MUSIC LICENSE PROGRAM", "F1", 7.5, MUTED, 1.9);
-    y = PAGE_H - M - 150;
+    y = PAGE_H - M - 142;
 
     putTracked(COL_X, y, "CERTIFICATE OF FREE LICENSE", "F2", 17, WHITE, 0.9);
     gap(15);
     putTracked(COL_X, y, "NON-EXCLUSIVE  ·  WORLDWIDE  ·  PERPETUAL  ·  ROYALTY-FREE", "F1", 7.5, MUTED, 1.5);
-    gap(22);
+    gap(16);
 
     /* Serial block — the hero of the document. */
     const serialTop = y + 9;
@@ -336,7 +345,9 @@
     putTracked(COL_X + 14, serialTop - 33, data.serial, "F2", 15, WHITE, 0.9);
     putRight(COL_X + COL_W - 14, serialTop - 12, "ISSUED", "F1", 7, MUTED, 1.4);
     putRight(COL_X + COL_W - 14, serialTop - 33, data.issued, "F2", 11, WHITE, 0);
-    gap(30);
+    /* The metadata grid starts clear of the serial box: the micro-label sits
+       below the box's bottom edge instead of colliding with the serial. */
+    gap(43);
     gridRow([
       { label: "BEAT", value: data.title },
       { label: "PACKAGE", value: data.packageName }
@@ -368,25 +379,33 @@
     putTracked(COL_X, y, "kyrolll00@gmail.com", "F1", 9, BODY, 0);
     gap(12);
     putTracked(COL_X, y, data.channel || "youtube.com/@KYROllllll", "F1", 9, BODY, 0);
-    gap(26);
+    gap(14);
 
     /* --------------------------------------------------- signatures */
-    /* The two marks that close a contract: the licensee's typed signature (the
-       name entered in the signature modal) and the licensor's, each drawn in a
-       formal italic above its own rule, under a micro-label. */
-    ensure(104);
+    /* Two clean, straight, pre-filled signature blocks close the contract: the
+       licensor KYROIII and the licensee, who is stamped with the address
+       submitted at the gate. Both names are set upright (no script face) in
+       crisp white on their own silver rule, under a micro-label, so the block
+       reads as a signed instrument rather than a blank to fill in. */
+    ensure(88);
     const sigTop = y;
     const sigW = (COL_W - 40) / 2;
     const sigX2 = COL_X + sigW + 40;
+    /* Long addresses must not run into the neighbouring column: step the name
+       down in half-points until it fits its own rule. */
+    const fitSize = (value, size, maxWidth) => {
+      let s = size;
+      while (s > 6.5 && measure(toAscii(value), "F2", s) > maxWidth) s -= 0.5;
+      return s;
+    };
     const signatureBlock = (x, name, label, micro) => {
-      hline(x, x + sigW, sigTop - 42, FRAME, 0.8);
-      put(x + 3, sigTop - 32, name, "F3", 16, SILVER, 0);
+      hline(x, x + sigW, sigTop - 42, FRAME, 0.9);
+      putTracked(x, sigTop - 30, name, "F2", fitSize(name, 12, sigW - 8), WHITE, 0.5);
       putTracked(x, sigTop - 55, label, "F1", 7, MUTED, 1.2);
       putTracked(x, sigTop - 66, micro, "F1", 6.5, MUTED, 0.9);
     };
-    const licenseeMicro = "SIGNED " + data.issued + "  —  EMAIL: " + (data.licensee || "—");
-    signatureBlock(COL_X, data.licensee || "—", "LICENSEE — SIGNATURE", licenseeMicro);
-    signatureBlock(sigX2, "KYROIII", "KYROlll — LICENSOR", "AUTHORISED SIGNATORY");
+    signatureBlock(COL_X, data.licensee || "-", "LICENSEE", "SIGNED " + data.issued);
+    signatureBlock(sigX2, "KYROIII", "LICENSOR (KYROIII)", "AUTHORISED SIGNATORY - KYROLLL");
     gap(84);
 
     /* ------------------------------------------------ document footer */
@@ -398,20 +417,35 @@
        page — the marks that make a printed contract feel authoritative. It is
        appended now that every page is known, so "PAGE n OF m" is always right. */
     const pageCount = pages.length;
-    const footRuleY = M + 22;
-    const footTextY = M + 13;
-    /* Vector barcode graphic + URL label in the footer — links to the store. */
+    const footRuleY = M + 38;
+    const footTextY = M + 28;
+    /* Vector barcode graphic + the official store link, bottom-right of the
+       footer. The bars are crisp white — black bars would be invisible on the
+       black field — and their widths come from the license id, so every issued
+       document carries its own mark. The link is printed uppercase to the left
+       of the bars, on the same baseline. */
     function barcodeBlock() {
-      const barsX = PAGE_W - M - 110;
-      const barsY = footRuleY - 18;
-      let bc = "";
+      const barsW = 116;
+      const barsX = PAGE_W - M - 16 - barsW;
+      const barsY = M + 12;
+      const barsH = 11;
       const url = "HTTPS://KYROILL.STORE";
-      for (let b = 0; b < 12; b++) {
-        const x = barsX + b * 7 + (b % 2 ? 0 : 2);
-        const h = (b % 3 === 0) ? 14 : 8;
-        bc += "0 0 0 RG\n" + x.toFixed(1) + " " + barsY.toFixed(1) + " m " + (x + 2.4).toFixed(1) + " " + barsY.toFixed(1) + " l " + (x + 2.4).toFixed(1) + " " + (barsY + h).toFixed(1) + " l " + x.toFixed(1) + " " + (barsY + h).toFixed(1) + " l f\n";
+      /* Deterministic from the serial: the same license id always yields the
+         same barcode, a different one always yields a different pattern. */
+      let seed = 7;
+      const serial = toAscii(data.serial || "KYRO");
+      for (let i = 0; i < serial.length; i += 1) seed = (seed * 31 + serial.charCodeAt(i)) % 2147483647;
+      let bc = "1 1 1 rg\n";
+      let x = barsX;
+      while (x < barsX + barsW - 2) {
+        seed = (seed * 1103515245 + 12345) % 2147483648;
+        const barW = 0.9 + (seed / 2147483648) * 2.1;
+        seed = (seed * 1103515245 + 12345) % 2147483648;
+        const gap = 1.1 + (seed / 2147483648) * 1.7;
+        bc += x.toFixed(2) + " " + barsY.toFixed(2) + " " + barW.toFixed(2) + " " + barsH.toFixed(2) + " re f\n";
+        x += barW + gap;
       }
-      bc += "BT /F1 5.5 Tf 0 Tc 0.55 0.55 0.55 rg " + (barsX - 4).toFixed(2) + " " + (barsY - 10).toFixed(2) + " Td (" + escapePdfString(url.toUpperCase()) + ") Tj ET\n";
+      bc += "BT /F1 6 Tf 0 Tc " + MUTED + " " + COL_X.toFixed(2) + " " + barsY.toFixed(2) + " Td (" + escapePdfString(url) + ") Tj ET\n";
       return bc;
     }
 
@@ -453,24 +487,22 @@
     } else {
       putObject(5, toBytes("5 0 obj << >> endobj\n"));
     }
-    /* The signature font (Times-Italic — a formal, hand-written-looking base-14
-       face) is the one object emitted after the pages; its number is known up
-       front so every page can reference it. */
-    const font3 = 6 + pageCount * 2;
+    /* Two base-14 faces carry the whole document — Helvetica (F1) and
+       Helvetica-Bold (F2) — so nothing is embedded and no third font is
+       needed (the signatures are straight, not script). */
     pages.forEach((content, i) => {
       const pageObj = 6 + i * 2;
       const contentObj = pageObj + 1;
       const stream = toBytes(content);
       putObject(pageObj, toBytes(pageObj + " 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 " + PAGE_W + " " + PAGE_H + "]" +
-        " /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 " + font3 + " 0 R >> /XObject << /Im1 5 0 R >> >> /Contents " + contentObj + " 0 R >> endobj\n"));
+        " /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Im1 5 0 R >> >> /Contents " + contentObj + " 0 R >> endobj\n"));
       putObject(contentObj, toBytes(contentObj + " 0 obj << /Length " + stream.length + " >> stream\n"));
       push(stream);
       push(toBytes("\nendstream\nendobj\n"));
     });
-    putObject(font3, toBytes(font3 + " 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Times-Italic /Encoding /WinAnsiEncoding >> endobj\n"));
 
     const xrefStart = position;
-    const total = font3 + 1;
+    const total = 6 + pageCount * 2;
     let xref = "xref\n0 " + total + "\n0000000000 65535 f \n";
     for (let i = 1; i < total; i += 1) xref += String(offsets[i]).padStart(10, "0") + " 00000 n \n";
     xref += "trailer << /Size " + total + " /Root 1 0 R >>\nstartxref\n" + xrefStart + "\n%%EOF\n";
