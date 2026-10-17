@@ -361,20 +361,25 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   (below) instead of leaving for the download page — the files stay locked until the license
   is signed.
 - `showSignStage(beat, pack, email, onUnlocked)` is the last screen of every gate: the terms
-  in their own scroll pane (`.sign-terms`), a TYPE / DRAW switch (`.sign-mode`), the signature
+  in their own scroll pane (`.sign-terms`), the **FULL NAME — FIRST AND LAST** field
+  (`#sign-name`) **above** the TYPE / DRAW switch (`.sign-mode`) and never hidden — it is
+  required in **both** modes, so switching to DRAW can never skip the name — then the signature
   sheet — a **clean field** (nothing is drawn behind it, so the customer never signs over the
-  brand's flower; the mark now lives in the PDF's LICENSOR approval seal) around the field
-  (`#sign-name`) or the pad (`.sign-pad__canvas`, pointer events, monochrome white ink,
+  brand's flower; the mark now lives in the PDF's LICENSOR approval stamp) around the pad
+  (`.sign-pad__canvas`, pointer events, monochrome white ink,
   `touch-action: none`, DPR-scaled bitmap so the ink is crisp on a retina phone) — the live
   stamp (`[data-sign-stamp]`) and the one action that unlocks, `[data-sign-submit]`
   (**SIGN & UNLOCK**). The button only comes alive once the terms have been read **to the
-  end** — `scrollHeight <= clientHeight`, or the pane scrolled to the bottom — *and* a real
-  signature exists: a **FULL name** typed (`isFullName`: 2–4 name parts, each at least two
-  letters, letters only) or a **genuine drawing** (`drawingValid`: `SIGN_INK_MIN` = 8 thinned
-  points spread over at least `SIGN_SPAN_MIN` = 0.3 of the pad's width + height, so a tap, a
-  dot or a two-point flick cannot sign). A single word, a blank line, initials and digits are
+  end** — `scrollHeight <= clientHeight`, or the pane scrolled to the bottom — *and* the
+  signature is complete: a **FULL name** (`isFullName`: 2–4 name parts, each at least two
+  letters, letters only) is required in both modes, and in DRAW mode a **genuine drawing**
+  (`drawingValid`: `SIGN_INK_MIN` = 8 thinned points spread over at least `SIGN_SPAN_MIN` = 0.3
+  of the pad's width + height, so a tap, a dot or a two-point flick cannot sign) must sit under
+  that name. A single word, a blank line, initials and digits are
   all refused, and the refusal is enforced again inside the submit handler — so stripping the
-  button's `disabled` attribute (the one thing a script can do) still unlocks nothing. The
+  button's `disabled` attribute (the one thing a script can do) still unlocks nothing. A
+  finished stroke with no valid name reports `ENTER YOUR FULL NAME — FIRST AND LAST TO UNLOCK`
+  on the spot, and the stamped sheet reads `FULL NAME REQUIRED — FIRST AND LAST`. The
   stage keeps two functions for that reason: `applyState()` moves the button, the stamp and the
   hint, while `refresh()` is `applyState()` plus `hideGateError`. Only a deliberate edit or a
   mode switch calls `refresh`; the terms pane's own `scroll` listener calls `applyState`,
@@ -436,12 +441,17 @@ the signature captured in the gate's sign step: a typed name set large on its ru
 **hand-drawn signature re-emitted as vector strokes** (`drawSignature`, **pure crisp white
 `#FFFFFF`**, round caps) in the same box — and **nothing is drawn behind it**, so the customer
 never signs over the brand's flower. The micro-line under that rule records who the
-issuance went to — `SIGNED <date> - <address>`. The LICENSOR block, bottom-right, is closed by
-the store's **official approval seal** — the *same* embedded flower mark set inside a sharp
-monochromatic vector stamp (an outer white ring, an inner silver ring and 56 fine radial ticks)
-with the crisp uppercase legend `KYROIII` / `VERIFIED OFFICIAL SEAL` / `AUTHORIZED` (the word
-flanked by two filled dots) — sitting cleanly above the Licensor's signature line, in place of
-the old plain name. Reusing the already-embedded `/Im1` costs the seal nothing.
+issuance went to — `SIGNED <date> - <FULL NAME> - <address>`, and the full name is carried even
+when the mark is hand-drawn, so a drawing is never anonymous (the line steps its size and
+tracking down via `putMicro` until it fits its own rule). The LICENSOR block, bottom-right, is
+closed by the store's **official approval stamp** — a precision architectural brand plate
+(square, not round): a crisp white outer hairline and a silver `#888888` inner hairline carrying
+the master frame's white corner ticks, a silver divider, the *same* embedded flower mark
+(`/Im1`) centred with generous padding in the left compartment, and left-aligned tracked-out
+ALL-CAPS type in the right compartment — `KYROIII` (bold white) / `OFFICIAL VERIFIED SEAL`
+(silver) / `AUTHORIZED LICENSOR` (white) — standing cleanly above the Licensor's signature line,
+in place of the old plain name, with zero collisions or crooked text. Reusing the
+already-embedded `/Im1` costs the stamp nothing.
 
 Object numbering is positional and easy to break: 1 catalog, 2 pages, 3 Helvetica, 4
 Helvetica-Bold, **5 the flower image**, then two objects per
@@ -576,8 +586,13 @@ Tests that ship with the repo:
   hand-drawn signature is verified as real vector ink: multi-point paths inside the LICENSEE
   column, which no typed license contains, inked in pure white with no silver pen left. Nothing
   draws behind the LICENSEE signature any more (no `.sign-watermark`, no `.license-cert__watermark`
-  and no `/GS1` in the PDF); the flower's second draw is the LICENSOR approval seal, asserted in
-  the right column with its `VERIFIED OFFICIAL SEAL` / `AUTHORIZED` legend. Re-signing on the download page then downloads again,
+  and no `/GS1` in the PDF); the flower's second draw is the LICENSOR approval stamp, asserted in
+  the right column with its `OFFICIAL VERIFIED SEAL` / `AUTHORIZED LICENSOR` legend, and the
+  hand-drawn issuance's micro-line is asserted to carry the full name that signed it. It also
+  proves DRAW mode is no bypass: with the name empty, and again with a single word (`MATAN`), the
+  drawing alone stays locked (and still refuses after `disabled` is stripped), and only a full
+  name (`MATAN MAMADOV`) plus a valid drawing unlocks — and the download page's re-sign field
+  refuses a single word the same way. Re-signing on the download page then downloads again,
   proving the new name replaces the old one in caps on the next issuance. It also
   asserts the gate posts a valid address to the configured newsletter provider (and never a
   malformed one, and never on a re-opened gate), that a package passed on the download page is
@@ -596,8 +611,10 @@ lead-capture courtesies rather than enforcement — the files themselves are pub
 the server blocks them, and the grant token that skips the second ask is just a URL parameter.
 The strict half of "genuine interaction" is what a static page can actually enforce: a trusted
 click and a real dwell on each step (`STEP_HOLD_MS`), plus a **full name and a signature**
-captured in the sign step (a single word, a blank field and a token dot are all refused before
-the unlock button will move, and `submitGate` refuses them again if the attribute is stripped). A departure to the opened tab only ever *shortens* that hold — it is recorded, never
+captured in the sign step — and the full name is required in **both** TYPE and DRAW modes, so a
+bare drawing cannot stand in for the name (a single word, a blank field and a token dot are all
+refused before the unlock button will move, and the submit handler refuses them again if the
+attribute is stripped). A departure to the opened tab only ever *shortens* that hold — it is recorded, never
 required — because a blocked popup would otherwise strand a real visitor, and because a
 headless browser reports no blur at all (measured, so no check can depend on it).
 The gate is remembered for the current page view only (`grants`), so a visitor who passes it and

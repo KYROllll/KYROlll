@@ -400,15 +400,15 @@ try {
   assert(pdfText.includes('CERTIFICATE OF FREE LICENSE'));
   assert(pdfText.includes('TAGGED MP3 AUDIO FILE')); // this package's includes
   assert(pdfText.includes('Im1 Do'), 'the flower mark is embedded in the header');
-  // The embedded mark is stamped again inside the LICENSOR approval seal, and
+  // The embedded mark is stamped again inside the LICENSOR approval stamp, and
   // nothing is drawn behind the LICENSEE signature any more: the old watermark
-  // graphics state is gone and the seal's flower draw lands in the right column.
-  assert.equal((pdfText.match(/\/Im1 Do/g) || []).length, 2, 'the flower is drawn twice: the masthead and the licensor seal');
+  // graphics state is gone and the stamp's flower draw lands in the right column.
+  assert.equal((pdfText.match(/\/Im1 Do/g) || []).length, 2, 'the flower is drawn twice: the masthead and the licensor stamp');
   assert.equal(pdfText.includes('/GS1'), false, 'no LICENSEE watermark graphics state remains');
-  const sealDraw = pdfText.match(/q 32\.00 0 0 32\.00 ([\d.]+) ([\d.]+) cm \/Im1 Do Q/);
-  assert(sealDraw && Number(sealDraw[1]) > 300, 'the flower approval seal sits in the LICENSOR (right) column');
-  assert(pdfText.includes('VERIFIED OFFICIAL SEAL'), 'the approval seal carries its official legend');
-  assert(pdfText.includes('AUTHORIZED'), 'the approval seal marks the document authorised');
+  const stampFlower = pdfText.match(/q 28\.00 0 0 28\.00 ([\d.]+) ([\d.]+) cm \/Im1 Do Q/);
+  assert(stampFlower && Number(stampFlower[1]) > 300, 'the flower approval stamp sits in the LICENSOR (right) column');
+  assert(pdfText.includes('OFFICIAL VERIFIED SEAL'), 'the approval stamp carries its official legend');
+  assert(pdfText.includes('AUTHORIZED LICENSOR'), 'the approval stamp marks the document authorised');
   assert(pdfText.includes('PAGE 1 OF 1'), 'document-control footer, one page for every package');
   // Strict ALL CAPS branding: no lowercase letter survives anywhere in the doc.
   assert.deepEqual(pdfRuns(pdfText).filter(run => /[a-z]/.test(run)), [], 'every PDF string is uppercase');
@@ -442,9 +442,15 @@ try {
   assert(pdfText.includes('HTTPS://KYROILL.STORE'), 'the store link is printed in the footer');
   assert(/1 1 1 rg\n[\d.]+ [\d.]+ [\d.]+ [\d.]+ re f/.test(pdfText), 'vector barcode drawn in the footer');
 
-  // Re-signing on the download page still re-stamps the next PDF live, and the
-  // ALL-CAPS rule holds over the new name.
+  // Re-signing on the download page enforces the same full-name rule: a single
+  // word is refused inline and never reaches the document (the previous
+  // signature is kept), and the ALL-CAPS rule holds over the accepted name.
+  await mp3Page.locator('#license-signature').fill('Madonna');
+  assert.equal(await mp3Page.locator('#license-sign-error').isVisible(), true, 'a single word is refused on the download page re-sign too');
+  assert.match(await mp3Page.locator('#license-sign-error').innerText(), /FULL NAME/);
+  assert.match(await mp3Page.locator('#license-stamp').innerText(), /JORDAN VEGA/, 'the refused re-sign keeps the previous signature');
   await mp3Page.locator('#license-signature').fill('Matan Kaplan');
+  assert.equal(await mp3Page.locator('#license-sign-error').isVisible(), false, 'a full name clears the refusal');
   await mp3Page.waitForFunction(() => {
     const stamp = document.getElementById('license-stamp');
     return stamp && stamp.dataset.stamped === 'true' && /MATAN KAPLAN/.test(stamp.textContent || '');
@@ -546,14 +552,31 @@ try {
   // This license is signed by hand: the pad takes real pointer strokes, and the
   // drawing travels on to the download page and into the PDF as vector paths.
   await signStage(proPage).waitFor();
+  // DRAW mode is not a shortcut past the full name: with the name field empty —
+  // and again with a single word — a bare drawing leaves SIGN & UNLOCK locked,
+  // and the sheet says exactly what is still missing.
   await drawSignature(proPage);
-  assert.match(await proPage.locator('[data-sign-stamp]').innerText(), /SIGNATURE CAPTURED/, 'the drawn signature is captured');
-  assert.equal(await proPage.locator('[data-sign-submit]').isDisabled(), true, 'a drawing still cannot skip reading the terms');
+  assert.equal(await proPage.locator('#sign-name').inputValue(), '', 'the full-name field starts empty and stays visible in DRAW mode');
+  assert.equal(await proPage.locator('[data-sign-submit]').isDisabled(), true, 'a drawing with no name stays locked');
+  assert.match(await proPage.locator('[data-sign-stamp]').innerText(), /FULL NAME REQUIRED/, 'the sheet reports the missing full name');
   await readTerms(proPage);
-  assert.equal(await proPage.locator('[data-sign-submit]').isDisabled(), false);
+  // With the terms read, the live hint states exactly what is still missing.
+  assert.match(await proPage.locator('#gate-hint').innerText(), /ENTER YOUR FULL NAME/);
+  await proPage.locator('#sign-name').fill('MATAN');
+  assert.equal(await proPage.locator('[data-sign-submit]').isDisabled(), true, 'a drawing plus a single word stays locked');
+  assert.match(await proPage.locator('[data-sign-stamp]').innerText(), /FULL NAME REQUIRED/);
+  // The full name is enforced in DRAW mode exactly as the disabled-button check
+  // is: stripping the attribute still refuses a one-word signature.
+  await proPage.evaluate(() => { const b = document.querySelector('[data-sign-submit]'); b.disabled = false; b.click(); });
+  assert.equal(await proPage.evaluate(() => new URLSearchParams(location.search).has('t')), false, 'a one-word DRAW signature never unlocks');
+  assert.match(await proPage.locator('#gate-error').innerText(), /FIRST AND LAST NAME REQUIRED/);
+  await proPage.locator('#sign-name').fill('MATAN MAMADOV');
+  assert.match(await proPage.locator('[data-sign-stamp]').innerText(), /SIGNATURE CAPTURED/, 'a full name plus a valid drawing is captured');
+  assert.equal(await proPage.locator('[data-sign-submit]').isDisabled(), false, 'a full name plus a valid drawing unlocks DRAW mode');
   await proPage.locator('[data-sign-submit]').click();
   await proPage.waitForURL(/package=exclusive/);
   assert.match(proPage.url(), /sig=/, 'the drawing is handed forward, packed into the flow URL');
+  assert.match(proPage.url(), /sign=MATAN(%20|\+)MAMADOV/, 'the full name rides forward alongside the drawing');
   assert(await proPage.locator('.license-cert__mark path').count() >= 2, 'the download page replays the drawn signature');
   // Upright, never flipped: SVG shares the canvas' top-left origin, so the first
   // pen position — drawn 72% down the pad — must land 72% down the mark. (The
@@ -592,6 +615,9 @@ try {
   ]);
   const proText = (await readFile(await proPdf.path())).toString('latin1');
   assert(proText.includes('PRODUCER@EXAMPLE.COM'), 'the exclusive license records the address this issuance went to');
+  // A hand-drawn mark is still attributed to its signer: the FULL name captured
+  // alongside the drawing is printed in the LICENSEE metadata micro-line.
+  assert.match(proText, /SIGNED \d{4}-\d{2}-\d{2} - MATAN MAMADOV - PRODUCER@EXAMPLE\.COM/, 'the drawn license records the full name that signed it');
   assert(proText.includes('PAGE 1 OF 1'), 'the exclusive package still fits one page');
   // The hand-drawn signature reaches the PDF as real vector strokes, inside the
   // LICENSEE column, and the document stays monochrome and uppercase.
@@ -760,7 +786,7 @@ try {
   assert.equal(/\.gate-input[^}]*text-transform: none/.test(cssText), false, 'no casing opt-out is left on the fields');
 
   assert.deepEqual(errors, []);
-  console.log('Passed storefront layout, tagged audio preview, and the free-download drawer + all three package-specific gates (one held subscribe step for the WAV lease, subscribe + like for the Pro package, the REVIEW & SIGN stage with read-to-the-end terms, a full-name-or-drawing signature and a single-word signature refused even with the disabled attribute stripped, an upright never-flipped signature mark, no flower watermark on the signature sheet / the certificate (the flower now lives in the PDF\'s LICENSOR approval seal) and a pure-white drawn signature ink, a border-free floating flower and white/silver monochrome PDF borders, a direct studio-named PDF download with its serial, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts, and the whole flow walked at 390x844 with touch).');
+  console.log('Passed storefront layout, tagged audio preview, and the free-download drawer + all three package-specific gates (one held subscribe step for the WAV lease, subscribe + like for the Pro package, the REVIEW & SIGN stage with read-to-the-end terms, a typed full name plus, in DRAW mode, a valid drawing — a single word refused in either mode even with the disabled attribute stripped, and a re-sign single word refused on the download page — an upright never-flipped signature mark, no flower watermark on the signature sheet / the certificate (the flower now lives in the PDF\'s LICENSOR approval stamp) and a pure-white drawn signature ink, a border-free floating flower and white/silver monochrome PDF borders, a direct studio-named PDF download with its serial, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts, and the whole flow walked at 390x844 with touch).');
 } finally {
   await browser?.close();
   server.close();

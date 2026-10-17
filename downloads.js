@@ -22,12 +22,15 @@
  * only counts after a genuine gesture AND a minimum hold (`STEP_HOLD_MS`), so
  * opening it and bouncing straight back cannot mark it done; and the REVIEW &
  * SIGN stage that closes every gate only unlocks once the terms have actually
- * been read to the end and a signature — a FULL NAME (first and last) typed, or
- * a real drawing on the pad — has been captured. A single word, a blank line and
- * a token dot are all refused (`isFullName` / `hasSignature`), so there is no
- * bypass to the files. That signature is what the PDF license prints in its
- * LICENSEE block (see `license-pdf.js`) — the customer signs on a clean field,
- * never over the brand's flower.
+ * been read to the end and a signature has been captured. The FULL NAME (first
+ * and last) field never hides and is required in BOTH modes: in TYPE mode the
+ * name *is* the signature, and in DRAW mode the pad must hold a genuine drawing
+ * AND the name must be valid, so switching tabs cannot skip the name. A single
+ * word, a blank line and a token dot are all refused (`isFullName` /
+ * `hasSignature`), so there is no bypass to the files. The typed full name always
+ * travels with the flow — even when a drawing is used — and is what the PDF
+ * license prints in its LICENSEE block (see `license-pdf.js`); the customer signs
+ * on a clean field, never over the brand's flower.
  *
  * Files are handed over under their professional studio names —
  * `KYROIII - <BEAT> (<BPM> BPM - <KEY>).<ext>` — built from the beat's own
@@ -192,7 +195,11 @@
     return signature;
   }
   /* Keep a drawn signature. An empty array clears it (the visitor switched
-     back to typing), which is why the length is checked before assigning. */
+     back to typing), which is why the length is checked before assigning. A
+     drawing does NOT clear the typed name any more: the sign stage requires a
+     full name in DRAW mode too, and that name has to travel to the PDF alongside
+     the strokes. A typed name still replaces a drawing (see `setSignature`), so
+     re-signing on the download page behaves exactly as before. */
   function setDrawnSignature(strokes) {
     drawnStrokes = Array.isArray(strokes) && strokes.length
       ? strokes
@@ -202,7 +209,6 @@
         .filter((stroke) => stroke.length > 1)
         .slice(0, 12)
       : null;
-    if (drawnStrokes && drawnStrokes.length) signature = "";
     return drawnStrokes;
   }
   /* The typed name, or the address this flow submitted at the gate. */
@@ -233,10 +239,13 @@
     }).filter(Boolean)).filter((stroke) => stroke.length > 1);
     return strokes.length ? strokes : null;
   }
-  /* Take the signature the sign stage handed forward. */
+  /* Take the signature the sign stage handed forward. The name is adopted
+     first — `setSignature` clears any drawing — and the strokes are laid over
+     it last, so a hand-signed license keeps BOTH its mark and the full name that
+     signed it. */
   function adoptSignature(name, packedStrokes) {
-    if (packedStrokes) setDrawnSignature(decodeStrokes(packedStrokes));
     if (name) setSignature(name);
+    if (packedStrokes) setDrawnSignature(decodeStrokes(packedStrokes));
     return signaturePayload();
   }
 
@@ -702,6 +711,16 @@
       '<div class="sign-terms" data-sign-terms role="region" tabindex="0" aria-label="License terms">' +
         termsHTML(beat, pack) +
       '</div>' +
+      /* The FULL NAME field sits ABOVE the TYPE / DRAW switch and never hides:
+         it is required in both modes, so switching to DRAW cannot skip the name
+         that attributes the license. */
+      '<label class="gate-field" data-sign-field for="sign-name">' +
+        '<span class="gate-field__label">FULL NAME — FIRST AND LAST' +
+          '<span class="gate-field__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +
+        '<input class="gate-input" id="sign-name" name="signature" type="text" autocomplete="off" ' +
+          'autocapitalize="characters" enterkeyhint="done" spellcheck="false" maxlength="48" ' +
+          'placeholder="TYPE YOUR FULL NAME">' +
+      '</label>' +
       '<div class="sign-modes" role="group" aria-label="Signature style">' +
         '<button type="button" class="sign-mode is-active" data-sign-mode="type">TYPE</button>' +
         '<button type="button" class="sign-mode" data-sign-mode="draw">DRAW</button>' +
@@ -709,13 +728,6 @@
       /* The signature sheet: a clean field, so the customer never signs over the
          brand's flower mark. */
       '<div class="sign-sheet">' +
-        '<label class="gate-field" data-sign-field for="sign-name">' +
-          '<span class="gate-field__label">FULL NAME — FIRST AND LAST' +
-            '<span class="gate-field__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +
-          '<input class="gate-input" id="sign-name" name="signature" type="text" autocomplete="off" ' +
-            'autocapitalize="characters" enterkeyhint="done" spellcheck="false" maxlength="48" ' +
-            'placeholder="TYPE YOUR FULL NAME">' +
-        '</label>' +
         '<div class="sign-pad" data-sign-pad hidden>' +
           '<canvas class="sign-pad__canvas" data-sign-canvas width="' + SIGN_PAD.w + '" height="' + SIGN_PAD.h + '"></canvas>' +
           '<div class="sign-pad__row"><span class="sign-pad__hint">DRAG TO SIGN — MOUSE OR FINGER</span>' +
@@ -782,9 +794,14 @@
     function drawingValid() {
       return strokes.length > 0 && drawPoints() >= SIGN_INK_MIN && strokeSpan() >= SIGN_SPAN_MIN;
     }
-    /* The one gate on the unlock button: a FULL name typed, or a real drawing.
-       Nothing weaker can enable it. */
-    function hasSignature() { return mode === "draw" ? drawingValid() : isFullName(typedName()); }
+    /* The one gate on the unlock button. The FULL name is required in BOTH
+       modes: in TYPE mode the name is the signature, and in DRAW mode a genuine
+       drawing AND a valid full name must both be present, so switching to the pad
+       can never skip the name. Nothing weaker can enable it. */
+    function hasSignature() {
+      const named = isFullName(typedName());
+      return mode === "draw" ? (named && drawingValid()) : named;
+    }
     function nameProblem() {
       const value = typedName();
       if (!value) return "ENTER YOUR FULL NAME — FIRST AND LAST";
@@ -798,25 +815,29 @@
        deliberate edit or a mode switch clears it (see `refresh`). */
     function applyState() {
       const read = termsRead();
+      const named = isFullName(typedName());
       const signed = hasSignature();
       const ready = read && signed;
       if (submitBtn) submitBtn.disabled = !ready;
-      if (field) field.classList.toggle("is-valid", mode === "type" && isFullName(typedName()));
+      if (field) field.classList.toggle("is-valid", named);
       if (stamp) {
         let label = "NOTHING SIGNED YET";
         if (mode === "draw") {
-          if (drawingValid()) label = "SIGNATURE CAPTURED — " + strokes.length + " STROKE" + (strokes.length === 1 ? "" : "S");
+          if (drawingValid() && named) label = "SIGNATURE CAPTURED — " + strokes.length + " STROKE" + (strokes.length === 1 ? "" : "S");
+          else if (drawingValid()) label = "FULL NAME REQUIRED — FIRST AND LAST";
           else if (strokes.length) label = "KEEP DRAWING — SIGN YOUR FULL NAME";
         } else if (typedName()) {
           label = typedName().toUpperCase();
         }
         stamp.textContent = label;
-        stamp.dataset.stamped = hasSignature() ? "true" : "false";
+        stamp.dataset.stamped = signed ? "true" : "false";
       }
       if (hint) {
         hint.textContent = ready ? "ALL SET — SIGN & UNLOCK"
           : (!read ? "SCROLL THROUGH THE TERMS TO THE END"
-            : (mode === "draw" ? "SIGN YOUR FULL NAME ON THE PAD" : nameProblem()));
+            : (mode === "draw"
+              ? (named ? "SIGN YOUR FULL NAME ON THE PAD" : "ENTER YOUR FULL NAME — FIRST AND LAST")
+              : nameProblem()));
       }
     }
     /* A visitor editing something also dismisses a refusal that no longer
@@ -875,7 +896,15 @@
          finger slid past an edge (the pointer is captured, so the drawing keeps
          going) — a dropped stroke is exactly the "had to sign it twice" bug. */
       ["pointerup", "pointercancel"].forEach((type) =>
-        canvas.addEventListener(type, () => { current = null; }));
+        canvas.addEventListener(type, () => {
+          current = null;
+          /* A finished drawing that has no valid full name on file reports the
+             one thing still missing, instead of letting a bare stroke read as a
+             signature. */
+          if (mode === "draw" && drawingValid() && !isFullName(typedName())) {
+            showGateError(errEl, "ENTER YOUR FULL NAME — FIRST AND LAST TO UNLOCK");
+          }
+        }));
       canvas.addEventListener("pointerleave", (event) => {
         if (event && event.pointerType !== "mouse") return;
         current = null;
@@ -899,10 +928,10 @@
         mode = next;
         card.querySelectorAll("[data-sign-mode]").forEach((other) =>
           other.classList.toggle("is-active", other === btn));
-        if (field) field.hidden = mode !== "type";
+        /* The full-name field is required in BOTH modes, so it never hides and
+           the typed name is never cleared by a switch — only the pad's visibility
+           changes. */
         if (pad) pad.hidden = mode !== "draw";
-        setDrawnSignature([]);
-        setSignature("");
         if (mode === "draw" && canvas) { canvas.focus && canvas.focus(); }
         else if (nameInput) { try { nameInput.focus(); } catch (err) { /* ignore */ } }
         refresh();
@@ -927,15 +956,23 @@
 
     if (submitBtn) submitBtn.addEventListener("click", () => {
       if (!termsRead()) { showGateError(errEl, "READ THE TERMS TO THE END FIRST"); return; }
-      if (!hasSignature()) {
-        showGateError(errEl, mode === "draw"
-          ? "DRAW YOUR FULL SIGNATURE ON THE PAD TO UNLOCK"
-          : (nameProblem() || "TYPE YOUR FULL NAME TO UNLOCK"));
+      /* The full name is enforced again here — the one thing a script can do is
+         strip the `disabled` attribute, so a single word is refused on submit
+         whatever mode the pad is in. */
+      if (!isFullName(typedName())) {
+        showGateError(errEl, nameProblem() || "TYPE YOUR FULL NAME TO UNLOCK");
         return;
       }
-      /* Capture the signature — typed or drawn — and hand it to the flow. */
-      if (mode === "draw") setDrawnSignature(strokes);
-      else { setDrawnSignature([]); setSignature(typedName()); }
+      if (mode === "draw" && !drawingValid()) {
+        showGateError(errEl, "DRAW YOUR FULL SIGNATURE ON THE PAD TO UNLOCK");
+        return;
+      }
+      /* Capture the signature — typed or drawn — and hand it to the flow. The
+         full name always rides along, so a drawing is attributed to its signer in
+         the PDF's LICENSEE metadata line. `setSignature` clears a drawing, so the
+         strokes are laid back over the name last. */
+      setSignature(typedName());
+      setDrawnSignature(mode === "draw" ? strokes : []);
       submitBtn.disabled = true;
       if (hint) hint.textContent = "SIGNED — UNLOCKING YOUR FILES…";
       closeGate();
@@ -1178,6 +1215,7 @@
      current flow's URL. */
   window.KYROlll_DOWNLOADS = {
     isUnlocked: isUnlocked,
+    isFullName: isFullName,
     setSignature: setSignature,
     setDrawnSignature: setDrawnSignature,
     signaturePayload: signaturePayload,

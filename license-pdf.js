@@ -16,12 +16,16 @@
  * out blank.
  *
  * The LICENSOR block, bottom-right, is closed by the store's official approval
- * seal: the 3D flower mark — the same `/DCTDecode` image that leads the masthead
- * — set inside a sharp monochromatic vector ring (an outer white circle, an
- * inner silver circle and a ring of fine radial ticks) with the crisp uppercase
- * legend `KYROIII - VERIFIED OFFICIAL SEAL - AUTHORIZED`. Nothing is drawn
- * behind the LICENSEE signature any more: the customer signs on a clean field,
- * never over the brand mark.
+ * stamp: the 3D flower mark — the same `/DCTDecode` image that leads the masthead
+ * — set inside a razor-sharp architectural brand plate. A crisp white outer
+ * hairline and a silver inner hairline (with the master frame's white corner
+ * ticks) open the box; a silver divider splits a left compartment holding the
+ * flower (generous padding, nothing touching its petals) from a right compartment
+ * of left-aligned, tracked-out ALL-CAPS type — `KYROIII` / `OFFICIAL VERIFIED
+ * SEAL` / `AUTHORIZED LICENSOR` — on clean vertical rhythm with zero collisions.
+ * Nothing is drawn behind the LICENSEE signature any more: the customer signs on
+ * a clean field, never over the brand mark, and the full name that signed rides
+ * in the LICENSEE metadata micro-line even when a hand-drawn mark is used.
  *
  * The document is 100% ALL CAPS: every string runs through `toAscii`, which
  * uppercases it, so no lowercase letter can reach the page. The palette is
@@ -41,8 +45,8 @@
  * (stems) package is the tightest fit of the three — it ends ~10 pt above the
  * floor — so any new block, bigger flower or looser leading has to be paid for
  * by reclaiming the same space above it. `SIG_LEAD` is the gap that opens the
- * band the LICENSOR approval seal stamps into; it is what buys the seal its
- * room without touching the clauses above.
+ * band the LICENSOR approval stamp stands in; it is what buys the plate its room
+ * without touching the clauses above.
  */
 (function () {
   "use strict";
@@ -52,9 +56,9 @@
   const SERIAL_PREFIX = "KYRO";
   const SUPPORT_EMAIL = "kyrolll00@gmail.com";
   const STORE_URL = "HTTPS://KYROILL.STORE";
-  const SEAL_R = 34;               // outer radius of the LICENSOR approval seal
-  const SEAL_FLOWER = 32;          // points — the 3D flower inside the seal ring
-  const SIG_LEAD = 38;             // clearance above the signature band (the seal's room)
+  const SEAL_FLOWER = 28;          // points — the 3D flower inside the stamp's left compartment
+  const SEAL_PLATE_H = 46;         // height of the LICENSOR approval stamp plate
+  const SIG_LEAD = 38;             // clearance above the signature band (the stamp's room)
 
   /* ------------------------------------------------------ font metrics */
   /* Adobe AFM advance widths for Helvetica / Helvetica-Bold, ASCII 32..126,
@@ -216,7 +220,8 @@
   const TICK = "1 1 1";                  // #FFFFFF — crisp white corner ticks
   const WHITE = "1 1 1 rg";              // #FFFFFF — crisp pure white
   const SIG_INK = "1 1 1";               // #FFFFFF — the drawn signature's pen (pure crisp white)
-  const SEAL_HAIR = "0.631 0.631 0.631"; // #A1A1A1 — the seal's inner ring & ticks
+  const SEAL_SILVER = "0.533 0.533 0.533";    // #888888 — the approval stamp's inner frame & divider
+  const SEAL_SILVER_TEXT = "0.533 0.533 0.533 rg"; // #888888 — the stamp's silver legend line
   const BODY = "0.85 0.85 0.85 rg";
   const MUTED = "0.55 0.55 0.55 rg";
 
@@ -278,28 +283,6 @@
     /* A full-width silver divider — the masthead's cut line. */
     const rule = (yLine, color, width) => hline(COL_X, COL_X + COL_W, yLine, color, width);
 
-    /* Circles, drawn as four cubic Béziers (PDF has no circle primitive). Used
-       only by the LICENSOR approval seal, so the whole badge is real vector ink:
-       nothing rasterised, every channel an equal grey. */
-    const CIRCLE_K = 0.5522847498307936;
-    const circlePath = (cx, cy, r, close) => {
-      const k = r * CIRCLE_K;
-      const n = (v) => v.toFixed(2);
-      return n(cx + r) + " " + n(cy) + " m " +
-        n(cx + r) + " " + n(cy + k) + " " + n(cx + k) + " " + n(cy + r) + " " + n(cx) + " " + n(cy + r) + " c " +
-        n(cx - k) + " " + n(cy + r) + " " + n(cx - r) + " " + n(cy + k) + " " + n(cx - r) + " " + n(cy) + " c " +
-        n(cx - r) + " " + n(cy - k) + " " + n(cx - k) + " " + n(cy - r) + " " + n(cx) + " " + n(cy - r) + " c " +
-        n(cx + k) + " " + n(cy - r) + " " + n(cx + r) + " " + n(cy - k) + " " + n(cx + r) + " " + n(cy) + " c " + close;
-    };
-    const circle = (cx, cy, r, color, width) => {
-      stroke(color, width || 0.6);
-      raw(circlePath(cx, cy, r, "S"));
-    };
-    const dot = (cx, cy, r, color) => {
-      raw(color + " rg");
-      raw(circlePath(cx, cy, r, "f"));
-    };
-
     /* One run of text at a baseline. Letter-spacing uses the text-space `Tc`
        operator: the run stays a single string, so the PDF remains searchable
        and copyable — a legal document, not a stack of loose glyphs. (Verified:
@@ -322,6 +305,18 @@
     const putCenter = (cx, baseline, str, font, size, color, tracking) => {
       const w = tracking ? trackedWidth(str, font, size, tracking) : measure(str, font, size);
       return put(cx - w / 2, baseline, str, font, size, color, tracking);
+    };
+    /* A micro-line that must never run into the neighbouring column (the LICENSEE
+       metadata line can carry the signature's full name AND the address): step
+       the size and tracking down until the one line fits its own rule. */
+    const putMicro = (x, baseline, str, maxW) => {
+      const text = toAscii(str);
+      let size = 6.5, tracking = 0.9;
+      while (size > 4.6 && measure(text, "F1", size) + tracking * Math.max(0, text.length - 1) > maxW) {
+        size -= 0.25;
+        if (tracking > 0) tracking = Math.max(0, tracking - 0.1);
+      }
+      putTracked(x, baseline, text, "F1", size, MUTED, tracking);
     };
 
     /* The dark field, the double frame with its corner ticks and — the mark the
@@ -443,37 +438,46 @@
       raw("0 J 0 j");
     };
 
-    /* The LICENSOR approval seal: the 3D flower mark set inside a sharp
-       monochromatic vector stamp — an outer white ring, an inner silver ring and
-       a ring of fine radial ticks — with the crisp uppercase legend. It is the
-       mark that closes the contract, sitting cleanly above the Licensor's
-       signature line. The flower is the masthead's own embedded image, so the
-       seal costs the file nothing extra. */
-    const sealBadge = (cx, cy) => {
-      const r = SEAL_R;
-      const inner = r - 4;
-      circle(cx, cy, r, FRAME, 1.6);
-      circle(cx, cy, inner, SEAL_HAIR, 0.5);
-      const ticks = 56;
-      for (let i = 0; i < ticks; i += 1) {
-        const a = (i / ticks) * Math.PI * 2;
-        const tx1 = cx + Math.cos(a) * inner, ty1 = cy + Math.sin(a) * inner;
-        const tx2 = cx + Math.cos(a) * r, ty2 = cy + Math.sin(a) * r;
-        stroke(SEAL_HAIR, 0.4);
-        raw(tx1.toFixed(2) + " " + ty1.toFixed(2) + " m " + tx2.toFixed(2) + " " + ty2.toFixed(2) + " l S");
-      }
+    /* The LICENSOR approval stamp: a precision architectural brand plate, aligned
+       with the LICENSOR (KYROIII) column above its signature line. A crisp white
+       outer hairline and a silver inner hairline — carrying the same white corner
+       ticks the master frame wears — open the box; a silver divider splits a left
+       compartment that holds the 3D flower mark (centred with generous padding, so
+       nothing touches its petals) from a right compartment of left-aligned,
+       tracked-out ALL-CAPS type on clean vertical rhythm, so no line collides with
+       the frame or with another line. It is real vector ink plus the masthead's
+       own embedded image, so it costs the file nothing extra and carries no hue. */
+    const licensorStamp = (x, bottom, w, h) => {
+      const inset = 2.5;
+      box(x, bottom, w, h, FRAME, 1);
+      box(x + inset, bottom + inset, w - inset * 2, h - inset * 2, SEAL_SILVER, 0.5);
+      const t = 5;
+      const corners = [
+        [x + inset, bottom + inset, 1, 1],
+        [x + w - inset, bottom + inset, -1, 1],
+        [x + inset, bottom + h - inset, 1, -1],
+        [x + w - inset, bottom + h - inset, -1, -1]
+      ];
+      corners.forEach((c) => {
+        hline(c[0], c[0] + t * c[2], c[1], FRAME, 1);
+        vline(c[0], c[1], c[1] + t * c[3], FRAME, 1);
+      });
+      /* Left compartment: the flower, centred with padding on every side. */
+      const leftW = 56;
+      const divX = x + leftW;
+      vline(divX, bottom + inset, bottom + h - inset, SEAL_SILVER, 0.5);
       if (flower) {
         const fw = SEAL_FLOWER;
-        raw("q " + fw.toFixed(2) + " 0 0 " + fw.toFixed(2) + " " + (cx - fw / 2).toFixed(2) + " " +
-          (cy + 3 - fw / 2).toFixed(2) + " cm /Im1 Do Q");
+        raw("q " + fw.toFixed(2) + " 0 0 " + fw.toFixed(2) + " " +
+          (x + leftW / 2 - fw / 2).toFixed(2) + " " + (bottom + h / 2 - fw / 2).toFixed(2) + " cm /Im1 Do Q");
       }
-      putCenter(cx, cy + 22, "KYROIII", "F2", 8.2, WHITE, 0.4);
-      putCenter(cx, cy - 15, "VERIFIED OFFICIAL SEAL", "F1", 3.6, WHITE, 0.4);
-      const word = "AUTHORIZED";
-      const wordW = trackedWidth(word, "F2", 4.9, 0.7);
-      putCenter(cx, cy - 23, word, "F2", 4.9, WHITE, 0.7);
-      dot(cx - wordW / 2 - 4.2, cy - 21.4, 0.8, "1 1 1");
-      dot(cx + wordW / 2 + 4.2, cy - 21.4, 0.8, "1 1 1");
+      /* Right compartment: perfectly left-aligned, tracked-out type — the wordmark
+         on the strong white line, the seal legend in silver beneath it, and the
+         authority line closing the plate. */
+      const tx = divX + 10;
+      putTracked(tx, bottom + h - 14, "KYROIII", "F2", 10, WHITE, 0.9);
+      putTracked(tx, bottom + 20, "OFFICIAL VERIFIED SEAL", "F1", 6.5, SEAL_SILVER_TEXT, 0.9);
+      putTracked(tx, bottom + 10, "AUTHORIZED LICENSOR", "F1", 6.5, WHITE, 1.1);
     };
 
     function startPage() {
@@ -532,13 +536,13 @@
     /* Two clean, straight, pre-filled signature blocks close the contract: the
        licensee, stamped with the signature captured in the gate's review-and-sign
        step (falling back to the address submitted there), and the licensor
-       KYROIII, closed by its official approval seal. The licensee name is set
+       KYROIII, closed by its official approval stamp. The licensee name is set
        upright — no script face — on its own white rule under a micro-label, so
        the block reads as a signed instrument rather than a blank to fill in. */
     ensure(SIG_LEAD + 66 + 4);
-    /* The lead-in gap opens the band the approval seal stamps into, so the seal
-       sits cleanly above the Licensor's signature line without crowding the last
-       clause. */
+    /* The lead-in gap opens the band the approval stamp sits in, so the plate
+       stands cleanly above the Licensor's signature line without crowding the
+       last clause. */
     gap(SIG_LEAD);
     const sigTop = y;
     const sigW = (COL_W - 40) / 2;
@@ -558,20 +562,24 @@
         putTracked(x, sigTop - 30, name, "F2", fitSize(name, 12, sigW - 8), WHITE, 0.5);
       }
       putTracked(x, sigTop - 55, label, "F1", 7, MUTED, 1.2);
-      putTracked(x, sigTop - 66, micro, "F1", 6.5, MUTED, 0.9);
+      putMicro(x, sigTop - 66, micro, sigW - 4);
     };
     const licenseeName = sig.name || "-";
     /* The micro line under the LICENSEE rule records who this issuance went to:
-       the address the flow submitted at the gate, alongside the date. */
-    const signedLine = "SIGNED " + data.issued + (sig.email ? " - " + sig.email : "");
+       the FULL name that signed it — carried even when the signature is a drawing,
+       so a hand-signed license is still attributed — alongside the date and the
+       address the flow submitted at the gate. */
+    const signedLine = "SIGNED " + data.issued +
+      (sig.name ? " - " + sig.name : "") +
+      (sig.email ? " - " + sig.email : "");
     /* Nothing is drawn behind the LICENSEE signature any more: the customer signs
        on a clean field, never over the brand's flower. */
     signatureBlock(COL_X, licenseeName, "LICENSEE SIGNATURE", signedLine, sig.strokes, sig.pad);
-    /* The LICENSOR column carries the official approval seal — the 3D flower
-       inside a sharp monochromatic vector stamp — sitting cleanly above its
-       signature line, in place of a plain name. */
+    /* The LICENSOR column carries the official approval stamp — the 3D flower
+       inside a precision architectural brand plate — aligned with the column and
+       sitting cleanly above its signature line, in place of a plain name. */
     hline(sigX2, sigX2 + sigW, sigTop - 42, FRAME, 0.9);
-    sealBadge(sigX2 + sigW / 2, sigTop - 42 + SEAL_R + 2);
+    licensorStamp(sigX2, sigTop - 42 + 10, sigW, SEAL_PLATE_H);
     putTracked(sigX2, sigTop - 55, "LICENSOR (KYROIII)", "F1", 7, MUTED, 1.2);
     putTracked(sigX2, sigTop - 66, "AUTHORISED SIGNATORY - KYROIII", "F1", 6.5, MUTED, 0.9);
     gap(84);
@@ -652,7 +660,7 @@
     putObject(3, toBytes("3 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> endobj\n"));
     putObject(4, toBytes("4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >> endobj\n"));
     /* The 3D flower mark. It leads the masthead and it is stamped again inside
-       the LICENSOR approval seal, so the whole document is anchored by the same
+       the LICENSOR approval plate, so the whole document is anchored by the same
        embedded `/DCTDecode` image — nothing else is embedded. */
     if (flower) {
       putObject(5, toBytes("5 0 obj << /Type /XObject /Subtype /Image /Width " + flower.width + " /Height " + flower.height +

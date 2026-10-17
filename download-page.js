@@ -13,11 +13,13 @@
  * without it — a bookmark, a shared link, a fresh browser — the package's gate
  * opens over the page and asks again, from scratch.
  *
- * The licensee signature is interactive: whatever the visitor types into
+ * The licensee signature is interactive: a FULL name typed into
  * `#license-signature` is stamped straight into the LICENSEE block of the PDF
  * (live, as it is typed — the blob is rebuilt behind the scenes so the click
- * still saves instantly). Leaving it empty falls back to the address submitted
- * at the gate (`?email=…`), so the document can never end up unsigned.
+ * still saves instantly). The same full-name rule the gate enforces applies
+ * here: a single word is refused inline and never reaches the document. Leaving
+ * it empty falls back to the signature captured at the gate, then to the address
+ * submitted there (`?email=…`), so the document can never end up unsigned.
  */
 (function () {
   "use strict";
@@ -25,6 +27,13 @@
   const helpers = () => window.KYROlll_HELPERS || null;
   const downloads = () => window.KYROlll_DOWNLOADS || null;
   const escapeHTML = (value) => (helpers() ? helpers().escapeHTML(value) : String(value == null ? "" : value));
+  /* The same rule the gate's REVIEW & SIGN stage enforces: a license is signed
+     by a FULL name — first AND last. A re-sign here that is a single word never
+     reaches the document; the previous signature is kept instead. */
+  const isFullName = (value) => {
+    const d = downloads();
+    return (d && d.isFullName) ? d.isFullName(value) : true;
+  };
 
   const params = new URLSearchParams(location.search);
   const beat = helpers() && helpers().beatById(params.get("beat") || "");
@@ -86,6 +95,7 @@
   const licensePanel = document.getElementById("license-panel");
   const serialEl = document.getElementById("license-serial");
   const signatureEl = document.getElementById("license-signature");
+  const signErrorEl = document.getElementById("license-sign-error");
   const stampEl = document.getElementById("license-stamp");
 
   /* One serial per page view, minted by the same generator the PDF uses, so the
@@ -233,7 +243,16 @@
     licenseWired = true;
     if (signatureEl) {
       signatureEl.addEventListener("input", () => {
-        d.setSignature(signatureEl.value);
+        const value = signatureEl.value.trim();
+        // The full-name rule applies here too: a single word is refused (it never
+        // reaches the document) and the refusal is stated inline, while an empty
+        // field clears the typed name and falls back to the gate's signature.
+        const invalid = value !== "" && !isFullName(value);
+        if (signErrorEl) {
+          signErrorEl.hidden = !invalid;
+          signErrorEl.textContent = invalid ? "ENTER YOUR FULL NAME — FIRST AND LAST" : "";
+        }
+        if (!invalid) d.setSignature(value);
         refreshStamp(false);
         // Rebuild the ready-to-save blob shortly after the typing stops, so the
         // download click still saves synchronously — which is what Safari and
