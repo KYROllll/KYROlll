@@ -11,11 +11,17 @@
  * The LICENSEE block carries the signature captured in the gate's
  * review-and-sign step on `download.html` (see `downloads.js`). A typed
  * signature is set large on its rule; a *drawn* one is re-emitted as vector
- * strokes, so it stays crisp at any zoom and the document stays monochrome.
- * Both pads are pre-filled and dated, so no license ever goes out blank — and
- * the same flower mark anchors that block as a faint watermark (`/GS1 gs`), so
- * the store's mark closes the contract as well as opening it. Reusing the
- * already-embedded `/DCTDecode` image costs the document nothing.
+ * strokes in pure crisp white, so it stays crisp at any zoom and the document
+ * stays monochrome. Both pads are pre-filled and dated, so no license ever goes
+ * out blank.
+ *
+ * The LICENSOR block, bottom-right, is closed by the store's official approval
+ * seal: the 3D flower mark — the same `/DCTDecode` image that leads the masthead
+ * — set inside a sharp monochromatic vector ring (an outer white circle, an
+ * inner silver circle and a ring of fine radial ticks) with the crisp uppercase
+ * legend `KYROIII - VERIFIED OFFICIAL SEAL - AUTHORIZED`. Nothing is drawn
+ * behind the LICENSEE signature any more: the customer signs on a clean field,
+ * never over the brand mark.
  *
  * The document is 100% ALL CAPS: every string runs through `toAscii`, which
  * uppercases it, so no lowercase letter can reach the page. The palette is
@@ -32,9 +38,11 @@
  * One layout rule holds the whole document together: it must stay on a single
  * page. `FOOT_Y` is the hard floor the flow may not cross, and `ensure(...)`
  * reserves space for every block that must not be split. The exclusive
- * (stems) package is the tightest fit of the three — it ends ~24 pt above the
+ * (stems) package is the tightest fit of the three — it ends ~10 pt above the
  * floor — so any new block, bigger flower or looser leading has to be paid for
- * by reclaiming the same space above it.
+ * by reclaiming the same space above it. `SIG_LEAD` is the gap that opens the
+ * band the LICENSOR approval seal stamps into; it is what buys the seal its
+ * room without touching the clauses above.
  */
 (function () {
   "use strict";
@@ -44,8 +52,9 @@
   const SERIAL_PREFIX = "KYRO";
   const SUPPORT_EMAIL = "kyrolll00@gmail.com";
   const STORE_URL = "HTTPS://KYROILL.STORE";
-  const WATERMARK_ALPHA = 0.08;     // the flower mark behind the LICENSEE block
-  const WATERMARK_SIZE = 42;        // points — it sits inside the block's own box
+  const SEAL_R = 34;               // outer radius of the LICENSOR approval seal
+  const SEAL_FLOWER = 32;          // points — the 3D flower inside the seal ring
+  const SIG_LEAD = 38;             // clearance above the signature band (the seal's room)
 
   /* ------------------------------------------------------ font metrics */
   /* Adobe AFM advance widths for Helvetica / Helvetica-Bold, ASCII 32..126,
@@ -206,7 +215,8 @@
   const HAIR = "0.631 0.631 0.631";      // #A1A1A1 — silver hairline, rules & columns
   const TICK = "1 1 1";                  // #FFFFFF — crisp white corner ticks
   const WHITE = "1 1 1 rg";              // #FFFFFF — crisp pure white
-  const SILVER_RG = "0.8 0.8 0.8";       // silver as a stroke colour (the drawn signature)
+  const SIG_INK = "1 1 1";               // #FFFFFF — the drawn signature's pen (pure crisp white)
+  const SEAL_HAIR = "0.631 0.631 0.631"; // #A1A1A1 — the seal's inner ring & ticks
   const BODY = "0.85 0.85 0.85 rg";
   const MUTED = "0.55 0.55 0.55 rg";
 
@@ -267,6 +277,28 @@
     };
     /* A full-width silver divider — the masthead's cut line. */
     const rule = (yLine, color, width) => hline(COL_X, COL_X + COL_W, yLine, color, width);
+
+    /* Circles, drawn as four cubic Béziers (PDF has no circle primitive). Used
+       only by the LICENSOR approval seal, so the whole badge is real vector ink:
+       nothing rasterised, every channel an equal grey. */
+    const CIRCLE_K = 0.5522847498307936;
+    const circlePath = (cx, cy, r, close) => {
+      const k = r * CIRCLE_K;
+      const n = (v) => v.toFixed(2);
+      return n(cx + r) + " " + n(cy) + " m " +
+        n(cx + r) + " " + n(cy + k) + " " + n(cx + k) + " " + n(cy + r) + " " + n(cx) + " " + n(cy + r) + " c " +
+        n(cx - k) + " " + n(cy + r) + " " + n(cx - r) + " " + n(cy + k) + " " + n(cx - r) + " " + n(cy) + " c " +
+        n(cx - r) + " " + n(cy - k) + " " + n(cx - k) + " " + n(cy - r) + " " + n(cx) + " " + n(cy - r) + " c " +
+        n(cx + k) + " " + n(cy - r) + " " + n(cx + r) + " " + n(cy - k) + " " + n(cx + r) + " " + n(cy) + " c " + close;
+    };
+    const circle = (cx, cy, r, color, width) => {
+      stroke(color, width || 0.6);
+      raw(circlePath(cx, cy, r, "S"));
+    };
+    const dot = (cx, cy, r, color) => {
+      raw(color + " rg");
+      raw(circlePath(cx, cy, r, "f"));
+    };
 
     /* One run of text at a baseline. Letter-spacing uses the text-space `Tc`
        operator: the run stays a single string, so the PDF remains searchable
@@ -387,8 +419,9 @@
     };
 
     /* The drawn signature: the pointer polylines off the sign pad, re-emitted as
-       real vector strokes in silver. Nothing rasterised, nothing embedded — the
-       mark stays crisp at any zoom and cannot carry a hue into the document. */
+       real vector strokes in pure crisp white (#FFFFFF) — zero blue or lavender.
+       Nothing rasterised, nothing embedded — the mark stays crisp at any zoom
+       and cannot carry a hue into the document. */
     const drawSignature = (strokes, pad, bx, by, bw, bh) => {
       const aspect = pad && pad.w > 0 && pad.h > 0 ? pad.w / pad.h : bw / bh;
       const scale = Math.min(bw / (aspect * 100), bh / 100);
@@ -397,7 +430,7 @@
       const x0 = bx + (bw - drawW) / 2;
       const y0 = by;
       raw("1 J 1 j 1.05 w");
-      stroke(SILVER_RG, 1.05);
+      stroke(SIG_INK, 1.05);
       strokes.forEach((points) => {
         let path = "";
         points.forEach((point, i) => {
@@ -408,6 +441,39 @@
         raw(path + "S");
       });
       raw("0 J 0 j");
+    };
+
+    /* The LICENSOR approval seal: the 3D flower mark set inside a sharp
+       monochromatic vector stamp — an outer white ring, an inner silver ring and
+       a ring of fine radial ticks — with the crisp uppercase legend. It is the
+       mark that closes the contract, sitting cleanly above the Licensor's
+       signature line. The flower is the masthead's own embedded image, so the
+       seal costs the file nothing extra. */
+    const sealBadge = (cx, cy) => {
+      const r = SEAL_R;
+      const inner = r - 4;
+      circle(cx, cy, r, FRAME, 1.6);
+      circle(cx, cy, inner, SEAL_HAIR, 0.5);
+      const ticks = 56;
+      for (let i = 0; i < ticks; i += 1) {
+        const a = (i / ticks) * Math.PI * 2;
+        const tx1 = cx + Math.cos(a) * inner, ty1 = cy + Math.sin(a) * inner;
+        const tx2 = cx + Math.cos(a) * r, ty2 = cy + Math.sin(a) * r;
+        stroke(SEAL_HAIR, 0.4);
+        raw(tx1.toFixed(2) + " " + ty1.toFixed(2) + " m " + tx2.toFixed(2) + " " + ty2.toFixed(2) + " l S");
+      }
+      if (flower) {
+        const fw = SEAL_FLOWER;
+        raw("q " + fw.toFixed(2) + " 0 0 " + fw.toFixed(2) + " " + (cx - fw / 2).toFixed(2) + " " +
+          (cy + 3 - fw / 2).toFixed(2) + " cm /Im1 Do Q");
+      }
+      putCenter(cx, cy + 22, "KYROIII", "F2", 8.2, WHITE, 0.4);
+      putCenter(cx, cy - 15, "VERIFIED OFFICIAL SEAL", "F1", 3.6, WHITE, 0.4);
+      const word = "AUTHORIZED";
+      const wordW = trackedWidth(word, "F2", 4.9, 0.7);
+      putCenter(cx, cy - 23, word, "F2", 4.9, WHITE, 0.7);
+      dot(cx - wordW / 2 - 4.2, cy - 21.4, 0.8, "1 1 1");
+      dot(cx + wordW / 2 + 4.2, cy - 21.4, 0.8, "1 1 1");
     };
 
     function startPage() {
@@ -464,12 +530,16 @@
 
     /* --------------------------------------------------- signatures */
     /* Two clean, straight, pre-filled signature blocks close the contract: the
-       licensor KYROIII and the licensee, stamped with the signature captured in
-       the gate's review-and-sign step (falling back to the address submitted
-       there). Both names are set upright — no script face — on their own silver
-       rule under a micro-label, so the block reads as a signed instrument
-       rather than a blank to fill in. */
-    ensure(88);
+       licensee, stamped with the signature captured in the gate's review-and-sign
+       step (falling back to the address submitted there), and the licensor
+       KYROIII, closed by its official approval seal. The licensee name is set
+       upright — no script face — on its own white rule under a micro-label, so
+       the block reads as a signed instrument rather than a blank to fill in. */
+    ensure(SIG_LEAD + 66 + 4);
+    /* The lead-in gap opens the band the approval seal stamps into, so the seal
+       sits cleanly above the Licensor's signature line without crowding the last
+       clause. */
+    gap(SIG_LEAD);
     const sigTop = y;
     const sigW = (COL_W - 40) / 2;
     const sigX2 = COL_X + sigW + 40;
@@ -494,18 +564,16 @@
     /* The micro line under the LICENSEE rule records who this issuance went to:
        the address the flow submitted at the gate, alongside the date. */
     const signedLine = "SIGNED " + data.issued + (sig.email ? " - " + sig.email : "");
-    /* The flower watermark anchors the licensee half of the contract: the same
-       mark that leads the masthead, drawn from the already-embedded image at
-       `WATERMARK_ALPHA` (an `/ExtGState` soft mask), centred inside the
-       signature box so it can never collide with the rules or the clauses. */
-    if (flower) {
-      const wmX = COL_X + (sigW - WATERMARK_SIZE) / 2;
-      const wmY = sigTop - 52;
-      raw("q /GS1 gs " + WATERMARK_SIZE.toFixed(2) + " 0 0 " + WATERMARK_SIZE.toFixed(2) + " " +
-        wmX.toFixed(2) + " " + wmY.toFixed(2) + " cm /Im1 Do Q");
-    }
+    /* Nothing is drawn behind the LICENSEE signature any more: the customer signs
+       on a clean field, never over the brand's flower. */
     signatureBlock(COL_X, licenseeName, "LICENSEE SIGNATURE", signedLine, sig.strokes, sig.pad);
-    signatureBlock(sigX2, "KYROIII", "LICENSOR (KYROIII)", "AUTHORISED SIGNATORY - KYROIII");
+    /* The LICENSOR column carries the official approval seal — the 3D flower
+       inside a sharp monochromatic vector stamp — sitting cleanly above its
+       signature line, in place of a plain name. */
+    hline(sigX2, sigX2 + sigW, sigTop - 42, FRAME, 0.9);
+    sealBadge(sigX2 + sigW / 2, sigTop - 42 + SEAL_R + 2);
+    putTracked(sigX2, sigTop - 55, "LICENSOR (KYROIII)", "F1", 7, MUTED, 1.2);
+    putTracked(sigX2, sigTop - 66, "AUTHORISED SIGNATORY - KYROIII", "F1", 6.5, MUTED, 0.9);
     gap(84);
 
     /* ------------------------------------------------ document footer */
@@ -564,10 +632,9 @@
     });
 
     /* ---- assemble: objects are emitted in number order --------------------
-       1 catalog, 2 pages, 3 Helvetica, 4 Helvetica-Bold, 5 the watermark's
-       graphics state, 6 the flower image, then two objects per page (the page
-       and its content stream) from 7 on. */
-    const FIRST_PAGE_OBJ = 7;
+       1 catalog, 2 pages, 3 Helvetica, 4 Helvetica-Bold, 5 the flower image,
+       then two objects per page (the page and its content stream) from 6 on. */
+    const FIRST_PAGE_OBJ = 6;
     const kids = [];
     for (let i = 0; i < pageCount; i += 1) kids.push((FIRST_PAGE_OBJ + i * 2) + " 0 R");
 
@@ -584,16 +651,16 @@
     putObject(2, toBytes("2 0 obj << /Type /Pages /Kids [" + kids.join(" ") + "] /Count " + pageCount + " >> endobj\n"));
     putObject(3, toBytes("3 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> endobj\n"));
     putObject(4, toBytes("4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >> endobj\n"));
-    /* The constant alpha used by the LICENSEE watermark: `/ca` for fills, `/CA`
-       for strokes, so the same 0.08 applies whichever way the mark is painted. */
-    putObject(5, toBytes("5 0 obj << /Type /ExtGState /ca " + WATERMARK_ALPHA + " /CA " + WATERMARK_ALPHA + " >> endobj\n"));
+    /* The 3D flower mark. It leads the masthead and it is stamped again inside
+       the LICENSOR approval seal, so the whole document is anchored by the same
+       embedded `/DCTDecode` image — nothing else is embedded. */
     if (flower) {
-      putObject(6, toBytes("6 0 obj << /Type /XObject /Subtype /Image /Width " + flower.width + " /Height " + flower.height +
+      putObject(5, toBytes("5 0 obj << /Type /XObject /Subtype /Image /Width " + flower.width + " /Height " + flower.height +
         " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + flower.bytes.length + " >> stream\n"));
       push(flower.bytes);
       push(toBytes("\nendstream\nendobj\n"));
     } else {
-      putObject(6, toBytes("6 0 obj << >> endobj\n"));
+      putObject(5, toBytes("5 0 obj << >> endobj\n"));
     }
     /* Two base-14 faces carry the whole document — Helvetica (F1) and
        Helvetica-Bold (F2) — so nothing is embedded and no third font is
@@ -603,8 +670,8 @@
       const contentObj = pageObj + 1;
       const stream = toBytes(content);
       putObject(pageObj, toBytes(pageObj + " 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 " + PAGE_W + " " + PAGE_H + "]" +
-        " /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Im1 6 0 R >>" +
-        " /ExtGState << /GS1 5 0 R >> >> /Contents " + contentObj + " 0 R >> endobj\n"));
+        " /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Im1 5 0 R >> >>" +
+        " /Contents " + contentObj + " 0 R >> endobj\n"));
       putObject(contentObj, toBytes(contentObj + " 0 obj << /Length " + stream.length + " >> stream\n"));
       push(stream);
       push(toBytes("\nendstream\nendobj\n"));
@@ -630,22 +697,47 @@
       (serial || "") + "::" + signatureKey(signature);
   }
 
-  function saveBlob(blob, name) {
-    const url = URL.createObjectURL(blob);
+  /* Force a real file download and never let the current view navigate away.
+     The anchor's `download` attribute names the file and, where a browser cannot
+     honour it, the link opens in a new tab instead of replacing this page. iOS
+     Safari is the one holdout that renders a PDF inline rather than saving it, so
+     there the payload is re-wrapped as `application/octet-stream`, which it does
+     save. The object URL stays alive long enough for a slow phone to finish. */
+  function forceDownload(blob, name) {
+    const platform = (typeof navigator !== "undefined" && navigator.platform) || "";
+    const isAppleMobile = /iP(hone|ad|od)/.test(platform) ||
+      (/Mac/.test(platform) && typeof document !== "undefined" && "ontouchend" in document);
+    const payload = isAppleMobile ? new Blob([blob], { type: "application/octet-stream" }) : blob;
+    const url = URL.createObjectURL(payload);
     const link = document.createElement("a");
     link.href = url;
     link.download = name;
     link.rel = "noopener";
     link.style.display = "none";
+    // A browser without `download` support must still not eat the current page:
+    // send the file to a new tab rather than navigate this one to the PDF.
+    if (!("download" in link)) link.target = "_blank";
     document.body.appendChild(link);
     link.click();
     link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
 
-  function safeFileName(beat) {
-    const safe = toAscii(beat.title).replace(/[^A-Za-z0-9 .,-]/g, " ").trim().replace(/\s+/g, " ");
-    return "KYROIII - " + (safe || "BEAT") + " LICENSE.pdf";
+  /* The beat's studio name — the tail of its title, exactly like the audio
+     hand-overs in `downloads.js` (`… - FLESH`), falling back to the slug. */
+  function beatLabel(beat) {
+    const title = String((beat && beat.title) || "").trim();
+    const tail = title.split(/\s+-\s+/).pop() || "";
+    const safe = toAscii(tail || (beat && beat.slug) || "BEAT")
+      .replace(/[^A-Za-z0-9 .,-]/g, " ").trim().replace(/\s+/g, " ");
+    return safe || "BEAT";
+  }
+
+  /* `KYROIII - LICENSE - FLESH (KYRO-2026-FLESH-123456).pdf` — the beat, the
+     serial and the document, all readable straight off the filename. */
+  function safeFileName(beat, serial) {
+    const tag = String(serial || "").replace(/[^A-Za-z0-9-]/g, "");
+    return "KYROIII - LICENSE - " + beatLabel(beat) + (tag ? " (" + tag + ")" : "") + ".pdf";
   }
 
   function buildDocument(beat, pack, serial, signature, flower) {
@@ -666,11 +758,11 @@
     const key = cacheKey(beat, pack, serial, signature);
     let entry = cache.get(key);
     if (!entry) {
-      entry = { blob: buildDocument(beat, pack, serial, signature, flower), name: safeFileName(beat) };
+      entry = { blob: buildDocument(beat, pack, serial, signature, flower), name: safeFileName(beat, serial) };
       cache.set(key, entry);
     }
     try {
-      saveBlob(entry.blob, entry.name);
+      forceDownload(entry.blob, entry.name);
       if (downloads && downloads.showToast) downloads.showToast("LICENSE PDF DOWNLOADED");
     } catch (err) {
       if (downloads && downloads.showToast) downloads.showToast("LICENSE UNAVAILABLE - TRY AGAIN");
@@ -687,7 +779,7 @@
     if (cached) return cached.blob;
     const flower = await flowerJpeg();
     const blob = buildDocument(beat, pack, sid, signature, flower);
-    cache.set(key, { blob: blob, name: safeFileName(beat) });
+    cache.set(key, { blob: blob, name: safeFileName(beat, sid) });
     return blob;
   }
 
@@ -700,7 +792,7 @@
     const key = cacheKey(beat, pack, sid, signature);
     const cached = cache.get(key);
     if (cached) {
-      try { saveBlob(cached.blob, cached.name); if (downloads && downloads.showToast) downloads.showToast("LICENSE PDF DOWNLOADED"); }
+      try { forceDownload(cached.blob, cached.name); if (downloads && downloads.showToast) downloads.showToast("LICENSE PDF DOWNLOADED"); }
       catch (err) { if (downloads && downloads.showToast) downloads.showToast("LICENSE UNAVAILABLE - TRY AGAIN"); }
       return;
     }

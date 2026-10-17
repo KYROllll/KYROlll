@@ -26,8 +26,8 @@
  * a real drawing on the pad — has been captured. A single word, a blank line and
  * a token dot are all refused (`isFullName` / `hasSignature`), so there is no
  * bypass to the files. That signature is what the PDF license prints in its
- * LICENSEE block (see `license-pdf.js`), over the flower watermark that ties the
- * signature sheet to the store's mark.
+ * LICENSEE block (see `license-pdf.js`) — the customer signs on a clean field,
+ * never over the brand's flower.
  *
  * Files are handed over under their professional studio names —
  * `KYROIII - <BEAT> (<BPM> BPM - <KEY>).<ext>` — built from the beat's own
@@ -706,12 +706,9 @@
         '<button type="button" class="sign-mode is-active" data-sign-mode="type">TYPE</button>' +
         '<button type="button" class="sign-mode" data-sign-mode="draw">DRAW</button>' +
       '</div>' +
-      /* The signature sheet: the flower watermark sits behind whatever is signed,
-         so the mark that brands the store also closes the license. */
+      /* The signature sheet: a clean field, so the customer never signs over the
+         brand's flower mark. */
       '<div class="sign-sheet">' +
-        '<span class="sign-watermark" aria-hidden="true">' +
-          '<img src="assets/kyrolll-flower-rest.png?v=1" alt="" loading="lazy" decoding="async">' +
-        '</span>' +
         '<label class="gate-field" data-sign-field for="sign-name">' +
           '<span class="gate-field__label">FULL NAME — FIRST AND LAST' +
             '<span class="gate-field__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +

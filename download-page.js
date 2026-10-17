@@ -249,6 +249,8 @@
       if (event && typeof event.preventDefault === "function") event.preventDefault();
       // Stamp the LICENSEE block with the signature just typed, falling back to
       // the address submitted at the gate in this flow — both read live.
+      // `generateLicensePDF` forces a real file download (an octet-stream blob on
+      // iOS) through a `download` anchor, so the PDF never replaces this page.
       window.KYROlll_LICENSE_PDF.generateLicensePDF(beat, pack, d, serial, signature());
     });
   }

@@ -313,10 +313,10 @@ try {
   assert(await mp3Page.locator('[data-sign-terms]').evaluate(el => el.scrollHeight > el.clientHeight + 4), 'the terms are longer than their pane, so they really have to be read');
   assert.match(await mp3Page.locator('[data-sign-terms]').innerText(), /NON-PROFIT AND COMMERCIAL/);
   assert.match(await mp3Page.locator('[data-sign-terms]').innerText(), /PROD\. BY KYROIII/);
-  // The signature sheet carries the store's flower mark as a watermark, and the
-  // name that signs the license must be a FULL one: first AND last.
-  assert.equal(await mp3Page.locator('.sign-watermark img').count(), 1, 'the flower watermark anchors the signature sheet');
-  assert.match(await mp3Page.locator('.sign-watermark img').getAttribute('src'), /kyrolll-flower-rest\.png/);
+  // The signature sheet is a clean field: nothing is drawn behind the signature,
+  // so the customer never signs over the brand's flower. The name that signs the
+  // license must still be a FULL one: first AND last.
+  assert.equal(await mp3Page.locator('.sign-watermark').count(), 0, 'the signature sheet carries no flower watermark');
   await mp3Page.locator('#sign-name').fill('Madonna');
   await readTerms(mp3Page);
   assert.equal(await mp3Page.locator('[data-sign-submit]').isDisabled(), true, 'a single word cannot sign the license');
@@ -361,8 +361,9 @@ try {
   assert.equal(await mp3Page.locator('#license-view').count(), 0);
   assert.equal(await mp3Page.locator('[data-license-download]').count(), 0);
   assert.equal(await mp3Page.locator('[data-license-copy]').count(), 0);
-  // The certificate block carries the same flower watermark the PDF prints.
-  assert.equal(await mp3Page.locator('.license-cert__watermark img').count(), 1, 'the certificate block carries the flower watermark');
+  // The certificate block is clean too — no flower watermark sits behind it;
+  // the store's mark lives in the PDF's LICENSOR approval seal.
+  assert.equal(await mp3Page.locator('.license-cert__watermark').count(), 0, 'the certificate block carries no flower watermark');
   await noHue(mp3Page, 'the download page');
   await noLowercase(mp3Page, 'the download page');
   assert.equal(await mp3Page.locator('[data-license-pdf]').count(), 1);
@@ -387,7 +388,7 @@ try {
     mp3Page.waitForEvent('download'),
     mp3Page.locator('[data-license-pdf]').click(),
   ]);
-  assert.match(pdf.suggestedFilename(), /\.pdf$/i);
+  assert.match(pdf.suggestedFilename(), /^KYROIII - LICENSE - FLESH \(KYRO-\d{4}-FLESH-\d{6}\)\.pdf$/, 'the license downloads directly under its studio name and serial');
   const pdfBytes = await readFile(await pdf.path());
   const pdfText = pdfBytes.toString('latin1');
   assert.equal(pdfText.slice(0, 5), '%PDF-');
@@ -399,11 +400,15 @@ try {
   assert(pdfText.includes('CERTIFICATE OF FREE LICENSE'));
   assert(pdfText.includes('TAGGED MP3 AUDIO FILE')); // this package's includes
   assert(pdfText.includes('Im1 Do'), 'the flower mark is embedded in the header');
-  // The same embedded mark is stamped again as the LICENSEE watermark, through
-  // the soft-mask graphics state — the store's flower closes the contract.
-  assert.equal((pdfText.match(/\/Im1 Do/g) || []).length, 2, 'the flower is drawn twice: the masthead and the signature watermark');
-  assert.match(pdfText, /\/ExtGState << \/GS1 5 0 R >>/, 'the watermark graphics state is in the page resources');
-  assert.match(pdfText, /q \/GS1 gs 42\.00 0 0 42\.00 [\d.]+ [\d.]+ cm \/Im1 Do Q/, 'the watermark is a real, faint flower draw');
+  // The embedded mark is stamped again inside the LICENSOR approval seal, and
+  // nothing is drawn behind the LICENSEE signature any more: the old watermark
+  // graphics state is gone and the seal's flower draw lands in the right column.
+  assert.equal((pdfText.match(/\/Im1 Do/g) || []).length, 2, 'the flower is drawn twice: the masthead and the licensor seal');
+  assert.equal(pdfText.includes('/GS1'), false, 'no LICENSEE watermark graphics state remains');
+  const sealDraw = pdfText.match(/q 32\.00 0 0 32\.00 ([\d.]+) ([\d.]+) cm \/Im1 Do Q/);
+  assert(sealDraw && Number(sealDraw[1]) > 300, 'the flower approval seal sits in the LICENSOR (right) column');
+  assert(pdfText.includes('VERIFIED OFFICIAL SEAL'), 'the approval seal carries its official legend');
+  assert(pdfText.includes('AUTHORIZED'), 'the approval seal marks the document authorised');
   assert(pdfText.includes('PAGE 1 OF 1'), 'document-control footer, one page for every package');
   // Strict ALL CAPS branding: no lowercase letter survives anywhere in the doc.
   assert.deepEqual(pdfRuns(pdfText).filter(run => /[a-z]/.test(run)), [], 'every PDF string is uppercase');
@@ -592,6 +597,8 @@ try {
   // LICENSEE column, and the document stays monochrome and uppercase.
   const ink = drawnPaths(proText);
   assert(ink.length >= 2, `the drawn signature is stamped into the PDF as vector strokes: ${ink.length}`);
+  assert(proText.includes('1 1 1 1.05 RG'), 'the drawn signature is inked in pure crisp white (#FFFFFF)');
+  assert.equal(proText.includes('0.8 0.8 0.8'), false, 'no off-white/blue pen is left in the document');
   const inkX = ink.flatMap(path => path.map(point => Number(String(point).split(' ')[0])));
   assert(Math.max(...inkX) < 300, 'the drawn strokes sit inside the LICENSEE column');
   // The document and the page agree on which way is up: the PDF grows its y
@@ -685,7 +692,7 @@ try {
   await phone.locator('[data-gate-submit]').click();
   await signStage(phone).waitFor();
   assert.equal(await phone.locator('[data-sign-canvas]').evaluate(el => getComputedStyle(el).touchAction), 'none', 'the pad owns the gesture, so a stroke is never a page scroll');
-  assert.equal(await phone.locator('.sign-watermark img').count(), 1);
+  assert.equal(await phone.locator('.sign-watermark').count(), 0, 'no flower watermark on the phone signature sheet');
   await noLowercase(phone, 'the sign sheet');
   await phone.locator('[data-sign-submit]').scrollIntoViewIfNeeded();
   assert(await phone.evaluate(() => {
@@ -699,7 +706,7 @@ try {
   await phone.waitForURL(/package=exclusive/);
   await noOverflow(phone);
   await noHue(phone, 'the phone flow');
-  assert.equal(await phone.locator('.license-cert__watermark img').count(), 1, 'the certificate carries the flower watermark on a phone too');
+  assert.equal(await phone.locator('.license-cert__watermark').count(), 0, 'the certificate carries no flower watermark on a phone either');
   assert.equal(await phone.locator('.download-item').count(), 3);
   assert(await phone.evaluate(() => document.body.style.position === ''), 'the page is released when the dialog closes');
   await shot(phone, 'phone');
@@ -753,7 +760,7 @@ try {
   assert.equal(/\.gate-input[^}]*text-transform: none/.test(cssText), false, 'no casing opt-out is left on the fields');
 
   assert.deepEqual(errors, []);
-  console.log('Passed storefront layout, tagged audio preview, and the free-download drawer + all three package-specific gates (one held subscribe step for the WAV lease, subscribe + like for the Pro package, the REVIEW & SIGN stage with read-to-the-end terms, a full-name-or-drawing signature and a single-word signature refused even with the disabled attribute stripped, an upright never-flipped signature mark, the flower watermark on the sheet / the certificate / the PDF, a border-free floating flower and white/silver monochrome PDF borders, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts, and the whole flow walked at 390x844 with touch).');
+  console.log('Passed storefront layout, tagged audio preview, and the free-download drawer + all three package-specific gates (one held subscribe step for the WAV lease, subscribe + like for the Pro package, the REVIEW & SIGN stage with read-to-the-end terms, a full-name-or-drawing signature and a single-word signature refused even with the disabled attribute stripped, an upright never-flipped signature mark, no flower watermark on the signature sheet / the certificate (the flower now lives in the PDF\'s LICENSOR approval seal) and a pure-white drawn signature ink, a border-free floating flower and white/silver monochrome PDF borders, a direct studio-named PDF download with its serial, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts, and the whole flow walked at 390x844 with touch).');
 } finally {
   await browser?.close();
   server.close();

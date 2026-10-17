@@ -362,7 +362,8 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   is signed.
 - `showSignStage(beat, pack, email, onUnlocked)` is the last screen of every gate: the terms
   in their own scroll pane (`.sign-terms`), a TYPE / DRAW switch (`.sign-mode`), the signature
-  sheet — the flower mark as a faint watermark (`.sign-watermark`) behind the field
+  sheet — a **clean field** (nothing is drawn behind it, so the customer never signs over the
+  brand's flower; the mark now lives in the PDF's LICENSOR approval seal) around the field
   (`#sign-name`) or the pad (`.sign-pad__canvas`, pointer events, monochrome white ink,
   `touch-action: none`, DPR-scaled bitmap so the ink is crisp on a retina phone) — the live
   stamp (`[data-sign-stamp]`) and the one action that unlocks, `[data-sign-submit]`
@@ -432,16 +433,20 @@ the `KYROIII` wordmark under it, a full-width divider, then the title, the hero 
 signature blocks** and a footer carrying the support address, the serial, a vector barcode and
 `HTTPS://KYROILL.STORE` — held to a **single page** for every package. The LICENSEE block shows
 the signature captured in the gate's sign step: a typed name set large on its rule, or a
-**hand-drawn signature re-emitted as vector strokes** (`drawSignature`, silver, round caps) in
-the same box. Behind that block sits the document's second flower — the *same* embedded mark,
-drawn again at `WATERMARK_ALPHA` (0.08) through the `/GS1` `/ExtGState`, so the watermark costs
-the file nothing and cannot carry a hue. The micro-line under that rule records who the
-issuance went to — `SIGNED <date> - <address>` — and the LICENSOR side is `KYROIII`.
+**hand-drawn signature re-emitted as vector strokes** (`drawSignature`, **pure crisp white
+`#FFFFFF`**, round caps) in the same box — and **nothing is drawn behind it**, so the customer
+never signs over the brand's flower. The micro-line under that rule records who the
+issuance went to — `SIGNED <date> - <address>`. The LICENSOR block, bottom-right, is closed by
+the store's **official approval seal** — the *same* embedded flower mark set inside a sharp
+monochromatic vector stamp (an outer white ring, an inner silver ring and 56 fine radial ticks)
+with the crisp uppercase legend `KYROIII` / `VERIFIED OFFICIAL SEAL` / `AUTHORIZED` (the word
+flanked by two filled dots) — sitting cleanly above the Licensor's signature line, in place of
+the old plain name. Reusing the already-embedded `/Im1` costs the seal nothing.
 
 Object numbering is positional and easy to break: 1 catalog, 2 pages, 3 Helvetica, 4
-Helvetica-Bold, **5 the watermark's `/ExtGState`, 6 the flower image**, then two objects per
-page from `FIRST_PAGE_OBJ` (7). Adding or removing an object above the pages means moving that
-constant, the `/GS1`/`/Im1` resource references and the `total` xref count together.
+Helvetica-Bold, **5 the flower image**, then two objects per
+page from `FIRST_PAGE_OBJ` (6). Adding or removing an object above the pages means moving that
+constant, the `/Im1` resource reference and the `total` xref count together.
 
 Three rules hold that document together and are easy to break by accident:
 
@@ -561,18 +566,18 @@ Tests that ship with the repo:
   the download page: its 3D flower branding, the metadata chips, the file rows under their
   studio names (`KYROIII - FLESH (130 BPM - AM).mp3`, `… .wav`, `… - TRACKED STEMS.zip`) and the
   certificate block (a minted `KYRO-YYYY-FLESH-NNNNNN` serial, no raw text). It then downloads
-  the PDF license (asserting the saved filename is exactly `KYROIII - FLESH (130 BPM - AM).mp3`)
-  and asserts
+  the PDF license (asserting it saves directly as
+  `KYROIII - LICENSE - FLESH (KYRO-YYYY-FLESH-NNNNNN).pdf`) and asserts
   the `PROD. BY KYROIII` credit, the commercial grant, the package's `includes`, the embedded
   flower image, the centred masthead, the **ALL-CAPS** rule (no lowercase in any drawn string),
   the monochrome palette (every colour an equal-channel grey, so zero blue), the footer barcode +
   `HTTPS://KYROILL.STORE`, the LICENSEE block carrying the signature and the address the flow
   submitted, `PAGE 1 OF 1` and three distinct serials — straight from the PDF bytes. The
   hand-drawn signature is verified as real vector ink: multi-point paths inside the LICENSEE
-  column, which no typed license contains. The flower watermark is asserted in all three places it
-  is stamped — the signature sheet (`.sign-watermark img`), the certificate block
-  (`.license-cert__watermark img`) and the PDF (the second `/Im1 Do`, drawn through `/GS1 gs`).
-  Re-signing on the download page then downloads again,
+  column, which no typed license contains, inked in pure white with no silver pen left. Nothing
+  draws behind the LICENSEE signature any more (no `.sign-watermark`, no `.license-cert__watermark`
+  and no `/GS1` in the PDF); the flower's second draw is the LICENSOR approval seal, asserted in
+  the right column with its `VERIFIED OFFICIAL SEAL` / `AUTHORIZED` legend. Re-signing on the download page then downloads again,
   proving the new name replaces the old one in caps on the next issuance. It also
   asserts the gate posts a valid address to the configured newsletter provider (and never a
   malformed one, and never on a re-opened gate), that a package passed on the download page is

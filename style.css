@@ -2145,27 +2145,10 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
   -webkit-touch-callout: none;
 }
 
-/* ---- The signature sheet: the flower mark behind the signature ---- */
-/* The mark that brands the store closes the licence too — the same resting
-   flower the hero and the PDF use, faint, behind whatever is signed. It is the
-   real artwork (faint, pointer-transparent, unselectable), so it can never
-   drift from the brand or be mistaken for content. */
+/* ---- The signature sheet ---- */
+/* The sheet is a clean field: nothing is drawn behind whatever is signed, so the
+   customer never signs over the brand's flower mark. */
 .sign-sheet { position: relative; }
-.sign-sheet > * { position: relative; z-index: 1; }
-.sign-watermark {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  display: grid;
-  place-items: center;
-  opacity: .07;
-  pointer-events: none;
-  user-select: none;
-}
-.sign-watermark img, .license-cert__watermark img {
-  width: min(230px, 62%);
-  height: auto;
-}
 .sign-pad__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
 .sign-pad__hint { font-size: 7.5px; letter-spacing: .22em; color: var(--gray); }
 .sign-pad__clear {
@@ -2356,20 +2339,8 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
   border: 1px solid rgba(255, 255, 255, .1);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07);
 }
-/* The certificate's own flower watermark — the same mark as the PDF's LICENSEE
-   block, so the page and the document read as one instrument. */
-.license-cert > *:not(.license-cert__watermark) { position: relative; z-index: 1; }
-.license-cert__watermark {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  display: grid;
-  place-items: center;
-  opacity: .06;
-  pointer-events: none;
-  user-select: none;
-}
-.license-cert__watermark img { width: min(200px, 52%); }
+/* The certificate block reads as a clean instrument — no flower watermark sits
+   behind it; the store's mark lives in the PDF's LICENSOR approval seal. */
 .license-cert__kicker {
   font-size: 8px;
   font-weight: 800;
@@ -2733,7 +2704,6 @@ html.preloader-armed { overflow-y: hidden; }
      from the *small* viewport height so the signature and the unlock button are
      on screen at the same time as the end of the terms. */
   .sign-terms { max-height: min(200px, 26svh); }
-  .sign-watermark img { width: min(170px, 54%); }
 
   /* 16px is the smallest font iOS will not zoom the page for on focus — a zoom
      mid-signature is what left the dialog half off screen. */
