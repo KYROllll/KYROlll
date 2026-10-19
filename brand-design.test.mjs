@@ -869,6 +869,14 @@ try {
   // Keep the rest of the stylesheet monochrome while expressly checking the
   // isolated original green / pink hero accents and ALL-CAPS rules.
   const cssText = await readFile(new URL('./style.css', import.meta.url), 'utf8');
+  // The vinyl reveal contract: the record's *first* computed state is tucked
+  // behind the sleeve (so nothing can flash in the exposed position), and the
+  // reveal is a 1 s translate-only slide with the elite easing. The 360° spin it
+  // replaced ballooned the square record's box by √2 and overshot the stage, so
+  // the opened state must never carry a rotation.
+  assert.match(cssText, /\.beat-detail:not\(\.vinyl-open\) \.vinyl-record \{[^}]*transform:\s*translateX\(0\)/, 'the record starts tucked behind the sleeve');
+  assert.match(cssText, /@media \(prefers-reduced-motion: no-preference\) \{[\s\S]*?\.vinyl-record \{[^}]*transition:\s*transform 1s cubic-bezier\(0\.16, 1, 0\.3, 1\)/, 'the record reveal is a 1 s eased slide');
+  assert.doesNotMatch(cssText, /\.beat-detail[^{}]*vinyl-open[^{}]*\{[^}]*rotate\(/, 'the record reveal never rotates');
   const taglineStart = cssText.indexOf('/* Tagline under the wordmark');
   const taglineEnd = cssText.indexOf('\n.logo-stage {', taglineStart);
   assert(taglineStart >= 0 && taglineEnd > taglineStart, 'the tagline palette is isolated in its own stylesheet section');

@@ -1188,7 +1188,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    settled means settled: no `will-change`, so no layer and no stacking context). */
 .beat-page .reveal { opacity: 1; transform: none; transition: none; will-change: auto; }
 
-/* ---------- 3. The Vinyl Sanctum — flower label + emerged record ------------ */
+/* ---------- 3. The Vinyl Sanctum — flower label + delayed slide-out --------- */
 
 /* Sleeve and record share a single box: with size + size × slide ≤ 100% the
    record can never be clipped by the viewport, at any breakpoint. */
@@ -1248,13 +1248,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   left: 0;
   width: var(--vinyl-record);
   height: var(--vinyl-record);
-  /* The record sits in its final emerged position from the very first frame.
-     It used to start stacked behind the sleeve and slide + spin into place a
-     couple of seconds after load; mid-transition the square box's *axis-aligned*
-     bounds ballooned (a rotating square's box grows by √2) and the record
-     overshot the stage by ~74px — the "pop / breach" glitch. With no transform
-     transition at all the circle, its box and its shadow are painted once, in
-     place, and never move. The label still spins on its own (`vinylSpin`). */
+  /* Exposed rest position — the default state, and the only state under reduced
+     motion or without JS. The reveal itself is below: the record starts fully
+     tucked behind the opaque sleeve and rides out a beat later. */
   transform: translateX(var(--vinyl-slide));
   background:
     repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 7px),
@@ -1262,6 +1258,28 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   border-radius: 50%;
   box-shadow: 0 26px 58px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06);
   z-index: 1;
+}
+
+/* The reveal. `vinyl-open` is added by script.js 1.35 s after the beat card is
+   built (the card's own 0.8 s fade finishes first, so the title and player get
+   the eye for a moment). The record is *already* tucked at that point — the
+   `:not()` rule is the element's very first computed state — so nothing is ever
+   painted in the exposed position first: no pop, no pre-render flash.
+   Only `translateX` (and a gentle opacity) moves. The old 360° rotation is gone
+   for good: a rotating square's axis-aligned box grows by √2 mid-transition and
+   overshot the stage by ~74 px, which was the "pop / breach" glitch. A pure
+   horizontal slide keeps the circle, its box and its shadow inside the stage the
+   whole way, on the same buttery 1 s `cubic-bezier`. */
+@media (prefers-reduced-motion: no-preference) {
+  .vinyl-record {
+    transition:
+      transform 1s cubic-bezier(0.16, 1, 0.3, 1),
+      opacity .55s ease;
+  }
+  .beat-detail:not(.vinyl-open) .vinyl-record {
+    transform: translateX(0);
+    opacity: 0;
+  }
 }
 
 .vinyl-record::before {
@@ -1300,8 +1318,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
-/* The record keeps its position for good — see the base rule above; there is no
-   `vinyl-open` transition to undo or replay. */
+/* The record rides out from behind the sleeve — see the base rule and the
+   `prefers-reduced-motion` reveal above. */
 
 /* ---------- 4. The Command Center — download button & audio-reactive player -- */
 

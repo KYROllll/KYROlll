@@ -200,19 +200,26 @@ mounted on `<body>` at `z-index: 999999`, in the root stacking context, so no an
 stacking context can contain it. Keep the `will-change: auto` regardless: a bare
 `.reveal.is-revealed` still promotes every settled section for the life of the page.)
 
-## The vinyl record is painted in place, never animated in
+## The vinyl record slides out after a beat — translate only
 
-The beat page's sleeve/record pair used to sit stacked with the record hidden behind the
-sleeve and slide + spin into place ~2.4 s after load (a `vinyl-open` class added by
-`script.js`). The transition animated `translateX` **and a full `rotate(0 → 360deg)`**, and
-because the record is a square box clipped to a circle, mid-transition its *axis-aligned*
-bounding box grew by √2 (a 422 px record measured ~597 px wide) and overshot the stage by up
-to ~74 px — the "pop / breach the artwork frame" glitch. Both the timer and the
-`.beat-detail.vinyl-open` rules are gone: `.vinyl-record` carries its final emerged transform
-(`translateX(var(--vinyl-slide))`, no rotation, no `transition`) as its **base** style, so the
-circle, its box and its shadow are painted once and never move; only the label still spins
-(`vinylSpin`). `.beat-detail__artwork-wrap` adds `contain: layout` (not `paint`, which would
-clip the record's shadow) so a child box can never nudge a surrounding box again.
+The beat page's sleeve/record pair starts with the record fully tucked behind the opaque
+sleeve. `script.js` adds `vinyl-open` **1.35 s** after the card is built (the card's own
+0.8 s fade finishes well inside that delay), and `style.css` transitions the record out over
+**1 s** on `cubic-bezier(.16, 1, .3, 1)`, with a short opacity fade alongside.
+
+The tuck is the element's **first** computed state — `.beat-detail:not(.vinyl-open)
+.vinyl-record` sets `translateX(0)` and `opacity: 0` in the stylesheet, so the record is
+never briefly painted in the exposed position: no pre-render flash, no pop. Only
+`translateX` and `opacity` move. A 360° rotation is never reintroduced: a rotating square's
+*axis-aligned* box grows by √2 (a 422 px record measured ~597 px wide) and overshot the
+stage by up to ~74 px — that was the original "pop / breach the artwork frame" glitch. A
+pure horizontal slide keeps the circle, its box and its shadow inside the stage throughout
+(its far edge goes 88% → 98.56% of the stage, never past 100%). Both the reveal and its
+transition live inside `@media (prefers-reduced-motion: no-preference)`: under reduced
+motion the base `.vinyl-record` rule leaves the record at rest immediately, and adding
+`vinyl-open` is a no-op. `.beat-detail__artwork-wrap` keeps `contain: layout` (not `paint`,
+which would clip the record's shadow) so a child box can never nudge a surrounding box.
+Only the label spins continuously (`vinylSpin`).
 
 ## Preview responsiveness in this sandbox
 

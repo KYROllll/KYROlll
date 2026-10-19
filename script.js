@@ -20,6 +20,12 @@ function unlockScroll() {
 
 const grid = $("grid");
 const previewPlayer = new BeatPreviewPlayer(grid);
+/* The vinyl reveal: the record stays tucked behind the sleeve for this long (the
+   beat card's own 0.8 s fade finishes well inside it), then style.css transitions
+   it out over 1 s. Under reduced motion the tuck is skipped entirely (see the
+   media query), so adding the class is a harmless no-op there. */
+const VINYL_REVEAL_DELAY_MS = 1350;
+let vinylTimer = 0;
 window.addEventListener("pagehide", () => previewPlayer.stop());
 
 function specLine(beat) {
@@ -183,6 +189,7 @@ function landOnBeatDetail() {
 
 function buildGrid() {
   previewPlayer.stop();
+  clearTimeout(vinylTimer);
   clearReleaseWatch();
   /* The package drawer lives on `<body>` (see downloads.js), so replacing the
      grid would no longer take it with it: close it before the re-render, or a
@@ -231,6 +238,14 @@ function buildGrid() {
     grid.appendChild(card);
   });
   if (detail) {
+    // The card fades in first; a beat later the record slides out from behind
+    // the sleeve. The class only ever *adds* the exposed state — the tucked
+    // state is the element's initial one, so there is no pre-render flash.
+    const detailCard = grid.querySelector('.beat-detail');
+    if (detailCard) {
+      clearTimeout(vinylTimer);
+      vinylTimer = setTimeout(() => detailCard.classList.add('vinyl-open'), VINYL_REVEAL_DELAY_MS);
+    }
     // Land directly on the beat card instead of the top of the page.
     landOnBeatDetail();
   }
