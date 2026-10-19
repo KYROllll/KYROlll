@@ -230,16 +230,27 @@ Two scroll-time hitches have been fixed and must not come back:
 `preview-player.js` writes to the scrub bar on every media event (`timeupdate` fires several
 times a second): `seek.value`, the `--preview-progress` custom property behind the track's
 gradient, and the time readout's text. `.beat-preview` and `.beat-preview__seek` therefore carry
-`contain: layout style` plus `transform: translateZ(0)`, so those writes never reflow the card or
-the sections around it and can never shift the mobile player a hair mid-playback. It is `layout`
-containment, **not `paint`** — paint containment would clip the `::before` sheen, which
-deliberately sits at `inset: -1px`. The time readout is `white-space: nowrap` (and
-`tabular-nums`), so a longer clock can never wrap and grow the player, and `update()` only writes
-it when the string actually changed (the clock changes once a second, not on every `timeupdate`).
-Nothing here listens to `scroll` — playback is driven entirely by the media element's own events.
-`brand-design.test.mjs` asserts the containment/transform, samples the player and its neighbours
-for 60 frames of playback and requires zero drift, and then scrolls the open drawer to prove its
-seam never moves and its direction never flips.
+`contain: layout style` plus `transform: translateZ(0)` (and the player keeps
+`will-change: transform`), so those writes never reflow the card or the sections around it and can
+never shift the mobile player a hair mid-playback. It is `layout` containment, **not `paint`** —
+paint containment would clip the `::before` sheen, which deliberately sits at `inset: -1px`. The
+time readout is `white-space: nowrap`, `tabular-nums` + `font-feature-settings: "tnum"` (and
+`update()` only writes it when the string actually changed — the clock changes once a second, not
+on every `timeupdate`), so a ticking second or a duration arriving can never change its measured
+width and move the player. Nothing here listens to `scroll` — playback is driven entirely by the
+media element's own events.
+
+The sheen turns its **gradient**, never its box: `--sheen-turn` is a registered `<angle>`
+(`@property`) and `@keyframes playerSpin` animates it from 0° to 360°, while the masked 1px ring
+stays bolted to the frame. The old `transform: rotate()` spun a wide rectangle, so its long edges
+swept diagonally across the player's face and out past the box — the "spinning indicator" breach.
+Because the ring is static, no paint can leave the frame. The scrub handle is 8px (down from 10px)
+inside a `border-radius: 999px` + `overflow: hidden` track, and `.beat-preview__details` insets that
+track 4px from the player's chrome, so at 0 % and 100 % the dot keeps clear air on every side
+instead of grazing the edge. `brand-design.test.mjs` asserts the containment/transform/will-change,
+the sheen's gradient-only keyframe (and that it never rotates the box), the handle/track contract,
+samples the player and its neighbours for 60 frames of playback and requires zero drift, and then
+scrolls the open drawer to prove its seam never moves and its direction never flips.
 
 ## The vinyl record slides out after a beat — translate only
 

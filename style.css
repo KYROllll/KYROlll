@@ -344,7 +344,7 @@ a.card__youtube-link:hover {
   outline-offset: 4px;
 }
 
-.beat-preview__details { min-width: 0; }
+.beat-preview__details { min-width: 0; padding: 0 4px; }
 
 .beat-preview__seek {
   --preview-progress: 0%;
@@ -359,30 +359,37 @@ a.card__youtube-link:hover {
   accent-color: var(--white);
   /* The scrub is updated on every `timeupdate`. Containment plus its own layer
      means the gradient repaint behind the thumb stays a compositor/paint job and
-     can never trigger a reflow of the player or the card around it. */
+     can never trigger a reflow of the player or the card around it. `overflow`
+     keeps the handle's paint inside the track's box, never into the player's
+     chrome. */
   contain: layout style;
+  overflow: hidden;
+  border-radius: 999px;
   transform: translateZ(0);
 }
 
+/* The handle is deliberately smaller than the track's height and the track is
+   inset 4px by its column, so at 0% and 100% the dot keeps clear air on every
+   side instead of bleeding over the frame edge. */
 .beat-preview__seek::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border: 0;
   border-radius: 50%;
   background: var(--white);
 }
 
 .beat-preview__seek::-moz-range-thumb {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border: 0;
   border-radius: 50%;
   background: var(--white);
 }
 
 .beat-preview__seek:disabled { opacity: 0.4; cursor: default; }
-.beat-preview__time { display: block; font-size: 9px; color: var(--gray); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.beat-preview__time { display: block; font-size: 9px; color: var(--gray); font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; white-space: nowrap; }
 .beat-preview__status,
 .beat-preview__unavailable { font-size: 9px; line-height: 1.5; color: var(--gray); letter-spacing: 0.06em; }
 .beat-preview__status { grid-column: 1 / -1; }
@@ -1402,11 +1409,24 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
      deliberately sits at `inset: -1px`. */
   contain: layout style;
   transform: translateZ(0);
+  will-change: transform;
   /* `border-color` only. `box-shadow` used to be transitioned here as well, while
      `playerPulse` animates the same property in the playing state — an animation
      and a transition on one property fight over it, so the frame jumped every
      time playback started or stopped. The pulse owns the shadow now. */
   transition: border-color 0.4s ease;
+}
+
+/* The sheen's angle is a registered custom property so the *gradient* turns
+   while the 1px ring stays bolted to the frame. Rotating the ring element itself
+   (the old `transform: rotate()`) spun a wide rectangle, so its long edges swept
+   across the player's face and out past the box — the visible "spinning
+   indicator" breach. Animating the gradient angle keeps every painted pixel
+   inside the same static ring. */
+@property --sheen-turn {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
 }
 
 /* Rotating conic sheen around the frame — the "audio-reactive" border. */
@@ -1416,7 +1436,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   inset: -1px;
   border-radius: inherit;
   padding: 1px;
-  background: conic-gradient(from 0deg,
+  background: conic-gradient(from var(--sheen-turn, 0deg),
     transparent 0deg,
     rgba(255, 255, 255, 0.55) 60deg,
     transparent 130deg,
@@ -1432,7 +1452,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   pointer-events: none;
 }
 
-@keyframes playerSpin { to { transform: rotate(360deg); } }
+@keyframes playerSpin { to { --sheen-turn: 360deg; } }
 
 .beat-preview[data-state="playing"] {
   border-color: rgba(255, 255, 255, 0.4);

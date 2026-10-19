@@ -853,15 +853,37 @@ try {
     const p = getComputedStyle(document.querySelector(card + ' .beat-preview'));
     const s = getComputedStyle(document.querySelector(card + ' .beat-preview__seek'));
     const t = getComputedStyle(document.querySelector(card + ' .beat-preview__time'));
-    return { pContain: p.contain, pTransform: p.transform, sContain: s.contain, sTransform: s.transform, timeWrap: t.whiteSpace };
+    return {
+      pContain: p.contain, pTransform: p.transform, pWillChange: p.willChange,
+      sContain: s.contain, sTransform: s.transform, sOverflow: s.overflow, sRadius: s.borderRadius,
+      timeWrap: t.whiteSpace, timeNumeric: t.fontVariantNumeric, timeFeatures: t.fontFeatureSettings,
+    };
   }, CARD);
   assert.match(playerCss.pContain, /layout/, 'the player box is layout-contained');
   assert.match(playerCss.pContain, /style/, 'the player box is style-contained');
   assert.match(playerCss.pTransform, /matrix/, 'the player box is GPU-promoted');
+  assert.equal(playerCss.pWillChange, 'transform', 'the player box keeps its compositor layer');
   assert.match(playerCss.sContain, /layout/, 'the scrub bar is layout-contained');
   assert.match(playerCss.sContain, /style/, 'the scrub bar is style-contained');
   assert.match(playerCss.sTransform, /matrix/, 'the scrub bar is GPU-promoted');
+  assert.equal(playerCss.sOverflow, 'hidden', 'the scrub bar contains its own paint');
+  assert.notEqual(playerCss.sRadius, '0px', 'the scrub bar clips with a rounded box');
   assert.equal(playerCss.timeWrap, 'nowrap', 'the time readout can never wrap and resize the player');
+  assert.equal(playerCss.timeNumeric, 'tabular-nums', 'the clock uses tabular figures');
+  assert.match(playerCss.timeFeatures, /tnum/, 'the clock enables the tabular feature explicitly as well');
+  // Swapping the readout for the widest clock a full preview can show must not
+  // move the player by a pixel.
+  const textDrift = await playback.evaluate((card) => {
+    const time = document.querySelector(card + ' .beat-preview__time');
+    const player = document.querySelector(card + ' .beat-preview');
+    const rect = el => { const b = el.getBoundingClientRect(); return [b.width, b.height]; };
+    const p0 = rect(player), t0 = rect(time);
+    time.textContent = '10:00 / 10:00';
+    const p1 = rect(player), t1 = rect(time);
+    time.textContent = '0:00 / --:--';
+    return Math.max(...p0.map((v, i) => Math.abs(v - p1[i])), ...t0.map((v, i) => Math.abs(v - t1[i])));
+  }, CARD);
+  assert(textDrift < 0.5, `the widest clock leaves the player's box untouched (moved ${textDrift.toFixed(2)}px)`);
   await playback.locator(`${CARD} .beat-preview__toggle`).click();
   await playback.waitForFunction(() => {
     const audio = document.querySelector('#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af audio');
@@ -1096,7 +1118,19 @@ try {
   // and keeps `transform` free for the per-scroll tracking translate.
   assert.match(cssText, /\.beat-preview \{[^}]*contain:\s*layout style/, 'the player box is strictly contained');
   assert.match(cssText, /\.beat-preview \{[^}]*transform:\s*translateZ\(0\)/, 'the player box is GPU-promoted');
+  assert.match(cssText, /\.beat-preview \{[^}]*will-change:\s*transform/, 'the player box keeps its compositor layer');
   assert.match(cssText, /\.beat-preview__seek \{[^}]*contain:\s*layout style/, 'the scrub bar is strictly contained');
+  assert.match(cssText, /\.beat-preview__seek \{[^}]*overflow:\s*hidden/, 'the scrub bar contains its own paint');
+  assert.match(cssText, /\.beat-preview__seek \{[^}]*border-radius:\s*999px/, 'the scrub bar clips with a rounded box');
+  assert.match(cssText, /\.beat-preview__details \{[^}]*padding:\s*0 4px/, 'the scrub bar is inset from the player chrome');
+  assert.match(cssText, /\.beat-preview__seek::-webkit-slider-thumb \{[^}]*width:\s*8px/, 'the scrub handle is small enough to stay inside the track');
+  assert.match(cssText, /\.beat-preview__time \{[^}]*font-variant-numeric:\s*tabular-nums/, 'the clock uses tabular figures');
+  assert.match(cssText, /\.beat-preview__time \{[^}]*font-feature-settings:\s*"tnum"/, 'the clock enables tabular figures explicitly');
+  // The sheen turns its gradient, never its box: a rotating rectangle swept its
+  // edges across the player's face and out of bounds.
+  assert.match(cssText, /@property --sheen-turn/, 'the sheen angle is a registered animatable property');
+  assert.match(cssText, /@keyframes playerSpin \{ to \{ --sheen-turn: 360deg/, 'the sheen animation drives the gradient angle');
+  assert.doesNotMatch(cssText, /@keyframes playerSpin \{[^}]*transform:\s*rotate/, 'the sheen never rotates its own box');
   assert.match(cssText, /\.download-menu \{[^}]*will-change:\s*transform/, 'the drawer keeps a compositor layer for scroll tracking');
   assert.match(cssText, /\.download-menu \{[^}]*translate:\s*0 -6px/, 'the drawer reveal lives on `translate` so `transform` stays free for scroll tracking');
   const taglineStart = cssText.indexOf('/* Tagline under the wordmark');
