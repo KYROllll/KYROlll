@@ -726,13 +726,29 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   text-transform: uppercase;
   position: relative;
   width: 100%;
+  /* Hardware acceleration for the clip box too, not just the moving track. The
+     strip is a permanently animated surface: `translateZ(0)` promotes it to its
+     own composited layer up front (no waiting for a transform transition to
+     promote it mid-scroll), `will-change: transform` keeps that layer alive so
+     the clip is applied on the compositor every frame, and `contain: layout
+     paint` tells the engine this box can never be affected by — or affect —
+     layout or paint outside itself, so a scroll-time reflow elsewhere in the
+     page cannot invalidate the ticker. */
+  transform: translateZ(0);
+  will-change: transform;
+  contain: layout paint;
+  backface-visibility: hidden;
 }
 /* Two identical copies of one measured unit. The scroll is a pixel-exact
    translate driven from marquee.js, not a percentage keyframe:
    `translateX(-50%)` re-resolved from the element's width every frame, could
    land on a fractional device pixel and popped a hair at every wrap. Only the
-   track carries a transform layer — the items are never promoted — so the whole
-   strip stays one composited surface. */
+   banner and the track carry a layer — the individual items are never promoted —
+   so the whole strip stays one composited surface, a `translate3d` promoting the
+   track to the GPU for the Web Animations API too (its keyframes below are
+   translate3d, so the animation runs on the compositor thread, never the main
+   one). `linear` + `infinite` means the motion has no per-frame easing to
+   recompute and never hands back to layout. */
 .marquee-track {
   display: inline-flex;
   will-change: transform;
@@ -1214,6 +1230,21 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    slide-in would drag the beat card after we align it — show them settled (and
    settled means settled: no `will-change`, so no layer and no stacking context). */
 .beat-page .reveal { opacity: 1; transform: none; transition: none; will-change: auto; }
+
+/* The marquee is exempt from the section reveal, exactly like a beat page's
+   sections above. The reveal is an opacity curtain, and an ancestor held at
+   opacity < 1 forces the entire strip into a single render surface — which drops
+   the ticker's own compositor animation for the length of the fade, and that fade
+   is triggered by the very scroll that brings the strip into view. The banner
+   arrives settled instead and keeps the composited layer it is given above, so
+   no scroll-driven class change can ever disturb the continuous transform. */
+.marquee-banner.reveal,
+.marquee-banner.reveal.is-revealed {
+  opacity: 1;
+  transform: translateZ(0);
+  transition: none;
+  will-change: transform;
+}
 
 /* ---------- 3. The Vinyl Sanctum — flower label + delayed slide-out --------- */
 

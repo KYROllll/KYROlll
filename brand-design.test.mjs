@@ -277,6 +277,71 @@ try {
   assert.match(await desktop.locator(CARD).innerText(), /\[FREE 100%\] DON TOLIVER TYPE BEAT - FLESH/i);
   await shot(desktop, 'desktop');
 
+  // ------------------------------------------------------------------ marquee
+  // The ticker is a continuously moving strip and must never hitch while the
+  // page scrolls, so it is isolated from scroll entirely: its own composited
+  // layer on the banner *and* the track, a paint-isolated box, and no scroll
+  // handler or scroll-driven class change anywhere near it. This page keeps
+  // motion on so the animation really runs.
+  const ticker = await setupPage({ viewport: { width: 1280, height: 900 } });
+  await ticker.goto(url);
+  await ticker.locator('.marquee-track').waitFor();
+  const marqueeCss = await ticker.evaluate(() => {
+    const banner = getComputedStyle(document.querySelector('.marquee-banner'));
+    const track = getComputedStyle(document.querySelector('.marquee-track'));
+    return {
+      bannerWillChange: banner.willChange,
+      bannerTransform: banner.transform,
+      bannerContain: banner.contain,
+      trackWillChange: track.willChange,
+      trackTransform: track.transform,
+      bannerOpacity: banner.opacity,
+      bannerClasses: document.querySelector('.marquee-banner').className,
+    };
+  });
+  assert.match(marqueeCss.bannerWillChange, /transform/, 'the marquee banner is promoted for transforms');
+  assert.match(marqueeCss.bannerTransform, /matrix/, 'the marquee banner carries a GPU transform');
+  assert.match(marqueeCss.bannerContain, /paint/, 'the marquee banner is paint-isolated from the rest of the page');
+  assert.match(marqueeCss.trackWillChange, /transform/, 'the moving track keeps its own compositor layer');
+  assert.match(marqueeCss.trackTransform, /matrix/, 'the moving track carries a GPU transform');
+  // The banner is exempt from the scroll reveal: an ancestor held at opacity < 1
+  // groups the strip and drops the ticker's compositor animation for the length
+  // of the fade — which fires exactly as the user scrolls the strip into view.
+  assert.match(marqueeCss.bannerClasses, /reveal/, 'the marquee is still offered the shared reveal');
+  assert.equal(marqueeCss.bannerOpacity, '1', 'the marquee never fades behind a reveal curtain');
+  const marqueeAnim = await ticker.evaluate(() => {
+    const animations = document.querySelector('.marquee-track').getAnimations();
+    const a = animations.find(x => x.effect && x.effect.getKeyframes().some(k => k.transform));
+    if (!a) return null;
+    const kf = a.effect.getKeyframes();
+    return {
+      easing: kf.map(k => k.easing),
+      transforms: kf.map(k => k.transform),
+      iterationCount: String(a.effect.getTiming().iterations),
+    };
+  });
+  assert(marqueeAnim, 'the ticker runs a transform animation');
+  assert(marqueeAnim.easing.every(e => e === 'linear'), 'the ticker moves with linear timing');
+  assert(marqueeAnim.transforms.every(t => /translate3d/.test(t)), 'the ticker animates a GPU translate3d, never a layout property');
+  assert.equal(marqueeAnim.iterationCount, 'Infinity', 'the ticker loops forever');
+  // A resize that changes only the height (a phone's address bar collapsing as
+  // you scroll) must not rebuild the track: that synchronous re-layout plus a
+  // fresh animation is exactly what hitched the ticker during a scroll. Only a
+  // real width change may rebuild.
+  const resizeGuard = await ticker.evaluate(async () => {
+    const track = document.querySelector('.marquee-track');
+    track.firstElementChild.__probe = 'keep';
+    window.dispatchEvent(new Event('resize'));
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    return { kept: track.firstElementChild.__probe === 'keep', copies: track.querySelectorAll('.marquee-copy').length };
+  });
+  assert.equal(resizeGuard.copies, 2, 'the ticker is built from two identical copies');
+  assert(resizeGuard.kept, 'a height-only resize never rebuilds the ticker');
+  await ticker.setViewportSize({ width: 1100, height: 900 });
+  await ticker.waitForTimeout(150);
+  assert.equal(await ticker.evaluate(() => document.querySelector('.marquee-track').firstElementChild.__probe === 'keep'), false, 'a real width change does rebuild the ticker');
+  await ticker.close();
+
   // Direct beat link: the card carries one "DOWNLOAD FREE" trigger.
   const direct = await setupPage({ viewport: { width: 1024, height: 800 }, reducedMotion: 'reduce', acceptDownloads: true });
   await direct.goto(`${url}/?beat=flesh`);
@@ -943,6 +1008,15 @@ try {
   assert.match(cssText, /\.beat-detail:not\(\.vinyl-open\) \.vinyl-record \{[^}]*transform:\s*translateX\(0\)/, 'the record starts tucked behind the sleeve');
   assert.match(cssText, /@media \(prefers-reduced-motion: no-preference\) \{[\s\S]*?\.vinyl-record \{[^}]*transition:\s*transform 1s cubic-bezier\(0\.16, 1, 0\.3, 1\)/, 'the record reveal is a 1 s eased slide');
   assert.doesNotMatch(cssText, /\.beat-detail[^{}]*vinyl-open[^{}]*\{[^}]*rotate\(/, 'the record reveal never rotates');
+  // The marquee ticker: GPU-promoted container and track, layout/paint-isolated,
+  // linear + infinite, and never touched by the reveal's opacity curtain.
+  assert.match(cssText, /\.marquee-banner \{[^}]*transform:\s*translateZ\(0\)/, 'the marquee banner is GPU-promoted');
+  assert.match(cssText, /\.marquee-banner \{[^}]*will-change:\s*transform/, 'the marquee banner keeps its compositor layer');
+  assert.match(cssText, /\.marquee-banner \{[^}]*contain:\s*layout paint/, 'the marquee banner is layout/paint-isolated');
+  assert.match(cssText, /\.marquee-track \{[^}]*will-change:\s*transform/, 'the moving track keeps its compositor layer');
+  assert.match(cssText, /\.marquee-track \{[^}]*transform:\s*translate3d\(0, 0, 0\)/, 'the moving track is GPU-promoted');
+  assert.match(cssText, /\.marquee-banner\.reveal[\s\S]{0,160}?opacity:\s*1/, 'the marquee is exempt from the reveal opacity curtain');
+  assert.match(cssText, /\.marquee-track\.is-scrolling \{[^}]*animation:\s*marquee-scroll[^}]*linear infinite/, 'the fallback ticker still loops linearly');
   const taglineStart = cssText.indexOf('/* Tagline under the wordmark');
   const taglineEnd = cssText.indexOf('\n.logo-stage {', taglineStart);
   assert(taglineStart >= 0 && taglineEnd > taglineStart, 'the tagline palette is isolated in its own stylesheet section');

@@ -200,6 +200,31 @@ mounted on `<body>` at `z-index: 999999`, in the root stacking context, so no an
 stacking context can contain it. Keep the `will-change: auto` regardless: a bare
 `.reveal.is-revealed` still promotes every settled section for the life of the page.)
 
+## The marquee is the one surface that keeps its compositor layer
+
+The ticker is a permanently animating strip, so it is the deliberate exception to the rule
+above: both `.marquee-banner` and `.marquee-track` carry `will-change: transform` and a
+`translate3d`/`translateZ(0)` promotion for the life of the page, and the banner adds
+`contain: layout paint` so a scroll-time reflow elsewhere can never invalidate it. The
+animation itself is a Web Animations `translate3d` keyframe at a constant px/s speed with
+`easing: "linear"` and `iterations: Infinity`, so it runs on the compositor thread and never
+touches layout. Nothing in `marquee.js` listens for `scroll`, and nothing syncs the strip to
+scroll position — it runs on its own timeline, independent of the page.
+
+Two scroll-time hitches have been fixed and must not come back:
+
+- **The banner is exempt from the section reveal** (`.marquee-banner.reveal` is forced
+  `opacity: 1; transform: translateZ(0)`). An ancestor held at `opacity < 1` forces the whole
+  strip into one render surface, which drops the ticker's own compositor animation for the
+  length of the fade — and that fade is triggered by the very scroll that brings the strip into
+  view. The marquee arrives settled instead.
+- **`marquee.js` ignores a resize that does not change `innerWidth`.** A phone's address bar
+  collapsing as you scroll fires `resize` with only the height changing, hundreds of times per
+  scroll; rebuilding the track on each one (a synchronous re-layout plus a fresh animation) is
+  what made the ticker stutter as the page scrolled. Only a real width change rebuilds.
+  `brand-design.test.mjs` asserts both: the banner's computed opacity is `1` and a
+  height-only resize leaves the track's children untouched (a width change replaces them).
+
 ## The vinyl record slides out after a beat — translate only
 
 The beat page's sleeve/record pair starts with the record fully tucked behind the opaque

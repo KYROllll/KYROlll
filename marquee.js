@@ -71,6 +71,9 @@
   let resizeFrame = 0;
   let visible = true;
   let manuallyPaused = false;
+  // The viewport width the current layout was measured against; a resize that
+  // leaves it unchanged never rebuilds the ticker.
+  let measuredWidth = innerWidth;
 
   // One copy of the ticker: the LIVE badge plus the rotated headline set,
   // repeated `repeats` times. Spacing lives on the children (style.css) rather
@@ -181,7 +184,20 @@
 
   addEventListener("resize", () => {
     if (resizeFrame) return;
-    resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; refresh(); });
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0;
+      // Only a *width* change can change how wide one copy of the ticker is, and
+      // a rebuild is the one operation that drops a frame. A phone's address bar
+      // collapsing as you scroll fires `resize` with the height alone changing —
+      // hundreds of times per scroll — so rebuilding on every one of those hitched
+      // the ticker during the very scroll that caused it. Height-only resizes are
+      // ignored; the animation is never even restarted. Nothing here listens to
+      // `scroll`, and nothing syncs the ticker to scroll position: the strip runs
+      // on its own compositor timeline (see style.css), independent of the page.
+      if (innerWidth === measuredWidth) return;
+      measuredWidth = innerWidth;
+      refresh();
+    });
   }, { passive: true });
 
   // Web fonts change the measured width; re-measure once they have landed.
