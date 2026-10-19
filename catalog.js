@@ -86,12 +86,12 @@
     {
       id: "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af",
       slug: "flesh",
-      title: "[FREE] DON TOLIVER TYPE BEAT - FLESH",
+      title: "[FREE 100%] DON TOLIVER TYPE BEAT - FLESH",
       img: "assets/flesh.png",
       bpm: 130,
       key: "Am",
       preview: "assets/previews/BEAT 1 TAG.wav",
-      youtube: "https://youtu.be/8OhRJQn2YCU",
+      youtube: "https://www.youtube.com/watch?v=8OhRJQn2YCU",
       deliverables: {
         mp3: [
           { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (130 BPM - AM).mp3", label: "TAGGED MP3" }
@@ -110,18 +110,18 @@
     {
       id: "5f9bbcab-e010-4efe-b459-9c9182e1d85b",
       slug: "the-flow",
-      title: "[FREE] FUTURE TYPE BEAT - THE FLOW",
+      title: "[FREE 100%] FUTURE TYPE BEAT - THE FLOW",
       img: "assets/the-flow.png",
       bpm: 124,
       key: "C#m",
       preview: "assets/previews/the-flow.mp3",
-      youtube: "",
+      youtube: "https://www.youtube.com/watch?v=aHMCkzw9Wuo",
       /* A scheduled drop: this beat is locked — countdown badge on the card, no
          player and no drawer — until the store's clock reaches `releaseAt`, the
          moment script.js swaps the card for the playable one in page. The label
          is what the badge and the locked trigger say. */
-      releaseAt: "2026-10-19T20:00:00+03:00",
-      releaseLabel: "DROPPING TODAY AT 20:00",
+      releaseAt: "2026-10-19T23:00:00+03:00",
+      releaseLabel: "DROPPING TODAY AT 23:00",
       deliverables: {
         mp3: [
           { file: "assets/previews/the-flow.mp3", name: "KYROIII - THE FLOW (124 BPM - C#M).mp3", label: "TAGGED MP3" }

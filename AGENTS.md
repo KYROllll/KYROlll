@@ -263,8 +263,10 @@ payment gateway.
 - A beat may carry `releaseAt` (an ISO instant with its own offset) and a `releaseLabel`.
   That makes it a **scheduled drop**: until the store's clock reaches the instant, the
   catalog card and the beat page show a monochrome countdown pill (`DROPPING TODAY AT
-  20:00` plus a live `HH:MM:SS`) and a real `disabled` `DOWNLOAD FREE` trigger — no player,
-  no drawer — and `start`/`openMenu` both refuse it with a toast even if called directly.
+  23:00` plus a live `HH:MM:SS`) and **no download button at all** — the pill stands alone
+  in the action slot where `DOWNLOAD FREE` normally sits, there is no separate `LOCKED`
+  control, and there is no player and no drawer — and `start`/`openMenu` both refuse it with
+  a toast even if called directly.
   The second the clock lands, `script.js` (`refreshReleaseWatch`: a 1 s display interval
   plus a precise timeout) rebuilds the grid in place, so the full player and the drawer
   appear with no reload and no redeploy. The clock is read off `now()`, which honours an

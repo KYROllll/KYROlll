@@ -1613,7 +1613,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   justify-content: center;
   gap: 10px;
   min-width: 0;
-  margin: 0 0 10px;
+  margin: 0;
   padding: 9px 12px;
   border: 1px solid var(--hairline);
   border-radius: 4px;
@@ -1693,18 +1693,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 
 .drop-locked--page { margin-bottom: 16px; }
-
-/* The locked trigger: a real `disabled` control, so no click, no keyboard and
-   no drawer can reach the packages before the drop. Visibly inert, still on
-   brand. */
-.download-trigger[disabled] {
-  background: var(--black);
-  color: var(--gray);
-  border-color: var(--hairline);
-  cursor: not-allowed;
-}
-
-.download-trigger[disabled]:hover { background: var(--black); box-shadow: none; }
 
 /* ---- The package drawer: part of the trigger, not a popup over the page ---- */
 /* The drawer is rendered inside the button's own container (see `openMenu`),

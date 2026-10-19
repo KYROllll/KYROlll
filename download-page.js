@@ -302,7 +302,7 @@
   function clearDropWatch() { clearInterval(dropTimer); dropTimer = 0; }
   function dropCountdownHTML() {
     const h = helpers();
-    const label = (h && h.releaseLabel && h.releaseLabel(beat)) || "DROPPING TODAY AT 20:00";
+    const label = (h && h.releaseLabel && h.releaseLabel(beat)) || "DROPPING TODAY AT 23:00";
     const time = (h && h.formatCountdown && h.msUntilRelease) ? h.formatCountdown(h.msUntilRelease(beat)) : "00:00:00";
     return '<span class="drop-countdown drop-countdown--lg" role="timer" aria-live="off">' +
       '<span class="drop-countdown__dot" aria-hidden="true"></span>' +

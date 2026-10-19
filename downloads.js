@@ -249,10 +249,11 @@
     return signaturePayload();
   }
 
-  /* A scheduled drop is closed until its clock lands (catalog.js owns the
-     clock). The trigger renders `disabled`, so a tap normally never gets here —
-     but `openMenu`/`start` are also reachable through the console and the deep
-     links, so both refuse a beat that is not live yet and say why. */
+  /* A scheduled drop no longer renders a "DOWNLOAD FREE" trigger at all — its
+     countdown pill stands in the same slot (see script.js) — so a tap can never
+     reach the packages early. `openMenu`/`start` are still callable straight
+     from the console or a stale link, so both refuse a beat that is not live yet
+     and say why. */
   function beatIsLive(beat) {
     const h = helpers();
     return !(h && h.isReleased) || h.isReleased(beat);
@@ -260,7 +261,7 @@
   function holdScheduledDrop(beat) {
     if (beatIsLive(beat)) return false;
     const h = helpers();
-    const label = (h && h.releaseLabel && h.releaseLabel(beat)) || "DROPPING TODAY AT 20:00";
+    const label = (h && h.releaseLabel && h.releaseLabel(beat)) || "DROPPING TODAY AT 23:00";
     showToast(label + " — UNLOCKS AT DROP TIME");
     return true;
   }

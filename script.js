@@ -29,8 +29,8 @@ function specLine(beat) {
 
 /* The scheduled-release clock lives in catalog.js: a beat with a future
    `releaseAt` is a *scheduled drop*. Until it lands the store paints the card
-   with a live countdown and locks the player and the download trigger; the
-   second the clock reaches zero `refreshReleaseWatch` rebuilds the grid in
+   with a live countdown pill *in place of* the download button, and no player;
+   the second the clock reaches zero `refreshReleaseWatch` rebuilds the grid in
    place, so the full player and the drawer appear with no reload. */
 function releasePending(beat) {
   const h = window.KYROlll_HELPERS;
@@ -42,9 +42,11 @@ function countdownText(beat) {
 }
 function releaseLabel(beat) {
   const h = window.KYROlll_HELPERS;
-  return (h && h.releaseLabel && h.releaseLabel(beat)) || "DROPPING TODAY AT 20:00";
+  return (h && h.releaseLabel && h.releaseLabel(beat)) || "DROPPING TODAY AT 23:00";
 }
-/* The luxury countdown pill: the drop label plus a timer that ticks in place. */
+/* The luxury countdown pill: the drop label plus a timer that ticks in place.
+   It stands alone in the action slot while a drop is still counting down — it
+   replaces the download button, and there is no second "locked" control. */
 function countdownBadgeHTML(beat, large) {
   return `<span class="drop-countdown${large ? " drop-countdown--lg" : ""}" role="timer" aria-live="off">
           <span class="drop-countdown__dot" aria-hidden="true"></span>
@@ -52,11 +54,12 @@ function countdownBadgeHTML(beat, large) {
           <span class="drop-countdown__time" data-countdown="${attr(beat.id)}">${countdownText(beat)}</span>
         </span>`;
 }
-/* What stands in for the player on a scheduled drop's own page. */
-function dropLockedHTML(beat) {
+/* The player slot on a scheduled drop's own page: a quiet locked pane. The
+   countdown itself lives in the action slot (see `actionsSlotHTML`), so it is
+   never repeated up here. */
+function dropLockedHTML() {
   return `<div class="drop-locked" data-state="locked">
-        ${countdownBadgeHTML(beat, true)}
-        <p class="drop-locked__note">THE FULL PLAYER AND EVERY FREE PACKAGE UNLOCK AUTOMATICALLY THE SECOND THE CLOCK HITS ZERO — NO RELOAD NEEDED.</p>
+        <p class="drop-locked__note">THE FULL PLAYER UNLOCKS AUTOMATICALLY THE SECOND THE CLOCK HITS ZERO — NO RELOAD NEEDED.</p>
       </div>`;
 }
 
@@ -86,36 +89,39 @@ function previewHTML(beat) {
 
 // One "DOWNLOAD FREE" trigger per beat; it opens the three-package menu (see
 // downloads.js). `compact` is the trimmed catalog-tile variant. A scheduled drop
-// renders it locked — a real `disabled` control, so no click, no keyboard and no
-// drawer until the clock reaches zero.
-function downloadTriggerHTML(beat, compact, pending) {
-  const locked = pending ? ' disabled aria-disabled="true" data-release-pending="true"' : "";
-  const label = pending ? "LOCKED" : "DOWNLOAD FREE";
-  const caret = pending ? "" : '<span class="download-trigger__caret" aria-hidden="true">▾</span>';
-  return `<button type="button" class="download-trigger${compact ? " download-trigger--compact" : ""}" data-download-trigger data-beat-id="${attr(beat.id)}" aria-haspopup="menu" aria-expanded="false"${locked}>
-        <span class="download-trigger__label">${label}</span>${caret}
+// never builds this button at all — its countdown pill takes the same slot — so
+// the trigger only ever exists for a beat that is already live.
+function downloadTriggerHTML(beat, compact) {
+  return `<button type="button" class="download-trigger${compact ? " download-trigger--compact" : ""}" data-download-trigger data-beat-id="${attr(beat.id)}" aria-haspopup="menu" aria-expanded="false">
+        <span class="download-trigger__label">DOWNLOAD FREE</span><span class="download-trigger__caret" aria-hidden="true">▾</span>
       </button>`;
 }
 
-function downloadActionsHTML(beat, compact, pending) {
-  if (compact) return `<div class="catalog-tile__actions">${pending ? countdownBadgeHTML(beat) : ""}${downloadTriggerHTML(beat, true, pending)}</div>`;
-  return `<div class="download-actions">${downloadTriggerHTML(beat, false, pending)}</div>
+function downloadActionsHTML(beat, compact) {
+  if (compact) return `<div class="catalog-tile__actions">${downloadTriggerHTML(beat, true)}</div>`;
+  return `<div class="download-actions">${downloadTriggerHTML(beat, false)}</div>
         <p class="download-hint">EVERY BEAT IS FREE · MP3, WAV &amp; STEMS · LEAVE AN EMAIL TO UNLOCK</p>`;
+}
+
+/* The action slot, where the "DOWNLOAD FREE" button normally sits. One control
+   OR the other, never both: while a drop counts down it is the standalone
+   countdown pill; the moment the clock lands the same slot becomes the live
+   trigger. */
+function actionsSlotHTML(beat, compact) {
+  if (releasePending(beat)) {
+    const pill = countdownBadgeHTML(beat, !compact);
+    return compact
+      ? `<div class="catalog-tile__actions">${pill}</div>`
+      : `<div class="download-actions">${pill}</div>`;
+  }
+  return downloadActionsHTML(beat, compact);
 }
 
 function beatDetailInner(beat) {
   const pending = releasePending(beat);
   const meta = pending
-    ? `<div class="card__specs">${specLine(beat)} // ${attr(releaseLabel(beat))}</div>`
+    ? `<div class="card__specs">${specLine(beat)} // SCHEDULED DROP</div>`
     : `<div class="card__specs">${specLine(beat)} // TAGGED AUDIO</div>`;
-  const actions = pending
-    ? `<div class="card__actions">
-        <div class="download-actions">${downloadTriggerHTML(beat, false, true)}</div>
-        <p class="download-hint">SCHEDULED DROP · THE FREE DOWNLOAD UNLOCKS AT DROP TIME</p>
-      </div>`
-    : `<div class="card__actions">
-        ${downloadActionsHTML(beat, false)}
-      </div>`;
   return `
     <section class="beat-detail__content" aria-label="Beat details and free downloads">
       <div class="card__meta">
@@ -127,8 +133,10 @@ function beatDetailInner(beat) {
         </div>
         ${meta}
       </div>
-      ${pending ? dropLockedHTML(beat) : previewHTML(beat)}
-      ${actions}
+      ${pending ? dropLockedHTML() : previewHTML(beat)}
+      <div class="card__actions">
+        ${actionsSlotHTML(beat, false)}
+      </div>
     </section>
     <div class="beat-detail__artwork-wrap">
       <div class="vinyl-record" aria-hidden="true">
@@ -207,7 +215,7 @@ function buildGrid() {
         <span class="catalog-tile__art"><img src="${attr(beat.img)}" alt="" loading="lazy" decoding="async"></span>
         <span class="catalog-tile__title">${beat.title}</span>
       </a>
-      ${downloadActionsHTML(beat, true, pending)}`;
+      ${actionsSlotHTML(beat, true)}`;
     }
     grid.appendChild(card);
   });
