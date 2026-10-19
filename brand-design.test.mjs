@@ -63,6 +63,34 @@ async function setupPage(options = {}) {
 const shot = (page, name) => page.screenshot({ path: join(tmpdir(), 'opencode', `kyrolll-${name}.png`), fullPage: true });
 const noOverflow = async page => assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'horizontal overflow');
 
+// No catalog card may paint outside its own bounds. `.catalog-tile__link` used to
+// be `height: 100%` inside a grid-stretched tile, so the action slot — the
+// countdown pill on a scheduled drop, the DOWNLOAD FREE button otherwise — hung
+// ~44px past the card's bottom border and bled into the next tile (visibly, into
+// THE FLOW's neighbour on a single-column phone).
+const noCardBleed = async (page, label) => {
+  const report = await page.evaluate(() => {
+    const rows = [];
+    document.querySelectorAll('#grid .catalog-tile').forEach(tile => {
+      const tr = tile.getBoundingClientRect();
+      const actions = tile.querySelector('.catalog-tile__actions');
+      const ar = actions && actions.getBoundingClientRect();
+      rows.push({
+        id: tile.id,
+        overflow: tile.scrollHeight - tile.clientHeight,
+        actionsBelow: ar ? Math.round((ar.bottom - tr.bottom) * 10) / 10 : 0,
+      });
+    });
+    return rows;
+  });
+  assert(report.length > 0, `${label}: at least one catalog card is rendered`);
+  report.forEach(r => {
+    assert(r.overflow <= 1, `${label}: ${r.id} contains its own children (overflow ${r.overflow}px)`);
+    assert(r.actionsBelow <= 1, `${label}: ${r.id} keeps its action slot inside the card (${r.actionsBelow}px below the border)`);
+  });
+  return report;
+};
+
 // Every rendered colour except the hero tagline's intentional green / pink
 // glitch palette must be an equal-channel grey.
 const noHue = async (page, label) => {
@@ -784,6 +812,10 @@ try {
   assert.equal(await preDrop.locator(`${FLOW_CARD} .download-trigger`).count(), 0, 'the catalog tile renders no download button');
   assert.equal(await preDrop.locator(`${FLOW_CARD} .download-trigger--locked`).count(), 0, 'the catalog tile renders no LOCKED control');
   assert.equal(await preDrop.locator(`${FLOW_CARD} .drop-locked`).count(), 0, 'the catalog tile renders no locked player pane');
+  // Every card contains its own children, and the cards are separated by a
+  // generous, explicit row gap (40px at desktop width).
+  await noCardBleed(preDrop, 'desktop catalog');
+  assert.equal(await preDrop.evaluate(() => getComputedStyle(document.getElementById('grid')).rowGap), '40px', 'the desktop catalog keeps a 40px row gap');
   assert(await preDrop.evaluate((id) => {
     const slot = document.getElementById('card-' + id).querySelector('.catalog-tile__actions');
     return !!slot && slot.querySelectorAll('button').length === 0 && !!slot.querySelector('.drop-countdown');
@@ -797,6 +829,24 @@ try {
   assert.equal(await preDrop.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), FLOW_ID), 'https://www.youtube.com/@KYROllllll?sub_confirmation=1', 'the helper withholds the unreleased video URL');
   await shot(preDrop, 'store-before-drop');
   await preDrop.close();
+
+  // On a phone the drops stack in one column, so the scheduled card's countdown
+  // pill must clear the beat beneath it entirely — that is exactly where the
+  // old 44px overflow overlapped THE FLOW's neighbour.
+  const preDropPhone = await setupPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  await preDropPhone.goto(`${url}/?now=${FLOW_RELEASE - 3600000}`);
+  await preDropPhone.locator(`[data-countdown="${FLOW_ID}"]`).waitFor();
+  await noOverflow(preDropPhone);
+  await noCardBleed(preDropPhone, 'mobile catalog');
+  assert.equal(await preDropPhone.evaluate(() => getComputedStyle(document.getElementById('grid')).rowGap), '28px', 'the mobile catalog keeps a ~28px row gap');
+  const pillClearance = await preDropPhone.evaluate(({ flowId, fleshId }) => {
+    const pill = document.querySelector('#card-' + flowId + ' .drop-countdown').getBoundingClientRect();
+    const next = document.getElementById('card-' + fleshId).getBoundingClientRect();
+    return next.top - pill.bottom;
+  }, { flowId: FLOW_ID, fleshId: BEAT_ID });
+  assert(pillClearance >= 16, `the countdown pill clears the next card by ${pillClearance.toFixed(1)}px, with no overlap`);
+  await shot(preDropPhone, 'store-before-drop-phone');
+  await preDropPhone.close();
 
   // The beat page before the drop carries no player, a countdown pill and the
   // dedicated inert LOCKED control — and the exact second the clock lands it

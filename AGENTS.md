@@ -369,6 +369,16 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   `backdrop-filter`ed surface, repainting every frame for a layer that is fully transparent when
   idle — and `.beat-preview` never transitions `box-shadow`, because `playerPulse` animates that
   same property (a transition and an animation on one property fight over it).
+- **A catalog card contains its own children, and the grid owns the vertical rhythm.** `.catalog-tile`
+  is a flex column and `.catalog-tile__link` grows (`flex: 1 1 auto`) to fill the card, so the action
+  slot — the countdown pill on a scheduled drop, the `DOWNLOAD FREE` button otherwise — always stays
+  inside the tile's border. It used to be `height: 100%`, which made the link fill the
+  grid-stretched tile and pushed the action slot ~44px past the card's own bottom edge; on a
+  single-column phone that bled into the next beat (the reported THE FLOW-countdown-over-FLESH
+  overlap). Spacing between cards comes from one place, `.grid { gap: clamp(28px, 4vw, 40px) }`
+  — ~28px on phones, 40px on desktop — never from a per-tile `margin-bottom` that could double up.
+  `brand-design.test.mjs` asserts both halves: no card's contents overflow its box and the pill
+  clears the next card on a 390px viewport.
 - `start(beatId, packageId)` resolves the beat + package, then opens that package's gate and
   continues on success (`gate: "instant"` short-circuits straight to the download page). It does
   **not** consult the in-page grant itself: `openGate` answers an already-unlocked package with

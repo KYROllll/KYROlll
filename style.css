@@ -223,7 +223,10 @@ button {
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  /* Generous, responsive separation between beats: ~28px on phones, opening to
+     40px on desktop. The row gap is the whole vertical rhythm between cards, so
+     nothing relies on a per-tile `margin-bottom` that could double up. */
+  gap: clamp(28px, 4vw, 40px);
   width: 100%;
   max-width: 1440px;
   margin-inline: auto;
@@ -570,8 +573,20 @@ body > canvas {
 /* The catalog is an artwork index; the player and download controls live on
    each beat view. */
 .catalog-heading[hidden], .beat-navigation[hidden] { display: none; }
-.catalog-tile { min-width: 0; border: 1px solid var(--hairline); background: var(--paper); }
-.catalog-tile__link { display: block; height: 100%; color: var(--white); text-decoration: none; }
+.catalog-tile {
+  /* A flex column, so the link can *grow* to fill the card instead of being
+     stretched to 100% of it. `height: 100%` on the link (below) used to make it
+     fill the grid-stretched tile and then push the action slot — the countdown
+     pill or the DOWNLOAD FREE button — 44px past the card's own bottom border,
+     which bled into the next row on a single-column phone. Growing inside a flex
+     column keeps every child inside the card at any height. */
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--hairline);
+  background: var(--paper);
+}
+.catalog-tile__link { display: block; flex: 1 1 auto; color: var(--white); text-decoration: none; }
 .catalog-tile__art { display: block; aspect-ratio: 1; overflow: hidden; }
 .catalog-tile__art img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .catalog-tile__title { display: block; padding: 16px; font-size: 12px; font-weight: 700; line-height: 1.5; letter-spacing: .04em; }
