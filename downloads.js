@@ -249,6 +249,22 @@
     return signaturePayload();
   }
 
+  /* A scheduled drop is closed until its clock lands (catalog.js owns the
+     clock). The trigger renders `disabled`, so a tap normally never gets here —
+     but `openMenu`/`start` are also reachable through the console and the deep
+     links, so both refuse a beat that is not live yet and say why. */
+  function beatIsLive(beat) {
+    const h = helpers();
+    return !(h && h.isReleased) || h.isReleased(beat);
+  }
+  function holdScheduledDrop(beat) {
+    if (beatIsLive(beat)) return false;
+    const h = helpers();
+    const label = (h && h.releaseLabel && h.releaseLabel(beat)) || "DROPPING TODAY AT 20:00";
+    showToast(label + " — UNLOCKS AT DROP TIME");
+    return true;
+  }
+
   /* `openGate` already answers a package this view has unlocked — same toast,
      same continuation — so the grant is never consulted twice on one path. */
   function start(beatId, packageId) {
@@ -256,6 +272,7 @@
     const beat = catalog && catalog.beatById(beatId);
     const pack = catalog && catalog.packageById(packageId);
     if (!beat || !pack) { showToast("BEAT OR PACKAGE NOT FOUND"); return; }
+    if (holdScheduledDrop(beat)) return;
     if (pack.gate === "instant") { goToDownload(beat, pack, ""); return; }
     openGate(beat, pack, (b, p, email) => { goToDownload(b, p, email); });
   }
@@ -297,6 +314,7 @@
     const catalog = helpers();
     const beat = catalog && catalog.beatById(beatId);
     if (!beat) { showToast("BEAT NOT FOUND"); return; }
+    if (holdScheduledDrop(beat)) return;
     const host = menuHost(trigger);
     const tile = trigger.closest ? trigger.closest(".catalog-tile") : null;
     /* The detail card's sleeve is a positioned sibling painted after the copy

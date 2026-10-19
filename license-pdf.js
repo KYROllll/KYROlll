@@ -153,11 +153,15 @@
     return out;
   }
 
-  /* `KYRO-2026-FLESH-482913` — one unique serial per issued license. */
+  /* `KYRO-2026-FLESH-482913` / `KYRO-2026-THE-FLOW-482913` — one unique serial
+     per issued license. The slug keeps its internal hyphens (so a multi-word
+     beat reads as itself), but never a leading or trailing one. */
   function makeLicenseId(beat) {
     const year = String(new Date().getFullYear());
-    const raw = toAscii((beat && (beat.slug || beat.id)) || "BEAT").toUpperCase().replace(/[^A-Z0-9]/g, "");
-    const slug = (raw || "BEAT").slice(0, 12);
+    const raw = toAscii((beat && (beat.slug || beat.id)) || "BEAT").toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const slug = ((raw || "BEAT").slice(0, 12).replace(/-+$/g, "") || "BEAT");
     return SERIAL_PREFIX + "-" + year + "-" + slug + "-" + randomDigits(6);
   }
 

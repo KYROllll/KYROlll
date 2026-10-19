@@ -257,7 +257,22 @@ payment gateway.
   for a caller with no beat in hand. The license is never listed: the download page always
   generates one.
 - `window.KYROlll_HELPERS` — `escapeHTML`, `beatById(idOrSlug)`, `packageById(id)`,
-  `deliverablesFor(beatId, packageId)`, `videoFor(beatId)` and `newsletterEndpoint()`.
+  `deliverablesFor(beatId, packageId)`, `videoFor(beatId)` and `newsletterEndpoint()`,
+  plus the scheduled-release clock: `now()`, `releaseAt(beat)`, `isReleased(beat[, at])`,
+  `msUntilRelease(beat[, at])`, `formatCountdown(ms)` and `releaseLabel(beat)`.
+- A beat may carry `releaseAt` (an ISO instant with its own offset) and a `releaseLabel`.
+  That makes it a **scheduled drop**: until the store's clock reaches the instant, the
+  catalog card and the beat page show a monochrome countdown pill (`DROPPING TODAY AT
+  20:00` plus a live `HH:MM:SS`) and a real `disabled` `DOWNLOAD FREE` trigger — no player,
+  no drawer — and `start`/`openMenu` both refuse it with a toast even if called directly.
+  The second the clock lands, `script.js` (`refreshReleaseWatch`: a 1 s display interval
+  plus a precise timeout) rebuilds the grid in place, so the full player and the drawer
+  appear with no reload and no redeploy. The clock is read off `now()`, which honours an
+  override for tests and preview links: set `window.KYROlll_NOW` before `catalog.js` loads,
+  or append `?now=<iso|epoch>` — the override is a *fixed* instant that then advances with
+  real time, so a countdown genuinely counts down. A cold `download.html` link to a drop
+  that has not landed shows the same countdown and unlocks itself; a flow that just passed
+  a gate carries the grant token and goes straight through.
 - `window.KYROlll_NEWSLETTER` — `{ provider, username, endpoint }`, where the email gate sends a
   new subscriber. The repo ships with a **Formspree** form wired to `endpoint`
   (`https://formspree.io/f/xgaoppwo`), posted to with `fetch` and `Accept: application/json` so
@@ -548,6 +563,14 @@ beat is a single edit to `catalog.js`. The files themselves are **conventional p
 seven stems **exactly as they were supplied** — `808.wav`, `HI HAT.wav`, `MELODY.wav`,
 `OPEN .wav`, `PERC.wav`, `RISER.wav`, `SNARE.wav` — with no README, no placeholder files and
 no archive metadata (`zip -X -j`), so the pro package hands over the stems and nothing else.
+`the-flow-stems.zip` holds its nine stems the same flat way (`808.wav`, `END THE BEAT.wav`,
+`HIHAT.wav`, `KICK.wav`, `MELODY.wav`, `PERC 2.wav`, `PERC.wav`, `SNARE.wav`,
+`TEXTURE.wav`) — but rendered **16-bit/48 kHz** rather than the supplied 24-bit. The 24-bit
+set is ~419 MB of PCM and zips to ~136 MB, over GitHub's 100 MB hard per-file limit, while
+the 16-bit set zips to ~65 MB; the reduction is a plain round-to-nearest, so nothing else
+about the stems changes and the archive stays a normal file any machine can open. Keep that
+in mind if a future stem set is rebuilt: `zip` here only speaks `store`/`deflate`, so the
+bit depth is the only lever that actually moves the size.
 
 ## Verify it works
 

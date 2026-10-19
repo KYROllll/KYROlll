@@ -111,6 +111,10 @@ const noLowercase = async (page, label) => {
 const CARD = '#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af';
 const BEAT_ID = '6c56eda2-df4a-45b0-b9b7-68f8efdbb1af';
 const PROVIDER = 'https://formspree.io/f/xgaoppwo';
+// The scheduled second release, [FREE] FUTURE TYPE BEAT - THE FLOW.
+const FLOW_ID = '5f9bbcab-e010-4efe-b459-9c9182e1d85b';
+const FLOW_CARD = '#card-5f9bbcab-e010-4efe-b459-9c9182e1d85b';
+const FLOW_RELEASE = Date.parse('2026-10-19T20:00:00+03:00');
 
 // Nothing about a gate may be remembered: the storefront writes no gate state
 // at all (no unlock set, no remembered address).
@@ -241,7 +245,7 @@ try {
     green: getComputedStyle(el, '::before').color,
     pink: getComputedStyle(el, '::after').color,
   })), { green: 'rgb(57, 255, 139)', pink: 'rgb(255, 62, 165)' });
-  assert.equal(await desktop.locator('#grid .catalog-tile').count(), 1);
+  assert.equal(await desktop.locator('#grid .catalog-tile').count(), 2);
   assert.match(await desktop.locator(CARD).innerText(), /FLESH/i);
   await shot(desktop, 'desktop');
 
@@ -756,6 +760,84 @@ try {
     return !audio.paused && audio.currentTime > 0 && audio.closest('.beat-preview').dataset.state === 'playing';
   }, null, { timeout: 15000 });
   await playback.close();
+
+  // ------------------------------------------------- scheduled second release
+  // [FREE] FUTURE TYPE BEAT - THE FLOW is a *scheduled* drop: until its clock
+  // lands (20:00 today, +03:00) the store paints it as a catalog card with a
+  // live countdown and a locked trigger, and the second the clock reaches zero
+  // it swaps itself for the full player and drawer — in page, no reload. The
+  // release clock reads the `?now=` override, so the test can stand at any
+  // moment without waiting for the real one.
+  const preDrop = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+  await preDrop.goto(`${url}/?now=${FLOW_RELEASE - 3600000}`);
+  await noOverflow(preDrop);
+  await noHue(preDrop, 'the storefront before the drop');
+  await noLowercase(preDrop, 'the storefront before the drop');
+  assert.equal(await preDrop.locator('#grid .catalog-tile').count(), 2, 'both releases sit in the catalog');
+  assert.match(await preDrop.locator(`${FLOW_CARD} .drop-countdown`).innerText(), /DROPPING TODAY AT 20:00/, 'the scheduled drop carries its countdown badge');
+  assert.match(await preDrop.locator(`${FLOW_CARD} [data-countdown="${FLOW_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'the badge shows a live HH:MM:SS clock');
+  assert.equal(await preDrop.locator(`${FLOW_CARD} .download-trigger[disabled]`).count(), 1, 'the scheduled drop trigger is locked');
+  // A locked drop cannot be opened by any route — the button is inert and both
+  // programmatic entry points refuse it too.
+  await preDrop.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), FLOW_ID);
+  await preDrop.evaluate((id) => {
+    const trigger = document.querySelector('#card-' + id + ' [data-download-trigger]');
+    if (trigger) window.KYROlll_DOWNLOADS.openMenu(trigger, id);
+  }, FLOW_ID);
+  assert.equal(await preDrop.locator('.gate-modal').count(), 0, 'a scheduled drop opens no gate');
+  assert.equal(await preDrop.locator('.download-menu').count(), 0, 'a scheduled drop opens no drawer');
+  await shot(preDrop, 'store-before-drop');
+  await preDrop.close();
+
+  // The beat page before the drop carries no player and no drawer — just the
+  // countdown — and the exact second the clock lands it unlocks itself in place.
+  const liveDrop = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce' });
+  await liveDrop.goto(`${url}/?beat=the-flow&now=${FLOW_RELEASE - 4000}`);
+  await liveDrop.locator(`[data-countdown="${FLOW_ID}"]`).waitFor();
+  assert.equal(await liveDrop.locator(`${FLOW_CARD}.beat-detail`).count(), 1, 'the scheduled beat page renders');
+  assert.equal(await liveDrop.locator(`${FLOW_CARD} .beat-preview`).count(), 0, 'no player is mounted before the drop');
+  assert.equal(await liveDrop.locator(`${FLOW_CARD} .download-trigger[disabled]`).count(), 1, 'the drawer stays locked before the drop');
+  const urlBeforeDrop = liveDrop.url();
+  await liveDrop.waitForFunction((id) => {
+    const card = document.getElementById('card-' + id);
+    return !!(card && card.querySelector('.beat-preview__toggle') && !card.querySelector('.download-trigger[disabled]'));
+  }, FLOW_ID, { timeout: 20000 });
+  assert.equal(liveDrop.url(), urlBeforeDrop, 'the drop unlocks in page, with no reload');
+  assert.equal(await liveDrop.locator(`${FLOW_CARD} .download-trigger:not([disabled])`).count(), 1, 'the drawer is live the moment the clock lands');
+  await liveDrop.close();
+
+  // After the drop it behaves exactly like the first release: the three-package
+  // drawer, the gates, and the studio-named hand-over with a fresh PDF serial.
+  const flowPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce', acceptDownloads: true });
+  await flowPage.goto(`${url}/?beat=the-flow&now=${FLOW_RELEASE + 1000}`);
+  await flowPage.locator(`${FLOW_CARD} .beat-preview__toggle`).waitFor();
+  assert.match(await flowPage.locator(FLOW_CARD).innerText(), /124 BPM \/\/ C#M/i);
+  assert.equal(await flowPage.locator(`${FLOW_CARD} .download-trigger:not([disabled])`).count(), 1, 'the trigger is live after the drop');
+  await flowPage.locator(`${FLOW_CARD} .download-trigger`).click();
+  await flowPage.locator('.download-menu.is-open').waitFor();
+  assert.equal(await flowPage.locator('.download-tier').count(), 3, 'the same three-package drawer');
+  await flowPage.locator('.download-tier[data-package="mp3"]').click();
+  await flowPage.locator('.gate-modal').waitFor();
+  await flowPage.locator('#gate-email').fill('flow-buyer@example.com');
+  await flowPage.locator('[data-gate-submit]').click();
+  await signLicense(flowPage, 'Flow Buyer');
+  await flowPage.waitForURL(/download\.html\?beat=.*package=mp3/);
+  assert.equal(await flowPage.locator('.download-item__name').textContent(), 'KYROIII - THE FLOW (124 BPM - C#M).mp3');
+  const flowSerial = await flowPage.locator('#license-serial').innerText();
+  assert.match(flowSerial, /^KYRO-\d{4}-THE-FLOW-\d{6}$/, 'the serial carries the hyphenated beat slug');
+  const [flowPdf] = await Promise.all([
+    flowPage.waitForEvent('download'),
+    flowPage.locator('[data-license-pdf]').click(),
+  ]);
+  assert.match(flowPdf.suggestedFilename(), /^KYROIII - LICENSE - THE FLOW \(KYRO-\d{4}-THE-FLOW-\d{6}\)\.pdf$/, 'the license saves under the studio name');
+  const flowText = (await readFile(await flowPdf.path())).toString('latin1');
+  assert(flowText.includes('PAGE 1 OF 1'), 'the flow license fits one page');
+  assert(flowText.includes('FLOW BUYER'), 'the flow license carries its signer');
+  assert(flowText.includes('THE FLOW'), 'the flow license names the beat');
+  assert.equal((flowText.match(/\/Im1 Do/g) || []).length, 2, 'the flower is drawn twice on the flow license too');
+  assert.deepEqual(pdfRuns(flowText).filter(run => /[a-z]/.test(run)), [], 'the flow license is ALL CAPS');
+  await shot(flowPage, 'download-flow');
+  await flowPage.close();
 
   // Keep the rest of the stylesheet monochrome while expressly checking the
   // isolated original green / pink hero accents and ALL-CAPS rules.

@@ -1601,6 +1601,111 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   }
 }
 
+/* ---- Scheduled drop: the countdown badge and the locked controls ---------- */
+/* A beat with a future `releaseAt` shows in the catalog exactly like a release,
+   but its player and its download drawer stay closed. One luxury pill carries
+   the drop label and a timer that ticks in place; the moment the clock reaches
+   zero, script.js swaps the whole card for the playable one — no reload. Every
+   colour here is an equal-channel grey, like the rest of the storefront. */
+.drop-countdown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+  margin: 0 0 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  background:
+    radial-gradient(130% 150% at 50% 0%, rgba(255, 255, 255, .09), rgba(255, 255, 255, .015) 70%),
+    rgba(11, 11, 11, .72);
+  color: var(--white);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.drop-countdown__dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--white);
+  box-shadow: 0 0 10px rgba(255, 255, 255, .8);
+  animation: dropPulse 1.7s ease-in-out infinite;
+}
+
+.drop-countdown__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--gray);
+}
+
+.drop-countdown__time {
+  flex: none;
+  padding-left: 10px;
+  border-left: 1px solid var(--hairline);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .18em;
+  color: var(--white);
+}
+
+.drop-countdown--lg {
+  margin: 0;
+  padding: 14px 18px;
+  font-size: 11px;
+  border-color: var(--gray);
+}
+
+@keyframes dropPulse {
+  0%, 100% { opacity: .3; }
+  50% { opacity: 1; }
+}
+
+.motion-paused .drop-countdown__dot { animation-play-state: paused !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .drop-countdown__dot { animation: none; opacity: .7; }
+}
+
+/* The locked player stand-in on a scheduled drop's own page. */
+.drop-locked {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 16px;
+  background: linear-gradient(158deg, rgba(255, 255, 255, .045), rgba(255, 255, 255, .01));
+}
+
+.drop-locked__note {
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.8;
+  letter-spacing: .16em;
+  color: var(--gray);
+}
+
+.drop-locked--page { margin-bottom: 16px; }
+
+/* The locked trigger: a real `disabled` control, so no click, no keyboard and
+   no drawer can reach the packages before the drop. Visibly inert, still on
+   brand. */
+.download-trigger[disabled] {
+  background: var(--black);
+  color: var(--gray);
+  border-color: var(--hairline);
+  cursor: not-allowed;
+}
+
+.download-trigger[disabled]:hover { background: var(--black); box-shadow: none; }
+
 /* ---- The package drawer: part of the trigger, not a popup over the page ---- */
 /* The drawer is rendered inside the button's own container (see `openMenu`),
    spans exactly the button's width and butts straight onto its edge, so button +

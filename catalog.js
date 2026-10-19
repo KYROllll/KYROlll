@@ -106,8 +106,90 @@
           { file: "assets/previews/flesh-stems.zip", name: "KYROIII - FLESH (130 BPM - AM) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
       }
+    },
+    {
+      id: "5f9bbcab-e010-4efe-b459-9c9182e1d85b",
+      slug: "the-flow",
+      title: "[FREE] FUTURE TYPE BEAT - THE FLOW",
+      img: "assets/the-flow.png",
+      bpm: 124,
+      key: "C#m",
+      preview: "assets/previews/the-flow.mp3",
+      youtube: "",
+      /* A scheduled drop: this beat is locked — countdown badge on the card, no
+         player and no drawer — until the store's clock reaches `releaseAt`, the
+         moment script.js swaps the card for the playable one in page. The label
+         is what the badge and the locked trigger say. */
+      releaseAt: "2026-10-19T20:00:00+03:00",
+      releaseLabel: "DROPPING TODAY AT 20:00",
+      deliverables: {
+        mp3: [
+          { file: "assets/previews/the-flow.mp3", name: "KYROIII - THE FLOW (124 BPM - C#M).mp3", label: "TAGGED MP3" }
+        ],
+        wav: [
+          { file: "assets/previews/the-flow.mp3", name: "KYROIII - THE FLOW (124 BPM - C#M).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/the-flow.wav", name: "KYROIII - THE FLOW (124 BPM - C#M).wav", label: "HIGH-QUALITY WAV" }
+        ],
+        exclusive: [
+          { file: "assets/previews/the-flow.mp3", name: "KYROIII - THE FLOW (124 BPM - C#M).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/the-flow.wav", name: "KYROIII - THE FLOW (124 BPM - C#M).wav", label: "HIGH-QUALITY WAV" },
+          { file: "assets/previews/the-flow-stems.zip", name: "KYROIII - THE FLOW (124 BPM - C#M) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
+        ]
+      }
     }
   ];
+
+  /* ---------------------------------------------------------- release clock
+     A beat may carry `releaseAt` (an ISO timestamp with its own offset). Until
+     that instant it is a *scheduled drop*: the store paints it with a live
+     countdown and a locked download trigger, and flips it to the full player the
+     second the clock reaches zero — in page, with no reload.
+     The clock accepts an override so a test (or a preview link) can stand at any
+     moment without waiting: set `window.KYROlll_NOW` to an ISO string or an epoch
+     before this file loads, or append `?now=<iso|epoch>` to the URL. The override
+     is read once, as a fixed instant, and then advances with real time — so a
+     countdown genuinely counts down instead of freezing. */
+  function parseWhen(value) {
+    if (value == null || value === "") return null;
+    const text = String(value).trim();
+    const asNumber = typeof value === "number" ? value : (/^-?\d+$/.test(text) ? Number(text) : NaN);
+    if (Number.isFinite(asNumber)) return asNumber;
+    const parsed = Date.parse(text);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  const CLOCK_OFFSET = (function () {
+    let override = null;
+    if (typeof window !== "undefined") override = parseWhen(window.KYROlll_NOW);
+    if (override == null && typeof location !== "undefined" && location.search) {
+      try { override = parseWhen(new URLSearchParams(location.search).get("now")); } catch (error) { override = null; }
+    }
+    return override == null ? 0 : override - Date.now();
+  })();
+  function timeNow() { return Date.now() + CLOCK_OFFSET; }
+  function releaseAtMs(beat) { return parseWhen(beat && beat.releaseAt); }
+  /* True when the beat has no schedule or its instant has passed. */
+  function isReleased(beat, when) {
+    const at = releaseAtMs(beat);
+    if (at == null) return true;
+    const now = Number.isFinite(when) ? Number(when) : timeNow();
+    return now >= at;
+  }
+  function msUntilRelease(beat, when) {
+    const at = releaseAtMs(beat);
+    if (at == null) return 0;
+    const now = Number.isFinite(when) ? Number(when) : timeNow();
+    return Math.max(0, at - now);
+  }
+  /* HH:MM:SS, the countdown the badge ticks every second. */
+  function formatCountdown(ms) {
+    const total = Math.max(0, Math.floor(Number(ms) / 1000));
+    const pad = (n) => ("0" + n).slice(-2);
+    return pad(Math.floor(total / 3600)) + ":" + pad(Math.floor((total % 3600) / 60)) + ":" + pad(total % 60);
+  }
+  function releaseLabel(beat) {
+    if (!beat || releaseAtMs(beat) == null) return "";
+    return beat.releaseLabel || "DROPPING SOON";
+  }
 
   window.KYROlll_HELPERS = {
     escapeHTML(value) {
@@ -148,6 +230,15 @@
         return "https://buttondown.com/api/emails/embed-subscribe/" + encodeURIComponent(String(config.username));
       }
       return "";
-    }
+    },
+    // The scheduled-release clock: `now()` is the store's time (a fixed override
+    // plus real time), and the four helpers below answer whether a beat is live
+    // yet and how long the countdown has left.
+    now: timeNow,
+    releaseAt(beat) { return releaseAtMs(beat); },
+    isReleased: isReleased,
+    msUntilRelease: msUntilRelease,
+    formatCountdown: formatCountdown,
+    releaseLabel: releaseLabel
   };
 })();

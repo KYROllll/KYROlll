@@ -43,6 +43,15 @@
      this flow. It is never written down, so a cold link gets the gate. */
   const granted = !!params.get("t");
 
+  /* A scheduled drop is closed until its clock lands (catalog.js owns the
+     clock). A flow that just passed a gate holds a grant token, so it is already
+     live; a cold link — a bookmark, a shared URL — waits on a countdown and
+     unlocks itself the second the clock reaches zero. */
+  const releasePending = () => {
+    const h = helpers();
+    return !!(h && h.isReleased && beat && !h.isReleased(beat));
+  };
+
   /* The address submitted at that gate — the fallback LICENSEE signature. The
      signature itself lives in `downloads.js` (this page only feeds it), and
      `licenseeName()` is what both the stamp line and the PDF read. */
@@ -286,9 +295,48 @@
     });
   }
 
+  /* A cold link to a scheduled drop: no player, no files and no license until
+     the clock lands. The countdown ticks in place and `boot` is re-run the
+     second the beat goes live, so the page unlocks itself. */
+  let dropTimer = 0;
+  function clearDropWatch() { clearInterval(dropTimer); dropTimer = 0; }
+  function dropCountdownHTML() {
+    const h = helpers();
+    const label = (h && h.releaseLabel && h.releaseLabel(beat)) || "DROPPING TODAY AT 20:00";
+    const time = (h && h.formatCountdown && h.msUntilRelease) ? h.formatCountdown(h.msUntilRelease(beat)) : "00:00:00";
+    return '<span class="drop-countdown drop-countdown--lg" role="timer" aria-live="off">' +
+      '<span class="drop-countdown__dot" aria-hidden="true"></span>' +
+      '<span class="drop-countdown__label">' + escapeHTML(label) + "</span>" +
+      '<span class="drop-countdown__time" data-countdown="' + escapeHTML(beat.id) + '">' + time + "</span></span>";
+  }
+  function tickDrop() {
+    const h = helpers();
+    if (!h || !h.isReleased || !dropTimer) return;
+    if (h.isReleased(beat)) { clearDropWatch(); boot(); return; }
+    const el = listEl.querySelector('[data-countdown="' + beat.id + '"]');
+    if (el) el.textContent = h.formatCountdown(h.msUntilRelease(beat));
+  }
+  function showLocked() {
+    clearDropWatch();
+    document.title = "SCHEDULED DROP — " + beat.title + " — KYROIII";
+    kickerEl.textContent = "SCHEDULED DROP";
+    titleEl.textContent = beat.title;
+    subEl.textContent = "THE PLAYER, EVERY FREE PACKAGE AND THE LICENSE UNLOCK AUTOMATICALLY AT DROP TIME.";
+    if (metaEl) metaEl.innerHTML = [beat.bpm + " BPM", String(beat.key).toUpperCase(), "FREE DOWNLOAD"]
+      .map((chip) => '<span class="dl-meta__chip">' + escapeHTML(chip) + "</span>").join("");
+    filesPanel.hidden = true;
+    licensePanel.hidden = true;
+    listEl.innerHTML = '<div class="drop-locked drop-locked--page">' + dropCountdownHTML() +
+      '<p class="drop-locked__note">THIS PAGE UNLOCKS ITSELF THE SECOND THE CLOCK HITS ZERO.</p></div>' +
+      '<div class="download-list__empty"><a class="kyrolll-btn" href="index.html#catalog">BACK TO THE STORE</a></div>';
+    tickDrop();
+    dropTimer = setInterval(tickDrop, 1000);
+  }
+
   function boot() {
     try {
       if (!beat || !pack) { showError(); return; }
+      if (releasePending() && !granted) { showLocked(); return; }
       /* The signature captured in the gate's sign step arrives in this flow's
          URL (`?sign=` / `?sig=`) and is adopted before anything is rendered, so
          the stamp and the prebuilt PDF carry it too. Nothing is stored. */

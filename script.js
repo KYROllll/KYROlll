@@ -27,6 +27,39 @@ function specLine(beat) {
   return `${beat.bpm} BPM // ${String(beat.key).toUpperCase()}`;
 }
 
+/* The scheduled-release clock lives in catalog.js: a beat with a future
+   `releaseAt` is a *scheduled drop*. Until it lands the store paints the card
+   with a live countdown and locks the player and the download trigger; the
+   second the clock reaches zero `refreshReleaseWatch` rebuilds the grid in
+   place, so the full player and the drawer appear with no reload. */
+function releasePending(beat) {
+  const h = window.KYROlll_HELPERS;
+  return !!(h && h.isReleased && !h.isReleased(beat));
+}
+function countdownText(beat) {
+  const h = window.KYROlll_HELPERS;
+  return (h && h.msUntilRelease && h.formatCountdown) ? h.formatCountdown(h.msUntilRelease(beat)) : "00:00:00";
+}
+function releaseLabel(beat) {
+  const h = window.KYROlll_HELPERS;
+  return (h && h.releaseLabel && h.releaseLabel(beat)) || "DROPPING TODAY AT 20:00";
+}
+/* The luxury countdown pill: the drop label plus a timer that ticks in place. */
+function countdownBadgeHTML(beat, large) {
+  return `<span class="drop-countdown${large ? " drop-countdown--lg" : ""}" role="timer" aria-live="off">
+          <span class="drop-countdown__dot" aria-hidden="true"></span>
+          <span class="drop-countdown__label">${attr(releaseLabel(beat))}</span>
+          <span class="drop-countdown__time" data-countdown="${attr(beat.id)}">${countdownText(beat)}</span>
+        </span>`;
+}
+/* What stands in for the player on a scheduled drop's own page. */
+function dropLockedHTML(beat) {
+  return `<div class="drop-locked" data-state="locked">
+        ${countdownBadgeHTML(beat, true)}
+        <p class="drop-locked__note">THE FULL PLAYER AND EVERY FREE PACKAGE UNLOCK AUTOMATICALLY THE SECOND THE CLOCK HITS ZERO — NO RELOAD NEEDED.</p>
+      </div>`;
+}
+
 function youtubeHTML(beat, show) {
   if (!show || !beat.youtube) return "";
   return `<a href="${beat.youtube}" target="_blank" rel="noopener noreferrer" class="card__youtube-link" aria-label="Watch on YouTube" title="Watch on YouTube" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></a>`;
@@ -52,20 +85,37 @@ function previewHTML(beat) {
 }
 
 // One "DOWNLOAD FREE" trigger per beat; it opens the three-package menu (see
-// downloads.js). `compact` is the trimmed catalog-tile variant.
-function downloadTriggerHTML(beat, compact) {
-  return `<button type="button" class="download-trigger${compact ? " download-trigger--compact" : ""}" data-download-trigger data-beat-id="${attr(beat.id)}" aria-haspopup="menu" aria-expanded="false">
-        <span class="download-trigger__label">DOWNLOAD FREE</span><span class="download-trigger__caret" aria-hidden="true">▾</span>
+// downloads.js). `compact` is the trimmed catalog-tile variant. A scheduled drop
+// renders it locked — a real `disabled` control, so no click, no keyboard and no
+// drawer until the clock reaches zero.
+function downloadTriggerHTML(beat, compact, pending) {
+  const locked = pending ? ' disabled aria-disabled="true" data-release-pending="true"' : "";
+  const label = pending ? "LOCKED" : "DOWNLOAD FREE";
+  const caret = pending ? "" : '<span class="download-trigger__caret" aria-hidden="true">▾</span>';
+  return `<button type="button" class="download-trigger${compact ? " download-trigger--compact" : ""}" data-download-trigger data-beat-id="${attr(beat.id)}" aria-haspopup="menu" aria-expanded="false"${locked}>
+        <span class="download-trigger__label">${label}</span>${caret}
       </button>`;
 }
 
-function downloadActionsHTML(beat, compact) {
-  if (compact) return `<div class="catalog-tile__actions">${downloadTriggerHTML(beat, true)}</div>`;
-  return `<div class="download-actions">${downloadTriggerHTML(beat, false)}</div>
+function downloadActionsHTML(beat, compact, pending) {
+  if (compact) return `<div class="catalog-tile__actions">${pending ? countdownBadgeHTML(beat) : ""}${downloadTriggerHTML(beat, true, pending)}</div>`;
+  return `<div class="download-actions">${downloadTriggerHTML(beat, false, pending)}</div>
         <p class="download-hint">EVERY BEAT IS FREE · MP3, WAV &amp; STEMS · LEAVE AN EMAIL TO UNLOCK</p>`;
 }
 
 function beatDetailInner(beat) {
+  const pending = releasePending(beat);
+  const meta = pending
+    ? `<div class="card__specs">${specLine(beat)} // ${attr(releaseLabel(beat))}</div>`
+    : `<div class="card__specs">${specLine(beat)} // TAGGED AUDIO</div>`;
+  const actions = pending
+    ? `<div class="card__actions">
+        <div class="download-actions">${downloadTriggerHTML(beat, false, true)}</div>
+        <p class="download-hint">SCHEDULED DROP · THE FREE DOWNLOAD UNLOCKS AT DROP TIME</p>
+      </div>`
+    : `<div class="card__actions">
+        ${downloadActionsHTML(beat, false)}
+      </div>`;
   return `
     <section class="beat-detail__content" aria-label="Beat details and free downloads">
       <div class="card__meta">
@@ -75,12 +125,10 @@ function beatDetailInner(beat) {
           </h2>
           ${youtubeHTML(beat, true)}
         </div>
-        <div class="card__specs">${specLine(beat)} // TAGGED AUDIO</div>
+        ${meta}
       </div>
-      ${previewHTML(beat)}
-      <div class="card__actions">
-        ${downloadActionsHTML(beat, false)}
-      </div>
+      ${pending ? dropLockedHTML(beat) : previewHTML(beat)}
+      ${actions}
     </section>
     <div class="beat-detail__artwork-wrap">
       <div class="vinyl-record" aria-hidden="true">
@@ -116,6 +164,7 @@ function landOnBeatDetail() {
 function buildGrid() {
   previewPlayer.stop();
   clearTimeout(vinylTimer);
+  clearReleaseWatch();
   /* The package drawer lives on `<body>` (see downloads.js), so replacing the
      grid would no longer take it with it: close it before the re-render, or a
      back/forward that rebuilds the catalog could leave a stale drawer on screen. */
@@ -152,12 +201,13 @@ function buildGrid() {
       card.className = "beat-detail";
       card.innerHTML = beatDetailInner(beat);
     } else {
-      card.className = "catalog-tile";
+      const pending = releasePending(beat);
+      card.className = "catalog-tile" + (pending ? " catalog-tile--pending" : "");
       card.innerHTML = `<a class="catalog-tile__link" href="index.html?beat=${encodeURIComponent(beat.id)}" aria-label="View ${attr(beat.title)}">
         <span class="catalog-tile__art"><img src="${attr(beat.img)}" alt="" loading="lazy" decoding="async"></span>
         <span class="catalog-tile__title">${beat.title}</span>
       </a>
-      ${downloadActionsHTML(beat, true)}`;
+      ${downloadActionsHTML(beat, true, pending)}`;
     }
     grid.appendChild(card);
   });
@@ -172,6 +222,43 @@ function buildGrid() {
     // Land directly on the beat card instead of the top of the page.
     landOnBeatDetail();
   }
+  refreshReleaseWatch();
+}
+
+/* --------------------------------------------------------------- the drop watch
+   A scheduled drop counts down in place. One interval ticks every countdown in
+   the grid; a precise timeout aimed at the earliest release rebuilds the catalog
+   the moment that instant passes, so the full player and the download drawer
+   appear live — no reload, no redeploy. `buildGrid` calls this last, and a
+   rebuild with nothing left pending simply leaves the watch off. */
+let releaseInterval = 0;
+let releaseTimeout = 0;
+function clearReleaseWatch() {
+  clearInterval(releaseInterval);
+  clearTimeout(releaseTimeout);
+  releaseInterval = 0;
+  releaseTimeout = 0;
+}
+function refreshReleaseWatch() {
+  clearReleaseWatch();
+  const h = window.KYROlll_HELPERS;
+  if (!h || !h.isReleased) return;
+  const pending = CATALOG.filter((beat) => !h.isReleased(beat));
+  if (!pending.length) return;
+  const tick = () => {
+    let due = false;
+    grid.querySelectorAll("[data-countdown]").forEach((el) => {
+      const beat = h.beatById(el.getAttribute("data-countdown"));
+      if (!beat) return;
+      if (h.isReleased(beat)) { due = true; return; }
+      el.textContent = h.formatCountdown(h.msUntilRelease(beat));
+    });
+    if (due) rebuildCatalog();
+  };
+  tick();
+  releaseInterval = setInterval(tick, 1000);
+  const waits = pending.map((beat) => h.msUntilRelease(beat));
+  releaseTimeout = setTimeout(() => rebuildCatalog(), Math.max(0, Math.min.apply(null, waits)) + 50);
 }
 
 function beatFromAnchor(anchor) {
