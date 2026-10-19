@@ -200,6 +200,20 @@ mounted on `<body>` at `z-index: 999999`, in the root stacking context, so no an
 stacking context can contain it. Keep the `will-change: auto` regardless: a bare
 `.reveal.is-revealed` still promotes every settled section for the life of the page.)
 
+## The vinyl record is painted in place, never animated in
+
+The beat page's sleeve/record pair used to sit stacked with the record hidden behind the
+sleeve and slide + spin into place ~2.4 s after load (a `vinyl-open` class added by
+`script.js`). The transition animated `translateX` **and a full `rotate(0 → 360deg)`**, and
+because the record is a square box clipped to a circle, mid-transition its *axis-aligned*
+bounding box grew by √2 (a 422 px record measured ~597 px wide) and overshot the stage by up
+to ~74 px — the "pop / breach the artwork frame" glitch. Both the timer and the
+`.beat-detail.vinyl-open` rules are gone: `.vinyl-record` carries its final emerged transform
+(`translateX(var(--vinyl-slide))`, no rotation, no `transition`) as its **base** style, so the
+circle, its box and its shadow are painted once and never move; only the label still spins
+(`vinylSpin`). `.beat-detail__artwork-wrap` adds `contain: layout` (not `paint`, which would
+clip the record's shadow) so a child box can never nudge a surrounding box again.
+
 ## Preview responsiveness in this sandbox
 
 The storefront is heavy to render without a GPU. Measured on a fresh load here (SwiftShader,
@@ -262,11 +276,13 @@ payment gateway.
   `msUntilRelease(beat[, at])`, `formatCountdown(ms)` and `releaseLabel(beat)`.
 - A beat may carry `releaseAt` (an ISO instant with its own offset) and a `releaseLabel`.
   That makes it a **scheduled drop**: until the store's clock reaches the instant, the
-  catalog card and the beat page show a monochrome countdown pill (`DROPPING TODAY AT
-  23:00` plus a live `HH:MM:SS`) and **no download button at all** — the pill stands alone
-  in the action slot where `DOWNLOAD FREE` normally sits, there is no separate `LOCKED`
-  control, and there is no player and no drawer — and `start`/`openMenu` both refuse it with
-  a toast even if called directly.
+  catalog tile shows a monochrome countdown pill and nothing else — the universal label
+  (`DROPPING SOON`, never a clock hour, so no timezone to misread) beside a live
+  `HH:MM:SS`, standing alone in the action slot where `DOWNLOAD FREE` normally sits, with
+  no button at all. The beat's own page shows the same pill with a dedicated **inert
+  `LOCKED` control** beneath it (`lockedButtonHTML`; it carries no
+  `data-download-trigger`, so the drawer cannot be reached) and no player. `start`/`openMenu`
+  refuse a locked drop with a toast even if called directly.
   The second the clock lands, `script.js` (`refreshReleaseWatch`: a 1 s display interval
   plus a precise timeout) rebuilds the grid in place, so the full player and the drawer
   appear with no reload and no redeploy. The clock is read off `now()`, which honours an

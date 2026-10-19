@@ -116,12 +116,13 @@
       key: "C#m",
       preview: "assets/previews/the-flow.mp3",
       youtube: "https://www.youtube.com/watch?v=aHMCkzw9Wuo",
-      /* A scheduled drop: this beat is locked — countdown badge on the card, no
-         player and no drawer — until the store's clock reaches `releaseAt`, the
+      /* A scheduled drop: this beat stays closed until the store's clock reaches
+         `releaseAt` — a countdown pill on the catalog tile (where the button
+         sits), and on its own page no player plus an inert LOCKED control — the
          moment script.js swaps the card for the playable one in page. The label
-         is what the badge and the locked trigger say. */
+         carries no clock hour: the pill's live HH:MM:SS is the only time shown,
+         so every timezone reads the same thing. */
       releaseAt: "2026-10-19T23:00:00+03:00",
-      releaseLabel: "DROPPING TODAY AT 23:00",
       deliverables: {
         mp3: [
           { file: "assets/previews/the-flow.mp3", name: "KYROIII - THE FLOW (124 BPM - C#M).mp3", label: "TAGGED MP3" }
@@ -142,8 +143,9 @@
   /* ---------------------------------------------------------- release clock
      A beat may carry `releaseAt` (an ISO timestamp with its own offset). Until
      that instant it is a *scheduled drop*: the store paints it with a live
-     countdown and a locked download trigger, and flips it to the full player the
-     second the clock reaches zero — in page, with no reload.
+     countdown pill (no clock hour — just the ticking HH:MM:SS, so the label is
+     timezone-proof) and, on its own page, an inert LOCKED control; it flips to
+     the full player the second the clock reaches zero — in page, no reload.
      The clock accepts an override so a test (or a preview link) can stand at any
      moment without waiting: set `window.KYROlll_NOW` to an ISO string or an epoch
      before this file loads, or append `?now=<iso|epoch>` to the URL. The override

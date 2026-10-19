@@ -20,7 +20,6 @@ function unlockScroll() {
 
 const grid = $("grid");
 const previewPlayer = new BeatPreviewPlayer(grid);
-let vinylTimer = 0;
 window.addEventListener("pagehide", () => previewPlayer.stop());
 
 function specLine(beat) {
@@ -28,10 +27,11 @@ function specLine(beat) {
 }
 
 /* The scheduled-release clock lives in catalog.js: a beat with a future
-   `releaseAt` is a *scheduled drop*. Until it lands the store paints the card
-   with a live countdown pill *in place of* the download button, and no player;
-   the second the clock reaches zero `refreshReleaseWatch` rebuilds the grid in
-   place, so the full player and the drawer appear with no reload. */
+   `releaseAt` is a *scheduled drop*. Until it lands the store paints the tile
+   with a live countdown pill where the button sits, and the beat page with no
+   player plus an inert LOCKED control; the second the clock reaches zero
+   `refreshReleaseWatch` rebuilds the grid in place, so the full player and the
+   drawer appear with no reload. */
 function releasePending(beat) {
   const h = window.KYROlll_HELPERS;
   return !!(h && h.isReleased && !h.isReleased(beat));
@@ -42,11 +42,13 @@ function countdownText(beat) {
 }
 function releaseLabel(beat) {
   const h = window.KYROlll_HELPERS;
-  return (h && h.releaseLabel && h.releaseLabel(beat)) || "DROPPING TODAY AT 23:00";
+  return (h && h.releaseLabel && h.releaseLabel(beat)) || "DROPPING SOON";
 }
-/* The luxury countdown pill: the drop label plus a timer that ticks in place.
-   It stands alone in the action slot while a drop is still counting down — it
-   replaces the download button, and there is no second "locked" control. */
+/* The countdown pill: one universal label plus a timer that ticks in place.
+   The label never carries a clock hour — the live HH:MM:SS beside it is the only
+   time shown, so a visitor in any timezone reads the same thing. On the catalog
+   tile the pill is the whole action slot; on the beat page it sits above the
+   inert LOCKED control (`lockedButtonHTML`). */
 function countdownBadgeHTML(beat, large) {
   return `<span class="drop-countdown${large ? " drop-countdown--lg" : ""}" role="timer" aria-live="off">
           <span class="drop-countdown__dot" aria-hidden="true"></span>
@@ -88,12 +90,21 @@ function previewHTML(beat) {
 }
 
 // One "DOWNLOAD FREE" trigger per beat; it opens the three-package menu (see
-// downloads.js). `compact` is the trimmed catalog-tile variant. A scheduled drop
-// never builds this button at all — its countdown pill takes the same slot — so
-// the trigger only ever exists for a beat that is already live.
+// downloads.js). `compact` is the trimmed catalog-tile variant.
 function downloadTriggerHTML(beat, compact) {
   return `<button type="button" class="download-trigger${compact ? " download-trigger--compact" : ""}" data-download-trigger data-beat-id="${attr(beat.id)}" aria-haspopup="menu" aria-expanded="false">
         <span class="download-trigger__label">DOWNLOAD FREE</span><span class="download-trigger__caret" aria-hidden="true">▾</span>
+      </button>`;
+}
+
+/* The inert "LOCKED" control that stands in for the button on a scheduled drop's
+   own page. It carries no `data-download-trigger`, so the delegated drawer
+   listener ignores it entirely — the packages are unreachable until the clock
+   lands and the card is rebuilt. The catalog tile never renders it: there the
+   countdown pill is the action slot on its own (see `actionsSlotHTML`). */
+function lockedButtonHTML(beat) {
+  return `<button type="button" class="download-trigger download-trigger--locked" data-release-pending="true" data-beat-id="${attr(beat.id)}" aria-disabled="true" disabled>
+        <span class="download-trigger__label">LOCKED</span>
       </button>`;
 }
 
@@ -103,16 +114,17 @@ function downloadActionsHTML(beat, compact) {
         <p class="download-hint">EVERY BEAT IS FREE · MP3, WAV &amp; STEMS · LEAVE AN EMAIL TO UNLOCK</p>`;
 }
 
-/* The action slot, where the "DOWNLOAD FREE" button normally sits. One control
-   OR the other, never both: while a drop counts down it is the standalone
-   countdown pill; the moment the clock lands the same slot becomes the live
-   trigger. */
+/* The action slot, where the "DOWNLOAD FREE" button normally sits. While a drop
+   counts down a catalog tile shows the countdown pill alone, and the beat page
+   shows the pill with the inert LOCKED control beneath it; the moment the clock
+   lands the slot becomes the live trigger. */
 function actionsSlotHTML(beat, compact) {
   if (releasePending(beat)) {
     const pill = countdownBadgeHTML(beat, !compact);
     return compact
       ? `<div class="catalog-tile__actions">${pill}</div>`
-      : `<div class="download-actions">${pill}</div>`;
+      : `<div class="download-actions">${pill}</div>
+        ${lockedButtonHTML(beat)}`;
   }
   return downloadActionsHTML(beat, compact);
 }
@@ -171,7 +183,6 @@ function landOnBeatDetail() {
 
 function buildGrid() {
   previewPlayer.stop();
-  clearTimeout(vinylTimer);
   clearReleaseWatch();
   /* The package drawer lives on `<body>` (see downloads.js), so replacing the
      grid would no longer take it with it: close it before the re-render, or a
@@ -220,13 +231,6 @@ function buildGrid() {
     grid.appendChild(card);
   });
   if (detail) {
-    // The record slides out of the sleeve a few seconds after the page settles
-    // and stays locked in its open position (CSS drives the movement).
-    const detailCard = grid.querySelector('.beat-detail');
-    if (detailCard) {
-      clearTimeout(vinylTimer);
-      vinylTimer = setTimeout(() => detailCard.classList.add('vinyl-open'), 2400);
-    }
     // Land directly on the beat card instead of the top of the page.
     landOnBeatDetail();
   }

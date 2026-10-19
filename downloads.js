@@ -261,7 +261,7 @@
   function holdScheduledDrop(beat) {
     if (beatIsLive(beat)) return false;
     const h = helpers();
-    const label = (h && h.releaseLabel && h.releaseLabel(beat)) || "DROPPING TODAY AT 23:00";
+    const label = (h && h.releaseLabel && h.releaseLabel(beat)) || "DROPPING SOON";
     showToast(label + " — UNLOCKS AT DROP TIME");
     return true;
   }

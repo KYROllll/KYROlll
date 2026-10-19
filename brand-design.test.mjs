@@ -763,27 +763,31 @@ try {
 
   // ------------------------------------------------- scheduled second release
   // [FREE 100%] FUTURE TYPE BEAT - THE FLOW is a *scheduled* drop: until its
-  // clock lands (23:00 today, +03:00) the store paints it as a catalog card whose
-  // action slot holds a standalone countdown pill — no download button at all —
-  // and the second the clock reaches zero it swaps itself for the full player
-  // and the live drawer, in page, with no reload. The release clock reads the
-  // `?now=` override, so the test can stand at any moment without waiting.
+  // clock lands the catalog tile's action slot holds a standalone countdown pill
+  // — no button at all — while its own beat page shows the pill with a dedicated
+  // inert LOCKED control beneath it. The label never names a clock hour (just
+  // "DROPPING SOON" plus the live HH:MM:SS), so every timezone reads the same
+  // thing. The second the clock reaches zero the store swaps itself for the full
+  // player and the live drawer, in page, with no reload. The release clock reads
+  // the `?now=` override, so the test can stand at any moment without waiting.
   const preDrop = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await preDrop.goto(`${url}/?now=${FLOW_RELEASE - 3600000}`);
   await noOverflow(preDrop);
   await noHue(preDrop, 'the storefront before the drop');
   await noLowercase(preDrop, 'the storefront before the drop');
   assert.equal(await preDrop.locator('#grid .catalog-tile').count(), 2, 'both releases sit in the catalog');
-  assert.match(await preDrop.locator(`${FLOW_CARD} .drop-countdown`).innerText(), /DROPPING TODAY AT 23:00/, 'the scheduled drop carries its countdown pill');
+  assert.match(await preDrop.locator(`${FLOW_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'the scheduled drop carries its countdown pill');
+  assert.doesNotMatch(await preDrop.locator(`${FLOW_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
   assert.match(await preDrop.locator(`${FLOW_CARD} [data-countdown="${FLOW_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'the pill shows a live HH:MM:SS clock');
-  // The pill stands alone in the action slot: there is no redundant LOCKED
-  // button underneath it (and no download button at all before the drop).
-  assert.equal(await preDrop.locator(`${FLOW_CARD} .download-trigger`).count(), 0, 'the scheduled drop renders no download button');
-  assert.equal(await preDrop.locator(`${FLOW_CARD} .download-trigger[disabled]`).count(), 0, 'there is no redundant LOCKED button');
+  // The catalog tile shows the pill and nothing else: no download button, no
+  // redundant LOCKED control, no locked player pane.
+  assert.equal(await preDrop.locator(`${FLOW_CARD} .download-trigger`).count(), 0, 'the catalog tile renders no download button');
+  assert.equal(await preDrop.locator(`${FLOW_CARD} .download-trigger--locked`).count(), 0, 'the catalog tile renders no LOCKED control');
+  assert.equal(await preDrop.locator(`${FLOW_CARD} .drop-locked`).count(), 0, 'the catalog tile renders no locked player pane');
   assert(await preDrop.evaluate((id) => {
     const slot = document.getElementById('card-' + id).querySelector('.catalog-tile__actions');
     return !!slot && slot.querySelectorAll('button').length === 0 && !!slot.querySelector('.drop-countdown');
-  }, FLOW_ID), 'the countdown pill sits in the action slot, with no button beside it');
+  }, FLOW_ID), 'the countdown pill is the whole catalog action slot, with no button beside it');
   // A locked drop cannot be opened programmatically either.
   await preDrop.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), FLOW_ID);
   await preDrop.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), FLOW_ID);
@@ -792,24 +796,37 @@ try {
   await shot(preDrop, 'store-before-drop');
   await preDrop.close();
 
-  // The beat page before the drop carries no player and no download button —
-  // the countdown pill takes the action slot — and the exact second the clock
-  // lands it unlocks itself in place.
+  // The beat page before the drop carries no player, a countdown pill and the
+  // dedicated inert LOCKED control — and the exact second the clock lands it
+  // unlocks itself in place.
   const liveDrop = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce' });
   await liveDrop.goto(`${url}/?beat=the-flow&now=${FLOW_RELEASE - 4000}`);
   await liveDrop.locator(`[data-countdown="${FLOW_ID}"]`).waitFor();
   assert.equal(await liveDrop.locator(`${FLOW_CARD}.beat-detail`).count(), 1, 'the scheduled beat page renders');
   assert.match(await liveDrop.locator(FLOW_CARD).innerText(), /\[FREE 100%\] FUTURE TYPE BEAT - THE FLOW/i);
   assert.equal(await liveDrop.locator(`${FLOW_CARD} .beat-preview`).count(), 0, 'no player is mounted before the drop');
-  assert.equal(await liveDrop.locator(`${FLOW_CARD} .download-trigger`).count(), 0, 'no download button exists before the drop');
-  assert.equal(await liveDrop.locator(`${FLOW_CARD} .card__actions .drop-countdown`).count(), 1, 'the countdown pill takes the beat page action slot');
+  assert.equal(await liveDrop.locator(`${FLOW_CARD} .drop-locked`).count(), 1, 'the locked player stand-in renders on the beat page');
+  assert.match(await liveDrop.locator(`${FLOW_CARD} .card__actions .drop-countdown`).innerText(), /DROPPING SOON/, 'the beat page action slot carries the countdown pill');
+  assert.equal(await liveDrop.locator(`${FLOW_CARD} .card__actions .download-trigger--locked`).count(), 1, 'the beat page carries the dedicated LOCKED control');
+  assert.equal(await liveDrop.locator(`${FLOW_CARD} .download-trigger[disabled]`).count(), 1, 'the LOCKED control is inert');
+  // Clicking the inert control opens nothing at all.
+  await liveDrop.evaluate((id) => {
+    const locked = document.querySelector('#card-' + id + ' .download-trigger--locked');
+    locked.click();
+    locked.closest('.card__actions').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  }, FLOW_ID);
+  assert.equal(await liveDrop.locator('.download-menu').count(), 0, 'the LOCKED control opens no drawer');
+  assert.equal(await liveDrop.locator('.gate-modal').count(), 0, 'the LOCKED control opens no gate');
   const urlBeforeDrop = liveDrop.url();
   await liveDrop.waitForFunction((id) => {
     const card = document.getElementById('card-' + id);
     return !!(card && card.querySelector('.beat-preview__toggle')
-      && card.querySelector('.download-trigger') && !card.querySelector('.drop-countdown'));
+      && card.querySelector('.download-trigger[data-download-trigger]')
+      && !card.querySelector('.drop-countdown')
+      && !card.querySelector('.download-trigger--locked'));
   }, FLOW_ID, { timeout: 20000 });
   assert.equal(liveDrop.url(), urlBeforeDrop, 'the drop unlocks in page, with no reload');
+  assert.equal(await liveDrop.locator(`${FLOW_CARD} .download-trigger--locked`).count(), 0, 'the LOCKED control is gone the moment the clock lands');
   assert.equal(await liveDrop.locator(`${FLOW_CARD} .download-trigger`).count(), 1, 'the download button is live the moment the clock lands');
   assert.equal(await liveDrop.locator(`${FLOW_CARD} .drop-countdown`).count(), 0, 'the countdown is gone once the drop lands');
   await liveDrop.close();

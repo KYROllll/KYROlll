@@ -772,10 +772,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   background: radial-gradient(circle, #888888 0%, #666666 60%, #333 100%);
   border: 4px solid #000;
 }
-.beat-detail.vinyl-open .vinyl-record {
-  transform: translateX(var(--vinyl-slide)) rotate(var(--vinyl-rotate));
-  box-shadow: 20px 20px 50px rgba(0, 0, 0, 0.85);
-}
 .beat-detail__artwork {
   position: relative;
   width: 100%;
@@ -1192,7 +1188,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    settled means settled: no `will-change`, so no layer and no stacking context). */
 .beat-page .reveal { opacity: 1; transform: none; transition: none; will-change: auto; }
 
-/* ---------- 3. The Vinyl Sanctum — flower label + locked-open slide --------- */
+/* ---------- 3. The Vinyl Sanctum — flower label + emerged record ------------ */
 
 /* Sleeve and record share a single box: with size + size × slide ≤ 100% the
    record can never be clipped by the viewport, at any breakpoint. */
@@ -1205,16 +1201,21 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   margin: 0 auto;
   overflow: visible;
   box-sizing: border-box;
+  /* `contain: layout` isolates the two children from the rest of the page: the
+     record's box can never reach out of the stage and nudge a surrounding box,
+     whatever it is painted as. `paint` is deliberately NOT added — the record's
+     shadow is meant to sit over the stage edge, and paint containment would clip
+     it. */
+  contain: layout;
   /* The stage geometry. The wrap is the whole stage; the sleeve (`__artwork`) is
      sized to `--vinyl-art` and sits in the left of it, and the record — the same
-     diameter — slides right by `--vinyl-slide` (a share of its own width) into the
-     stage's free right-hand strip. Because the record's far edge stays inside the
-     stage, and the stage is a normal child of the section, the protrusion is
-     never clipped by the `overflow-x: clip` guard above it. */
+     diameter — rests `--vinyl-slide` to the right (a share of its own width), in
+     the stage's free right-hand strip. Because the record's far edge stays inside
+     the stage, and the stage is a normal child of the section, nothing is ever
+     clipped by the `overflow-x: clip` guard above it. */
   --vinyl-record: 88%;
   --vinyl-art: 88%;
   --vinyl-slide: 12%;
-  --vinyl-rotate: 360deg;
 }
 
 /* The sleeve gives the record room to travel by handing over part of its box. */
@@ -1247,17 +1248,20 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   left: 0;
   width: var(--vinyl-record);
   height: var(--vinyl-record);
-  transform: translateX(0) rotate(0deg);
+  /* The record sits in its final emerged position from the very first frame.
+     It used to start stacked behind the sleeve and slide + spin into place a
+     couple of seconds after load; mid-transition the square box's *axis-aligned*
+     bounds ballooned (a rotating square's box grows by √2) and the record
+     overshot the stage by ~74px — the "pop / breach" glitch. With no transform
+     transition at all the circle, its box and its shadow are painted once, in
+     place, and never move. The label still spins on its own (`vinylSpin`). */
+  transform: translateX(var(--vinyl-slide));
   background:
     repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 7px),
     radial-gradient(circle at 50% 50%, #1b1b1b 0%, #101010 42%, #050505 72%, #171717 100%);
   border-radius: 50%;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.72);
+  box-shadow: 0 26px 58px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06);
   z-index: 1;
-  transition:
-    transform 1.15s cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 1.15s ease;
-  will-change: transform;
 }
 
 .vinyl-record::before {
@@ -1296,15 +1300,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
-/* Locked-open position: reached automatically a few seconds after load. */
-.beat-detail.vinyl-open .vinyl-record {
-  transform: translateX(var(--vinyl-slide)) rotate(var(--vinyl-rotate));
-  box-shadow: 0 26px 58px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06);
-}
-
-.beat-detail.vinyl-open .beat-detail__artwork {
-  box-shadow: 0 22px 46px rgba(0, 0, 0, 0.6);
-}
+/* The record keeps its position for good — see the base rule above; there is no
+   `vinyl-open` transition to undo or replay. */
 
 /* ---------- 4. The Command Center — download button & audio-reactive player -- */
 
@@ -1601,12 +1598,35 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   }
 }
 
-/* ---- Scheduled drop: the countdown badge and the locked controls ---------- */
+/* The inert LOCKED control on a scheduled drop's own beat page — never on a
+   catalog tile, where the countdown pill is the whole action slot. It carries no
+   `data-download-trigger`, so it cannot open the drawer; it is only a visibly
+   inert, on-brand stand-in for the button until the clock lands. `margin-top`
+   gives the pill above it the same breathing room the hint line normally has. */
+.download-trigger--locked {
+  margin-top: 10px;
+  background: var(--black);
+  color: var(--gray);
+  border-color: var(--hairline);
+  cursor: not-allowed;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .download-trigger--locked:hover,
+  .download-trigger--locked:focus-visible {
+    background: var(--black);
+    color: var(--gray);
+    box-shadow: none;
+  }
+}
+
+/* ---- Scheduled drop: the countdown pill and the locked control ------------- */
 /* A beat with a future `releaseAt` shows in the catalog exactly like a release,
-   but its player and its download drawer stay closed. One luxury pill carries
-   the drop label and a timer that ticks in place; the moment the clock reaches
-   zero, script.js swaps the whole card for the playable one — no reload. Every
-   colour here is an equal-channel grey, like the rest of the storefront. */
+   but its player and its download drawer stay closed. One pill carries a
+   universal label (never a clock hour) and a timer that ticks in place; the
+   moment the clock reaches zero, script.js swaps the whole card for the playable
+   one — no reload. Every colour here is an equal-channel grey, like the rest of
+   the storefront. */
 .drop-countdown {
   display: flex;
   align-items: center;
