@@ -288,7 +288,11 @@ payment gateway.
   `HH:MM:SS`, standing alone in the action slot where `DOWNLOAD FREE` normally sits, with
   no button at all. The beat's own page shows the same pill with a dedicated **inert
   `LOCKED` control** beneath it (`lockedButtonHTML`; it carries no
-  `data-download-trigger`, so the drawer cannot be reached) and no player. `start`/`openMenu`
+  `data-download-trigger`, so the drawer cannot be reached) and no player. The
+  YouTube icon beside the title is locked too: `youtubeHTML(beat, true, pending)` renders a
+  dimmed `<span>` (no `href`, no tab stop, `pointer-events: none`) carrying no URL at all,
+  and `videoFor()` withholds the beat's own video until `isReleased()` — the real, clickable
+  anchor appears on the same rebuild that unlocks the card. `start`/`openMenu`
   refuse a locked drop with a toast even if called directly.
   The second the clock lands, `script.js` (`refreshReleaseWatch`: a 1 s display interval
   plus a precise timeout) rebuilds the grid in place, so the full player and the drawer

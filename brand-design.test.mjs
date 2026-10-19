@@ -793,6 +793,8 @@ try {
   await preDrop.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), FLOW_ID);
   assert.equal(await preDrop.locator('.gate-modal').count(), 0, 'a scheduled drop opens no gate');
   assert.equal(await preDrop.locator('.download-menu').count(), 0, 'a scheduled drop opens no drawer');
+  // The helper refuses to hand out the unreleased video URL either.
+  assert.equal(await preDrop.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), FLOW_ID), 'https://www.youtube.com/@KYROllllll?sub_confirmation=1', 'the helper withholds the unreleased video URL');
   await shot(preDrop, 'store-before-drop');
   await preDrop.close();
 
@@ -800,7 +802,7 @@ try {
   // dedicated inert LOCKED control — and the exact second the clock lands it
   // unlocks itself in place.
   const liveDrop = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce' });
-  await liveDrop.goto(`${url}/?beat=the-flow&now=${FLOW_RELEASE - 4000}`);
+  await liveDrop.goto(`${url}/?beat=the-flow&now=${FLOW_RELEASE - 8000}`);
   await liveDrop.locator(`[data-countdown="${FLOW_ID}"]`).waitFor();
   assert.equal(await liveDrop.locator(`${FLOW_CARD}.beat-detail`).count(), 1, 'the scheduled beat page renders');
   assert.match(await liveDrop.locator(FLOW_CARD).innerText(), /\[FREE 100%\] FUTURE TYPE BEAT - THE FLOW/i);
@@ -809,6 +811,13 @@ try {
   assert.match(await liveDrop.locator(`${FLOW_CARD} .card__actions .drop-countdown`).innerText(), /DROPPING SOON/, 'the beat page action slot carries the countdown pill');
   assert.equal(await liveDrop.locator(`${FLOW_CARD} .card__actions .download-trigger--locked`).count(), 1, 'the beat page carries the dedicated LOCKED control');
   assert.equal(await liveDrop.locator(`${FLOW_CARD} .download-trigger[disabled]`).count(), 1, 'the LOCKED control is inert');
+  // The YouTube icon is locked too: it is not an anchor, carries no URL, cannot
+  // be clicked and is dimmed — the official video stays unreachable until release.
+  assert.equal(await liveDrop.locator(`${FLOW_CARD} a.card__youtube-link`).count(), 0, 'no live YouTube link before the drop');
+  assert.equal(await liveDrop.locator(`${FLOW_CARD} .card__youtube-link--locked`).count(), 1, 'the YouTube icon is shown locked');
+  assert.equal(await liveDrop.locator(`${FLOW_CARD} .card__youtube-link--locked`).getAttribute('href'), null, 'the locked icon carries no URL');
+  assert.equal(await liveDrop.locator(`${FLOW_CARD} .card__youtube-link--locked`).evaluate(el => getComputedStyle(el).pointerEvents), 'none', 'the locked icon is not clickable');
+  assert.equal(await liveDrop.locator(`${FLOW_CARD} .card__youtube-link--locked`).evaluate(el => el.tagName), 'SPAN', 'the locked icon is not an anchor');
   // Clicking the inert control opens nothing at all.
   await liveDrop.evaluate((id) => {
     const locked = document.querySelector('#card-' + id + ' .download-trigger--locked');
@@ -829,6 +838,13 @@ try {
   assert.equal(await liveDrop.locator(`${FLOW_CARD} .download-trigger--locked`).count(), 0, 'the LOCKED control is gone the moment the clock lands');
   assert.equal(await liveDrop.locator(`${FLOW_CARD} .download-trigger`).count(), 1, 'the download button is live the moment the clock lands');
   assert.equal(await liveDrop.locator(`${FLOW_CARD} .drop-countdown`).count(), 0, 'the countdown is gone once the drop lands');
+  // …and the YouTube icon is now the real, fully clickable official link.
+  const liveYoutube = liveDrop.locator(`${FLOW_CARD} a.card__youtube-link`);
+  assert.equal(await liveYoutube.count(), 1, 'the YouTube link appears the moment the drop lands');
+  assert.equal(await liveYoutube.getAttribute('href'), 'https://www.youtube.com/watch?v=aHMCkzw9Wuo', 'the live link points at the official video');
+  assert.equal(await liveYoutube.evaluate(el => getComputedStyle(el).pointerEvents), 'auto', 'the live link is clickable');
+  assert.equal(await liveDrop.locator(`${FLOW_CARD} .card__youtube-link--locked`).count(), 0, 'the locked icon is gone at release');
+  assert.equal(await liveDrop.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), FLOW_ID), 'https://www.youtube.com/watch?v=aHMCkzw9Wuo', 'the helper releases the video URL with the clock');
   await liveDrop.close();
 
   // After the drop it behaves exactly like the first release: the three-package

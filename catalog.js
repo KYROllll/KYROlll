@@ -218,10 +218,14 @@
       return Array.isArray(list) ? list : [];
     },
     // The beat's own video, or the channel as a last resort, so the "like"
-    // step always has somewhere real to point.
+    // step always has somewhere real to point. A scheduled drop's own video is
+    // withheld from every caller until its clock lands: the beat page renders a
+    // locked, non-clickable icon and the gate cannot open anyway, but the helper
+    // never hands out the unreleased URL ahead of time either.
     videoFor(beatId) {
       const beat = window.KYROlll_HELPERS.beatById(beatId);
-      return (beat && beat.youtube) || window.KYROlll_YOUTUBE_CHANNEL;
+      if (beat && isReleased(beat)) return beat.youtube || window.KYROlll_YOUTUBE_CHANNEL;
+      return window.KYROlll_YOUTUBE_CHANNEL;
     },
     // Where the email gate posts a new subscriber, or "" when no provider is
     // configured yet (the gate then stays local-only).

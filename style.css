@@ -278,7 +278,19 @@ button {
   flex-shrink: 0;
 }
 
-.card__youtube-link:hover {
+/* A scheduled drop's YouTube icon is a locked placeholder: script.js renders it
+   as a `<span>` (never an anchor), so it has no href, no tab stop and nothing to
+   click. It stays visibly dimmed and inert until the live anchor replaces it at
+   release. `pointer-events: none` is the belt to the span's braces; scoping the
+   hover to `a.` keeps the placeholder from ever brightening under the pointer. */
+.card__youtube-link--locked,
+.card__youtube-link[data-youtube-locked] {
+  pointer-events: none;
+  opacity: 0.24;
+  cursor: default;
+}
+
+a.card__youtube-link:hover {
   opacity: 0.6;
   color: var(--white);
 }
