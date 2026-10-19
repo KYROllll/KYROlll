@@ -389,7 +389,19 @@ a.card__youtube-link:hover {
 }
 
 .beat-preview__seek:disabled { opacity: 0.4; cursor: default; }
-.beat-preview__time { display: block; font-size: 9px; color: var(--gray); font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; white-space: nowrap; }
+.beat-preview__time {
+  display: block;
+  /* Thirteen tabular columns ("00:00 / 00:00") are reserved up front, so a
+     ticking second or a duration arriving can never change the readout's
+     measured width — and therefore can never nudge the player box. */
+  width: 13ch;
+  min-width: 13ch;
+  font-size: 9px;
+  color: var(--gray);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  white-space: nowrap;
+}
 .beat-preview__status,
 .beat-preview__unavailable { font-size: 9px; line-height: 1.5; color: var(--gray); letter-spacing: 0.06em; }
 .beat-preview__status { grid-column: 1 / -1; }
@@ -1393,7 +1405,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 
 /* ---------- 4. The Command Center — download button & audio-reactive player -- */
 
-/* Glass player surface; the playing state becomes the reactive element. */
+/* Glass player surface. The frame is deliberately inert: no rotating sheen, no
+   pulsing shadow, no transform that could move it — playback changes colour and
+   the scrub fill only. */
 .beat-preview {
   position: relative;
   padding: 14px 16px;
@@ -1403,87 +1417,30 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   backdrop-filter: blur(12px) saturate(1.2);
   -webkit-backdrop-filter: blur(12px) saturate(1.2);
   /* Playback writes to the scrub bar on every `timeupdate`; strict containment
-     keeps that write from ever reflowing the card or the sections around it, and
-     the layer promotion keeps the pulse and the sheen on the compositor. `layout`
-     containment only — NOT `paint`, which would clip the `::before` sheen that
-     deliberately sits at `inset: -1px`. */
+     keeps that write from ever reflowing the card or the sections around it.
+     `layout` containment only — NOT `paint`, which would clip the pulse shadow. */
   contain: layout style;
+  /* A permanent hardware layer: `translateZ` + a 3D context + hidden backface
+     lock the box to the compositor so no repaint during playback can nudge it. */
   transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  perspective: 1000px;
   will-change: transform;
-  /* `border-color` only. `box-shadow` used to be transitioned here as well, while
-     `playerPulse` animates the same property in the playing state — an animation
-     and a transition on one property fight over it, so the frame jumped every
-     time playback started or stopped. The pulse owns the shadow now. */
+  /* `border-color` only, and it settles at a solid value. */
   transition: border-color 0.4s ease;
 }
 
-/* The sheen's angle is a registered custom property so the *gradient* turns
-   while the 1px ring stays bolted to the frame. Rotating the ring element itself
-   (the old `transform: rotate()`) spun a wide rectangle, so its long edges swept
-   across the player's face and out past the box — the visible "spinning
-   indicator" breach. Animating the gradient angle keeps every painted pixel
-   inside the same static ring. */
-@property --sheen-turn {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
-}
-
-/* Rotating conic sheen around the frame — the "audio-reactive" border. */
-.beat-preview::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  padding: 1px;
-  background: conic-gradient(from var(--sheen-turn, 0deg),
-    transparent 0deg,
-    rgba(255, 255, 255, 0.55) 60deg,
-    transparent 130deg,
-    transparent 190deg,
-    rgba(255, 255, 255, 0.38) 250deg,
-    transparent 320deg);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  opacity: 0;
-  transition: opacity 0.5s ease;
-  pointer-events: none;
-}
-
-@keyframes playerSpin { to { --sheen-turn: 360deg; } }
-
 .beat-preview[data-state="playing"] {
   border-color: rgba(255, 255, 255, 0.4);
-  animation: playerPulse 1.9s ease-in-out infinite;
-}
-
-/* The sheen is both visible and spinning only while a preview plays. It used to
-   run from page load — a masked conic gradient repainting every frame inside a
-   `backdrop-filter`ed surface, for a layer that is fully transparent when idle.
-   That constant repaint is exactly what a hover flicker reads as. */
-.beat-preview[data-state="playing"]::before {
-  opacity: 1;
-  animation: playerSpin 3.6s linear infinite;
-}
-
-.beat-preview[data-state="playing"] .beat-preview__toggle {
-  animation: togglePulse 1.9s ease-in-out infinite;
+  /* A static glow, never an animated one. A box-shadow keyframe on a
+     `backdrop-filter`ed surface repaints the blur every frame — the subtle
+     micro-jitter this player is meant to be free of. */
+  box-shadow: 0 0 1px rgba(255, 255, 255, 0.45), 0 0 28px rgba(255, 255, 255, 0.16);
 }
 
 .beat-preview[data-state="playing"] .beat-preview__seek {
   background: linear-gradient(to right, var(--white) var(--preview-progress), rgba(255, 255, 255, 0.14) var(--preview-progress)) center / 100% 3px no-repeat;
-}
-
-@keyframes playerPulse {
-  0%, 100% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16), 0 0 14px rgba(255, 255, 255, 0.1); }
-  50% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 0 0 36px rgba(255, 255, 255, 0.32); }
-}
-
-@keyframes togglePulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.5); }
-  50% { box-shadow: 0 0 0 11px rgba(255, 255, 255, 0); }
 }
 
 /* ---------- 6. Extra polish: glass detail panel & catalog micro-interactions - */
@@ -1524,9 +1481,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .motion-paused .logo-stage,
 .motion-paused .scroll-cue__arrow,
 .motion-paused .vinyl-record__label,
-.motion-paused .beat-preview[data-state="playing"],
-.motion-paused .beat-preview[data-state="playing"]::before,
-.motion-paused .beat-preview[data-state="playing"] .beat-preview__toggle,
 .motion-paused .brand-hero::before {
   animation-play-state: paused !important;
 }

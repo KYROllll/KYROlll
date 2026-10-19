@@ -855,14 +855,18 @@ try {
     const t = getComputedStyle(document.querySelector(card + ' .beat-preview__time'));
     return {
       pContain: p.contain, pTransform: p.transform, pWillChange: p.willChange,
+      pBackface: p.backfaceVisibility, pPerspective: p.perspective,
       sContain: s.contain, sTransform: s.transform, sOverflow: s.overflow, sRadius: s.borderRadius,
       timeWrap: t.whiteSpace, timeNumeric: t.fontVariantNumeric, timeFeatures: t.fontFeatureSettings,
+      timeWidth: t.width, timeMinWidth: t.minWidth,
     };
   }, CARD);
   assert.match(playerCss.pContain, /layout/, 'the player box is layout-contained');
   assert.match(playerCss.pContain, /style/, 'the player box is style-contained');
   assert.match(playerCss.pTransform, /matrix/, 'the player box is GPU-promoted');
   assert.equal(playerCss.pWillChange, 'transform', 'the player box keeps its compositor layer');
+  assert.equal(playerCss.pBackface, 'hidden', 'the player box hides its backface');
+  assert.equal(playerCss.pPerspective, '1000px', 'the player box owns a 3D context');
   assert.match(playerCss.sContain, /layout/, 'the scrub bar is layout-contained');
   assert.match(playerCss.sContain, /style/, 'the scrub bar is style-contained');
   assert.match(playerCss.sTransform, /matrix/, 'the scrub bar is GPU-promoted');
@@ -871,6 +875,8 @@ try {
   assert.equal(playerCss.timeWrap, 'nowrap', 'the time readout can never wrap and resize the player');
   assert.equal(playerCss.timeNumeric, 'tabular-nums', 'the clock uses tabular figures');
   assert.match(playerCss.timeFeatures, /tnum/, 'the clock enables the tabular feature explicitly as well');
+  assert.notEqual(playerCss.timeMinWidth, '0px', 'the clock reserves a fixed minimum width');
+  assert(Math.abs(parseFloat(playerCss.timeWidth) - parseFloat(playerCss.timeMinWidth)) < 0.5, 'the clock is laid out at its reserved width');
   // Swapping the readout for the widest clock a full preview can show must not
   // move the player by a pixel.
   const textDrift = await playback.evaluate((card) => {
@@ -889,6 +895,22 @@ try {
     const audio = document.querySelector('#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af audio');
     return !audio.paused && audio.currentTime > 0 && audio.closest('.beat-preview').dataset.state === 'playing';
   }, null, { timeout: 15000 });
+  // The playing frame is inert: no sheen pseudo-element, no shadow keyframes and
+  // no rotating transform anywhere in the player or its button.
+  const activeFx = await playback.evaluate((card) => {
+    const p = document.querySelector(card + ' .beat-preview');
+    const before = getComputedStyle(p, '::before');
+    return {
+      previewAnimation: getComputedStyle(p).animationName,
+      toggleAnimation: getComputedStyle(p.querySelector('.beat-preview__toggle')).animationName,
+      beforeContent: before.content,
+      beforeAnimation: before.animationName,
+    };
+  }, CARD);
+  assert.equal(activeFx.previewAnimation, 'none', 'the playing player runs no continuous animation');
+  assert.equal(activeFx.toggleAnimation, 'none', 'the play button runs no continuous animation');
+  assert.ok(activeFx.beforeContent === 'none' || activeFx.beforeContent === 'normal', 'the player has no sheen pseudo-element');
+  assert.equal(activeFx.beforeAnimation, 'none', 'no sheen animation is running');
   // Nothing in the card may move a hair while the timeline advances.
   const drift = await playback.evaluate(async (card) => {
     const root = document.querySelector(card);
@@ -941,12 +963,15 @@ try {
   const frames = [];
   for (let i = 0; i < 24; i++) {
     await drawerScroll.evaluate(() => window.scrollBy(0, 40));
-    await drawerScroll.waitForTimeout(16);
+    // Give the scroll handler a frame's worth of headroom before sampling; the
+    // transform is still asserted to track every step exactly.
+    await drawerScroll.waitForTimeout(40);
     frames.push(await drawerProbe());
   }
   assert(frames.every(f => f.up === opened.up), 'a fast scroll never flips the drawer over mid-gesture');
   assert(Math.max(...frames.map(f => Math.abs(f.h - opened.h))) < 0.5, 'a fast scroll never re-sizes the drawer');
-  assert(Math.max(...frames.map(f => Math.abs(f.seam))) < 1, 'the drawer stays welded to its trigger seam while scrolling');
+  const worstSeam = Math.max(...frames.map(f => Math.abs(f.seam)));
+  assert(worstSeam < 1, `the drawer stays welded to its trigger seam while scrolling (worst ${worstSeam.toFixed(2)}px)`);
   assert(Math.max(...frames.map(f => Math.abs(f.left))) < 0.5, 'the drawer stays horizontally aligned while scrolling');
   assert(frames.some(f => f.transform !== 'none' && f.transform !== opened.transform), 'the scroll is tracked by a compositor transform, not a re-measure');
   await drawerScroll.close();
@@ -1118,19 +1143,25 @@ try {
   // and keeps `transform` free for the per-scroll tracking translate.
   assert.match(cssText, /\.beat-preview \{[^}]*contain:\s*layout style/, 'the player box is strictly contained');
   assert.match(cssText, /\.beat-preview \{[^}]*transform:\s*translateZ\(0\)/, 'the player box is GPU-promoted');
+  assert.match(cssText, /\.beat-preview \{[^}]*backface-visibility:\s*hidden/, 'the player box hides its backface');
+  assert.match(cssText, /\.beat-preview \{[^}]*perspective:\s*1000px/, 'the player box owns a 3D context');
   assert.match(cssText, /\.beat-preview \{[^}]*will-change:\s*transform/, 'the player box keeps its compositor layer');
   assert.match(cssText, /\.beat-preview__seek \{[^}]*contain:\s*layout style/, 'the scrub bar is strictly contained');
   assert.match(cssText, /\.beat-preview__seek \{[^}]*overflow:\s*hidden/, 'the scrub bar contains its own paint');
   assert.match(cssText, /\.beat-preview__seek \{[^}]*border-radius:\s*999px/, 'the scrub bar clips with a rounded box');
   assert.match(cssText, /\.beat-preview__details \{[^}]*padding:\s*0 4px/, 'the scrub bar is inset from the player chrome');
   assert.match(cssText, /\.beat-preview__seek::-webkit-slider-thumb \{[^}]*width:\s*8px/, 'the scrub handle is small enough to stay inside the track');
+  assert.match(cssText, /\.beat-preview__time \{[^}]*width:\s*13ch/, 'the clock reserves a fixed width');
+  assert.match(cssText, /\.beat-preview__time \{[^}]*min-width:\s*13ch/, 'the clock reserves a fixed minimum width');
   assert.match(cssText, /\.beat-preview__time \{[^}]*font-variant-numeric:\s*tabular-nums/, 'the clock uses tabular figures');
   assert.match(cssText, /\.beat-preview__time \{[^}]*font-feature-settings:\s*"tnum"/, 'the clock enables tabular figures explicitly');
-  // The sheen turns its gradient, never its box: a rotating rectangle swept its
-  // edges across the player's face and out of bounds.
-  assert.match(cssText, /@property --sheen-turn/, 'the sheen angle is a registered animatable property');
-  assert.match(cssText, /@keyframes playerSpin \{ to \{ --sheen-turn: 360deg/, 'the sheen animation drives the gradient angle');
-  assert.doesNotMatch(cssText, /@keyframes playerSpin \{[^}]*transform:\s*rotate/, 'the sheen never rotates its own box');
+  // The frame is completely inert: no sheen pseudo-element, no rotating border,
+  // and no continuous shadow keyframes to repaint the backdrop-filtered surface.
+  assert.doesNotMatch(cssText, /@keyframes playerSpin/, 'no spinning border keyframe remains');
+  assert.doesNotMatch(cssText, /@keyframes playerPulse/, 'the player never animates its shadow');
+  assert.doesNotMatch(cssText, /@keyframes togglePulse/, 'the play button never animates its shadow');
+  assert.doesNotMatch(cssText, /\.beat-preview::before/, 'the player has no sheen pseudo-element');
+  assert.doesNotMatch(cssText, /conic-gradient\(from var\(--sheen-turn/, 'no rotating conic sheen remains');
   assert.match(cssText, /\.download-menu \{[^}]*will-change:\s*transform/, 'the drawer keeps a compositor layer for scroll tracking');
   assert.match(cssText, /\.download-menu \{[^}]*translate:\s*0 -6px/, 'the drawer reveal lives on `translate` so `transform` stays free for scroll tracking');
   const taglineStart = cssText.indexOf('/* Tagline under the wordmark');

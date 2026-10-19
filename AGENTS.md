@@ -225,32 +225,35 @@ Two scroll-time hitches have been fixed and must not come back:
   `brand-design.test.mjs` asserts both: the banner's computed opacity is `1` and a
   height-only resize leaves the track's children untouched (a width change replaces them).
 
-## The audio player is layout-contained while it plays
+## The audio player is inert while it plays
 
 `preview-player.js` writes to the scrub bar on every media event (`timeupdate` fires several
 times a second): `seek.value`, the `--preview-progress` custom property behind the track's
 gradient, and the time readout's text. `.beat-preview` and `.beat-preview__seek` therefore carry
-`contain: layout style` plus `transform: translateZ(0)` (and the player keeps
-`will-change: transform`), so those writes never reflow the card or the sections around it and can
-never shift the mobile player a hair mid-playback. It is `layout` containment, **not `paint`** —
-paint containment would clip the `::before` sheen, which deliberately sits at `inset: -1px`. The
-time readout is `white-space: nowrap`, `tabular-nums` + `font-feature-settings: "tnum"` (and
-`update()` only writes it when the string actually changed — the clock changes once a second, not
-on every `timeupdate`), so a ticking second or a duration arriving can never change its measured
-width and move the player. Nothing here listens to `scroll` — playback is driven entirely by the
-media element's own events.
+`contain: layout style`, and the player is locked onto one permanent hardware layer with
+`transform: translateZ(0)` + `backface-visibility: hidden` + `perspective: 1000px` +
+`will-change: transform`. Those writes therefore never reflow the card or the sections around it
+and no repaint can nudge the mobile player mid-playback. It is `layout` containment, **not
+`paint`**, so the static playing glow is never clipped.
 
-The sheen turns its **gradient**, never its box: `--sheen-turn` is a registered `<angle>`
-(`@property`) and `@keyframes playerSpin` animates it from 0° to 360°, while the masked 1px ring
-stays bolted to the frame. The old `transform: rotate()` spun a wide rectangle, so its long edges
-swept diagonally across the player's face and out past the box — the "spinning indicator" breach.
-Because the ring is static, no paint can leave the frame. The scrub handle is 8px (down from 10px)
-inside a `border-radius: 999px` + `overflow: hidden` track, and `.beat-preview__details` insets that
-track 4px from the player's chrome, so at 0 % and 100 % the dot keeps clear air on every side
-instead of grazing the edge. `brand-design.test.mjs` asserts the containment/transform/will-change,
-the sheen's gradient-only keyframe (and that it never rotates the box), the handle/track contract,
-samples the player and its neighbours for 60 frames of playback and requires zero drift, and then
-scrolls the open drawer to prove its seam never moves and its direction never flips.
+The frame itself never animates: there is **no sheen pseudo-element, no rotating border and no
+pulsing shadow**. The old masked conic ring rotated its whole (wide) rectangle, so its long edges
+swept diagonally across the player's face and out past the box — the "spinning indicator" breach —
+and the old `playerPulse` / `togglePulse` keyframes repainted a `box-shadow` inside a
+`backdrop-filter`ed surface every frame (the documented cause of shimmer/jitter). The playing state
+is now a static border colour and a static glow only. The time readout is fixed-width: `13ch`
+(`width` + `min-width`), `white-space: nowrap`, `tabular-nums` + `font-feature-settings: "tnum"`,
+and `update()` only writes it when the string actually changed — so a ticking second or a duration
+arriving can never change its measured width and move the player. Nothing here listens to `scroll`
+— playback is driven entirely by the media element's own events.
+
+The scrub handle is 8px inside a `border-radius: 999px` + `overflow: hidden` track, and
+`.beat-preview__details` insets that track 4px from the player's chrome, so at 0 % and 100 % the dot
+keeps clear air on every side instead of grazing the edge. `brand-design.test.mjs` asserts the
+containment/transform/backface/perspective/will-change, the fixed 13ch readout, the absence of any
+sheen or shadow keyframes, the handle/track contract, samples the player and its neighbours for 60
+frames of playback and requires zero drift, and then scrolls the open drawer to prove its seam
+never moves and its direction never flips.
 
 ## The vinyl record slides out after a beat — translate only
 
@@ -426,11 +429,11 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   `box-shadow` inside a `backdrop-filter`ed card re-composes the blur every frame — the flicker
   that reads as hover jitter. `.catalog-tile:focus-within` adds no movement at all (it fired on
   mousedown, so a slim button slid out from under the pointer and the click landed on the
-  container: the button looked dead). `.beat-preview::before`'s `playerSpin` conic gradient only
-  runs in the `[data-state="playing"]` state — it used to spin from page load inside a
-  `backdrop-filter`ed surface, repainting every frame for a layer that is fully transparent when
-  idle — and `.beat-preview` never transitions `box-shadow`, because `playerPulse` animates that
-  same property (a transition and an animation on one property fight over it).
+  container: the button looked dead). The player follows the same rule at full strength: it carries
+  no `::before` sheen, no `playerSpin`/`playerPulse`/`togglePulse` keyframes and no animated
+  `box-shadow` at all — the playing state is a static border colour and a static glow, so nothing
+  in the frame repaints the `backdrop-filter`ed surface during playback (see the player section
+  above).
 - **A catalog card contains its own children, and the grid owns the vertical rhythm.** `.catalog-tile`
   is a flex column and `.catalog-tile__link` grows (`flex: 1 1 auto`) to fill the card, so the action
   slot — the countdown pill on a scheduled drop, the `DOWNLOAD FREE` button otherwise — always stays
