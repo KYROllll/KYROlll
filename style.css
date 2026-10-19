@@ -357,6 +357,11 @@ a.card__youtube-link:hover {
   background: linear-gradient(to right, var(--white) var(--preview-progress), var(--hairline) var(--preview-progress)) center / 100% 3px no-repeat;
   cursor: pointer;
   accent-color: var(--white);
+  /* The scrub is updated on every `timeupdate`. Containment plus its own layer
+     means the gradient repaint behind the thumb stays a compositor/paint job and
+     can never trigger a reflow of the player or the card around it. */
+  contain: layout style;
+  transform: translateZ(0);
 }
 
 .beat-preview__seek::-webkit-slider-thumb {
@@ -377,7 +382,7 @@ a.card__youtube-link:hover {
 }
 
 .beat-preview__seek:disabled { opacity: 0.4; cursor: default; }
-.beat-preview__time { display: block; font-size: 9px; color: var(--gray); font-variant-numeric: tabular-nums; }
+.beat-preview__time { display: block; font-size: 9px; color: var(--gray); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .beat-preview__status,
 .beat-preview__unavailable { font-size: 9px; line-height: 1.5; color: var(--gray); letter-spacing: 0.06em; }
 .beat-preview__status { grid-column: 1 / -1; }
@@ -1390,6 +1395,13 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   background: linear-gradient(150deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
   backdrop-filter: blur(12px) saturate(1.2);
   -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  /* Playback writes to the scrub bar on every `timeupdate`; strict containment
+     keeps that write from ever reflowing the card or the sections around it, and
+     the layer promotion keeps the pulse and the sheen on the compositor. `layout`
+     containment only — NOT `paint`, which would clip the `::before` sheen that
+     deliberately sits at `inset: -1px`. */
+  contain: layout style;
+  transform: translateZ(0);
   /* `border-color` only. `box-shadow` used to be transitioned here as well, while
      `playerPulse` animates the same property in the playing state — an animation
      and a transition on one property fight over it, so the frame jumped every
@@ -1860,7 +1872,16 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   box-shadow: 0 30px 80px rgba(0, 0, 0, .7), 0 0 34px rgba(255, 255, 255, .13);
   transform-origin: top center;
   opacity: 0;
-  transform: translate3d(0, -6px, 0);
+  /* The reveal lives on the standalone `translate` property, NOT on `transform`.
+     `transform` is reserved for `downloads.js`, which writes a per-scroll
+     `translate3d()` there to keep the sheet welded to its button (see
+     `trackMenuScroll`); the two compose, so the reveal still plays while the
+     scroll tracking owns the other slot. `translateZ(0)` + `will-change` put the
+     sheet on its own compositor layer so that per-scroll write never repaints the
+     page behind it. */
+  transform: translateZ(0);
+  translate: 0 -6px;
+  will-change: transform;
   /* Closed: inert for both the pointer and the tab order, so a drawer that has
      not been opened cannot be clicked through or reached by keyboard. */
   pointer-events: none;
@@ -1868,12 +1889,12 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   overscroll-behavior: contain;
   overflow-x: hidden;
   overflow-y: auto;
-  transition: opacity .18s ease, transform .24s ease-out;
+  transition: opacity .18s ease, translate .24s ease-out;
 }
 
 .download-menu.is-open {
   opacity: 1;
-  transform: translate3d(0, 0, 0);
+  translate: 0 0;
   pointer-events: auto;
   visibility: visible;
 }

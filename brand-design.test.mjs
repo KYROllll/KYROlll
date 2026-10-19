@@ -847,12 +847,87 @@ try {
 
   const playback = await setupPage({ viewport: { width: 480, height: 800 }, reducedMotion: 'reduce' });
   await playback.goto(`${url}/index.html?beat=flesh`);
+  // The player is strictly contained and GPU-promoted, so the scrub writes on
+  // every `timeupdate` can never reflow the card or the sections around it.
+  const playerCss = await playback.evaluate((card) => {
+    const p = getComputedStyle(document.querySelector(card + ' .beat-preview'));
+    const s = getComputedStyle(document.querySelector(card + ' .beat-preview__seek'));
+    const t = getComputedStyle(document.querySelector(card + ' .beat-preview__time'));
+    return { pContain: p.contain, pTransform: p.transform, sContain: s.contain, sTransform: s.transform, timeWrap: t.whiteSpace };
+  }, CARD);
+  assert.match(playerCss.pContain, /layout/, 'the player box is layout-contained');
+  assert.match(playerCss.pContain, /style/, 'the player box is style-contained');
+  assert.match(playerCss.pTransform, /matrix/, 'the player box is GPU-promoted');
+  assert.match(playerCss.sContain, /layout/, 'the scrub bar is layout-contained');
+  assert.match(playerCss.sContain, /style/, 'the scrub bar is style-contained');
+  assert.match(playerCss.sTransform, /matrix/, 'the scrub bar is GPU-promoted');
+  assert.equal(playerCss.timeWrap, 'nowrap', 'the time readout can never wrap and resize the player');
   await playback.locator(`${CARD} .beat-preview__toggle`).click();
   await playback.waitForFunction(() => {
     const audio = document.querySelector('#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af audio');
     return !audio.paused && audio.currentTime > 0 && audio.closest('.beat-preview').dataset.state === 'playing';
   }, null, { timeout: 15000 });
+  // Nothing in the card may move a hair while the timeline advances.
+  const drift = await playback.evaluate(async (card) => {
+    const root = document.querySelector(card);
+    const targets = ['.beat-preview', '.beat-preview__seek', '.beat-preview__time', '.beat-preview__toggle', '.download-actions'];
+    const read = () => targets.map(sel => {
+      const el = root.querySelector(sel);
+      if (!el) return null;
+      const b = el.getBoundingClientRect();
+      return [b.x, b.y, b.width, b.height];
+    });
+    const first = read();
+    let worst = 0;
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => requestAnimationFrame(r));
+      const now = read();
+      now.forEach((rect, k) => {
+        const base = first[k];
+        if (!rect || !base) return;
+        for (let axis = 0; axis < 4; axis++) worst = Math.max(worst, Math.abs(rect[axis] - base[axis]));
+      });
+    }
+    return worst;
+  }, CARD);
+  assert(drift < 0.5, `the player holds perfectly still while the timeline advances (max drift ${drift.toFixed(2)}px)`);
   await playback.close();
+
+  // A fast scroll must never wobble the open drawer: its geometry is frozen when
+  // it opens and the scroll only writes a compositor transform, so it stays
+  // welded to its button seam for the whole gesture — no re-sizing, no flip.
+  const drawerScroll = await setupPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  await drawerScroll.goto(`${url}/?beat=flesh`);
+  await drawerScroll.locator(`${CARD} .download-trigger`).click();
+  await drawerScroll.locator('.download-menu.is-open').waitFor();
+  const drawerProbe = () => drawerScroll.evaluate((card) => {
+    const menu = document.querySelector('.download-menu.is-open');
+    const trigger = document.querySelector(card + ' .download-trigger');
+    const m = menu.getBoundingClientRect(), t = trigger.getBoundingClientRect();
+    const up = menu.classList.contains('download-menu--up');
+    return {
+      h: m.height,
+      up,
+      seam: up ? t.top - m.bottom : m.top - t.bottom,
+      left: m.left - t.left,
+      transform: getComputedStyle(menu).transform,
+      position: getComputedStyle(menu).position,
+    };
+  }, CARD);
+  const opened = await drawerProbe();
+  assert.equal(opened.position, 'fixed', 'the drawer stays root-anchored while it is being scrolled');
+  const frames = [];
+  for (let i = 0; i < 24; i++) {
+    await drawerScroll.evaluate(() => window.scrollBy(0, 40));
+    await drawerScroll.waitForTimeout(16);
+    frames.push(await drawerProbe());
+  }
+  assert(frames.every(f => f.up === opened.up), 'a fast scroll never flips the drawer over mid-gesture');
+  assert(Math.max(...frames.map(f => Math.abs(f.h - opened.h))) < 0.5, 'a fast scroll never re-sizes the drawer');
+  assert(Math.max(...frames.map(f => Math.abs(f.seam))) < 1, 'the drawer stays welded to its trigger seam while scrolling');
+  assert(Math.max(...frames.map(f => Math.abs(f.left))) < 0.5, 'the drawer stays horizontally aligned while scrolling');
+  assert(frames.some(f => f.transform !== 'none' && f.transform !== opened.transform), 'the scroll is tracked by a compositor transform, not a re-measure');
+  await drawerScroll.close();
 
   // ------------------------------------------------- scheduled second release
   // [FREE 100%] FUTURE TYPE BEAT - THE FLOW is a *scheduled* drop: until its
@@ -1017,6 +1092,13 @@ try {
   assert.match(cssText, /\.marquee-track \{[^}]*transform:\s*translate3d\(0, 0, 0\)/, 'the moving track is GPU-promoted');
   assert.match(cssText, /\.marquee-banner\.reveal[\s\S]{0,160}?opacity:\s*1/, 'the marquee is exempt from the reveal opacity curtain');
   assert.match(cssText, /\.marquee-track\.is-scrolling \{[^}]*animation:\s*marquee-scroll[^}]*linear infinite/, 'the fallback ticker still loops linearly');
+  // The mobile player locks its own layout, and the drawer freezes its geometry
+  // and keeps `transform` free for the per-scroll tracking translate.
+  assert.match(cssText, /\.beat-preview \{[^}]*contain:\s*layout style/, 'the player box is strictly contained');
+  assert.match(cssText, /\.beat-preview \{[^}]*transform:\s*translateZ\(0\)/, 'the player box is GPU-promoted');
+  assert.match(cssText, /\.beat-preview__seek \{[^}]*contain:\s*layout style/, 'the scrub bar is strictly contained');
+  assert.match(cssText, /\.download-menu \{[^}]*will-change:\s*transform/, 'the drawer keeps a compositor layer for scroll tracking');
+  assert.match(cssText, /\.download-menu \{[^}]*translate:\s*0 -6px/, 'the drawer reveal lives on `translate` so `transform` stays free for scroll tracking');
   const taglineStart = cssText.indexOf('/* Tagline under the wordmark');
   const taglineEnd = cssText.indexOf('\n.logo-stage {', taglineStart);
   assert(taglineStart >= 0 && taglineEnd > taglineStart, 'the tagline palette is isolated in its own stylesheet section');

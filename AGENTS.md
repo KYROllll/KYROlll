@@ -225,6 +225,22 @@ Two scroll-time hitches have been fixed and must not come back:
   `brand-design.test.mjs` asserts both: the banner's computed opacity is `1` and a
   height-only resize leaves the track's children untouched (a width change replaces them).
 
+## The audio player is layout-contained while it plays
+
+`preview-player.js` writes to the scrub bar on every media event (`timeupdate` fires several
+times a second): `seek.value`, the `--preview-progress` custom property behind the track's
+gradient, and the time readout's text. `.beat-preview` and `.beat-preview__seek` therefore carry
+`contain: layout style` plus `transform: translateZ(0)`, so those writes never reflow the card or
+the sections around it and can never shift the mobile player a hair mid-playback. It is `layout`
+containment, **not `paint`** — paint containment would clip the `::before` sheen, which
+deliberately sits at `inset: -1px`. The time readout is `white-space: nowrap` (and
+`tabular-nums`), so a longer clock can never wrap and grow the player, and `update()` only writes
+it when the string actually changed (the clock changes once a second, not on every `timeupdate`).
+Nothing here listens to `scroll` — playback is driven entirely by the media element's own events.
+`brand-design.test.mjs` asserts the containment/transform, samples the player and its neighbours
+for 60 frames of playback and requires zero drift, and then scrolls the open drawer to prove its
+seam never moves and its direction never flips.
+
 ## The vinyl record slides out after a beat — translate only
 
 The beat page's sleeve/record pair starts with the record fully tucked behind the opaque
@@ -360,8 +376,18 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   never taller than the screen: an oversized list scrolls internally rather than running off the
   bottom. There is no framing scroll any more (the old `frameDrawer` is gone) — a fixed drawer
   that flips and clamps is already whole, so the page never moves under the visitor. Because the
-  drawer does not travel with the page, `positionMenu` re-welds it to the button on every
-  `scroll` / `resize` / `visualViewport` change, one reposition per frame.
+  drawer does not travel with the page, `positionMenu` freezes the drawer's geometry against the
+  button when it opens — width, capped height, unfold direction and base `top`/`left` — and a
+  `scroll` then does **nothing but write a compositor `transform`** (`trackMenuScroll`: the
+  negation of the viewport's scroll delta) so the sheet glides along with its button. It used to
+  call `positionMenu` on every `scroll` frame, which re-measured the available space, forced a
+  reflow and **flipped the drawer from above the button to below it mid-flick** — the wobble on a
+  fast scroll. Only a `resize` / `visualViewport` change recomputes the box (`scheduleMenuRefresh`);
+  a scroll never re-measures, re-sizes or flips it. The reveal therefore lives on the standalone
+  `translate` property (`.download-menu { translate: 0 -6px }` → `.is-open { translate: 0 0 }`) so
+  the `transform` slot stays free for the scroll tracking; the two compose. The drawer keeps
+  `transform: translateZ(0)` + `will-change: transform` so that per-scroll write is a compositor
+  job, and it stays `position: fixed` on `<body>` (the test still asserts that).
   **Nothing can clip it**: a fixed box whose containing block is the viewport is immune to every
   ancestor's `overflow`, so the storefront's page-wide `overflow-x: clip` guards — which keep
   the page from scrolling sideways — have no say over the drawer and stay exactly as they are.

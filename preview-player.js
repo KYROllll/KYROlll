@@ -111,7 +111,13 @@ class BeatPreviewPlayer {
       seek.setAttribute("aria-valuetext", `${time(current)} of ${time(duration)}`);
     }
     const timeEl = player.querySelector(".beat-preview__time");
-    if (timeEl) timeEl.textContent = `${time(current)} / ${duration ? time(duration) : "--:--"}`;
+    if (timeEl) {
+      const clock = `${time(current)} / ${duration ? time(duration) : "--:--"}`;
+      // `timeupdate` fires several times a second, but the clock only changes once
+      // a second: never rewrite identical text (each write is a style/paint the
+      // player no longer has to absorb).
+      if (timeEl.textContent !== clock) timeEl.textContent = clock;
+    }
     const status = player.dataset.state === "error"
       ? "PREVIEW UNAVAILABLE — TAP TO RETRY"
       : player.dataset.state === "loading" && active ? "LOADING PREVIEW…" : "AUDIO PREVIEW";

@@ -355,14 +355,15 @@
     });
     trigger.setAttribute("aria-expanded", "true");
     positionMenu();
-    /* The drawer is viewport-anchored, so it must be re-welded to the button
-       whenever the page or the visual viewport moves — the button travels with
-       the page while the fixed drawer does not. */
-    window.addEventListener("scroll", guardMenuScroll, { passive: true });
-    window.addEventListener("resize", guardMenuScroll, true);
+    /* The drawer is viewport-anchored, so a scroll must move it with its button.
+       Only a transform is written here (see `trackMenuScroll`): the geometry was
+       frozen when the drawer opened, so a fast scroll can never re-measure,
+       re-size or flip it — it just glides with the trigger on the compositor. */
+    window.addEventListener("scroll", trackMenuScroll, { passive: true });
+    window.addEventListener("resize", scheduleMenuRefresh, true);
     if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", guardMenuScroll);
-      window.visualViewport.addEventListener("scroll", guardMenuScroll);
+      window.visualViewport.addEventListener("resize", scheduleMenuRefresh);
+      window.visualViewport.addEventListener("scroll", scheduleMenuRefresh);
     }
     document.addEventListener("keydown", handleMenuKey);
     document.addEventListener("click", handleMenuOutside, true);
@@ -376,7 +377,22 @@
     });
   }
   let menuFrame = 0;
-  function guardMenuScroll() {
+  /* A scroll never touches the drawer's layout. Its width, height, unfold
+     direction and base `top`/`left` are frozen when it opens (see
+     `positionMenu`), so all the scroll does is write a compositor transform that
+     cancels the button's viewport travel. That is what keeps the sheet dead-
+     stable through a fast flick: no re-measuring, no forced reflow and no flip
+     from above the button to below it halfway down the page. */
+  function trackMenuScroll() {
+    if (!activeMenu || !activeMenu.base) return;
+    const { el, base } = activeMenu;
+    const dx = base.x - window.scrollX;
+    const dy = base.y - window.scrollY;
+    el.style.transform = "translate3d(" + dx + "px, " + dy + "px, 0)";
+  }
+  /* A real resize (rotation, desktop resize, visual-viewport change) invalidates
+     the frozen geometry, so it recomputes the box and re-anchors it. */
+  function scheduleMenuRefresh() {
     if (menuFrame) return;
     menuFrame = requestAnimationFrame(() => { menuFrame = 0; positionMenu(); });
   }
@@ -394,12 +410,12 @@
     if (stage) stage.classList.remove("is-menu-open");
     activeMenu = null;
     if (menuFrame) { cancelAnimationFrame(menuFrame); menuFrame = 0; }
-    window.removeEventListener("resize", guardMenuScroll, true);
+    window.removeEventListener("resize", scheduleMenuRefresh, true);
     if (window.visualViewport) {
-      window.visualViewport.removeEventListener("resize", guardMenuScroll);
-      window.visualViewport.removeEventListener("scroll", guardMenuScroll);
+      window.visualViewport.removeEventListener("resize", scheduleMenuRefresh);
+      window.visualViewport.removeEventListener("scroll", scheduleMenuRefresh);
     }
-    window.removeEventListener("scroll", guardMenuScroll);
+    window.removeEventListener("scroll", trackMenuScroll);
     document.removeEventListener("keydown", handleMenuKey);
     document.removeEventListener("click", handleMenuOutside, true);
   }
@@ -437,6 +453,11 @@
     el.style.maxHeight = maxHeight + "px";
     el.style.top = (up ? rect.top - maxHeight : rect.bottom) + "px";
     el.classList.toggle("download-menu--up", up);
+    /* Freeze the anchor right here. `trackMenuScroll` always measures from this
+       base, and nothing on the scroll path recomputes the geometry above — so a
+       flick can move the drawer but can never re-size it or flip it over. */
+    el.style.transform = "";
+    activeMenu.base = { x: window.scrollX, y: window.scrollY };
   }
 
   /* escapeHTML for gate body rendering */
