@@ -469,6 +469,26 @@ a.card__youtube-link:hover {
   border-color: var(--white);
 }
 
+/* The official profiles: a quiet monochrome row above the support button. */
+.footer__social {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 18px;
+  margin-top: 18px;
+}
+.footer__social a {
+  color: var(--gray);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-decoration: none;
+  transition: color .15s ease;
+}
+.footer__social a:hover,
+.footer__social a:focus-visible { color: var(--white); }
+
 @media (max-width: 768px) {
   html {
     overflow-x: clip;
@@ -2030,9 +2050,16 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
 .gate-modal__card {
   position: relative;
   width: min(420px, 100%);
-  max-height: 100%;
+  /* Never taller than nine tenths of the *dynamic* viewport: the card scrolls
+     inside itself, so a five-step social gate plus the email form and its
+     buttons stays whole on a laptop and on a phone, never clipped by browser
+     chrome. */
+  max-height: 90dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: #4a4a4a transparent;
   -webkit-overflow-scrolling: touch;
   background: #101010;
   border: 1px solid #484848;
@@ -2050,6 +2077,10 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
   opacity: 1;
   transform: translate3d(0, 0, 0) scale(1);
 }
+
+.gate-modal__card::-webkit-scrollbar { width: 6px; }
+.gate-modal__card::-webkit-scrollbar-track { background: transparent; }
+.gate-modal__card::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 999px; }
 
 .gate-modal__kicker {
   display: block;
@@ -2146,8 +2177,18 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
    keep it margin-free inside the card. */
 .gate-form { display: block; margin: 0; }
 
-/* YouTube gate: two numbered steps the visitor opens, in order. */
+/* Social gate: numbered steps the visitor opens, in order. The card itself
+   scrolls inside 90dvh, and the five-step variant tightens its rows so the
+   whole flow (steps + email + buttons) reads as one compact sheet. */
 .gate-steps { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; text-align: left; }
+
+.gate-modal__card--social { padding-top: 24px; padding-bottom: 26px; }
+.gate-modal__card--social .gate-modal__copy { margin-bottom: 14px; }
+.gate-modal__card--five .gate-modal__copy { margin-bottom: 12px; }
+.gate-steps[data-count="3"] { gap: 7px; margin-bottom: 13px; }
+.gate-steps[data-count="5"] { gap: 6px; margin-bottom: 12px; }
+.gate-steps[data-count="5"] .gate-step { gap: 10px; padding: 9px 12px; }
+.gate-steps[data-count="5"] .gate-step__num { width: 22px; height: 22px; font-size: 10px; }
 
 .gate-step {
   position: relative;      /* its finished-step flash is an `inset: -1px` overlay */

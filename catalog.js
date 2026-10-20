@@ -5,19 +5,27 @@
  * helpers, with no DOM access, so it is safe to include before anything else.
  *
  * Every beat is 100% free. There is no cart, no checkout and no payment
- * gateway: every package is unlocked behind a lightweight gate (an email, plus
- * a YouTube subscribe + like for the WAV and the exclusive — see
- * `downloads.js`). Every gate then closes with a REVIEW & SIGN stage, and the
- * signature captured there is stamped into the PDF license. Nothing is written
- * down, so a fresh visit asks again; only the current page view remembers a
- * package it already unlocked. */
+ * gateway: every package is unlocked behind a lightweight social gate (an
+ * email for the MP3, subscribe + like + Instagram for the WAV, and all five
+ * social steps for the exclusive — see `downloads.js`). Every gate then closes
+ * with a REVIEW & SIGN stage, and the signature captured there is stamped into
+ * the PDF license. Nothing is written down, so a fresh visit asks again; only
+ * the current page view remembers a package it already unlocked. */
 (function () {
   "use strict";
 
-  // Where the "subscribe" step sends the visitor. `?sub_confirmation=1` makes
-  // YouTube show its own subscribe prompt on arrival, so one click both opens
-  // the channel and asks to subscribe.
-  window.KYROlll_YOUTUBE_CHANNEL = "https://www.youtube.com/@KYROllllll?sub_confirmation=1";
+  // The official profiles. The footers link straight to these, and the gate
+  // steps open the same destinations, so the store and the gates can never
+  // drift apart. `?sub_confirmation=1` makes YouTube show its own subscribe
+  // prompt on arrival, so one click both opens the channel and asks to
+  // subscribe.
+  window.KYROlll_SOCIAL = {
+    youtube: "https://www.youtube.com/@KYROlll00",
+    instagram: "https://www.instagram.com/kyroill00",
+    tiktok: "https://www.tiktok.com/@kyroill00",
+    x: "https://x.com/KYROlllll"
+  };
+  window.KYROlll_YOUTUBE_CHANNEL = window.KYROlll_SOCIAL.youtube + "?sub_confirmation=1";
 
   // Where the email gate delivers a new subscriber. The gate `fetch`es this URL
   // with `Accept: application/json`, so the submission is recorded by the
@@ -30,10 +38,11 @@
 
   // The three free ways a beat leaves the store. `gate` is the whole behaviour:
   //   "email"    → Email input + mandatory opt-in → submit → REVIEW & SIGN → files + PDF.
-  //   "youtube"  → YouTube Sub & Like (two verified steps), then the same email
-  //     form → REVIEW & SIGN → files + PDF.
-  //   "exclusive"→ the same two YouTube steps as the WAV, then the same email
-  //     form (mandatory opt-in) → REVIEW & SIGN → Stems+MP3+WAV+PDF.
+  //   "youtube"  → Subscribe + like this beat + follow on Instagram (three
+  //     verified steps), then the same email form → REVIEW & SIGN → files + PDF.
+  //   "exclusive"→ Subscribe + like this beat + follow on Instagram, TikTok and
+  //     X (five verified steps), then the same email form (mandatory opt-in) →
+  //     REVIEW & SIGN → Stems+MP3+WAV+PDF.
   // `includes` is the plain-language list of what the package hands over; it is
   // printed in the generated license (see `downloads.js`).
   window.KYROlll_PACKAGES = [
@@ -48,17 +57,17 @@
     {
       id: "wav",
       name: "STANDARD WAV LEASE",
-      tag: "SUBSCRIBE + LIKE",
+      tag: "SUBSCRIBE + LIKE + IG",
       gate: "youtube",
-      blurb: "TAGGED MP3 + HIGH-QUALITY WAV + LICENSE. SUBSCRIBE, LIKE, AND ENTER YOUR EMAIL TO UNLOCK.",
+      blurb: "TAGGED MP3 + HIGH-QUALITY WAV + LICENSE. SUBSCRIBE, LIKE THE BEAT, FOLLOW ON INSTAGRAM, AND ENTER YOUR EMAIL TO UNLOCK.",
       includes: ["TAGGED MP3 AUDIO FILE", "HIGH-QUALITY WAV", "FREE LICENSE"]
     },
     {
       id: "exclusive",
       name: "EXCLUSIVE / PRO PACKAGE",
-      tag: "MULTI-STEP",
+      tag: "ALL 5 SOCIAL STEPS",
       gate: "exclusive",
-      blurb: "FULL STEMS + MP3 + WAV + LICENSE. SUBSCRIBE, LIKE, AND ENTER YOUR EMAIL TO UNLOCK.",
+      blurb: "FULL STEMS + MP3 + WAV + LICENSE. COMPLETE ALL SOCIAL STEPS AND ENTER YOUR EMAIL TO UNLOCK.",
       includes: [
         "TAGGED MP3 AUDIO FILE",
         "HIGH-QUALITY WAV",
@@ -71,7 +80,8 @@
 
   // `id` is the beat's uuid and `slug` is the stable human handle kept for old
   // links (`?beat=flesh`); the helpers resolve either. `youtube` is the beat's
-  // own video (used by the Standard WAV gate's "like this video" step).
+  // own video: the YouTube icon beside the title and the WAV/exclusive "like
+  // this beat" gate step both read this exact URL through `videoFor`.
   //
   // `deliverables` maps a package to the files the download page hands over:
   // each entry is `{ file, name, label }`, a same-origin `file`, the `name` the

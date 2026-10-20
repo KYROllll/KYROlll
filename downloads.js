@@ -547,10 +547,10 @@
     });
   }
 
-  function gateShell(pack, beat, stageTitle, body) {
+  function gateShell(pack, beat, stageTitle, body, cardClass) {
     const titleText = stageTitle ? (escapeHTML(stageTitle) + ' — ' + escapeHTML(beat.title)) : escapeHTML(beat.title);
     return '<div class="gate-modal__backdrop"></div>' +
-      '<div class="gate-modal__card" role="dialog" aria-modal="true" aria-labelledby="gate-title">' +
+      '<div class="gate-modal__card' + (cardClass ? ' ' + cardClass : '') + '" role="dialog" aria-modal="true" aria-labelledby="gate-title">' +
         '<span class="gate-modal__kicker">' + escapeHTML(pack.name) + '</span>' +
         '<h2 class="gate-modal__title" id="gate-title">' + titleText + '</h2>' + body + '</div>';
   }
@@ -588,10 +588,14 @@
   /* Email gate body — the gate every package passes through. `opts.hint: false`
      suppresses its own hint line, because a gate that already shows numbered
      steps carries a richer hint of its own (and two #gate-hint nodes in one
-     dialog would be a duplicate id). */
+     dialog would be a duplicate id). `opts.copy: false` does the same for the
+     copy line: a social gate already prints the package blurb above its steps,
+     so the email form does not repeat it (which keeps five steps compact). */
   function emailGateBody(pack, opts) {
     const label = (opts && opts.submit) || "UNLOCK DOWNLOAD";
-    return '<p class="gate-modal__copy">ENTER YOUR EMAIL TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>' +
+    const copy = (opts && opts.copy === false) ? "" :
+      '<p class="gate-modal__copy">ENTER YOUR EMAIL TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>';
+    return copy +
       emailFormHTML(opts && opts.optin) +
       '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
       '<div class="gate-modal__actions">' +
@@ -601,24 +605,38 @@
       ((opts && opts.hint === false) ? '' : '<p class="gate-modal__hint" id="gate-hint">ENTER EMAIL, TICK THE BOX AND SUBMIT</p>');
   }
 
-  /* The YouTube step rows, in the order the packages ask for them: every gated
-     package subscribes to the channel, and only the Pro package also likes this
-     beat's own video — which is exactly what the two listings promise. Each row
-     carries the tick that draws itself once it has been opened. */
-  function youtubeSteps(channel, video, count) {
-    const step = (n, href, title, meta) =>
-      '<a class="gate-step" href="' + escapeHTML(href) + '" target="_blank" rel="noopener noreferrer" data-gate-step="' + n + '">' +
+  /* The social step rows, in the order the packages ask for them. `sub` and
+     `like` are YouTube; `ig`, `tt` and `x` are the official profiles the
+     footers link to. The `like` destination is resolved per beat (`videoFor`),
+     so it is the exact same video URL as the YouTube icon beside the title.
+     Each row carries the tick that draws itself once it has been opened. */
+  function socialSteps(actions, video) {
+    const social = window.KYROlll_SOCIAL || {};
+    const channel = window.KYROlll_YOUTUBE_CHANNEL || (social.youtube ? social.youtube + "?sub_confirmation=1" : "https://www.youtube.com/");
+    const instagram = social.instagram || "https://www.instagram.com/kyroill00";
+    const tiktok = social.tiktok || "https://www.tiktok.com/@kyroill00";
+    const x = social.x || "https://x.com/KYROlllll";
+    const defs = {
+      sub: { href: channel, title: "SUBSCRIBE", meta: "TO THE KYROIII YOUTUBE CHANNEL" },
+      like: { href: video || channel, title: "LIKE THIS BEAT", meta: "ON YOUTUBE (DIRECT BEAT VIDEO)" },
+      ig: { href: instagram, title: "FOLLOW ON INSTAGRAM", meta: "@KYROILL00" },
+      tt: { href: tiktok, title: "FOLLOW ON TIKTOK", meta: "@KYROILL00" },
+      x: { href: x, title: "FOLLOW ON X", meta: "@KYROIIIII" }
+    };
+    return actions.map((action, n) => {
+      const def = defs[action];
+      if (!def) return "";
+      return '<a class="gate-step" href="' + escapeHTML(def.href) + '" target="_blank" rel="noopener noreferrer" ' +
+          'data-gate-step="' + n + '" data-gate-action="' + action + '">' +
         '<span class="gate-step__num"><span>' + (n + 1) + '</span><span class="gate-step__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +
-        '<span class="gate-step__body"><span class="gate-step__title">' + title + '</span><span class="gate-step__meta">' + meta + '</span></span>' +
+        '<span class="gate-step__body"><span class="gate-step__title">' + def.title + '</span><span class="gate-step__meta">' + def.meta + '</span></span>' +
         '<span class="gate-step__go">OPEN ↗</span>' +
       '</a>';
-    const rows = [step(0, channel, "SUBSCRIBE", "TO THE KYROIII CHANNEL")];
-    if (count > 1) rows.push(step(1, video, "LIKE THIS VIDEO", "THE BEAT YOU ARE GRABBING"));
-    return rows.join("");
+    }).join("");
   }
 
   /* ------------------------------------------------- STRICT STEP VERIFICATION
-     A YouTube step is not a click-through any more. It counts only after
+     A social step is not a click-through. It counts only after
      1) a genuine gesture — a trusted click, not a scripted one, and
      2) a real visit: the row holds in a VERIFYING state for `STEP_HOLD_MS` and
         cannot be marked done before that, so opening the tab and bouncing
@@ -645,7 +663,7 @@
     stepTimers.forEach((timer) => clearTimeout(timer));
     stepTimers.clear();
   }
-  function wireYouTubeSteps(modal, done, refresh) {
+  function wireGateSteps(modal, done, refresh) {
     function verify(step, index) {
       const start = Date.now();
       const go = step.querySelector(".gate-step__go");
@@ -689,26 +707,27 @@
     });
   }
 
-  /* Standard WAV lease: subscribe to the channel → email. One step, because that
-     is all the listing asks for. */
+  /* Standard WAV lease: subscribe, like this beat's own video and follow on
+     Instagram — three mandatory social steps — then the email. The like step
+     reads `videoFor(beat.id)`, the same URL the YouTube icon beside the title
+     opens. */
   function youtubeGateBody(pack, beat) {
-    const channel = window.KYROlll_YOUTUBE_CHANNEL || "https://www.youtube.com/";
-    const video = helpers() ? helpers().videoFor(beat.id) : channel;
-    return '<p class="gate-modal__copy">SUBSCRIBE, THEN YOUR EMAIL, TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>' +
-      '<div class="gate-steps">' + youtubeSteps(channel, video, 1) + '</div>' +
-      emailGateBody(pack, { hint: false }) +
-      '<p class="gate-modal__hint" id="gate-hint">OPEN THE STEP, THEN THE EMAIL</p>';
+    const video = helpers() ? helpers().videoFor(beat.id) : (window.KYROlll_YOUTUBE_CHANNEL || "");
+    return '<p class="gate-modal__copy">' + escapeHTML(pack.blurb) + '</p>' +
+      '<div class="gate-steps" data-count="3">' + socialSteps(["sub", "like", "ig"], video) + '</div>' +
+      emailGateBody(pack, { hint: false, copy: false }) +
+      '<p class="gate-modal__hint" id="gate-hint">OPEN ALL 3 STEPS, THEN THE EMAIL</p>';
   }
 
-  /* Exclusive / Pro package: subscribe AND like this beat's video, then the
-     email. There is no comment step. */
+  /* Exclusive / Pro package: all five social steps — subscribe, like this
+     beat's own video, then Instagram, TikTok and X — followed by the email.
+     There is no comment step. */
   function exclusiveGateBody(pack, beat) {
-    const channel = window.KYROlll_YOUTUBE_CHANNEL || "https://www.youtube.com/";
-    const video = helpers() ? helpers().videoFor(beat.id) : channel;
-    return '<p class="gate-modal__copy">SUBSCRIBE, LIKE THE BEAT, THEN YOUR EMAIL, TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>' +
-      '<div class="gate-steps">' + youtubeSteps(channel, video, 2) + '</div>' +
-      emailGateBody(pack, { hint: false, submit: "UNLOCK EXCLUSIVE" }) +
-      '<p class="gate-modal__hint" id="gate-hint">OPEN BOTH STEPS, THEN THE EMAIL</p>';
+    const video = helpers() ? helpers().videoFor(beat.id) : (window.KYROlll_YOUTUBE_CHANNEL || "");
+    return '<p class="gate-modal__copy">' + escapeHTML(pack.blurb) + '</p>' +
+      '<div class="gate-steps" data-count="5">' + socialSteps(["sub", "like", "ig", "tt", "x"], video) + '</div>' +
+      emailGateBody(pack, { hint: false, copy: false, submit: "UNLOCK EXCLUSIVE" }) +
+      '<p class="gate-modal__hint" id="gate-hint">OPEN ALL 5 STEPS, THEN THE EMAIL</p>';
   }
 
   function showSuccessModal() {
@@ -1127,7 +1146,9 @@
       // email gate — the first stop for the MP3 lease
       body = emailGateBody(pack, {});
     }
-    modal.innerHTML = gateShell(pack, beat, null, body);
+    const cardClass = pack.gate === "exclusive" ? "gate-modal__card--social gate-modal__card--five" :
+      pack.gate === "youtube" ? "gate-modal__card--social" : "";
+    modal.innerHTML = gateShell(pack, beat, null, body, cardClass);
     document.body.appendChild(modal);
     /* Freeze the backdrop: nothing but CANCEL can dismiss this dialog. */
     lockGateSurface(modal);
@@ -1144,22 +1165,23 @@
     if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
 
     /* STRICT, PACKAGE-SPECIFIC — one wiring for every gate, because only two
-       things ever differ: how many YouTube steps the package promises and the
+       things ever differ: how many social steps the package promises and the
        two hint lines. Every gate needs the address AND the mandatory opt-in;
        the steps sit in front of that:
-         MP3 LEASE         → email + opt-in (no step at all)
-         STANDARD WAV LEASE→ subscribe to the channel, then email + opt-in
-         EXCLUSIVE / PRO   → subscribe + like THIS beat's video, then email +
-                             opt-in. There is no comment step in any of them.
-       `wireYouTubeSteps` only ever fills a slot after a genuine, held visit, so
+         MP3 LEASE         → email + opt-in (no social step at all)
+         STANDARD WAV LEASE→ subscribe + like this beat + Instagram, then email
+         EXCLUSIVE / PRO   → subscribe + like this beat + Instagram + TikTok + X,
+                             then email. There is no comment step in any of them.
+       `wireGateSteps` only ever fills a slot after a genuine, held visit, so
        no step can be clicked through. */
     const STEP_COPY = {
       email: { idle: "ENTER EMAIL, TICK THE BOX AND SUBMIT", ready: "ALL SET — UNLOCK YOUR DOWNLOAD" },
-      youtube: { idle: "OPEN THE STEP, THEN THE EMAIL", ready: "ALL SET — REVIEW & SIGN" },
-      exclusive: { idle: "OPEN BOTH STEPS, THEN THE EMAIL", ready: "ALL SET — REVIEW & SIGN" }
+      youtube: { idle: "OPEN ALL 3 STEPS, THEN THE EMAIL", ready: "ALL SET — REVIEW & SIGN" },
+      exclusive: { idle: "OPEN ALL 5 STEPS, THEN THE EMAIL", ready: "ALL SET — REVIEW & SIGN" }
     };
     const copy = STEP_COPY[pack.gate] || STEP_COPY.email;
-    const steps = pack.gate === "youtube" ? [false] : pack.gate === "exclusive" ? [false, false] : [];
+    const steps = pack.gate === "youtube" ? [false, false, false] :
+      pack.gate === "exclusive" ? [false, false, false, false, false] : [];
     const stepsOk = () => steps.every(Boolean);
     const readState = () => ({
       email: String(input && input.value || "").trim(),
@@ -1174,7 +1196,7 @@
       hideGateError(errEl);
       if (hint) hint.textContent = ready ? copy.ready : copy.idle;
     }
-    if (steps.length) wireYouTubeSteps(modal, steps, refresh);
+    if (steps.length) wireGateSteps(modal, steps, refresh);
     input && input.addEventListener("input", refresh);
     optin && optin.addEventListener("change", refresh);
     input && input.addEventListener("keydown", (ev) => {

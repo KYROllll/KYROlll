@@ -129,12 +129,13 @@
     );
   }
 
-  /* The beat's metadata, kept to a quiet row of chips: tempo, key and what the
-     package hands over. Nothing else — the page itself says the rest. */
+  /* The beat's metadata, kept to a quiet row of chips: tempo, key, what the
+     package hands over and the social gate it came through. Nothing else — the
+     page itself says the rest. */
   function metaChips(items) {
     const hasStems = items.some((item) => /\.zip$/i.test((item && item.file) || ""));
     const tag = !items.length ? "" : (hasStems ? "STEMS + WAV + MP3" : (items.length > 1 ? "WAV + MP3" : "MP3"));
-    return [beat.bpm + " BPM", String(beat.key).toUpperCase(), tag].filter(Boolean);
+    return [beat.bpm + " BPM", String(beat.key).toUpperCase(), tag, pack.tag].filter(Boolean);
   }
   function renderMeta(items) {
     if (!metaEl) return;
@@ -160,7 +161,11 @@
     document.title = pack.name + " — " + beat.title + " — KYROIII";
     kickerEl.textContent = pack.name;
     titleEl.textContent = beat.title;
-    subEl.textContent = "EVERY FILE BELOW IS YOURS, FREE. CREDIT (PROD. BY KYROIII) AND YOU ARE CLEAR TO RELEASE ON SPOTIFY, APPLE MUSIC AND YOUTUBE.";
+    /* The social packages keep their gate requirements on the page as a record
+       of what was asked; the MP3 lease's own blurb is a gate instruction, so it
+       is not repeated after the unlock. */
+    const gateNote = pack.gate === "email" ? "" : pack.blurb + " ";
+    subEl.textContent = gateNote + "EVERY FILE BELOW IS YOURS, FREE. CREDIT (PROD. BY KYROIII) AND YOU ARE CLEAR TO RELEASE ON SPOTIFY, APPLE MUSIC AND YOUTUBE.";
     renderMeta(items);
 
     filesPanel.hidden = false;
