@@ -2002,6 +2002,9 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
   height: 100dvh;
   padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
   overscroll-behavior: contain;
+  /* The surface is always hit-testable so an empty-area tap lands on the dialog
+     itself and is absorbed there — never on the page underneath. */
+  pointer-events: auto;
 }
 
 .gate-modal__backdrop {
@@ -2012,7 +2015,12 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
   -webkit-backdrop-filter: blur(6px);
   /* An opaque, click-absorbing field with NO dismiss handler: a tap on it does
      nothing at all. The dialog closes only through its CANCEL button, so a
-     stray tap can never wipe a gate or a signature in progress. */
+     stray tap can never wipe a gate or a signature in progress. The JS surface
+     absorbers stop the event from reaching any page-level handler; these two
+     properties keep the field itself a real pointer target (and stop a phone's
+     300 ms double-tap wait) in every browser. */
+  pointer-events: auto;
+  touch-action: manipulation;
   opacity: 0;
   transition: opacity .25s ease;
 }

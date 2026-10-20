@@ -56,6 +56,15 @@ const server = http.createServer((req, res) => {
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || "application/octet-stream";
   const isHead = req.method === "HEAD";
+  /* The storefront's scripts and styles are cache-busted with `?v=N`, and those
+     URLs change on every edit. HTML and the unversioned entry points are
+     revalidated so a browser (Safari included) can never keep an old page that
+     still points at an old `downloads.js`. `/assets` are versioned too, so this
+     only ever costs a conditional request, never a re-download of a file whose
+     URL has not changed. */
+  const cacheHeaders = (ext === ".html" || ext === ".js" || ext === ".mjs" || ext === ".css")
+    ? { "Cache-Control": "no-cache" }
+    : {};
 
   // Never let a missing file fall through to the storefront: a substituted
   // index.html is exactly what turns a dead download link into "a webpage
@@ -71,8 +80,8 @@ const server = http.createServer((req, res) => {
   // exists — no point reading a 38 MB WAV to answer it.
   if (isHead) {
     fs.stat(filePath, (err) => {
-      if (!err) { res.writeHead(200, { "Content-Type": contentType }); res.end(); return; }
-      if (err.code === "ENOENT" && allowIndexFallback) { res.writeHead(200, { "Content-Type": "text/html" }); res.end(); return; }
+      if (!err) { res.writeHead(200, { "Content-Type": contentType, ...cacheHeaders }); res.end(); return; }
+      if (err.code === "ENOENT" && allowIndexFallback) { res.writeHead(200, { "Content-Type": "text/html", "Cache-Control": "no-cache" }); res.end(); return; }
       sendText(err.code === "ENOENT" ? 404 : 500, "404 Not Found");
     });
     return;
@@ -83,7 +92,7 @@ const server = http.createServer((req, res) => {
       if (err.code === "ENOENT" && allowIndexFallback) {
         fs.readFile(path.join(__dirname, "index.html"), (err2, content2) => {
           if (err2) { sendText(404, "404 Not Found"); return; }
-          res.writeHead(200, { "Content-Type": "text/html" });
+          res.writeHead(200, { "Content-Type": "text/html", "Cache-Control": "no-cache" });
           res.end(isHead ? undefined : content2);
         });
       } else if (err.code === "ENOENT") {
@@ -94,7 +103,7 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    const headers = { "Content-Type": contentType };
+    const headers = { "Content-Type": contentType, ...cacheHeaders };
     if ((url.searchParams.has("dl") || url.searchParams.has("name")) && ATTACHMENT_EXT.has(ext)) {
       headers["Content-Disposition"] = 'attachment; filename="' + attachmentName(url.searchParams, path.basename(filePath)) + '"';
     }

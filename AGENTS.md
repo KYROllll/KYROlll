@@ -95,6 +95,12 @@ old URL. Bump the matching tag on **all** pages that link it — `index.html`,
 apart is how `style.css?v=128` outlived the drawer fix that shipped in `style.css` after
 it. A version only ever needs to move forwards.
 
+`server.mjs` also answers `.html`, `.js`, `.mjs` and `.css` with
+`Cache-Control: no-cache`, so the preview server revalidates the page and its scripts on every
+load; the `?v=N` query remains the cache-buster that travels to a static host (GitHub Pages has
+no `server.mjs`). Never add a Service Worker for this: a store that remembers nothing in the
+browser should not start remembering its own assets.
+
 `assets/brand-logo.min.js` bundles `three` (r186) plus one `three/addons` helper
 (`BufferGeometryUtils`'s `mergeVertices`). It **can** be rebuilt here — install the
 matching three in a throwaway directory, build there so `three` resolves, and let the same
@@ -493,26 +499,33 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   (**SIGN & UNLOCK**). The button only comes alive once the terms have been read **to the
   end** — `scrollHeight <= clientHeight`, or the pane scrolled to the bottom — *and* the
   signature is complete: a **FULL name** (`isFullName`: 2–4 name parts, each at least two
-  letters, letters only) is required in both modes, and in DRAW mode a **genuine drawing**
+  letters, letters only) **AND** a **genuine drawing** on the pad
   (`drawingValid`: `SIGN_INK_MIN` = 8 thinned points spread over at least `SIGN_SPAN_MIN` = 0.3
-  of the pad's width + height, so a tap, a dot or a two-point flick cannot sign) must sit under
-  that name. A single word, a blank line, initials and digits are
-  all refused, and the refusal is enforced again inside the submit handler — so stripping the
-  button's `disabled` attribute (the one thing a script can do) still unlocks nothing. A
-  finished stroke with no valid name reports `ENTER YOUR FULL NAME — FIRST AND LAST TO UNLOCK`
-  on the spot, and the stamped sheet reads `FULL NAME REQUIRED — FIRST AND LAST`. The
-  stage keeps two functions for that reason: `applyState()` moves the button, the stamp and the
-  hint, while `refresh()` is `applyState()` plus `hideGateError`. Only a deliberate edit or a
-  mode switch calls `refresh`; the terms pane's own `scroll` listener calls `applyState`,
-  because reporting a refusal grows the card, the pane takes a scroll from that reflow and the
-  pane's handler used to land in `refresh` — so the refusal hid itself in the frame it was
-  announced (it showed up as an intermittent missing-error failure). The first pass is a
-  `requestAnimationFrame(applyState)`, since a pane cannot say whether it scrolls until the
-  sheet is laid out. A touch
+  of the pad's width + height, so a tap, a dot or a two-point flick cannot sign) must both be
+  present. `TYPE` and `DRAW` are **one shared readiness state**
+  (`isReady = isFullName(name) && hasDrawnSignature()`), not two rules: switching tabs only
+  shows or hides the pad and never changes the name, the strokes or the button, so TYPE cannot
+  bypass the drawing and DRAW cannot bypass the name. The hint names the missing half exactly —
+  `FULL NAME SET — SWITCH TO DRAW TAB & SIGN THE PAD TO UNLOCK`, or
+  `SIGNATURE CAPTURED — ENTER YOUR FULL FIRST & LAST NAME TO UNLOCK`, and
+  `ALL SET — SIGN & UNLOCK` only when both exist (with the terms read). A single word, a blank
+  line, initials and digits are all refused, and the refusal is enforced again inside the submit
+  handler for **both** tabs — so stripping the button's `disabled` attribute (the one thing a
+  script can do) still unlocks nothing. A finished stroke with no valid name reports
+  `ENTER YOUR FULL NAME — FIRST AND LAST TO UNLOCK` on the spot, and the stamped sheet reads
+  `FULL NAME REQUIRED — FIRST AND LAST`. The stage keeps two functions for that reason:
+  `applyState()` moves the button, the stamp and the hint, while `refresh()` is `applyState()`
+  plus `hideGateError`. Only a deliberate edit or a mode switch calls `refresh`; the terms
+  pane's own `scroll` listener calls `applyState`, because reporting a refusal grows the card,
+  the pane takes a scroll from that reflow and the pane's handler used to land in `refresh` — so
+  the refusal hid itself in the frame it was announced (it showed up as an intermittent
+  missing-error failure). The first pass is a `requestAnimationFrame(applyState)`, since a pane
+  cannot say whether it scrolls until the sheet is laid out. A touch
   that slides off the pad keeps its stroke (the pointer is captured; only a mouse ends one on
   `pointerleave`), because a dropped stroke is what made people sign twice. The pad keeps at
   most `SIGN_POINTS` thinned points per stroke and 12 strokes, because the drawing has to fit
-  in a URL. On SIGN & UNLOCK the signature is captured and `finalizeGate` runs.
+  in a URL. On SIGN & UNLOCK **both** halves are captured — whichever tab the click came from —
+  and `finalizeGate` runs.
 - `downloadUrl(beatId, packageId, email)` is the hand-off to the download page: the URL carries
   a one-shot grant token (`?t=<random hex>`, minted fresh when a gate is passed) and, when there
   is one, the address just submitted (`?email=…`), the signed name (`?sign=…`) and a drawing
@@ -560,9 +573,10 @@ the `KYROIII` wordmark under it, a full-width divider, then the title, the hero 
 (BEAT / PACKAGE / BPM / KEY / TERRITORY), numbered clauses 1.0–3.0, two **straight, pre-filled
 signature blocks** and a footer carrying the support address, the serial, a vector barcode and
 `HTTPS://KYROILL.STORE` — held to a **single page** for every package. The LICENSEE block shows
-the signature captured in the gate's sign step: a typed name set large on its rule, or a
+the signature captured in the gate's sign step: the typed full name **and** the
 **hand-drawn signature re-emitted as vector strokes** (`drawSignature`, **pure crisp white
-`#FFFFFF`**, round caps) in the same box — and **nothing is drawn behind it**, so the customer
+`#FFFFFF`**, round caps) in the same box — the name is set large on its rule only when the
+download page is re-signed typed-only — and **nothing is drawn behind it**, so the customer
 never signs over the brand's flower. The micro-line under that rule records who the
 issuance went to — `SIGNED <date> - <FULL NAME> - <address>`, and the full name is carried even
 when the mark is hand-drawn, so a drawing is never anonymous (the line steps its size and
@@ -701,10 +715,10 @@ Tests that ship with the repo:
   comment step is gone). A YouTube step is watched through its hold: it is not done the moment
   it is clicked, it reports VERIFYING, and only then draws its tick. Every gate must then reach
   the REVIEW & SIGN stage, where the test proves the order is enforced — SIGN & UNLOCK is locked
-  with a signature alone until the terms pane is scrolled to the end, a single-word name
-  (`Madonna`) stays locked and is *still* refused after its `disabled` attribute is stripped —
-  and it signs `Jordan Vega` (typed) or inks the pad with real pointer strokes (hand-drawn, on the
-  pro flow), then lands on
+  with a full name alone or a drawing alone until the terms pane is scrolled to the end *and*
+  both halves exist, a single-word name (`Madonna`) stays locked and is *still* refused after
+  its `disabled` attribute is stripped — and it signs `Jordan Vega` **and** inks the pad with
+  real pointer strokes, then lands on
   the download page: its 3D flower branding, the metadata chips, the file rows under their
   studio names (`KYROIII - FLESH (130 BPM - AM).mp3`, `… .wav`, `… - TRACKED STEMS.zip`) and the
   certificate block (a minted `KYRO-YYYY-FLESH-NNNNNN` serial, no raw text). It then downloads
@@ -716,16 +730,19 @@ Tests that ship with the repo:
   `HTTPS://KYROILL.STORE`, the LICENSEE block carrying the signature and the address the flow
   submitted, `PAGE 1 OF 1` and three distinct serials — straight from the PDF bytes. The
   hand-drawn signature is verified as real vector ink: multi-point paths inside the LICENSEE
-  column, which no typed license contains, inked in pure white with no silver pen left. Nothing
+  column, which a re-signed, typed-only license does not contain, inked in pure white with no
+  silver pen left. Nothing
   draws behind the LICENSEE signature any more (no `.sign-watermark`, no `.license-cert__watermark`
   and no `/GS1` in the PDF); the flower's second draw is the LICENSOR approval stamp, asserted in
   the right column with its `OFFICIAL VERIFIED SEAL` / `AUTHORIZED LICENSOR` legend, and the
   hand-drawn issuance's micro-line is asserted to carry the full name that signed it. It also
-  proves DRAW mode is no bypass: with the name empty, and again with a single word (`MATAN`), the
-  drawing alone stays locked (and still refuses after `disabled` is stripped), and only a full
-  name (`MATAN MAMADOV`) plus a valid drawing unlocks — and the download page's re-sign field
-  refuses a single word the same way. Re-signing on the download page then downloads again,
-  proving the new name replaces the old one in caps on the next issuance. It also
+  proves TYPE and DRAW are one readiness machine: typing `MATAN MAMADOV` on TYPE keeps the
+  button locked until the pad is inked, a drawing with the name empty or a single word (`MATAN`)
+  keeps it locked on both tabs, and only both halves enable it — identically on TYPE and DRAW.
+  The empty-area clicks are watched from both stages: the backdrop at `(5, 5)`, a viewport-corner
+  mouse click and a click on the modal root never close, reset or dismiss a gate or a signature
+  in progress. The download page's re-sign field refuses a single word the same way; re-signing
+  then downloads again, proving the new name replaces the old one in caps on the next issuance. It also
   asserts the gate posts a valid address to the configured newsletter provider (and never a
   malformed one, and never on a re-opened gate), that the backdrop and Escape never dismiss a
   gate or the sign stage (only CANCEL does), that selecting a package passed on the download page
@@ -744,11 +761,11 @@ YouTube subscribe + like for the WAV and the exclusive — there is no comment s
 lead-capture courtesies rather than enforcement — the files themselves are public and nothing on
 the server blocks them, and the grant token is just a URL parameter. The strict half of
 "genuine interaction" is what a static page can actually enforce: a trusted
-click and a real dwell on each step (`STEP_HOLD_MS`), plus a **full name and a signature**
-captured in the sign step — and the full name is required in **both** TYPE and DRAW modes, so a
-bare drawing cannot stand in for the name (a single word, a blank field and a token dot are all
-refused before the unlock button will move, and the submit handler refuses them again if the
-attribute is stripped). A departure to the opened tab only ever *shortens* that hold — it is recorded, never
+click and a real dwell on each step (`STEP_HOLD_MS`), plus a **full name AND a drawn signature**
+captured in the sign step — both are required on **both** TYPE and DRAW tabs, so neither a
+typed name alone nor a bare drawing can stand in for the other (a single word, a blank field, an
+unsigned pad and a token dot are all refused before the unlock button will move, and the submit
+handler refuses them again if the attribute is stripped). A departure to the opened tab only ever *shortens* that hold — it is recorded, never
 required — because a blocked popup would otherwise strand a real visitor, and because a
 headless browser reports no blur at all (measured, so no check can depend on it).
 The dialog has one exit — its CANCEL button. The backdrop and Escape are inert, so a stray tap

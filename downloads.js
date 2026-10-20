@@ -27,15 +27,16 @@
  * only counts after a genuine gesture AND a minimum hold (`STEP_HOLD_MS`), so
  * opening it and bouncing straight back cannot mark it done; and the REVIEW &
  * SIGN stage that closes every gate only unlocks once the terms have actually
- * been read to the end and a signature has been captured. The FULL NAME (first
- * and last) field never hides and is required in BOTH modes: in TYPE mode the
- * name *is* the signature, and in DRAW mode the pad must hold a genuine drawing
- * AND the name must be valid, so switching tabs cannot skip the name. A single
- * word, a blank line and a token dot are all refused (`isFullName` /
- * `hasSignature`), so there is no bypass to the files. The typed full name always
- * travels with the flow — even when a drawing is used — and is what the PDF
- * license prints in its LICENSEE block (see `license-pdf.js`); the customer signs
- * on a clean field, never over the brand's flower.
+ * been read to the end AND the visitor has both typed a FULL NAME (first and
+ * last) and drawn a genuine signature on the pad. TYPE and DRAW are one shared
+ * readiness state — the full name is never a substitute for the drawing and the
+ * drawing is never a substitute for the name — so switching tabs can neither
+ * skip the name nor bypass the pad. A single word, a blank line and a token dot
+ * are all refused (`isFullName` / `drawingValid`), so there is no bypass to the
+ * files. The typed full name always travels with the flow alongside the drawn
+ * strokes, and both are what the PDF license stamps in its LICENSEE block (see
+ * `license-pdf.js`); the customer signs on a clean field, never over the brand's
+ * flower.
  *
  * Files are handed over under their professional studio names —
  * `KYROIII - <BEAT> (<BPM> BPM - <KEY>).<ext>` — built from the beat's own
@@ -195,12 +196,10 @@
     if (signature) drawnStrokes = null;  // a typed name replaces a drawing
     return signature;
   }
-  /* Keep a drawn signature. An empty array clears it (the visitor switched
-     back to typing), which is why the length is checked before assigning. A
-     drawing does NOT clear the typed name any more: the sign stage requires a
-     full name in DRAW mode too, and that name has to travel to the PDF alongside
-     the strokes. A typed name still replaces a drawing (see `setSignature`), so
-     re-signing on the download page behaves exactly as before. */
+  /* Keep a drawn signature. An empty array clears it. A drawing does NOT clear
+     the typed name: the sign stage requires a full name AND a drawing, so both
+     have to travel to the PDF. A typed name still replaces a drawing (see
+     `setSignature`), so re-signing on the download page behaves as before. */
   function setDrawnSignature(strokes) {
     drawnStrokes = Array.isArray(strokes) && strokes.length
       ? strokes
@@ -528,6 +527,26 @@
     });
   }
 
+  /* The dialog's own surface absorbs every pointer gesture. The backdrop carries
+     no dismiss behaviour, and stopping the event at the modal root means no
+     page-level delegated handler (the download trigger, a menu's outside-click,
+     a future listener) can ever read a click on the dark field as a reason to
+     close, reset or re-render the gate. `preventDefault` is deliberately NOT
+     called: inputs, the sign pad, the tabs and CANCEL must keep working. Only
+     the explicit CANCEL button closes a gate. */
+  function absorbGateEvent(event) {
+    event.stopPropagation();
+  }
+  function lockGateSurface(modal) {
+    if (!modal) return;
+    const surfaces = [modal, modal.querySelector(".gate-modal__backdrop")];
+    ["click", "pointerdown", "mousedown", "touchstart"].forEach((type) => {
+      surfaces.forEach((surface) => {
+        if (surface) surface.addEventListener(type, absorbGateEvent, { passive: true });
+      });
+    });
+  }
+
   function gateShell(pack, beat, stageTitle, body) {
     const titleText = stageTitle ? (escapeHTML(stageTitle) + ' — ' + escapeHTML(beat.title)) : escapeHTML(beat.title);
     return '<div class="gate-modal__backdrop"></div>' +
@@ -705,6 +724,7 @@
         '<p class="gate-modal__copy">GATE PASSED. UNLOCKING YOUR DOWNLOAD PAGE…</p>' +
       '</div>';
     document.body.appendChild(modal);
+    lockGateSurface(modal);
     lockPage();
     requestAnimationFrame(() => modal.classList.add("is-visible"));
     return modal;
@@ -712,12 +732,13 @@
 
   /* ---------------------------------------------- REVIEW & SIGN (the last step)
      Every gate now ends here instead of jumping straight to the download page:
-     the modal turns into the license itself — the terms to read, then a
-     signature to capture (typed, or drawn on the pad with mouse or finger).
-     Only when the terms have been read to the end and a signature exists does
-     SIGN & UNLOCK come alive; it is that signature which is stamped into the
-     LICENSEE block of the PDF. Nothing is stored — the signature is handed
-     forward in the download URL, exactly like the address. */
+     the modal turns into the license itself — the terms to read, then a full
+     name typed AND a genuine signature drawn on the pad with mouse or finger.
+     TYPE and DRAW share one readiness state, so neither tab can skip the other
+     half. Only when the terms have been read to the end AND both halves exist
+     does SIGN & UNLOCK come alive; that name and that drawing are stamped into
+     the LICENSEE block of the PDF. Nothing is stored — they are handed forward
+     in the download URL, exactly like the address. */
   function termsHTML(beat, pack) {
     const includes = (pack.includes || []).map((line) =>
       '<li>' + escapeHTML(line) + '</li>').join("");
@@ -744,7 +765,7 @@
     card.innerHTML =
       '<span class="gate-modal__kicker">' + escapeHTML(pack.name) + '</span>' +
       '<h2 class="gate-modal__title" id="gate-title">LICENSE REVIEW &amp; SIGNATURE</h2>' +
-      '<p class="gate-modal__copy">READ THE TERMS, SIGN YOUR FULL NAME, AND YOUR FILES UNLOCK.</p>' +
+      '<p class="gate-modal__copy">READ THE TERMS, TYPE YOUR FULL NAME, DRAW YOUR SIGNATURE, AND YOUR FILES UNLOCK.</p>' +
       '<div class="sign-terms" data-sign-terms role="region" tabindex="0" aria-label="License terms">' +
         termsHTML(beat, pack) +
       '</div>' +
@@ -831,13 +852,16 @@
     function drawingValid() {
       return strokes.length > 0 && drawPoints() >= SIGN_INK_MIN && strokeSpan() >= SIGN_SPAN_MIN;
     }
-    /* The one gate on the unlock button. The FULL name is required in BOTH
-       modes: in TYPE mode the name is the signature, and in DRAW mode a genuine
-       drawing AND a valid full name must both be present, so switching to the pad
-       can never skip the name. Nothing weaker can enable it. */
-    function hasSignature() {
-      const named = isFullName(typedName());
-      return mode === "draw" ? (named && drawingValid()) : named;
+    /* The one readiness rule, shared by BOTH tabs:
+         isFullName(name) && a genuine drawing on the pad
+       TYPE is not a shortcut past the pad and DRAW is not a shortcut past the
+       name. Switching tabs only shows or hides the pad; it never changes the
+       name, the strokes or the button's state. */
+    function hasDrawnSignature() {
+      return drawingValid();
+    }
+    function isReady() {
+      return isFullName(typedName()) && hasDrawnSignature();
     }
     function nameProblem() {
       const value = typedName();
@@ -853,28 +877,30 @@
     function applyState() {
       const read = termsRead();
       const named = isFullName(typedName());
-      const signed = hasSignature();
+      const drawn = hasDrawnSignature();
+      /* The one shared readiness condition the user sees on both tabs. */
+      const signed = isReady();
       const ready = read && signed;
       if (submitBtn) submitBtn.disabled = !ready;
       if (field) field.classList.toggle("is-valid", named);
       if (stamp) {
         let label = "NOTHING SIGNED YET";
-        if (mode === "draw") {
-          if (drawingValid() && named) label = "SIGNATURE CAPTURED — " + strokes.length + " STROKE" + (strokes.length === 1 ? "" : "S");
-          else if (drawingValid()) label = "FULL NAME REQUIRED — FIRST AND LAST";
-          else if (strokes.length) label = "KEEP DRAWING — SIGN YOUR FULL NAME";
-        } else if (typedName()) {
-          label = typedName().toUpperCase();
-        }
+        if (signed) label = "SIGNATURE CAPTURED — " + strokes.length + " STROKE" + (strokes.length === 1 ? "" : "S");
+        else if (drawn) label = "FULL NAME REQUIRED — FIRST AND LAST";
+        else if (typedName()) label = typedName().toUpperCase();
         stamp.textContent = label;
         stamp.dataset.stamped = signed ? "true" : "false";
       }
       if (hint) {
-        hint.textContent = ready ? "ALL SET — SIGN & UNLOCK"
-          : (!read ? "SCROLL THROUGH THE TERMS TO THE END"
-            : (mode === "draw"
-              ? (named ? "SIGN YOUR FULL NAME ON THE PAD" : "ENTER YOUR FULL NAME — FIRST AND LAST")
-              : nameProblem()));
+        /* The three synchronized states, in one place: the pad is the missing
+           half when the name is set, the name is the missing half when the pad
+           is signed, and only both together is "all set" (with the terms read).
+           The button is shared, so these read identically on TYPE and DRAW. */
+        if (signed) hint.textContent = read ? "ALL SET — SIGN & UNLOCK" : "SCROLL THROUGH THE TERMS TO THE END";
+        else if (named) hint.textContent = "FULL NAME SET — SWITCH TO DRAW TAB & SIGN THE PAD TO UNLOCK";
+        else if (drawn) hint.textContent = "SIGNATURE CAPTURED — ENTER YOUR FULL FIRST & LAST NAME TO UNLOCK";
+        else if (typedName()) hint.textContent = nameProblem();
+        else hint.textContent = read ? "ENTER YOUR FULL NAME — FIRST AND LAST" : "SCROLL THROUGH THE TERMS TO THE END";
       }
     }
     /* A visitor editing something also dismisses a refusal that no longer
@@ -1000,16 +1026,21 @@
         showGateError(errEl, nameProblem() || "TYPE YOUR FULL NAME TO UNLOCK");
         return;
       }
-      if (mode === "draw" && !drawingValid()) {
+      /* The drawing is enforced again here too, and for BOTH tabs: the readiness
+         rule is one shared state, so a script that strips `disabled` from the
+         TYPE tab still cannot turn a typed name into a license without the pad's
+         ink. There is no mode-conditional shortcut. */
+      if (!hasDrawnSignature()) {
         showGateError(errEl, "DRAW YOUR FULL SIGNATURE ON THE PAD TO UNLOCK");
         return;
       }
-      /* Capture the signature — typed or drawn — and hand it to the flow. The
-         full name always rides along, so a drawing is attributed to its signer in
-         the PDF's LICENSEE metadata line. `setSignature` clears a drawing, so the
-         strokes are laid back over the name last. */
+      /* Capture BOTH halves — the typed full name AND the drawn signature — and
+         hand them to the flow together, whichever tab the click came from. The
+         full name is what attributes the drawing in the PDF's LICENSEE metadata
+         line; `setSignature` clears a drawing, so the strokes are laid back over
+         the name last. */
       setSignature(typedName());
-      setDrawnSignature(mode === "draw" ? strokes : []);
+      setDrawnSignature(strokes);
       submitBtn.disabled = true;
       if (hint) hint.textContent = "SIGNED — UNLOCKING YOUR FILES…";
       closeGate();
@@ -1098,6 +1129,8 @@
     }
     modal.innerHTML = gateShell(pack, beat, null, body);
     document.body.appendChild(modal);
+    /* Freeze the backdrop: nothing but CANCEL can dismiss this dialog. */
+    lockGateSurface(modal);
     gate = modal;
     lockPage();
     requestAnimationFrame(() => modal.classList.add("is-visible"));

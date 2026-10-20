@@ -62,9 +62,11 @@
     const d = downloads();
     return d ? d.licenseeName(licensee) : licensee;
   };
-  /* What the PDF stamps into its LICENSEE block: the signature captured in the
-     gate's REVIEW & SIGN stage — a typed name or a drawing — with the gate's
-     address as the fallback name, so the block is never blank. */
+  /* What the PDF stamps into its LICENSEE block: BOTH halves of the signature
+     captured in the gate's REVIEW & SIGN stage — the typed full name AND the
+     drawn canvas signature (forwarded as its normalised vector strokes, the
+     crisp form of the pad's image) — with the gate's address as the fallback
+     name, so the block is never blank. */
   const signature = () => {
     const d = downloads();
     const payload = (d && d.signaturePayload) ? d.signaturePayload() : { name: "", strokes: null };
