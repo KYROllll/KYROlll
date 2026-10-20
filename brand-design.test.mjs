@@ -737,18 +737,25 @@ try {
   assert.equal(drawnPaths(proText).length, ink.length, 'the signs are stable');
   assert.deepEqual(pdfRuns(proText).filter(run => /[a-z]/.test(run)), [], 'the hand-signed license is uppercase too');
 
-  // Fresh state every time: the very browser that just unlocked this package is
-  // asked again, from scratch, with nothing remembered and nothing written.
+  // Fresh state every time — and no session shortcut: selecting ANY package
+  // re-opens the full gate from scratch, with nothing remembered or prefilled,
+  // and the REVIEW & SIGNATURE stage is never auto-opened. The signature step is
+  // mandatory on every selection.
   await proPage.goto(`${url}/?beat=flesh`);
-  await proPage.locator(`${CARD} .download-trigger`).click();
-  await proPage.locator('.download-menu.is-open').waitFor();
-  await proPage.locator('.download-tier[data-package="exclusive"]').click();
-  await proPage.locator('.gate-modal').waitFor();
-  assert.equal(await proPage.locator('#gate-email').inputValue(), '', 'the address is never remembered');
-  assert.equal(await proPage.locator('#gate-comment').count(), 0, 'there is no comment step at all');
-  assert.equal(await proPage.locator('.gate-step.is-done').count(), 0, 'the steps start unopened again');
-  assert.equal(await proPage.locator('[data-gate-submit]').isDisabled(), true, 'the gate starts closed again');
-  assert.equal(subscribeRequests.length, 3, 're-opening a gate posts nothing');
+  for (const pkg of ['mp3', 'wav', 'exclusive']) {
+    await proPage.locator(`${CARD} .download-trigger`).click();
+    await proPage.locator('.download-menu.is-open').waitFor();
+    await proPage.locator(`.download-tier[data-package="${pkg}"]`).click();
+    await proPage.locator('.gate-modal').waitFor();
+    assert.equal(await proPage.locator('#gate-email').inputValue(), '', `${pkg}: the address is never remembered`);
+    assert.equal(await proPage.locator('[data-gate-submit]').isDisabled(), true, `${pkg}: the gate starts closed again`);
+    assert.equal(await proPage.locator('.gate-modal__card--sign').count(), 0, `${pkg}: the sign step is never auto-opened`);
+    assert.equal(await proPage.locator('#sign-name').count(), 0, `${pkg}: no signature is ever prefilled`);
+    assert.equal(await proPage.locator('#gate-comment').count(), 0, `${pkg}: there is no comment step at all`);
+    await proPage.locator('.gate-modal__card [data-gate-cancel]').click();
+    await proPage.locator('.gate-modal').waitFor({ state: 'detached' });
+  }
+  assert.equal(subscribeRequests.length, 3, 'opening a gate posts nothing');
   await noGateMemory(proPage, 'after three gates in one browser');
   await proPage.close();
 
@@ -761,9 +768,9 @@ try {
   assert.match(await coldPage.locator('#download-list').innerText(), /UNLOCK THIS PACKAGE/i);
   assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), false, 'a cold entry starts with no grant');
 
-  // Smart session memory: once the gate is passed in this view the package is
-  // remembered in-page, so the same package is not asked for twice — while the
-  // browser still stores nothing at all.
+  // A passed gate is recorded for this view, but the record NEVER skips a later
+  // selection: selecting the package again re-opens the full gate, starts the
+  // signature stage empty and locked, and posts nothing until the visitor submits.
   await openSteps(coldPage);
   await coldPage.locator('#gate-email').fill('cold-entrant@example.com');
   await coldPage.locator('[data-gate-submit]').click();
@@ -771,14 +778,23 @@ try {
   // The success beat holds ~1.4 s and then the page paints its file rows.
   await coldPage.locator('.download-item').first().waitFor({ timeout: 15000 });
   assert.match(await coldPage.locator('#download-list').innerText(), /TRACKED STEMS/i);
-  assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), true, 'the pass is remembered for this view');
+  assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), true, 'the pass is recorded for this view');
   await noGateMemory(coldPage, 'after a gate passed on the download page itself');
   const postsBeforeMemory = subscribeRequests.length;
   await coldPage.evaluate(id => { window.KYROlll_DOWNLOADS.start(id, 'exclusive'); }, BEAT_ID);
-  await coldPage.waitForFunction(() => new URLSearchParams(location.search).has('t') && !!window.KYROlll_DOWNLOADS);
-  assert.equal(await coldPage.locator('.gate-modal').count(), 0, 'a remembered grant never re-opens the gate');
-  assert.equal(subscribeRequests.length, postsBeforeMemory, 'a remembered grant posts nothing');
-  assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), false, 'the memory does not outlive the page');
+  await coldPage.locator('.gate-modal').waitFor();
+  assert.equal(await coldPage.locator('#gate-email').inputValue(), '', 'a remembered grant still asks for the address');
+  assert.equal(await coldPage.locator('[data-gate-submit]').isDisabled(), true, 'a remembered grant cannot skip the gate');
+  assert.equal(await coldPage.locator('.gate-modal__card--sign').count(), 0, 'a remembered grant never auto-opens the sign step');
+  assert.equal(await coldPage.locator('#sign-name').count(), 0, 'a remembered grant never prefills a signature');
+  assert.equal(await coldPage.locator('.gate-step.is-done').count(), 0, 'the steps start unopened again');
+  assert.equal(subscribeRequests.length, postsBeforeMemory, 're-opening a gate posts nothing');
+  await coldPage.locator('.gate-modal__card [data-gate-cancel]').click();
+  await coldPage.locator('.gate-modal').waitFor({ state: 'detached' });
+  assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), true, 'the pass stays recorded for this view');
+  await coldPage.reload();
+  await coldPage.waitForFunction(() => !!window.KYROlll_DOWNLOADS);
+  assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), false, 'the record does not outlive the page');
   await coldPage.close();
 
   // A phone is where the store is used most — and where a dialog that measures
@@ -835,15 +851,53 @@ try {
   await shot(phone, 'phone');
   await phone.close();
 
-  // A gate closes on Escape wherever focus sits (the YouTube gate focuses
-  // nothing), and the page is released back to the storefront.
+  // The dialog has exactly one exit: its CANCEL button. Escape and a click on
+  // the backdrop are deliberately inert, so a stray key or tap can never wipe a
+  // gate (or a signature) in progress; CANCEL closes cleanly and releases the page.
   const escPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce' });
   await pickPackage(escPage, 'exclusive');
   await escPage.locator('.gate-modal').waitFor();
   await escPage.keyboard.press('Escape');
+  await escPage.waitForTimeout(120);
+  assert.equal(await escPage.locator('.gate-modal').count(), 1, 'Escape never closes the gate');
+  assert.equal(await escPage.evaluate(() => document.documentElement.classList.contains('gate-open')), true, 'the page stays locked while the gate is open');
+  await escPage.locator('.gate-modal__backdrop').click({ position: { x: 6, y: 6 } });
+  await escPage.waitForTimeout(120);
+  assert.equal(await escPage.locator('.gate-modal').count(), 1, 'the backdrop never closes the gate');
+  await escPage.mouse.click(8, 8);
+  await escPage.waitForTimeout(120);
+  assert.equal(await escPage.locator('.gate-modal').count(), 1, 'a click outside the dialog never closes the gate');
+  await escPage.locator('.gate-modal__card [data-gate-cancel]').click();
   await escPage.locator('.gate-modal').waitFor({ state: 'detached' });
-  assert.equal(await escPage.evaluate(() => document.documentElement.classList.contains('gate-open')), false);
+  assert.equal(await escPage.evaluate(() => document.documentElement.classList.contains('gate-open')), false, 'CANCEL releases the page');
   await escPage.close();
+
+  // The signature stage has the same single exit and no prefill: a backdrop click
+  // leaves the empty, locked signature sheet exactly where it was, and only the
+  // explicit CANCEL closes it. The intact stage still unlocks after the click.
+  const signDismiss = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce' });
+  await pickPackage(signDismiss, 'mp3');
+  await signDismiss.locator('.gate-modal').waitFor();
+  await signDismiss.locator('#gate-email').fill('dismiss@example.com');
+  await signDismiss.locator('[data-gate-submit]').click();
+  await signStage(signDismiss).waitFor();
+  assert.equal(await signDismiss.locator('#sign-name').inputValue(), '', 'the signature stage starts empty');
+  assert.equal(await signDismiss.locator('[data-sign-submit]').isDisabled(), true, 'the signature stage starts locked');
+  await signDismiss.locator('.gate-modal__backdrop').click({ position: { x: 6, y: 6 } });
+  await signDismiss.waitForTimeout(120);
+  assert.equal(await signStage(signDismiss).isVisible(), true, 'the backdrop never closes the signature stage');
+  await signDismiss.mouse.click(8, 8);
+  await signDismiss.waitForTimeout(120);
+  assert.equal(await signStage(signDismiss).isVisible(), true, 'a click outside the dialog never closes the signature stage');
+  assert.equal(await signDismiss.locator('#sign-name').inputValue(), '', 'the signature is still not prefilled');
+  assert.equal(await signDismiss.locator('[data-sign-submit]').isDisabled(), true, 'the signature stage is still locked');
+  await signDismiss.locator('#sign-name').fill('Dana Scully');
+  await readTerms(signDismiss);
+  assert.equal(await signDismiss.locator('[data-sign-submit]').isDisabled(), false, 'the intact sign stage still reaches SIGN & UNLOCK');
+  await signDismiss.locator('.gate-modal__card [data-gate-cancel]').click();
+  await signDismiss.locator('.gate-modal').waitFor({ state: 'detached' });
+  assert.equal(await signDismiss.evaluate(() => document.documentElement.classList.contains('gate-open')), false, 'CANCEL releases the page from the sign stage');
+  await signDismiss.close();
 
   const playback = await setupPage({ viewport: { width: 480, height: 800 }, reducedMotion: 'reduce' });
   await playback.goto(`${url}/index.html?beat=flesh`);

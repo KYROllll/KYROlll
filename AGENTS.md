@@ -57,8 +57,9 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   restores it on close. Inputs render at 16px on phones, so iOS does not zoom the page on
   focus, and every control on the path carries `touch-action: manipulation` (no 300 ms
   double-tap-zoom wait) while the signature pad keeps `touch-action: none` (it owns the
-  gesture). One outside-click handler is installed for the life of the page — it used to be
-  installed per gate and only removed on Escape, so every gate left another listener behind.
+  gesture). The dialog has exactly **one exit — its CANCEL button**: the backdrop carries no
+  dismiss attribute and there is no outside-click or Escape handler, so a stray tap or key can
+  never close a gate or wipe a step in progress.
 - `hero-intro.js` drives the hero scroll storytelling: it publishes a 0 → 1
   scroll progress onto `.brand-hero` as the `--hero-p` custom property (all hero
   movement is `calc()`-ed from it in CSS) and reveals the sections below the fold.
@@ -367,10 +368,10 @@ payment gateway.
 `downloads.js` exposes `window.KYROlll_DOWNLOADS` and owns the whole interaction. It has
 **no backend** — no Supabase, no worker and no storage of any kind (the old
 `readEmail`/`writeEmail`/`markUnlocked` API is gone). Its one memory is the in-page `grants`
-`Map`: `isUnlocked(beatId, packageId)` answers from it, `finalizeGate` fills it, and `start`
-short-circuits a package it already holds — so the same view never asks twice, while a reload
-starts empty. The only outbound request is the email gate's
-subscribe POST (`postSubscribe`: `fetch(endpoint)` with `Accept: application/json` and a
+`Map`: `isUnlocked(beatId, packageId)` answers from it and `finalizeGate` fills it, but it is a
+**record only** — no path consults it to skip a step, so every selection re-opens the full gate
+and re-requires REVIEW & SIGN, and a reload starts empty. The only outbound request is the email
+gate's subscribe POST (`postSubscribe`: `fetch(endpoint)` with `Accept: application/json` and a
 form-urlencoded body — the shape Formspree records in its dashboard):
 
 - The `[data-download-trigger]` button (delegated once on `document`, so a re-rendered
@@ -445,10 +446,9 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   `brand-design.test.mjs` asserts both halves: no card's contents overflow its box and the pill
   clears the next card on a 390px viewport.
 - `start(beatId, packageId)` resolves the beat + package, then opens that package's gate and
-  continues on success (`gate: "instant"` short-circuits straight to the download page). It does
-  **not** consult the in-page grant itself: `openGate` answers an already-unlocked package with
-  the "ALREADY UNLOCKED THIS SESSION" toast and the same continuation, so the memory is read on
-  exactly one path.
+  continues on success (`gate: "instant"` short-circuits straight to the download page). There is
+  **no grant shortcut**: even a package this view already passed opens the gate from scratch and
+  requires REVIEW & SIGN again, so the mandatory signature step can never be skipped.
 - `openGate(beat, pack, onUnlocked)` renders `.gate-modal` (backdrop + card) into `<body>`
   and adds `html.gate-open`. Each package asks for exactly what its listing promises:
   `gate: "email"` (MP3 lease) is the address only, `gate: "youtube"` (Standard WAV lease)
@@ -471,11 +471,13 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   `<form data-gate-form>` (with `action` pointed at
   the provider, so the flow degrades without scripting) holding one email field
   (`#gate-email`), the mandatory opt-in checkbox (`#gate-optin`, ticked and `required`), an
-  inline error (`#gate-error`) and the CANCEL/backdrop (`[data-gate-cancel]`) + submit
+  inline error (`#gate-error`) and the CANCEL (`[data-gate-cancel]`) + submit
   (`[data-gate-submit]`) row. The field always starts **empty** and the submit only enables
   once the address is well formed, the box is ticked and every step is done, so a plain click
   cannot skip anything; Enter on the field runs the same `submitGate`, which is also where a
-  malformed address is refused with `#gate-error`. Escape or CANCEL closes. `submitGate` posts
+  malformed address is refused with `#gate-error`. **Only CANCEL closes the dialog** — the
+  backdrop is inert (no `data-gate-cancel`, no outside-click listener) and Escape does nothing,
+  so a stray tap or key cannot close a gate mid-step. `submitGate` posts
   the address with `postSubscribe` and then hands the *same* card over to the sign stage
   (below) instead of leaving for the download page — the files stay locked until the license
   is signed.
@@ -517,7 +519,9 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   (`?sig=<points packed as hundredths, strokes joined by ~>`). **None of it is stored
   anywhere** — the token only means "this flow passed the gate a moment ago", so the download
   page does not ask a second time, while a cold link (a bookmark, a shared URL, a new browser)
-  has no token and is gated over the page.
+  has no token and is gated over the page. The token only counts **with** the signature it
+  carries: `download-page.js` treats a bare `?t=` as a cold link, so the whole sign step can
+  never be skipped by adding a token.
 - `setSignature(value)` / `setDrawnSignature(strokes)` / `licenseeName(fallback)` /
   `signaturePayload()` / `adoptSignature(name, packed)` are the licensee identity: a typed name
   clears any drawing and vice versa, `licenseeName(fallback)` returns the typed name or the
@@ -631,8 +635,9 @@ whose file is missing is dimmed to "UNAVAILABLE" instead of handing over the sto
 There is no raw-text preview, no `.txt` and no COPY button. The page content paints immediately
 and never waits on the flower; if WebGL fails the still `kyrolll-flower-rest.png` simply
 remains. The page itself remembers nothing: `boot()` trusts only the one-shot `?t=` grant token
-`downloads.js` mints when a gate is passed, so a cold link — a shared URL, a bookmark, a new
-browser — is gated over the page and the flow is the same from any entry point (and that cold
+`downloads.js` mints when a gate is passed — and only together with the signature that flow
+carries (`?sign=` / `?sig=`) — so a cold link — a shared URL, a bookmark, a new browser — is
+gated over the page and the flow is the same from any entry point (and that cold
 gate runs the same REVIEW & SIGN stage in place, so the signature never has to make the
 round trip). The LICENSEE signature is the one captured in the sign step, or the typed
 `#license-signature` value on top of it, falling back to the `?email=` value from that same
@@ -722,9 +727,11 @@ Tests that ship with the repo:
   refuses a single word the same way. Re-signing on the download page then downloads again,
   proving the new name replaces the old one in caps on the next issuance. It also
   asserts the gate posts a valid address to the configured newsletter provider (and never a
-  malformed one, and never on a re-opened gate), that a package passed on the download page is
-  remembered in-page only (the gate never re-opens, nothing is re-posted, and the memory is gone
-  after a navigation), and that nothing is written to `localStorage`/`sessionStorage`. It needs
+  malformed one, and never on a re-opened gate), that the backdrop and Escape never dismiss a
+  gate or the sign stage (only CANCEL does), that selecting a package passed on the download page
+  re-opens the full gate and still requires the signature (nothing is auto-opened or prefilled,
+  nothing is re-posted until submit, and the record is gone after a reload), and that nothing is
+  written to `localStorage`/`sessionStorage`. It needs
   Chromium + root `node_modules`,
   which the sandbox does not install. To run it without touching the checkout, copy the repo
   into a `node:22` container and install there:
@@ -735,8 +742,8 @@ Tests that ship with the repo:
 Downloads are plain same-origin files. All three packages sit behind a gate (an email, plus a
 YouTube subscribe + like for the WAV and the exclusive — there is no comment step), which are
 lead-capture courtesies rather than enforcement — the files themselves are public and nothing on
-the server blocks them, and the grant token that skips the second ask is just a URL parameter.
-The strict half of "genuine interaction" is what a static page can actually enforce: a trusted
+the server blocks them, and the grant token is just a URL parameter. The strict half of
+"genuine interaction" is what a static page can actually enforce: a trusted
 click and a real dwell on each step (`STEP_HOLD_MS`), plus a **full name and a signature**
 captured in the sign step — and the full name is required in **both** TYPE and DRAW modes, so a
 bare drawing cannot stand in for the name (a single word, a blank field and a token dot are all
@@ -744,9 +751,11 @@ refused before the unlock button will move, and the submit handler refuses them 
 attribute is stripped). A departure to the opened tab only ever *shortens* that hold — it is recorded, never
 required — because a blocked popup would otherwise strand a real visitor, and because a
 headless browser reports no blur at all (measured, so no check can depend on it).
-The gate is remembered for the current page view only (`grants`), so a visitor who passes it and
-comes back in the same view is not asked twice — while a reload, a new tab or another browser is
-asked again from scratch, and no gate can ever be skipped by anything that outlives the page. The
+The dialog has one exit — its CANCEL button. The backdrop and Escape are inert, so a stray tap
+or key cannot wipe a gate or a signature in progress. The in-page `grants` record never skips a
+selection: a visitor who passes a package and selects it again in the same view is asked in full
+again, with the signature stage empty and locked, while a reload, a new tab or another browser is
+asked from scratch. The
 email is the one thing that can leave the browser: with `KYROlll_NEWSLETTER` configured, the gate
 posts the address to that provider (the opt-in box is a required part of every gate).
 

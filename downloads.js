@@ -3,13 +3,18 @@
  * Unifies the "DOWNLOAD FREE" package menu, the lightweight gates (YouTube +
  * email) and the actual browser downloads. No cart, no checkout, no backend.
  *
- * SMART SESSION MEMORY — nothing is ever written down:
+ * SESSION RECORD — nothing is ever written down:
  * - no `localStorage`, no `sessionStorage`, no cookie and no unlock set;
- * - a package unlocked in this view is remembered in one plain in-page Map
- *   (`grants`), so the visitor is never made to pass the same gate twice in
- *   one session — and the memory evaporates with the page.
- * A reload, a new tab, a bookmark or a shared link always re-opens the gate from
- * scratch, and the address is never prefilled.
+ * - a package passed in this view is recorded in one plain in-page Map
+ *   (`grants`), purely so callers can ask `isUnlocked`; the record is NEVER
+ *   consulted to skip a step, and it evaporates with the page.
+ * Every selection — including one this view already passed — re-opens the full
+ * gate and re-requires REVIEW & SIGN; a reload, a new tab, a bookmark or a shared
+ * link asks from scratch, and the address is never prefilled.
+ *
+ * THE DIALOG HAS ONE EXIT — its CANCEL button. The backdrop is inert and Escape
+ * does nothing, so a stray tap or key can never close a gate mid-step or wipe a
+ * signature in progress.
  *
  * STRICT GATING — each package asks for exactly what its own listing promises:
  * - MP3 LEASE (gate: email): EMAIL + MANDATORY OPT-IN → REVIEW & SIGN → FILES + PDF.
@@ -149,10 +154,6 @@
      keeps nothing. */
   const grants = new Map();
   function grantKey(beatId, packageId) { return String(beatId) + "::" + String(packageId); }
-  function grantedEmail(beatId, packageId) {
-    const key = grantKey(beatId, packageId);
-    return grants.has(key) ? grants.get(key) : null;
-  }
   function rememberGrant(beatId, packageId, email) {
     grants.set(grantKey(beatId, packageId), String(email == null ? "" : email).trim());
   }
@@ -266,8 +267,8 @@
     return true;
   }
 
-  /* `openGate` already answers a package this view has unlocked — same toast,
-     same continuation — so the grant is never consulted twice on one path. */
+  /* `start` opens the gate on every selection — there is no grant shortcut, so
+     the mandatory REVIEW & SIGNATURE stage can never be skipped. */
   function start(beatId, packageId) {
     const catalog = helpers();
     const beat = catalog && catalog.beatById(beatId);
@@ -469,7 +470,6 @@
 
   /* gates */
   let gate = null;
-  let gateKeyHandler = null;
 
   /* The page behind an open gate is locked the way a phone respects: a plain
      `overflow: hidden` alone makes iOS jump to the top, so the scroll offset is
@@ -502,28 +502,25 @@
     window.scrollTo(0, y);
   }
 
-  /* One outside-click handler for the life of the page. It used to be installed
-     per gate and only removed on Escape, so every gate left another listener
-     behind and each tap ran over the whole stack — the mobile freeze. */
-  function handleGateOutside(event) {
-    if (gate && !gate.contains(event.target)) closeGate();
-  }
-  document.addEventListener("click", handleGateOutside, true);
-
+  /* The dialog has exactly one exit: its CANCEL button. The backdrop is a
+     deliberately inert field — no outside-click listener, no Escape handler and
+     no dismiss attribute on the backdrop — so a stray tap can never close the
+     gate or wipe the progress of the step in front of it. Only `wireGateDismiss`
+     (bound to `[data-gate-cancel]`, i.e. CANCEL) closes it. */
   function closeGate() {
     if (!gate) return;
     const node = gate;
     gate = null;
     clearStepTimers();
-    if (gateKeyHandler) { document.removeEventListener("keydown", gateKeyHandler); gateKeyHandler = null; }
     node.classList.remove("is-visible");
     unlockPage();
     setTimeout(() => node.remove(), 260);
   }
 
-  /* Every stage of a gate is rendered into the same card, so the CANCEL and
-     backdrop controls are (re)bound after each render — `stageTitle` keeps the
-     beat in the heading, `kicker` names the package. */
+  /* Every stage of a gate is rendered into the same card, so the CANCEL control
+     is (re)bound after each render — `stageTitle` keeps the beat in the heading,
+     `kicker` names the package. The backdrop deliberately carries no
+     `data-gate-cancel`: only the explicit button dismisses a gate. */
   function wireGateDismiss(modal) {
     modal.querySelectorAll("[data-gate-cancel]").forEach((el) => {
       el.removeEventListener("click", closeGate);
@@ -533,7 +530,7 @@
 
   function gateShell(pack, beat, stageTitle, body) {
     const titleText = stageTitle ? (escapeHTML(stageTitle) + ' — ' + escapeHTML(beat.title)) : escapeHTML(beat.title);
-    return '<div class="gate-modal__backdrop" data-gate-cancel></div>' +
+    return '<div class="gate-modal__backdrop"></div>' +
       '<div class="gate-modal__card" role="dialog" aria-modal="true" aria-labelledby="gate-title">' +
         '<span class="gate-modal__kicker">' + escapeHTML(pack.name) + '</span>' +
         '<h2 class="gate-modal__title" id="gate-title">' + titleText + '</h2>' + body + '</div>';
@@ -1020,9 +1017,9 @@
     });
   }
 
-  /* Common completion: show the success beat, remember the grant for this page
-     view only, then proceed and hand the just-submitted address to the next
-     step. Nothing is ever written down. */
+  /* Common completion: show the success beat, record the grant for this page
+     view (a record only — it never skips a later gate), then proceed and hand
+     the just-submitted address to the next step. Nothing is ever written down. */
   function finalizeGate(beat, pack, onUnlocked, email) {
     rememberGrant(beat.id, pack.id, email);
     const sm = showSuccessModal();
@@ -1082,15 +1079,10 @@
   /* ---------------------------------------------------------- openGate dispatcher */
   function openGate(beat, pack, onUnlocked) {
     closeGate();
-    /* Session memory, consulted first: a package already unlocked during this
-       view never asks again (and this page's memory is all it is — see
-       `grants`). A reload or a new tab has no memory and asks from scratch. */
-    const remembered = grantedEmail(beat.id, pack.id);
-    if (remembered !== null) {
-      showToast("ALREADY UNLOCKED THIS SESSION");
-      if (onUnlocked) onUnlocked(beat, pack, remembered);
-      return;
-    }
+    /* No session shortcut: selecting a package always renders the gate from
+       scratch and always requires the REVIEW & SIGNATURE stage, even if this
+       view already passed it. The in-page `grants` Map is only a record for the
+       API — it is never consulted to skip a step. */
     const modal = document.createElement("div");
     modal.className = "gate-modal";
     
@@ -1167,11 +1159,10 @@
       setTimeout(() => { try { input.focus(); input.select(); } catch (err) { /* ignore */ } }, 40);
     }
 
-    // Cancel + Escape. The outside-click handler is installed once at module
-    // load (`handleGateOutside`), so no gate can leave another one behind.
+    // The only dismissal is CANCEL (bound by `wireGateDismiss` below). There is
+    // deliberately no Escape or outside-click close, so a stray tap or key can
+    // never wipe the gate or the signature in progress.
     wireGateDismiss(modal);
-    gateKeyHandler = (ev) => { if (ev.key === "Escape") closeGate(); };
-    document.addEventListener("keydown", gateKeyHandler);
   }
 
   /* --------------------------------------------------- newsletter submission

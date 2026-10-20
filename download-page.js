@@ -40,8 +40,10 @@
   const pack = helpers() && helpers().packageById(params.get("package") || "");
 
   /* The one-shot grant token: proof that a gate was passed a moment ago, in
-     this flow. It is never written down, so a cold link gets the gate. */
-  const granted = !!params.get("t");
+     this flow. It is never written down, so a cold link gets the gate. The token
+     only counts together with the signature the REVIEW & SIGN stage handed
+     forward (`?sign=` / `?sig=`): a bare `?t=` can never skip the signature step. */
+  const granted = !!params.get("t") && !!(params.get("sign") || params.get("sig"));
 
   /* A scheduled drop is closed until its clock lands (catalog.js owns the
      clock). A flow that just passed a gate holds a grant token, so it is already

@@ -2010,6 +2010,9 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
   background: rgba(0, 0, 0, .82);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+  /* An opaque, click-absorbing field with NO dismiss handler: a tap on it does
+     nothing at all. The dialog closes only through its CANCEL button, so a
+     stray tap can never wipe a gate or a signature in progress. */
   opacity: 0;
   transition: opacity .25s ease;
 }
