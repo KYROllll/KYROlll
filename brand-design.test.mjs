@@ -295,6 +295,7 @@ try {
     pink: getComputedStyle(el, '::after').color,
   })), { green: 'rgb(57, 255, 139)', pink: 'rgb(255, 62, 165)' });
   assert.equal(await desktop.locator('#grid .catalog-tile').count(), 2);
+  assert.match(await desktop.locator('.catalog-tile__art img').first().evaluate(el => getComputedStyle(el).filter), /grayscale\(1\)/, 'catalog cover art is rendered in black and white');
   assert.match(await desktop.locator(CARD).innerText(), /\[FREE 100%\] DON TOLIVER TYPE BEAT - FLESH/i);
   await shot(desktop, 'desktop');
 
@@ -393,10 +394,11 @@ try {
       `${selector} remains stationary on hover`,
     );
   }
-  // FLESH is the collector's edition: the first beat carries the pearl-white
-  // pressing, its centre label is deep matte black, and the complete official
-  // flower is painted on it — there is no spindle hole covering the mark. THE
-  // FLOW stays on the classic black disc.
+  // Both beats carry the approved white/black pressing: a pearl-white disc, a
+  // deep matte black centre label, and the complete official flower painted on
+  // it — there is no spindle hole covering the mark. The cover artwork is
+  // rendered in the same black-and-white world.
+  assert.match(await direct.locator('.beat-detail__artwork img').evaluate(el => getComputedStyle(el).filter), /grayscale\(1\)/, 'the beat cover art is rendered in black and white');
   assert.equal(await direct.locator('.beat-detail').getAttribute('data-vinyl'), 'white', 'FLESH renders the white vinyl variant');
   assert.equal(await direct.locator('.vinyl-record').getAttribute('data-vinyl'), 'white', 'the record itself carries the white variant');
   assert.equal(await direct.locator('.vinyl-record--white').count(), 1, 'the white pressing has its own modifier class');
@@ -420,7 +422,7 @@ try {
   assert.equal(fleshVinyl.discAnimation, 'none', 'the outer record bounding box never rotates');
   const vinylVariants = await direct.evaluate(() => Object.fromEntries(window.KYROlll_CATALOG.map(beat => [beat.slug, beat.vinylVariant])));
   assert.equal(vinylVariants.flesh, 'white', 'catalog data marks FLESH as the white pressing');
-  assert.equal(vinylVariants['the-flow'], 'black', 'catalog data keeps THE FLOW on the black pressing');
+  assert.equal(vinylVariants['the-flow'], 'white', 'catalog data gives THE FLOW the same white pressing');
   await shot(direct, 'beat-detail');
   await direct.close();
 
@@ -528,8 +530,8 @@ try {
   // The per-beat variant is clean: only FLESH wears the pearl disc.
   await vinylPage.goto(`${url}/?beat=the-flow`);
   await vinylPage.locator('.beat-detail').waitFor();
-  assert.equal(await vinylPage.locator('.beat-detail').getAttribute('data-vinyl'), 'black', 'THE FLOW stays on the classic black vinyl');
-  assert.equal(await vinylPage.locator('.vinyl-record--white').count(), 0, 'THE FLOW gets no white modifier');
+  assert.equal(await vinylPage.locator('.beat-detail').getAttribute('data-vinyl'), 'white', 'THE FLOW uses the same white/black pressing');
+  assert.equal(await vinylPage.locator('.vinyl-record--white').count(), 1, 'THE FLOW carries the white modifier');
   await vinylPage.close();
 
   // Package 1 — MP3 Lease: the email gate. It asks from scratch every single

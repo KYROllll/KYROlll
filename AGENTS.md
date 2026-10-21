@@ -36,20 +36,22 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   again in `toAscii` (`license-pdf.js`), which uppercases before it sanitises; `KYROlll`
   survives only as an API name (`window.KYROlll_*`), an asset path (`assets/kyrolll-*.png`)
   and the YouTube handle.
-- **One palette for the store's own paint — and no filters on the art.** The storefront is
+- **One palette for the store's own paint — and monochrome beat art.** The storefront is
   deep matte black `#0B0B0B`, pure white `#FFFFFF` and silver `#888888`, with the original
   neon-green / vivid-pink glitch palette isolated to the hero tagline and heart. Every colour
   literal outside that tagline section in `style.css` is an equal-channel grey, and the
-  `theme-color` metas are `#0b0b0b`. The supplied raster
-  artwork is **not** desaturated, because the store shows its art rather than tinting it:
+  `theme-color` metas are `#0b0b0b`. The beat cover art is rendered through `grayscale(1)` on
+  both the catalog tiles and the beat detail, so the covers keep their composition and
+  contrast in black and white. The brand marks themselves are not filtered:
   `body > canvas` (the falling brush X), `.footer__logo`, `.brand-wordmark__mark`,
   `.vinyl-record__logo` and both watermark images paint in the colour they were drawn in —
   the warm brown of the brush marks included — so no `grayscale()`/`saturate()` belongs in any
   of their chains. `npm run build:brand` (which needs `sharp`) still owns those files and is
   still the only thing that may re-cut them. The generated PDF is equal-channel by construction
   (`license-pdf.js`), and the brand-design test asserts both halves: it reads every colour out
-  of the PDF bytes and every colour literal outside the dedicated tagline section of `style.css`.
-  Keep any new CSS accents scoped to the tagline; all other storefront styling stays neutral.
+  of the PDF bytes and every colour literal outside the dedicated tagline section of `style.css`,
+  and it asserts the cover art's monochrome filter. Keep any new CSS accents scoped to the
+  tagline; all other storefront styling stays neutral.
 - **The dialog is a phone citizen.** `.gate-modal` is measured in *dynamic* viewport units
   (`height: 100vh; height: 100dvh`) and the card is capped at `max-height: 90dvh` and scrolls
   inside itself, so even the five-step exclusive gate (steps + email + buttons) stays whole and
@@ -292,13 +294,13 @@ rest immediately, and adding `vinyl-open` is a no-op. `.beat-detail__artwork-wra
 `contain: layout` (not `paint`, which would clip the record's shadow) so a child box can
 never nudge a surrounding box.
 
-`catalog.js` assigns the pressing per beat: FLESH carries `vinylVariant: "white"` (a
-pearl-white disc with a broad black centre label and the full flower, no spindle hole),
-THE FLOW carries `"black"` (the classic centred label), and `script.js` writes the variant
-onto the card (`data-vinyl`) and the record (`.vinyl-record--white`). The pre-rendered FLESH
-card in `index.html` mirrors that markup so the first paint is already white; the record's
-vertical containment, the large cover width, the fully-exposed logo and the zero horizontal
-overflow are asserted at 375, 390, 768 and 1440 px.
+`catalog.js` gives both beats `vinylVariant: "white"` (a pearl-white disc with a broad
+black centre label and the full flower, no spindle hole); the black pressing remains in the
+stylesheet as an unused fallback. `script.js` writes the variant onto the card (`data-vinyl`)
+and the record (`.vinyl-record--white`). The pre-rendered FLESH card in `index.html` mirrors
+that markup so the first paint is already white; the record's vertical containment, the large
+cover width, the fully-exposed logo and the zero horizontal overflow are asserted at 375, 390,
+768 and 1440 px.
 
 ## Preview responsiveness in this sandbox
 

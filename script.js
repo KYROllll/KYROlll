@@ -146,9 +146,9 @@ function actionsSlotHTML(beat, compact) {
 
 function beatDetailInner(beat) {
   const pending = releasePending(beat);
-  // A beat can choose its pressing. The white collector's edition is the
-  // explicit variant; everything else keeps the classic black vinyl.
-  const vinylVariant = beat.vinylVariant === "white" ? "white" : "black";
+  // The white/black pressing is the store's standard. A beat that explicitly
+  // asks for the classic black disc can still opt into it.
+  const vinylVariant = beat.vinylVariant === "black" ? "black" : "white";
   const meta = pending
     ? `<div class="card__specs">${specLine(beat)} // SCHEDULED DROP</div>`
     : `<div class="card__specs">${specLine(beat)} // TAGGED AUDIO</div>`;
@@ -239,7 +239,7 @@ function buildGrid() {
     card.id = "card-" + beat.id;
     if (detail) {
       card.className = "beat-detail";
-      card.setAttribute("data-vinyl", beat.vinylVariant === "white" ? "white" : "black");
+      card.setAttribute("data-vinyl", beat.vinylVariant === "black" ? "black" : "white");
       card.innerHTML = beatDetailInner(beat);
     } else {
       const pending = releasePending(beat);

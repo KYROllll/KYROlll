@@ -632,7 +632,16 @@ body > canvas {
 }
 .catalog-tile__link { display: block; flex: 1 1 auto; color: var(--white); text-decoration: none; }
 .catalog-tile__art { display: block; aspect-ratio: 1; overflow: hidden; }
-.catalog-tile__art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.catalog-tile__art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* The store shows its beat artwork in the same monochrome world as the rest
+     of the page: the supplied covers keep their composition and contrast, not
+     their colour. */
+  filter: grayscale(1);
+}
 .catalog-tile__title { display: block; padding: 16px; font-size: 12px; font-weight: 700; line-height: 1.5; letter-spacing: .04em; }
 .catalog-tile__link:focus-visible, .beat-navigation a:focus-visible { outline: 2px solid var(--white); outline-offset: 3px; }
 
@@ -694,6 +703,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   height: 100%;
   object-fit: cover;
   box-sizing: border-box;
+  /* Same monochrome treatment as the catalog tiles. */
+  filter: grayscale(1);
 }
 .beat-detail .card__name {
   font-size: clamp(26px, 3.5vw, 42px);
@@ -1377,8 +1388,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   z-index: 1;
 }
 
-/* FLESH wears the collector's edition: a pearl-white disc whose black centre
-   label is the whole point of the slide-out. The paint is built from equal-channel
+/* The store's standard pressing: a pearl-white disc whose black centre label is
+   the whole point of the slide-out. The paint is built from equal-channel
    greys (the storefront's monochrome rule): a soft radial specular highlight at
    the top-left, one set of fine dark micro-grooves and a second set of bright
    rings, over a pearl-white body that falls away to a silver rim. */
