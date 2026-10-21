@@ -36,26 +36,27 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   again in `toAscii` (`license-pdf.js`), which uppercases before it sanitises; `KYROlll`
   survives only as an API name (`window.KYROlll_*`), an asset path (`assets/kyrolll-*.png`)
   and the YouTube handle.
-- **One palette for the store's own paint — with the supplied artwork in colour.** The
+- **One palette for the store's own paint — with two isolated artwork exceptions.** The
   storefront is deep matte black `#0B0B0B`, pure white `#FFFFFF` and silver `#888888`, with the
   original neon-green / vivid-pink glitch palette isolated to the hero tagline and heart. Every
-  colour literal outside that tagline section in `style.css` is an equal-channel grey, and the
-  `theme-color` metas are `#0b0b0b`. The beat cover art is **not** filtered: the catalog tiles
-  and the beat detail show the supplied covers in their original colour. The same is true of
-  the brand marks: `body > canvas` (the falling brush X), `.footer__logo`,
-  `.brand-wordmark__mark`, `.vinyl-record__logo` and both watermark images paint in the colour
-  they were drawn in — the warm brown of the brush marks included — so no
-  `grayscale()`/`saturate()` belongs in any of their chains. The one coloured vinyl is THE
-  FLOW's black/gold pressing, and its gold lives entirely in the supplied
-  `assets/gold-splatter.svg` artwork (a CSS background image), not in a CSS color literal, so
-  the stylesheet's equal-channel rule and the test's CSS hue audit both stay intact.
-  `npm run build:brand` (which needs `sharp`) still owns the raster brand files and is still
-  the only thing that may re-cut them. The generated PDF is equal-channel by construction
-  (`license-pdf.js`), and the brand-design test asserts both halves: it reads every colour out
-  of the PDF bytes and every colour literal outside the dedicated tagline section of `style.css`,
-  and it asserts the covers keep their colour while the gold splash asset is present. Keep any
-  new CSS accents scoped to the tagline (or supplied artwork); all other storefront styling
-  stays neutral.
+  colour literal outside **two** deliberately marked sections — the hero tagline and THE FLOW's
+  `gold-rim` vinyl palette — is an equal-channel grey, and the `theme-color` metas are
+  `#0b0b0b`. The beat cover art is **not** filtered: the catalog tiles and the beat detail show
+  the supplied covers in their original colour. The same is true of the brand marks:
+  `body > canvas` (the falling brush X), `.footer__logo`, `.brand-wordmark__mark`,
+  `.vinyl-record__logo` and both watermark images paint in the colour they were drawn in — the
+  warm brown of the brush marks included — so no `grayscale()`/`saturate()` belongs in any of
+  their chains. THE FLOW's collector pressing is the coloured vinyl: its splash is the supplied
+  `assets/gold-splatter.svg` artwork, while its deep matte `#0a0a0c` body and ultra-fine gold
+  foil rim (`#d4af37` / `#e5c158`) are the vinyl's own intentional CSS colour block, scoped
+  between the `THE FLOW gold-rim palette` markers. `npm run build:brand` (which needs
+  `sharp`) still owns the raster brand files and is still the only thing that may re-cut
+  them. The generated PDF is equal-channel by construction (`license-pdf.js`), and the
+  brand-design test asserts both halves: it reads every colour out of the PDF bytes and every
+  colour literal outside the two marked stylesheet sections, and it asserts the covers keep
+  their colour, the gold splash asset is present and the gold rim is painted and masked. Keep
+  any new CSS accents scoped to those marked exceptions; all other storefront styling stays
+  neutral.
 - **The dialog is a phone citizen.** `.gate-modal` is measured in *dynamic* viewport units
   (`height: 100vh; height: 100dvh`) and the card is capped at `max-height: 90dvh` and scrolls
   inside itself, so even the five-step exclusive gate (steps + email + buttons) stays whole and
@@ -301,16 +302,19 @@ never nudge a surrounding box.
 
 `catalog.js` gives each beat its own pressing: FLESH is `vinylVariant: "white"` (a pearl-white
 disc with a broad black centre label and the full flower, no spindle hole) and THE FLOW is
-`vinylVariant: "gold"` (the classic black disc with liquid gold drips, droplets and splashes).
-`script.js` writes the variant onto the card (`data-vinyl`) and the record
-(`.vinyl-record--white` / `.vinyl-record--gold`); a bare black disc remains the base/fallback.
-The gold itself is supplied by `assets/gold-splatter.svg` through
-`.vinyl-record__gold`'s background image — it sits above the grooves but below the centre
-label and the spinning flower, and it adds no gold CSS color literal. The pre-rendered FLESH
-card in `index.html` mirrors the white markup so the first paint is already white; the
-record's vertical containment, the large cover width, the fully-exposed logo and the zero
-horizontal overflow are asserted at 375, 390, 768 and 1440 px, and the gold splash/label
-stacking is asserted on THE FLOW.
+`vinylVariant: "gold-rim"` (a deep matte `#0a0a0c` disc with the supplied liquid-gold splash and
+an ultra-fine metallic gold foil rim). `script.js` writes the variant onto the card
+(`data-vinyl`) and the record (`.vinyl-record--white` / `.vinyl-record--gold-rim`); the old
+`"gold"` value resolves to `gold-rim`, and a bare black disc remains the base/fallback. The
+splash is `assets/gold-splatter.svg` through `.vinyl-record__gold`; the rim is
+`.vinyl-record__rim`, a conic-gradient masked to a 2–3px outer hairline plus a fainter inner
+ring. It sits above the grooves and splash (z-index 3) but only at the perimeter, while the
+centre label (z-index 1) and the spinning flower (z-index 2) stay clean on top. The gold-rim
+palette is isolated between the `THE FLOW gold-rim palette` CSS markers and excluded from the
+equal-channel audit. The pre-rendered FLESH card in `index.html` mirrors the white markup so
+the first paint is already white; the record's vertical containment, the large cover width,
+the fully-exposed logo and the zero horizontal overflow are asserted at 375, 390, 768 and
+1440 px, and the gold-rim body, rim gradient/mask and stacking are asserted on THE FLOW.
 
 ## Preview responsiveness in this sandbox
 

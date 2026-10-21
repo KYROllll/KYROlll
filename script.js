@@ -33,16 +33,17 @@ function specLine(beat) {
 }
 
 /* Each beat owns a pressing: FLESH is pearl white, THE FLOW is black with a
-   liquid-gold splash. Anything that does not opt into a known variant keeps the
-   white standard, so a new catalog entry can never render an unstyled disc. */
+   liquid-gold splash and a fine gold rim. The old "gold" value still resolves to
+   the refined "gold-rim" pressing, so a stale link or cached catalog can never
+   render an unstyled disc. Anything unknown keeps the white standard. */
 function vinylVariantFor(beat) {
-  if (beat && beat.vinylVariant === "gold") return "gold";
+  if (beat && (beat.vinylVariant === "gold-rim" || beat.vinylVariant === "gold")) return "gold-rim";
   if (beat && beat.vinylVariant === "black") return "black";
   return "white";
 }
 function vinylModifier(variant) {
   if (variant === "white") return " vinyl-record--white";
-  if (variant === "gold") return " vinyl-record--gold";
+  if (variant === "gold-rim") return " vinyl-record--gold-rim";
   return "";
 }
 
@@ -161,7 +162,8 @@ function actionsSlotHTML(beat, compact) {
 function beatDetailInner(beat) {
   const pending = releasePending(beat);
   const vinylVariant = vinylVariantFor(beat);
-  const goldSplash = vinylVariant === "gold" ? `<span class="vinyl-record__gold" aria-hidden="true"></span>` : "";
+  const goldSplash = vinylVariant === "gold-rim" ? `<span class="vinyl-record__gold" aria-hidden="true"></span>` : "";
+  const goldRim = vinylVariant === "gold-rim" ? `<span class="vinyl-record__rim" aria-hidden="true"></span>` : "";
   const meta = pending
     ? `<div class="card__specs">${specLine(beat)} // SCHEDULED DROP</div>`
     : `<div class="card__specs">${specLine(beat)} // TAGGED AUDIO</div>`;
@@ -184,6 +186,7 @@ function beatDetailInner(beat) {
     <div class="beat-detail__artwork-wrap">
       <div class="vinyl-record${vinylModifier(vinylVariant)}" data-vinyl="${vinylVariant}" aria-hidden="true">
         ${goldSplash}
+        ${goldRim}
         <span class="vinyl-record__logo-frame" aria-hidden="true">
           <img class="vinyl-record__logo" src="assets/kyrolll-flower.svg" alt="" width="300" height="300" loading="lazy">
         </span>

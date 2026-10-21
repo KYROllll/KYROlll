@@ -1489,12 +1489,17 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   height: 22%;
 }
 
-/* THE FLOW's pressing: the classic black disc with a liquid-gold splash poured
-   across its exposed right side. The gold lives in the supplied SVG artwork, not
-   in CSS paint, so the storefront's equal-channel CSS palette (and its hue
-   audit) stays intact. The splash sits above the grooves but below the centre
-   label and the spinning flower: it can spill over the rim's rings, never over
-   the mark. */
+/* THE FLOW gold-rim palette — the vinyl's deliberate colour exception. */
+/* THE FLOW's collector pressing: a deep matte black disc, the supplied
+   liquid-gold splash, and an ultra-fine metallic gold foil rim. The splash and
+   rim sit above the grooves but below the centre label; the rim itself is only a
+   masked hairline at the outer perimeter, so it never crosses the flower. */
+.vinyl-record--gold-rim {
+  background:
+    radial-gradient(circle at 32% 22%, rgba(255, 255, 255, 0.035) 0%, transparent 34%),
+    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 7px),
+    radial-gradient(circle at 50% 50%, #0a0a0c 0%, #0a0a0c 58%, #070708 82%, #0a0a0c 100%);
+}
 .vinyl-record__gold {
   position: absolute;
   inset: 0;
@@ -1505,8 +1510,50 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   background: url("assets/gold-splatter.svg?v=1") center / contain no-repeat;
   opacity: 0.97;
 }
-.vinyl-record--gold::after { z-index: 1; }
-.vinyl-record--gold .vinyl-record__logo-frame { z-index: 2; }
+.vinyl-record__rim {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 3;
+  background: conic-gradient(from 215deg,
+    #8a6518 0deg,
+    #d4af37 28deg,
+    #fff3b0 48deg,
+    #e5c158 72deg,
+    #b8860b 112deg,
+    #f3d36a 148deg,
+    #8a6518 190deg,
+    #d4af37 228deg,
+    #fff3b0 262deg,
+    #c99727 300deg,
+    #8a6518 360deg);
+  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - 3.2px), #000 calc(100% - 2.2px) 100%);
+  mask: radial-gradient(circle closest-side, transparent calc(100% - 3.2px), #000 calc(100% - 2.2px) 100%);
+  opacity: 0.96;
+}
+.vinyl-record__rim::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: conic-gradient(from 40deg,
+    #8a6518 0deg,
+    #e5c158 36deg,
+    #fff3b0 64deg,
+    #c99727 108deg,
+    #f3d36a 152deg,
+    #8a6518 210deg,
+    #d4af37 258deg,
+    #fff3b0 300deg,
+    #8a6518 360deg);
+  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - 1.8px), #000 calc(100% - 1.1px) 100%);
+  mask: radial-gradient(circle closest-side, transparent calc(100% - 1.8px), #000 calc(100% - 1.1px) 100%);
+  opacity: 0.62;
+}
+.vinyl-record--gold-rim::after { z-index: 1; }
+.vinyl-record--gold-rim .vinyl-record__logo-frame { z-index: 2; }
+/* End THE FLOW gold-rim palette. */
 
 .vinyl-record__logo {
   display: block;

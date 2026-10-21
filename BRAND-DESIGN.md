@@ -35,15 +35,17 @@ dependency.
 ## Store palette: black, white, silver, with the restored hero accent
 
 The storefront is built on deep matte black `#0B0B0B`, pure white `#FFFFFF`,
-silver `#888888` and their equal-channel grey siblings. The hero's
-`THAT MY FAVORITE` tagline and pixel heart retain their original neon-green and
-vivid-pink glitch accents; that is the only colored CSS section. Every other
-color literal in `style.css` is an equal-channel grey. The generated PDF remains
-monochromatic by construction (`license-pdf.js` draws only equal-channel greys).
-Beat cover art keeps the colour it was supplied in. The brand marks keep their
-colour too, and THE FLOW's liquid-gold vinyl is supplied as an SVG artwork
-(`assets/gold-splatter.svg`), not as a CSS color literal — see "Beat art keeps
-its colour; the gold pressing is one artwork asset".
+silver `#888888` and their equal-channel grey siblings. Two sections are
+deliberate colour exceptions: the hero's `THAT MY FAVORITE` tagline and pixel
+heart keep their original neon-green and vivid-pink glitch accents, and THE
+FLOW's collector vinyl isolates its deep matte `#0a0a0c` body and
+`#d4af37` / `#e5c158` gold foil rim between the `THE FLOW gold-rim palette`
+markers. Every other color literal in `style.css` is an equal-channel grey. The
+generated PDF remains monochromatic by construction (`license-pdf.js` draws only
+equal-channel greys). Beat cover art keeps the colour it was supplied in. The
+brand marks keep their colour too, and the liquid-gold splash is supplied as an
+SVG artwork (`assets/gold-splatter.svg`) — see "Beat art keeps its colour; the
+gold pressing is one artwork asset".
 
 Its borders are the crisp white/silver pair: a pure white frame (`1 1 1`, the
 requested `#FFFFFF`) with a silver hairline and silver rules at
@@ -71,13 +73,18 @@ drawn — the warm brown of the brush marks and the tints in the wordmark artwor
 included.
 
 Each beat also owns its vinyl. FLESH wears the pearl-white disc with a black
-centre label; THE FLOW wears the classic black disc with liquid gold drips,
-droplets and splashes. The gold is a supplied SVG background layer
-(`assets/gold-splatter.svg` on `.vinyl-record__gold`), which keeps the gold
-outside `style.css`'s equal-channel color literals: the splash sits above the
-grooves but below the centre label and the spinning flower. `npm run build:brand`
-remains the single source of truth for every raster asset, and the storefront is
-the only thing that decides what a hue looks like on screen.
+centre label; THE FLOW wears the `gold-rim` collector pressing: a deep matte
+`#0a0a0c` disc, the supplied liquid gold drips and splashes, and an ultra-fine
+metallic gold foil rim. The splash is a supplied SVG background layer
+(`assets/gold-splatter.svg` on `.vinyl-record__gold`); the rim is
+`.vinyl-record__rim`, a conic-gradient masked to a 2–3px outer hairline plus a
+fainter concentric inner ring. The rim paints above the grooves and splash but
+only at the perimeter, so the black centre label and the spinning flower stay
+clean. The `gold-rim` palette is isolated between the `THE FLOW gold-rim palette`
+markers and exempted from the stylesheet's equal-channel audit; everything else
+stays neutral. `npm run build:brand` remains the single source of truth for every
+raster asset, and the storefront is the only thing that decides what a hue looks
+like on screen.
 
 ## Falling-X background
 
