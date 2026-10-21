@@ -32,8 +32,8 @@ function specLine(beat) {
   return `${beat.bpm} BPM // ${String(beat.key).toUpperCase()}`;
 }
 
-/* Each beat owns a pressing: FLESH is pearl white, THE FLOW is black with a
-   liquid-gold splash and a fine gold rim. The old "gold" value still resolves to
+/* Each beat owns a pressing: FLESH is pearl white, THE FLOW is a deep matte
+   black disc with a single fine gold rim. The old "gold" value still resolves to
    the refined "gold-rim" pressing, so a stale link or cached catalog can never
    render an unstyled disc. Anything unknown keeps the white standard. */
 function vinylVariantFor(beat) {
@@ -162,7 +162,6 @@ function actionsSlotHTML(beat, compact) {
 function beatDetailInner(beat) {
   const pending = releasePending(beat);
   const vinylVariant = vinylVariantFor(beat);
-  const goldSplash = vinylVariant === "gold-rim" ? `<span class="vinyl-record__gold" aria-hidden="true"></span>` : "";
   const goldRim = vinylVariant === "gold-rim" ? `<span class="vinyl-record__rim" aria-hidden="true"></span>` : "";
   const meta = pending
     ? `<div class="card__specs">${specLine(beat)} // SCHEDULED DROP</div>`
@@ -185,7 +184,6 @@ function beatDetailInner(beat) {
     </section>
     <div class="beat-detail__artwork-wrap">
       <div class="vinyl-record${vinylModifier(vinylVariant)}" data-vinyl="${vinylVariant}" aria-hidden="true">
-        ${goldSplash}
         ${goldRim}
         <span class="vinyl-record__logo-frame" aria-hidden="true">
           <img class="vinyl-record__logo" src="assets/kyrolll-flower.svg" alt="" width="300" height="300" loading="lazy">

@@ -130,8 +130,8 @@
       key: "C#m",
       preview: "assets/previews/the-flow.mp3",
       youtube: "https://www.youtube.com/watch?v=aHMCkzw9Wuo",
-      /* THE FLOW's collector pressing: a deep matte black disc, the supplied
-         liquid-gold splash, and an ultra-fine metallic gold foil rim. */
+      /* THE FLOW's collector pressing: a deep matte black disc with a single
+         ultra-fine metallic gold foil rim. */
       vinylVariant: "gold-rim",
       /* A scheduled drop: this beat stays closed until the store's clock reaches
          `releaseAt` — a countdown pill on the catalog tile (where the button

@@ -43,9 +43,9 @@ FLOW's collector vinyl isolates its deep matte `#0a0a0c` body and
 markers. Every other color literal in `style.css` is an equal-channel grey. The
 generated PDF remains monochromatic by construction (`license-pdf.js` draws only
 equal-channel greys). Beat cover art keeps the colour it was supplied in. The
-brand marks keep their colour too, and the liquid-gold splash is supplied as an
-SVG artwork (`assets/gold-splatter.svg`) — see "Beat art keeps its colour; the
-gold pressing is one artwork asset".
+brand marks keep their colour too. The `gold-rim` vinyl carries no splash or
+artwork layer; its only colour is the single CSS foil rim described below — see
+"Beat art keeps its colour; the gold rim is the vinyl's CSS exception".
 
 Its borders are the crisp white/silver pair: a pure white frame (`1 1 1`, the
 requested `#FFFFFF`) with a silver hairline and silver rules at
@@ -61,7 +61,7 @@ into the panel. Its text is uppercase and its few literals (`#101010`, `#484848`
 white) are equal-channel greys, so the open drawer passes the same zero-hue and
 ALL-CAPS audits the rest of the store does.
 
-## Beat art keeps its colour; the gold pressing is one artwork asset
+## Beat art keeps its colour; the gold rim is the vinyl's CSS exception
 
 The beat cover art is shown exactly as supplied on both the catalog tiles
 (`.catalog-tile__art img`) and the beat detail (`.beat-detail__artwork img`):
@@ -74,17 +74,15 @@ included.
 
 Each beat also owns its vinyl. FLESH wears the pearl-white disc with a black
 centre label; THE FLOW wears the `gold-rim` collector pressing: a deep matte
-`#0a0a0c` disc, the supplied liquid gold drips and splashes, and an ultra-fine
-metallic gold foil rim. The splash is a supplied SVG background layer
-(`assets/gold-splatter.svg` on `.vinyl-record__gold`); the rim is
-`.vinyl-record__rim`, a conic-gradient masked to a 2–3px outer hairline plus a
-fainter concentric inner ring. The rim paints above the grooves and splash but
-only at the perimeter, so the black centre label and the spinning flower stay
-clean. The `gold-rim` palette is isolated between the `THE FLOW gold-rim palette`
-markers and exempted from the stylesheet's equal-channel audit; everything else
-stays neutral. `npm run build:brand` remains the single source of truth for every
-raster asset, and the storefront is the only thing that decides what a hue looks
-like on screen.
+`#0a0a0c` disc with a single ultra-fine metallic gold foil rim. The rim is
+`.vinyl-record__rim`, a conic-gradient masked to a ~1.6px outer hairline. It
+paints above the grooves but only at the perimeter, so the black centre label and
+the spinning flower stay clean. There is no splash, blob or other artwork layer
+on the disc; the record DOM holds only the rim and the flower. The `gold-rim`
+palette is isolated between the `THE FLOW gold-rim palette` markers and exempted
+from the stylesheet's equal-channel audit; everything else stays neutral.
+`npm run build:brand` remains the single source of truth for every raster asset,
+and the storefront is the only thing that decides what a hue looks like on screen.
 
 ## Falling-X background
 
