@@ -394,25 +394,30 @@ try {
     );
   }
   // FLESH is the collector's edition: the first beat carries the pearl-white
-  // pressing, its centre label is deep matte black and it has a real spindle
-  // hole. THE FLOW stays on the classic black disc.
+  // pressing, its centre label is deep matte black, and the complete official
+  // flower is painted on it — there is no spindle hole covering the mark. THE
+  // FLOW stays on the classic black disc.
   assert.equal(await direct.locator('.beat-detail').getAttribute('data-vinyl'), 'white', 'FLESH renders the white vinyl variant');
   assert.equal(await direct.locator('.vinyl-record').getAttribute('data-vinyl'), 'white', 'the record itself carries the white variant');
   assert.equal(await direct.locator('.vinyl-record--white').count(), 1, 'the white pressing has its own modifier class');
   const fleshVinyl = await direct.locator('.vinyl-record').evaluate(el => {
     const disc = getComputedStyle(el);
     const label = getComputedStyle(el, '::after');
-    const spindle = el.querySelector('.vinyl-record__spindle');
+    const logo = el.querySelector('.vinyl-record__logo');
     return {
       discBg: disc.backgroundImage,
       labelBg: label.backgroundImage,
       labelBorder: label.borderTopColor,
-      spindleBg: spindle ? getComputedStyle(spindle).backgroundColor : null,
+      discAnimation: disc.animationName,
+      spindleCount: el.querySelectorAll('.vinyl-record__spindle').length,
+      logoSrc: logo ? logo.getAttribute('src') : null,
     };
   });
   assert.match(fleshVinyl.discBg, /rgb\(245, 245, 245\)|rgb\(255, 255, 255\)/, 'the FLESH disc is painted pearl white');
   assert.match(fleshVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(0, 0, 0\)/, 'the FLESH centre label is matte black');
-  assert.equal(fleshVinyl.spindleBg, 'rgb(0, 0, 0)', 'the FLESH label carries a dark spindle hole');
+  assert.equal(fleshVinyl.spindleCount, 0, 'no spindle hole covers the centre of the flower');
+  assert.equal(fleshVinyl.logoSrc, 'assets/kyrolll-flower.svg', 'the complete official KYROIII flower is the vinyl centre');
+  assert.equal(fleshVinyl.discAnimation, 'none', 'the outer record bounding box never rotates');
   const vinylVariants = await direct.evaluate(() => Object.fromEntries(window.KYROlll_CATALOG.map(beat => [beat.slug, beat.vinylVariant])));
   assert.equal(vinylVariants.flesh, 'white', 'catalog data marks FLESH as the white pressing');
   assert.equal(vinylVariants['the-flow'], 'black', 'catalog data keeps THE FLOW on the black pressing');
@@ -431,14 +436,30 @@ try {
     const sleeve = document.querySelector('.beat-detail__artwork').getBoundingClientRect();
     const recordEl = document.querySelector('.vinyl-record');
     const record = recordEl.getBoundingClientRect();
-    const spindle = document.querySelector('.vinyl-record__spindle').getBoundingClientRect();
-    const labelDiameter = record.width * 0.38;
+    // The frame is the un-rotated logo box; the image inside is what spins, so
+    // measuring the frame keeps the containment assertions stable at every angle.
+    const logoFrame = document.querySelector('.vinyl-record__logo-frame').getBoundingClientRect();
+    const logoImage = document.querySelector('.vinyl-record__logo');
+    const logoStyle = getComputedStyle(logoImage);
+    const labelDiameter = record.width * 0.58;
+    const label = {
+      left: record.left + record.width / 2 - labelDiameter / 2,
+      right: record.left + record.width / 2 + labelDiameter / 2,
+      top: record.top + record.height / 2 - labelDiameter / 2 + scrollY,
+      bottom: record.top + record.height / 2 + labelDiameter / 2 + scrollY,
+    };
     return {
       stage: { left: stage.left, right: stage.right, top: stage.top + scrollY, width: stage.width, height: stage.height },
-      sleeve: { left: sleeve.left, right: sleeve.right, top: sleeve.top + scrollY, width: sleeve.width, height: sleeve.height },
-      record: { left: record.left, right: record.right, top: record.top + scrollY, width: record.width, height: record.height },
-      labelRight: record.left + record.width / 2 + labelDiameter / 2,
-      spindleCentre: spindle.left + spindle.width / 2,
+      sleeve: { left: sleeve.left, right: sleeve.right, top: sleeve.top + scrollY, bottom: sleeve.bottom + scrollY, width: sleeve.width, height: sleeve.height },
+      record: { left: record.left, right: record.right, top: record.top + scrollY, bottom: record.bottom + scrollY, width: record.width, height: record.height },
+      label,
+      logo: { left: logoFrame.left, right: logoFrame.right, top: logoFrame.top + scrollY, bottom: logoFrame.bottom + scrollY, width: logoFrame.width, height: logoFrame.height },
+      logoAnimation: {
+        name: logoStyle.animationName,
+        duration: logoStyle.animationDuration,
+        iteration: logoStyle.animationIterationCount,
+        timing: logoStyle.animationTimingFunction,
+      },
       viewport: { width: innerWidth, scrollWidth: document.documentElement.scrollWidth },
       transform: getComputedStyle(recordEl).transform,
     };
@@ -457,15 +478,32 @@ try {
     assert(sample.viewport.scrollWidth <= sample.viewport.width, `${label}: zero horizontal page overflow`);
     assert(sample.record.right <= sample.stage.right + 1, `${label}: the record never leaves the stage on the right`);
     assert(sample.record.left >= sample.stage.left - 1, `${label}: the record never leaves the stage on the left`);
+    // The 92% diameter and 4% top/bottom inset are the fix for the circular
+    // record poking past the sleeve's horizontal edges.
+    assert(sample.record.top >= sample.sleeve.top - 0.5, `${label}: the record top stays inside the sleeve top`);
+    assert(sample.record.bottom <= sample.sleeve.bottom + 0.5, `${label}: the record bottom stays inside the sleeve bottom`);
   };
   const checkReveal = (sample, label) => {
     checkContained(sample, label);
     assert(sample.record.right - sample.sleeve.right > sample.stage.width * 0.3, `${label}: the disc clears the sleeve generously`);
-    assert(sample.labelRight - sample.sleeve.right > 20, `${label}: the black centre label is exposed`);
-    assert(sample.spindleCentre - sample.sleeve.right > 2, `${label}: the spindle clears the sleeve`);
+    assert(sample.label.right - sample.sleeve.right > 20, `${label}: the black centre label is exposed`);
+    // The complete logo is inside the black label and entirely to the right of
+    // the sleeve once the record has ridden out: no petal is cropped.
+    assert(sample.logo.left >= sample.sleeve.right - 0.5, `${label}: the whole logo clears the sleeve edge`);
+    assert(sample.logo.right <= sample.label.right + 0.5, `${label}: the whole logo stays on the exposed label`);
+    assert(sample.logo.left >= sample.label.left - 0.5, `${label}: the whole logo stays on the label`);
+    assert(sample.logo.top >= sample.label.top - 0.5, `${label}: the logo top stays on the label`);
+    assert(sample.logo.bottom <= sample.label.bottom + 0.5, `${label}: the logo bottom stays on the label`);
   };
   for (const sample of revealSamples) checkContained(sample, 'phone, mid-reveal');
   checkReveal(phoneReveal, 'phone, fully open');
+  assert(phoneReveal.sleeve.width >= 245, 'the phone cover sleeve is a large, full-impact square');
+  assert.deepEqual(phoneReveal.logoAnimation, { name: 'vinylCenterSpin', duration: '16s', iteration: 'infinite', timing: 'linear' }, 'the centre logo has the slow, smooth 16s rotation');
+  const spinA = await vinylPage.locator('.vinyl-record__logo').evaluate(el => getComputedStyle(el).transform);
+  await vinylPage.waitForTimeout(180);
+  const spinB = await vinylPage.locator('.vinyl-record__logo').evaluate(el => getComputedStyle(el).transform);
+  assert.notEqual(spinA, 'none', 'the centre logo carries a live transform animation');
+  assert.notEqual(spinA, spinB, 'the centre logo is actually rotating');
   assert(phoneReveal.record.left - tucked.record.left > phoneReveal.stage.width * 0.25, 'the phone reveal is a real slide, not a nudge');
   // The reveal only moves the record: the stage and sleeve keep their document
   // position and size through the whole 1.35 s delay + slide.
@@ -476,13 +514,16 @@ try {
   for (const [width, height] of [[375, 812], [768, 1024]]) {
     await vinylPage.setViewportSize({ width, height });
     await vinylPage.waitForTimeout(350);
-    checkReveal(await vinylGeometry(), `${width}px`);
+    const sample = await vinylGeometry();
+    checkReveal(sample, `${width}px`);
+    assert(sample.sleeve.width >= (width >= 768 ? 380 : 240), `${width}px: the cover sleeve stays large and prominent`);
   }
   // The same contract at the desktop width.
   await vinylPage.setViewportSize({ width: 1440, height: 1000 });
   await vinylPage.waitForTimeout(350);
   const desktopReveal = await vinylGeometry();
   checkReveal(desktopReveal, 'desktop');
+  assert(desktopReveal.sleeve.width >= 380 && desktopReveal.sleeve.width <= 435, 'the desktop cover sleeve lands in the 380–430px commanding range');
   assert(desktopReveal.record.left - desktopReveal.sleeve.left > desktopReveal.stage.width * 0.3, 'the desktop reveal is equally generous');
   // The per-beat variant is clean: only FLESH wears the pearl disc.
   await vinylPage.goto(`${url}/?beat=the-flow`);

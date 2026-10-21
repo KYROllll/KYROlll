@@ -61,7 +61,7 @@ ALL-CAPS audits the rest of the store does.
 
 The supplied artwork is never re-cut and never desaturated: the brush X on the
 falling canvas (`body > canvas`), `.footer__logo`, `.brand-wordmark__mark`, the
-vinyl record's `.vinyl-record__label` and the two watermark images all paint exactly as
+vinyl record's `.vinyl-record__logo` and the two watermark images all paint exactly as
 they were drawn — the warm brown of the brush marks and the tints in the wordmark
 artwork included. No `grayscale()`, no `saturate(0)` and no monochrome filter sits
 anywhere in the chain, so the dark field stays as deep as it was while the art on

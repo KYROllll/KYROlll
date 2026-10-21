@@ -43,7 +43,7 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   `theme-color` metas are `#0b0b0b`. The supplied raster
   artwork is **not** desaturated, because the store shows its art rather than tinting it:
   `body > canvas` (the falling brush X), `.footer__logo`, `.brand-wordmark__mark`,
-  `.vinyl-record__label` and both watermark images paint in the colour they were drawn in —
+  `.vinyl-record__logo` and both watermark images paint in the colour they were drawn in —
   the warm brown of the brush marks included — so no `grayscale()`/`saturate()` belongs in any
   of their chains. `npm run build:brand` (which needs `sharp`) still owns those files and is
   still the only thing that may re-cut them. The generated PDF is equal-channel by construction
@@ -277,21 +277,28 @@ never briefly painted in the exposed position: no pre-render flash, no pop. Only
 *axis-aligned* box grows by √2 (a 422 px record measured ~597 px wide) and overshot the
 stage by up to ~74 px — that was the original "pop / breach the artwork frame" glitch. A
 pure horizontal slide keeps the circle, its box and its shadow inside the stage throughout.
-The stage is 100% wide and both the sleeve and the record are 64% of it; the record's far
-edge travels 64% → 98.5% of the stage, leaving 1.5% breathing room, and the disc's centre
-label clears the sleeve so the black label and spindle are visible. Both the reveal and its
-transition live inside `@media (prefers-reduced-motion: no-preference)`: under reduced
-motion the base `.vinyl-record` rule leaves the record at rest immediately, and adding
-`vinyl-open` is a no-op. `.beat-detail__artwork-wrap` keeps `contain: layout` (not `paint`,
-which would clip the record's shadow) so a child box can never nudge a surrounding box.
-Only the label spins continuously (`vinylSpin`).
+The stage is 100% wide (capped at 620px) and the sleeve is 68% of it, which is a ~422px
+square on desktop and a nearly full-width cover on a phone. The record is 92% of the sleeve,
+inset 4% of the sleeve on every side (`top: 4%`, `height: 92%`, `width: 92%` relative to the
+sleeve), so its circular top and bottom can never poke past the cover frame; it travels 53%
+of its own width and its far edge lands at ~98.44% of the stage, leaving ~1.5% breathing
+room. The white pressing's label is 58% of the record, and the complete official flower
+(`.vinyl-record__logo`) sits at 65.2% of the record — the optical centre of the label's
+exposed crescent — so the sleeve never crops any part of the mark. The logo image alone
+spins continuously (`vinylCenterSpin`, 16s linear); the outer record box never rotates.
+Both the reveal and its transition live inside `@media (prefers-reduced-motion:
+no-preference)`: under reduced motion the base `.vinyl-record` rule leaves the record at
+rest immediately, and adding `vinyl-open` is a no-op. `.beat-detail__artwork-wrap` keeps
+`contain: layout` (not `paint`, which would clip the record's shadow) so a child box can
+never nudge a surrounding box.
 
 `catalog.js` assigns the pressing per beat: FLESH carries `vinylVariant: "white"` (a
-pearl-white disc with a black centre label and spindle), THE FLOW carries `"black"`, and
-`script.js` writes the variant onto the card (`data-vinyl`) and the record
-(`.vinyl-record--white`). The pre-rendered FLESH card in `index.html` mirrors that markup so
-the first paint is already white; the record's black-label geometry is asserted at 375,
-390, 768 and 1440 px, including zero horizontal overflow.
+pearl-white disc with a broad black centre label and the full flower, no spindle hole),
+THE FLOW carries `"black"` (the classic centred label), and `script.js` writes the variant
+onto the card (`data-vinyl`) and the record (`.vinyl-record--white`). The pre-rendered FLESH
+card in `index.html` mirrors that markup so the first paint is already white; the record's
+vertical containment, the large cover width, the fully-exposed logo and the zero horizontal
+overflow are asserted at 375, 390, 768 and 1440 px.
 
 ## Preview responsiveness in this sandbox
 

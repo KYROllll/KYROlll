@@ -520,7 +520,7 @@ a.card__youtube-link:hover {
   }
   .beat-detail__artwork-wrap {
     width: 100% !important;
-    max-width: 360px !important;
+    max-width: 620px !important;
     height: auto !important;
     aspect-ratio: 1 !important;
     display: block !important;
@@ -536,7 +536,7 @@ a.card__youtube-link:hover {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
-    margin: 18% 0 0 0 !important;
+    margin: var(--vinyl-top) 0 0 0 !important;
   }
   .beat-detail__artwork img {
     width: 100% !important;
@@ -657,12 +657,14 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 .beat-detail {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  /* A wider, art-forward split: the sleeve needs ~620px of stage to land at
+     ~420px square while the record still has room to ride out to the right. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   gap: clamp(40px, 6vw, 80px);
   align-items: center;
   justify-content: center;
   width: 100%;
-  max-width: 1200px;
+  max-width: 1360px;
   margin: 0 auto;
   padding: 24px 0;
   box-sizing: border-box;
@@ -723,6 +725,12 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .grid--detail .grid-closed a { color: var(--white); }
 
 @media (max-width: 768px) {
+  .grid.grid--detail {
+    /* The single-column beat page gives the sleeve almost the full glass, so a
+       phone still gets a commanding cover rather than a small thumbnail. */
+    padding-left: 4px;
+    padding-right: 4px;
+  }
   .beat-detail {
     grid-template-columns: minmax(0, 1fr);
     gap: 32px;
@@ -1297,7 +1305,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .beat-detail__artwork-wrap {
   position: relative;
   width: 100%;
-  max-width: 480px;
+  max-width: 620px;
   aspect-ratio: 1;
   justify-self: center;
   margin: 0 auto;
@@ -1310,33 +1318,34 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
      it. */
   contain: layout;
   /* The stage geometry. The wrap is the whole stage; the sleeve (`__artwork`) is
-     sized to `--vinyl-art` and sits at the left of it, and the record — the same
-     diameter — rides out over the stage's right-hand strip. Keeping the sleeve
-     at 64% leaves 34.5% of the stage for the record to expose: the disc's edge
-     and its black centre label both clear the sleeve, while the record's far
-     edge stops 1.5% short of the stage edge so nothing ever touches the clip
-     guard. `--vinyl-slide` is a share of the record's OWN width (53.906% × 64%
-     = 34.5% of the stage). */
-  --vinyl-record: 64%;
-  --vinyl-art: 64%;
-  --vinyl-slide: 53.906%;
+     68% of it, which at the 620px desktop cap is a commanding ~422px square. The
+     record is 92% of the sleeve, inset 4% vertically and horizontally so its
+     circular top/bottom can never poke past the sleeve, and it rides out over
+     the remaining 32% strip. `--vinyl-slide` is 53% of the record's own width;
+     the record's far edge lands at ~98.44% of the stage, leaving ~1.5% of
+     breathing room. The white pressing's logo sits at the optical centre of the
+     exposed label crescent (65.2% of the record), so no part of it is hidden. */
+  --vinyl-art: 68%;
+  --vinyl-record: calc(var(--vinyl-art) * 0.92);
+  --vinyl-top: 16%;
+  --vinyl-slide: 53%;
 }
 
 /* The sleeve gives the record room to travel by handing over part of its box. */
 .beat-detail__artwork {
   position: relative;
   /* The sleeve is inset on the stage so the record has somewhere to slide to: it
-     covers the left 64% of the wrap, leaving the right strip for the record to
+     covers the left 68% of the wrap, leaving the right strip for the record to
      emerge into. Both stay inside the wrap, which is what stops the protrusion
      from being clipped by the `overflow-x: clip` guard on the sections above.
      `justify-self` is reset from the old grid-item `center`: the sleeve is a
      block box here, and `center` would push it right of the record's start so the
-     record appeared to slide out of the sleeve's LEFT side. The 18% top margin
-     centres the 64% square vertically in the square stage. */
+     record appeared to slide out of the sleeve's LEFT side. The `--vinyl-top`
+     margin centres the 68% square vertically in the square stage. */
   justify-self: normal;
   width: var(--vinyl-art);
   height: var(--vinyl-art);
-  margin: 18% auto 0 0;
+  margin: var(--vinyl-top) auto 0 0;
   max-width: 100%;
   z-index: 2;
   border-radius: 4px;
@@ -1349,8 +1358,11 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 
 .vinyl-record {
   position: absolute;
-  top: 18%;
-  left: 0;
+  /* 92% of the sleeve, inset 4% on every side: the record is vertically centred
+     behind the cover and its circular edge never crosses the sleeve's top or
+     bottom border. */
+  top: calc(var(--vinyl-top) + var(--vinyl-art) * 0.04);
+  left: calc(var(--vinyl-art) * 0.04);
   width: var(--vinyl-record);
   height: var(--vinyl-record);
   /* Exposed rest position — the default state, and the only state under reduced
@@ -1423,10 +1435,10 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   z-index: 0;
 }
 
-/* The pearl disc's label is deliberately the opposite of the vinyl: deep matte
-   black, a crisp silver inner ring, and a dark spindle hole in the middle. The
-   label sits above the groove overlay, and the flower is lifted above the label
-   so the mark stays legible. */
+/* The pearl disc's label is deliberately the opposite of the vinyl: a broad deep
+   matte black field with a crisp silver inner ring. There is no spindle hole in
+   the label paint — the official flower's centre must stay intact. The label is
+   large enough that the exposed crescent is a real black stage for the logo. */
 .vinyl-record--white::before {
   inset: 7%;
   background:
@@ -1435,10 +1447,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 
 .vinyl-record--white::after {
-  width: 38%;
-  height: 38%;
+  width: 58%;
+  height: 58%;
   background:
-    radial-gradient(circle at 50% 50%, #000000 0 4.5%, #0a0a0a 4.5% 6.5%, transparent 7%),
     radial-gradient(circle at 50% 50%, transparent 0 84%, rgba(255, 255, 255, 0.16) 84.5% 86%, transparent 86.5%),
     radial-gradient(circle at 50% 36%, #1c1c1c 0%, #0a0a0a 68%, #050505 100%);
   border: 1px solid rgba(255, 255, 255, 0.22);
@@ -1450,43 +1461,47 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
     0 0 18px rgba(255, 255, 255, 0.12);
 }
 
-.vinyl-record__label {
+/* The frame is a positioning wrapper; the image inside is the only thing that
+   rotates. Keeping those transforms separate means the spin can never move the
+   frame, grow the record's bounding box or blur the art. On the classic black
+   pressing the logo stays in the middle of its small label; on the pearl-white
+   pressing it sits at the optical centre of the exposed label crescent (65.2% of
+   the record), so the sleeve never crops any part of it. */
+.vinyl-record__logo-frame {
   position: absolute;
   top: 50%;
   left: 50%;
   width: 30%;
   height: 30%;
   transform: translate(-50%, -50%);
-  opacity: 0.94;
-  /* The label artwork keeps its own tints — only the white glow around it is
-     added here, so the supplied SVG is painted exactly as drawn. */
+  z-index: 1;
+  pointer-events: none;
+}
+
+.vinyl-record--white .vinyl-record__logo-frame {
+  left: 65.2%;
+  width: 22%;
+  height: 22%;
+}
+
+.vinyl-record__logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0.96;
+  /* The official flower keeps its own tints — only the white glow around it is
+     added here. */
   filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.28));
-  animation: vinylSpin 6s linear infinite;
+  transform-origin: 50% 50%;
+  animation: vinylCenterSpin 16s linear infinite;
   will-change: transform;
   backface-visibility: hidden;
   pointer-events: none;
-  z-index: 1;
 }
 
-/* The spindle hole is a real element, not part of the label's gradient: it has
-   to sit above the flower so the centre of the disc reads as a hole on both the
-   black and the pearl-white pressing. */
-.vinyl-record__spindle {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 2.4%;
-  height: 2.4%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: #000000;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
-  z-index: 2;
-  pointer-events: none;
-}
-
-@keyframes vinylSpin {
-  to { transform: translate(-50%, -50%) rotate(360deg); }
+@keyframes vinylCenterSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* The record rides out from behind the sleeve — see the base rule and the
@@ -1569,7 +1584,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .motion-paused .marquee-track,
 .motion-paused .logo-stage,
 .motion-paused .scroll-cue__arrow,
-.motion-paused .vinyl-record__label,
+.motion-paused .vinyl-record__logo,
 .motion-paused .brand-hero::before {
   animation-play-state: paused !important;
 }

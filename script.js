@@ -170,8 +170,9 @@ function beatDetailInner(beat) {
     </section>
     <div class="beat-detail__artwork-wrap">
       <div class="vinyl-record${vinylVariant === "white" ? " vinyl-record--white" : ""}" data-vinyl="${vinylVariant}" aria-hidden="true">
-        <img class="vinyl-record__label" src="assets/kyrolll-flower.svg" alt="" width="300" height="300" loading="lazy">
-        <span class="vinyl-record__spindle" aria-hidden="true"></span>
+        <span class="vinyl-record__logo-frame" aria-hidden="true">
+          <img class="vinyl-record__logo" src="assets/kyrolll-flower.svg" alt="" width="300" height="300" loading="lazy">
+        </span>
       </div>
       <figure class="beat-detail__artwork">
         <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" decoding="async" fetchpriority="high">
