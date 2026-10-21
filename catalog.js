@@ -102,6 +102,10 @@
       key: "Am",
       preview: "assets/previews/BEAT 1 TAG.wav",
       youtube: "https://www.youtube.com/watch?v=8OhRJQn2YCU",
+      /* The first pressing: a pearl-white collector's disc with a black centre
+         label. `script.js` reads this into the card's `data-vinyl` and the
+         record's modifier class; anything without it stays the classic black. */
+      vinylVariant: "white",
       deliverables: {
         mp3: [
           { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (130 BPM - AM).mp3", label: "TAGGED MP3" }
@@ -126,6 +130,8 @@
       key: "C#m",
       preview: "assets/previews/the-flow.mp3",
       youtube: "https://www.youtube.com/watch?v=aHMCkzw9Wuo",
+      /* The classic black pressing. */
+      vinylVariant: "black",
       /* A scheduled drop: this beat stays closed until the store's clock reaches
          `releaseAt` — a countdown pill on the catalog tile (where the button
          sits), and on its own page no player plus an inert LOCKED control — the

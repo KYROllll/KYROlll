@@ -393,8 +393,103 @@ try {
       `${selector} remains stationary on hover`,
     );
   }
+  // FLESH is the collector's edition: the first beat carries the pearl-white
+  // pressing, its centre label is deep matte black and it has a real spindle
+  // hole. THE FLOW stays on the classic black disc.
+  assert.equal(await direct.locator('.beat-detail').getAttribute('data-vinyl'), 'white', 'FLESH renders the white vinyl variant');
+  assert.equal(await direct.locator('.vinyl-record').getAttribute('data-vinyl'), 'white', 'the record itself carries the white variant');
+  assert.equal(await direct.locator('.vinyl-record--white').count(), 1, 'the white pressing has its own modifier class');
+  const fleshVinyl = await direct.locator('.vinyl-record').evaluate(el => {
+    const disc = getComputedStyle(el);
+    const label = getComputedStyle(el, '::after');
+    const spindle = el.querySelector('.vinyl-record__spindle');
+    return {
+      discBg: disc.backgroundImage,
+      labelBg: label.backgroundImage,
+      labelBorder: label.borderTopColor,
+      spindleBg: spindle ? getComputedStyle(spindle).backgroundColor : null,
+    };
+  });
+  assert.match(fleshVinyl.discBg, /rgb\(245, 245, 245\)|rgb\(255, 255, 255\)/, 'the FLESH disc is painted pearl white');
+  assert.match(fleshVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(0, 0, 0\)/, 'the FLESH centre label is matte black');
+  assert.equal(fleshVinyl.spindleBg, 'rgb(0, 0, 0)', 'the FLESH label carries a dark spindle hole');
+  const vinylVariants = await direct.evaluate(() => Object.fromEntries(window.KYROlll_CATALOG.map(beat => [beat.slug, beat.vinylVariant])));
+  assert.equal(vinylVariants.flesh, 'white', 'catalog data marks FLESH as the white pressing');
+  assert.equal(vinylVariants['the-flow'], 'black', 'catalog data keeps THE FLOW on the black pressing');
   await shot(direct, 'beat-detail');
   await direct.close();
+
+  // The reveal is deliberately bold, but it is still just a translate: the
+  // record must clear the sleeve enough to show the black centre label, stay
+  // inside the stage, and leave the page with zero horizontal scroll on a phone
+  // and a desktop. The sleeve and stage must not move when `vinyl-open` lands.
+  const vinylPage = await setupPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'no-preference' });
+  await vinylPage.goto(`${url}/?beat=flesh`);
+  await vinylPage.locator('.beat-detail').waitFor();
+  const vinylGeometry = () => vinylPage.evaluate(() => {
+    const stage = document.querySelector('.beat-detail__artwork-wrap').getBoundingClientRect();
+    const sleeve = document.querySelector('.beat-detail__artwork').getBoundingClientRect();
+    const recordEl = document.querySelector('.vinyl-record');
+    const record = recordEl.getBoundingClientRect();
+    const spindle = document.querySelector('.vinyl-record__spindle').getBoundingClientRect();
+    const labelDiameter = record.width * 0.38;
+    return {
+      stage: { left: stage.left, right: stage.right, top: stage.top + scrollY, width: stage.width, height: stage.height },
+      sleeve: { left: sleeve.left, right: sleeve.right, top: sleeve.top + scrollY, width: sleeve.width, height: sleeve.height },
+      record: { left: record.left, right: record.right, top: record.top + scrollY, width: record.width, height: record.height },
+      labelRight: record.left + record.width / 2 + labelDiameter / 2,
+      spindleCentre: spindle.left + spindle.width / 2,
+      viewport: { width: innerWidth, scrollWidth: document.documentElement.scrollWidth },
+      transform: getComputedStyle(recordEl).transform,
+    };
+  });
+  const tucked = await vinylGeometry();
+  assert.equal(await vinylPage.locator('.beat-detail').evaluate(el => el.classList.contains('vinyl-open')), false, 'the record starts tucked behind the sleeve');
+  assert(tucked.record.right <= tucked.sleeve.right + 1, 'the tucked record sits behind the sleeve');
+  await vinylPage.locator('.beat-detail.vinyl-open').waitFor({ timeout: 5000 });
+  const revealSamples = [];
+  for (let frame = 0; frame < 10; frame += 1) {
+    await vinylPage.waitForTimeout(110);
+    revealSamples.push(await vinylGeometry());
+  }
+  const phoneReveal = await vinylGeometry();
+  const checkContained = (sample, label) => {
+    assert(sample.viewport.scrollWidth <= sample.viewport.width, `${label}: zero horizontal page overflow`);
+    assert(sample.record.right <= sample.stage.right + 1, `${label}: the record never leaves the stage on the right`);
+    assert(sample.record.left >= sample.stage.left - 1, `${label}: the record never leaves the stage on the left`);
+  };
+  const checkReveal = (sample, label) => {
+    checkContained(sample, label);
+    assert(sample.record.right - sample.sleeve.right > sample.stage.width * 0.3, `${label}: the disc clears the sleeve generously`);
+    assert(sample.labelRight - sample.sleeve.right > 20, `${label}: the black centre label is exposed`);
+    assert(sample.spindleCentre - sample.sleeve.right > 2, `${label}: the spindle clears the sleeve`);
+  };
+  for (const sample of revealSamples) checkContained(sample, 'phone, mid-reveal');
+  checkReveal(phoneReveal, 'phone, fully open');
+  assert(phoneReveal.record.left - tucked.record.left > phoneReveal.stage.width * 0.25, 'the phone reveal is a real slide, not a nudge');
+  // The reveal only moves the record: the stage and sleeve keep their document
+  // position and size through the whole 1.35 s delay + slide.
+  assert.deepEqual([phoneReveal.stage.left, phoneReveal.stage.top, phoneReveal.stage.width, phoneReveal.stage.height], [tucked.stage.left, tucked.stage.top, tucked.stage.width, tucked.stage.height], 'the phone stage never moves');
+  assert.deepEqual([phoneReveal.sleeve.left, phoneReveal.sleeve.top, phoneReveal.sleeve.width, phoneReveal.sleeve.height], [tucked.sleeve.left, tucked.sleeve.top, tucked.sleeve.width, tucked.sleeve.height], 'the phone sleeve never moves');
+  // The same contract at the two intermediate widths as well: 375px is the
+  // narrowest phone the store targets, and 768px is the single-column tablet.
+  for (const [width, height] of [[375, 812], [768, 1024]]) {
+    await vinylPage.setViewportSize({ width, height });
+    await vinylPage.waitForTimeout(350);
+    checkReveal(await vinylGeometry(), `${width}px`);
+  }
+  // The same contract at the desktop width.
+  await vinylPage.setViewportSize({ width: 1440, height: 1000 });
+  await vinylPage.waitForTimeout(350);
+  const desktopReveal = await vinylGeometry();
+  checkReveal(desktopReveal, 'desktop');
+  assert(desktopReveal.record.left - desktopReveal.sleeve.left > desktopReveal.stage.width * 0.3, 'the desktop reveal is equally generous');
+  // The per-beat variant is clean: only FLESH wears the pearl disc.
+  await vinylPage.goto(`${url}/?beat=the-flow`);
+  await vinylPage.locator('.beat-detail').waitFor();
+  assert.equal(await vinylPage.locator('.beat-detail').getAttribute('data-vinyl'), 'black', 'THE FLOW stays on the classic black vinyl');
+  assert.equal(await vinylPage.locator('.vinyl-record--white').count(), 0, 'THE FLOW gets no white modifier');
+  await vinylPage.close();
 
   // Package 1 — MP3 Lease: the email gate. It asks from scratch every single
   // time: the submit stays locked until the address is valid AND the mandatory
@@ -1243,7 +1338,7 @@ try {
   // dedicated inert LOCKED control — and the exact second the clock lands it
   // unlocks itself in place.
   const liveDrop = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce' });
-  await liveDrop.goto(`${url}/?beat=the-flow&now=${FLOW_RELEASE - 8000}`);
+  await liveDrop.goto(`${url}/?beat=the-flow&now=${FLOW_RELEASE - 20000}`);
   await liveDrop.locator(`[data-countdown="${FLOW_ID}"]`).waitFor();
   assert.equal(await liveDrop.locator(`${FLOW_CARD}.beat-detail`).count(), 1, 'the scheduled beat page renders');
   assert.match(await liveDrop.locator(FLOW_CARD).innerText(), /\[FREE 100%\] FUTURE TYPE BEAT - THE FLOW/i);
@@ -1274,7 +1369,7 @@ try {
       && card.querySelector('.download-trigger[data-download-trigger]')
       && !card.querySelector('.drop-countdown')
       && !card.querySelector('.download-trigger--locked'));
-  }, FLOW_ID, { timeout: 20000 });
+  }, FLOW_ID, { timeout: 30000 });
   assert.equal(liveDrop.url(), urlBeforeDrop, 'the drop unlocks in page, with no reload');
   assert.equal(await liveDrop.locator(`${FLOW_CARD} .download-trigger--locked`).count(), 0, 'the LOCKED control is gone the moment the clock lands');
   assert.equal(await liveDrop.locator(`${FLOW_CARD} .download-trigger`).count(), 1, 'the download button is live the moment the clock lands');

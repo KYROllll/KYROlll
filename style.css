@@ -520,7 +520,7 @@ a.card__youtube-link:hover {
   }
   .beat-detail__artwork-wrap {
     width: 100% !important;
-    max-width: 320px !important;
+    max-width: 360px !important;
     height: auto !important;
     aspect-ratio: 1 !important;
     display: block !important;
@@ -536,7 +536,7 @@ a.card__youtube-link:hover {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
-    margin: 6% 0 0 0 !important;
+    margin: 18% 0 0 0 !important;
   }
   .beat-detail__artwork img {
     width: 100% !important;
@@ -1310,30 +1310,33 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
      it. */
   contain: layout;
   /* The stage geometry. The wrap is the whole stage; the sleeve (`__artwork`) is
-     sized to `--vinyl-art` and sits in the left of it, and the record — the same
-     diameter — rests `--vinyl-slide` to the right (a share of its own width), in
-     the stage's free right-hand strip. Because the record's far edge stays inside
-     the stage, and the stage is a normal child of the section, nothing is ever
-     clipped by the `overflow-x: clip` guard above it. */
-  --vinyl-record: 88%;
-  --vinyl-art: 88%;
-  --vinyl-slide: 12%;
+     sized to `--vinyl-art` and sits at the left of it, and the record — the same
+     diameter — rides out over the stage's right-hand strip. Keeping the sleeve
+     at 64% leaves 34.5% of the stage for the record to expose: the disc's edge
+     and its black centre label both clear the sleeve, while the record's far
+     edge stops 1.5% short of the stage edge so nothing ever touches the clip
+     guard. `--vinyl-slide` is a share of the record's OWN width (53.906% × 64%
+     = 34.5% of the stage). */
+  --vinyl-record: 64%;
+  --vinyl-art: 64%;
+  --vinyl-slide: 53.906%;
 }
 
 /* The sleeve gives the record room to travel by handing over part of its box. */
 .beat-detail__artwork {
   position: relative;
   /* The sleeve is inset on the stage so the record has somewhere to slide to: it
-     covers the left 88% of the wrap, leaving the right strip for the record to
+     covers the left 64% of the wrap, leaving the right strip for the record to
      emerge into. Both stay inside the wrap, which is what stops the protrusion
      from being clipped by the `overflow-x: clip` guard on the sections above.
      `justify-self` is reset from the old grid-item `center`: the sleeve is a
      block box here, and `center` would push it right of the record's start so the
-     record appeared to slide out of the sleeve's LEFT side. */
+     record appeared to slide out of the sleeve's LEFT side. The 18% top margin
+     centres the 64% square vertically in the square stage. */
   justify-self: normal;
   width: var(--vinyl-art);
   height: var(--vinyl-art);
-  margin: 6% auto 0 0;
+  margin: 18% auto 0 0;
   max-width: 100%;
   z-index: 2;
   border-radius: 4px;
@@ -1346,7 +1349,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 
 .vinyl-record {
   position: absolute;
-  top: 6%;
+  top: 18%;
   left: 0;
   width: var(--vinyl-record);
   height: var(--vinyl-record);
@@ -1360,6 +1363,25 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   border-radius: 50%;
   box-shadow: 0 26px 58px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06);
   z-index: 1;
+}
+
+/* FLESH wears the collector's edition: a pearl-white disc whose black centre
+   label is the whole point of the slide-out. The paint is built from equal-channel
+   greys (the storefront's monochrome rule): a soft radial specular highlight at
+   the top-left, one set of fine dark micro-grooves and a second set of bright
+   rings, over a pearl-white body that falls away to a silver rim. */
+.vinyl-record--white {
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0) 34%),
+    radial-gradient(circle at 72% 80%, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0) 42%),
+    repeating-radial-gradient(circle at 50% 50%, rgba(20, 20, 20, 0.08) 0 1px, transparent 1px 6px),
+    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.85) 0 1px, transparent 1px 11px),
+    radial-gradient(circle at 50% 50%, #ffffff 0%, #f5f5f5 42%, #e6e6e6 70%, #fafafa 86%, #d4d4d4 100%);
+  box-shadow:
+    0 28px 64px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 0 0 2px rgba(255, 255, 255, 0.14),
+    inset 0 0 40px rgba(255, 255, 255, 0.55);
 }
 
 /* The reveal. `vinyl-open` is added by script.js 1.35 s after the beat card is
@@ -1388,6 +1410,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   inset: 9%;
   background: repeating-radial-gradient(circle, #131313, #131313 3px, #232323 4px, #0d0d0d 5px);
   opacity: 0.85;
+  z-index: 0;
 }
 
 /* Center label: the signature flower, spinning like a real platter. */
@@ -1397,6 +1420,34 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   background: radial-gradient(circle at 50% 38%, #242424, #0b0b0b 72%);
   border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.9);
+  z-index: 0;
+}
+
+/* The pearl disc's label is deliberately the opposite of the vinyl: deep matte
+   black, a crisp silver inner ring, and a dark spindle hole in the middle. The
+   label sits above the groove overlay, and the flower is lifted above the label
+   so the mark stays legible. */
+.vinyl-record--white::before {
+  inset: 7%;
+  background:
+    repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, rgba(18, 18, 18, 0.08) 3px 4px, transparent 4px 9px);
+  opacity: 0.9;
+}
+
+.vinyl-record--white::after {
+  width: 38%;
+  height: 38%;
+  background:
+    radial-gradient(circle at 50% 50%, #000000 0 4.5%, #0a0a0a 4.5% 6.5%, transparent 7%),
+    radial-gradient(circle at 50% 50%, transparent 0 84%, rgba(255, 255, 255, 0.16) 84.5% 86%, transparent 86.5%),
+    radial-gradient(circle at 50% 36%, #1c1c1c 0%, #0a0a0a 68%, #050505 100%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow:
+    inset 0 0 0 2px #0a0a0a,
+    inset 0 0 0 3px rgba(255, 255, 255, 0.12),
+    inset 0 0 26px rgba(0, 0, 0, 0.95),
+    0 0 0 1px rgba(255, 255, 255, 0.38),
+    0 0 18px rgba(255, 255, 255, 0.12);
 }
 
 .vinyl-record__label {
@@ -1413,6 +1464,24 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   animation: vinylSpin 6s linear infinite;
   will-change: transform;
   backface-visibility: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* The spindle hole is a real element, not part of the label's gradient: it has
+   to sit above the flower so the centre of the disc reads as a hole on both the
+   black and the pearl-white pressing. */
+.vinyl-record__spindle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2.4%;
+  height: 2.4%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #000000;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
+  z-index: 2;
   pointer-events: none;
 }
 

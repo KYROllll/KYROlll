@@ -146,6 +146,9 @@ function actionsSlotHTML(beat, compact) {
 
 function beatDetailInner(beat) {
   const pending = releasePending(beat);
+  // A beat can choose its pressing. The white collector's edition is the
+  // explicit variant; everything else keeps the classic black vinyl.
+  const vinylVariant = beat.vinylVariant === "white" ? "white" : "black";
   const meta = pending
     ? `<div class="card__specs">${specLine(beat)} // SCHEDULED DROP</div>`
     : `<div class="card__specs">${specLine(beat)} // TAGGED AUDIO</div>`;
@@ -166,8 +169,9 @@ function beatDetailInner(beat) {
       </div>
     </section>
     <div class="beat-detail__artwork-wrap">
-      <div class="vinyl-record" aria-hidden="true">
+      <div class="vinyl-record${vinylVariant === "white" ? " vinyl-record--white" : ""}" data-vinyl="${vinylVariant}" aria-hidden="true">
         <img class="vinyl-record__label" src="assets/kyrolll-flower.svg" alt="" width="300" height="300" loading="lazy">
+        <span class="vinyl-record__spindle" aria-hidden="true"></span>
       </div>
       <figure class="beat-detail__artwork">
         <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" decoding="async" fetchpriority="high">
@@ -234,6 +238,7 @@ function buildGrid() {
     card.id = "card-" + beat.id;
     if (detail) {
       card.className = "beat-detail";
+      card.setAttribute("data-vinyl", beat.vinylVariant === "white" ? "white" : "black");
       card.innerHTML = beatDetailInner(beat);
     } else {
       const pending = releasePending(beat);

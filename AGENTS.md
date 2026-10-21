@@ -276,13 +276,22 @@ never briefly painted in the exposed position: no pre-render flash, no pop. Only
 `translateX` and `opacity` move. A 360° rotation is never reintroduced: a rotating square's
 *axis-aligned* box grows by √2 (a 422 px record measured ~597 px wide) and overshot the
 stage by up to ~74 px — that was the original "pop / breach the artwork frame" glitch. A
-pure horizontal slide keeps the circle, its box and its shadow inside the stage throughout
-(its far edge goes 88% → 98.56% of the stage, never past 100%). Both the reveal and its
+pure horizontal slide keeps the circle, its box and its shadow inside the stage throughout.
+The stage is 100% wide and both the sleeve and the record are 64% of it; the record's far
+edge travels 64% → 98.5% of the stage, leaving 1.5% breathing room, and the disc's centre
+label clears the sleeve so the black label and spindle are visible. Both the reveal and its
 transition live inside `@media (prefers-reduced-motion: no-preference)`: under reduced
 motion the base `.vinyl-record` rule leaves the record at rest immediately, and adding
 `vinyl-open` is a no-op. `.beat-detail__artwork-wrap` keeps `contain: layout` (not `paint`,
 which would clip the record's shadow) so a child box can never nudge a surrounding box.
 Only the label spins continuously (`vinylSpin`).
+
+`catalog.js` assigns the pressing per beat: FLESH carries `vinylVariant: "white"` (a
+pearl-white disc with a black centre label and spindle), THE FLOW carries `"black"`, and
+`script.js` writes the variant onto the card (`data-vinyl`) and the record
+(`.vinyl-record--white`). The pre-rendered FLESH card in `index.html` mirrors that markup so
+the first paint is already white; the record's black-label geometry is asserted at 375,
+390, 768 and 1440 px, including zero horizontal overflow.
 
 ## Preview responsiveness in this sandbox
 
