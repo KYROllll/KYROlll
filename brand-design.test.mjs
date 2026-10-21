@@ -295,7 +295,7 @@ try {
     pink: getComputedStyle(el, '::after').color,
   })), { green: 'rgb(57, 255, 139)', pink: 'rgb(255, 62, 165)' });
   assert.equal(await desktop.locator('#grid .catalog-tile').count(), 2);
-  assert.match(await desktop.locator('.catalog-tile__art img').first().evaluate(el => getComputedStyle(el).filter), /grayscale\(1\)/, 'catalog cover art is rendered in black and white');
+  assert.equal(await desktop.locator('.catalog-tile__art img').first().evaluate(el => getComputedStyle(el).filter), 'none', 'catalog cover art keeps its original colour');
   assert.match(await desktop.locator(CARD).innerText(), /\[FREE 100%\] DON TOLIVER TYPE BEAT - FLESH/i);
   await shot(desktop, 'desktop');
 
@@ -394,11 +394,11 @@ try {
       `${selector} remains stationary on hover`,
     );
   }
-  // Both beats carry the approved white/black pressing: a pearl-white disc, a
-  // deep matte black centre label, and the complete official flower painted on
-  // it — there is no spindle hole covering the mark. The cover artwork is
-  // rendered in the same black-and-white world.
-  assert.match(await direct.locator('.beat-detail__artwork img').evaluate(el => getComputedStyle(el).filter), /grayscale\(1\)/, 'the beat cover art is rendered in black and white');
+  // Each beat carries its own pressing: FLESH is a pearl-white disc, a deep
+  // matte black centre label, and the complete official flower painted on it —
+  // there is no spindle hole covering the mark. THE FLOW's black/gold disc is
+  // checked after the geometry run below. Covers keep their supplied colour.
+  assert.equal(await direct.locator('.beat-detail__artwork img').evaluate(el => getComputedStyle(el).filter), 'none', 'the beat cover art keeps its original colour');
   assert.equal(await direct.locator('.beat-detail').getAttribute('data-vinyl'), 'white', 'FLESH renders the white vinyl variant');
   assert.equal(await direct.locator('.vinyl-record').getAttribute('data-vinyl'), 'white', 'the record itself carries the white variant');
   assert.equal(await direct.locator('.vinyl-record--white').count(), 1, 'the white pressing has its own modifier class');
@@ -422,7 +422,7 @@ try {
   assert.equal(fleshVinyl.discAnimation, 'none', 'the outer record bounding box never rotates');
   const vinylVariants = await direct.evaluate(() => Object.fromEntries(window.KYROlll_CATALOG.map(beat => [beat.slug, beat.vinylVariant])));
   assert.equal(vinylVariants.flesh, 'white', 'catalog data marks FLESH as the white pressing');
-  assert.equal(vinylVariants['the-flow'], 'white', 'catalog data gives THE FLOW the same white pressing');
+  assert.equal(vinylVariants['the-flow'], 'gold', 'catalog data gives THE FLOW its own black/gold pressing');
   await shot(direct, 'beat-detail');
   await direct.close();
 
@@ -527,11 +527,25 @@ try {
   checkReveal(desktopReveal, 'desktop');
   assert(desktopReveal.sleeve.width >= 380 && desktopReveal.sleeve.width <= 435, 'the desktop cover sleeve lands in the 380–430px commanding range');
   assert(desktopReveal.record.left - desktopReveal.sleeve.left > desktopReveal.stage.width * 0.3, 'the desktop reveal is equally generous');
-  // The per-beat variant is clean: only FLESH wears the pearl disc.
+  // The per-beat variant is clean: FLESH keeps the pearl disc, and THE FLOW is
+  // the only beat wearing the black/gold pressing. The gold is a supplied SVG
+  // artwork layered under the label, so the spinning flower still sits on top.
   await vinylPage.goto(`${url}/?beat=the-flow`);
   await vinylPage.locator('.beat-detail').waitFor();
-  assert.equal(await vinylPage.locator('.beat-detail').getAttribute('data-vinyl'), 'white', 'THE FLOW uses the same white/black pressing');
-  assert.equal(await vinylPage.locator('.vinyl-record--white').count(), 1, 'THE FLOW carries the white modifier');
+  assert.equal(await vinylPage.locator('.beat-detail').getAttribute('data-vinyl'), 'gold', 'THE FLOW carries its own gold pressing');
+  assert.equal(await vinylPage.locator('.vinyl-record--white').count(), 0, 'THE FLOW no longer shares the pearl disc');
+  assert.equal(await vinylPage.locator('.vinyl-record--gold').count(), 1, 'THE FLOW carries the gold modifier');
+  const flowVinyl = await vinylPage.locator('.vinyl-record--gold').evaluate(el => {
+    const splash = el.querySelector('.vinyl-record__gold');
+    return {
+      splashBg: splash ? getComputedStyle(splash).backgroundImage : null,
+      logo: !!el.querySelector('.vinyl-record__logo'),
+      coverFilter: getComputedStyle(document.querySelector('.beat-detail__artwork img')).filter,
+    };
+  });
+  assert.match(flowVinyl.splashBg, /gold-splatter\.svg/, 'the black disc carries the liquid-gold drip artwork');
+  assert.equal(flowVinyl.logo, true, 'the spinning flower survives the gold pressing');
+  assert.equal(flowVinyl.coverFilter, 'none', 'THE FLOW cover art keeps its original colour');
   await vinylPage.close();
 
   // Package 1 — MP3 Lease: the email gate. It asks from scratch every single

@@ -40,9 +40,10 @@ silver `#888888` and their equal-channel grey siblings. The hero's
 vivid-pink glitch accents; that is the only colored CSS section. Every other
 color literal in `style.css` is an equal-channel grey. The generated PDF remains
 monochromatic by construction (`license-pdf.js` draws only equal-channel greys).
-Beat cover art is rendered in monochrome (`grayscale(1)`) so the catalogue and
-beat pages stay black and white; the brand marks themselves keep the colour they
-were drawn in (see "Beat art is monochrome; the brand marks keep their colour").
+Beat cover art keeps the colour it was supplied in. The brand marks keep their
+colour too, and THE FLOW's liquid-gold vinyl is supplied as an SVG artwork
+(`assets/gold-splatter.svg`), not as a CSS color literal — see "Beat art keeps
+its colour; the gold pressing is one artwork asset".
 
 Its borders are the crisp white/silver pair: a pure white frame (`1 1 1`, the
 requested `#FFFFFF`) with a silver hairline and silver rules at
@@ -58,21 +59,25 @@ into the panel. Its text is uppercase and its few literals (`#101010`, `#484848`
 white) are equal-channel greys, so the open drawer passes the same zero-hue and
 ALL-CAPS audits the rest of the store does.
 
-## Beat art is monochrome; the brand marks keep their colour
+## Beat art keeps its colour; the gold pressing is one artwork asset
 
-The beat cover art is deliberately rendered through `grayscale(1)` on both the
-catalog tiles (`.catalog-tile__art img`) and the beat detail
-(`.beat-detail__artwork img`), so every cover sits in the store's black-and-white
-world while keeping its composition and contrast. The brand marks themselves are
-never re-cut and never desaturated: the brush X on the falling canvas
+The beat cover art is shown exactly as supplied on both the catalog tiles
+(`.catalog-tile__art img`) and the beat detail (`.beat-detail__artwork img`):
+no `grayscale()`, no `saturate(0)` and no other filter. The brand marks are never
+re-cut or desaturated either: the brush X on the falling canvas
 (`body > canvas`), `.footer__logo`, `.brand-wordmark__mark`, the vinyl record's
 `.vinyl-record__logo` and the two watermark images all paint exactly as they were
 drawn — the warm brown of the brush marks and the tints in the wordmark artwork
-included. No `grayscale()`, no `saturate(0)` and no monochrome filter sits anywhere
-in those chains, so the dark field stays as deep as it was while the brand art on
-top of it keeps its accents. `npm run build:brand` remains the single source of
-truth for every raster asset, and the storefront is the only thing that decides
-what a hue looks like on screen.
+included.
+
+Each beat also owns its vinyl. FLESH wears the pearl-white disc with a black
+centre label; THE FLOW wears the classic black disc with liquid gold drips,
+droplets and splashes. The gold is a supplied SVG background layer
+(`assets/gold-splatter.svg` on `.vinyl-record__gold`), which keeps the gold
+outside `style.css`'s equal-channel color literals: the splash sits above the
+grooves but below the centre label and the spinning flower. `npm run build:brand`
+remains the single source of truth for every raster asset, and the storefront is
+the only thing that decides what a hue looks like on screen.
 
 ## Falling-X background
 

@@ -102,9 +102,9 @@
       key: "Am",
       preview: "assets/previews/BEAT 1 TAG.wav",
       youtube: "https://www.youtube.com/watch?v=8OhRJQn2YCU",
-      /* The store's pressing: a pearl-white disc with a broad black centre
-         label. `script.js` reads this into the card's `data-vinyl` and the
-         record's modifier class. */
+      /* Each beat gets its own pressing. FLESH is the pearl-white disc with a
+         broad black centre label and the spinning flower. `script.js` reads
+         this into the card's `data-vinyl` and the record's modifier class. */
       vinylVariant: "white",
       deliverables: {
         mp3: [
@@ -130,8 +130,9 @@
       key: "C#m",
       preview: "assets/previews/the-flow.mp3",
       youtube: "https://www.youtube.com/watch?v=aHMCkzw9Wuo",
-      /* The same white/black pressing as FLESH. */
-      vinylVariant: "white",
+      /* THE FLOW's own pressing: a classic black disc splashed with liquid
+         gold — dots and drips painted by assets/gold-splatter.svg. */
+      vinylVariant: "gold",
       /* A scheduled drop: this beat stays closed until the store's clock reaches
          `releaseAt` — a countdown pill on the catalog tile (where the button
          sits), and on its own page no player plus an inert LOCKED control — the

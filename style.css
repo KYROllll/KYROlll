@@ -637,10 +637,6 @@ body > canvas {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* The store shows its beat artwork in the same monochrome world as the rest
-     of the page: the supplied covers keep their composition and contrast, not
-     their colour. */
-  filter: grayscale(1);
 }
 .catalog-tile__title { display: block; padding: 16px; font-size: 12px; font-weight: 700; line-height: 1.5; letter-spacing: .04em; }
 .catalog-tile__link:focus-visible, .beat-navigation a:focus-visible { outline: 2px solid var(--white); outline-offset: 3px; }
@@ -703,8 +699,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   height: 100%;
   object-fit: cover;
   box-sizing: border-box;
-  /* Same monochrome treatment as the catalog tiles. */
-  filter: grayscale(1);
 }
 .beat-detail .card__name {
   font-size: clamp(26px, 3.5vw, 42px);
@@ -1388,8 +1382,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   z-index: 1;
 }
 
-/* The store's standard pressing: a pearl-white disc whose black centre label is
-   the whole point of the slide-out. The paint is built from equal-channel
+/* FLESH's pressing: a pearl-white disc whose black centre label is the whole
+   point of the slide-out. The vinyl paint itself is built from equal-channel
    greys (the storefront's monochrome rule): a soft radial specular highlight at
    the top-left, one set of fine dark micro-grooves and a second set of bright
    rings, over a pearl-white body that falls away to a silver rim. */
@@ -1494,6 +1488,25 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   width: 22%;
   height: 22%;
 }
+
+/* THE FLOW's pressing: the classic black disc with a liquid-gold splash poured
+   across its exposed right side. The gold lives in the supplied SVG artwork, not
+   in CSS paint, so the storefront's equal-channel CSS palette (and its hue
+   audit) stays intact. The splash sits above the grooves but below the centre
+   label and the spinning flower: it can spill over the rim's rings, never over
+   the mark. */
+.vinyl-record__gold {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  background: url("assets/gold-splatter.svg?v=1") center / contain no-repeat;
+  opacity: 0.97;
+}
+.vinyl-record--gold::after { z-index: 1; }
+.vinyl-record--gold .vinyl-record__logo-frame { z-index: 2; }
 
 .vinyl-record__logo {
   display: block;

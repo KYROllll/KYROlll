@@ -36,22 +36,26 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   again in `toAscii` (`license-pdf.js`), which uppercases before it sanitises; `KYROlll`
   survives only as an API name (`window.KYROlll_*`), an asset path (`assets/kyrolll-*.png`)
   and the YouTube handle.
-- **One palette for the store's own paint — and monochrome beat art.** The storefront is
-  deep matte black `#0B0B0B`, pure white `#FFFFFF` and silver `#888888`, with the original
-  neon-green / vivid-pink glitch palette isolated to the hero tagline and heart. Every colour
-  literal outside that tagline section in `style.css` is an equal-channel grey, and the
-  `theme-color` metas are `#0b0b0b`. The beat cover art is rendered through `grayscale(1)` on
-  both the catalog tiles and the beat detail, so the covers keep their composition and
-  contrast in black and white. The brand marks themselves are not filtered:
-  `body > canvas` (the falling brush X), `.footer__logo`, `.brand-wordmark__mark`,
-  `.vinyl-record__logo` and both watermark images paint in the colour they were drawn in —
-  the warm brown of the brush marks included — so no `grayscale()`/`saturate()` belongs in any
-  of their chains. `npm run build:brand` (which needs `sharp`) still owns those files and is
-  still the only thing that may re-cut them. The generated PDF is equal-channel by construction
+- **One palette for the store's own paint — with the supplied artwork in colour.** The
+  storefront is deep matte black `#0B0B0B`, pure white `#FFFFFF` and silver `#888888`, with the
+  original neon-green / vivid-pink glitch palette isolated to the hero tagline and heart. Every
+  colour literal outside that tagline section in `style.css` is an equal-channel grey, and the
+  `theme-color` metas are `#0b0b0b`. The beat cover art is **not** filtered: the catalog tiles
+  and the beat detail show the supplied covers in their original colour. The same is true of
+  the brand marks: `body > canvas` (the falling brush X), `.footer__logo`,
+  `.brand-wordmark__mark`, `.vinyl-record__logo` and both watermark images paint in the colour
+  they were drawn in — the warm brown of the brush marks included — so no
+  `grayscale()`/`saturate()` belongs in any of their chains. The one coloured vinyl is THE
+  FLOW's black/gold pressing, and its gold lives entirely in the supplied
+  `assets/gold-splatter.svg` artwork (a CSS background image), not in a CSS color literal, so
+  the stylesheet's equal-channel rule and the test's CSS hue audit both stay intact.
+  `npm run build:brand` (which needs `sharp`) still owns the raster brand files and is still
+  the only thing that may re-cut them. The generated PDF is equal-channel by construction
   (`license-pdf.js`), and the brand-design test asserts both halves: it reads every colour out
   of the PDF bytes and every colour literal outside the dedicated tagline section of `style.css`,
-  and it asserts the cover art's monochrome filter. Keep any new CSS accents scoped to the
-  tagline; all other storefront styling stays neutral.
+  and it asserts the covers keep their colour while the gold splash asset is present. Keep any
+  new CSS accents scoped to the tagline (or supplied artwork); all other storefront styling
+  stays neutral.
 - **The dialog is a phone citizen.** `.gate-modal` is measured in *dynamic* viewport units
   (`height: 100vh; height: 100dvh`) and the card is capped at `max-height: 90dvh` and scrolls
   inside itself, so even the five-step exclusive gate (steps + email + buttons) stays whole and
@@ -284,23 +288,29 @@ square on desktop and a nearly full-width cover on a phone. The record is 92% of
 inset 4% of the sleeve on every side (`top: 4%`, `height: 92%`, `width: 92%` relative to the
 sleeve), so its circular top and bottom can never poke past the cover frame; it travels 53%
 of its own width and its far edge lands at ~98.44% of the stage, leaving ~1.5% breathing
-room. The white pressing's label is 58% of the record, and the complete official flower
+room. FLESH's pearl pressing has a 58% black label, and the complete official flower
 (`.vinyl-record__logo`) sits at 65.2% of the record — the optical centre of the label's
-exposed crescent — so the sleeve never crops any part of the mark. The logo image alone
-spins continuously (`vinylCenterSpin`, 16s linear); the outer record box never rotates.
+exposed crescent — so the sleeve never crops any part of the mark. THE FLOW's black/gold
+pressing keeps the classic 36% label and the logo centred on it. The logo image alone spins
+continuously (`vinylCenterSpin`, 16s linear); the outer record box never rotates.
 Both the reveal and its transition live inside `@media (prefers-reduced-motion:
 no-preference)`: under reduced motion the base `.vinyl-record` rule leaves the record at
 rest immediately, and adding `vinyl-open` is a no-op. `.beat-detail__artwork-wrap` keeps
 `contain: layout` (not `paint`, which would clip the record's shadow) so a child box can
 never nudge a surrounding box.
 
-`catalog.js` gives both beats `vinylVariant: "white"` (a pearl-white disc with a broad
-black centre label and the full flower, no spindle hole); the black pressing remains in the
-stylesheet as an unused fallback. `script.js` writes the variant onto the card (`data-vinyl`)
-and the record (`.vinyl-record--white`). The pre-rendered FLESH card in `index.html` mirrors
-that markup so the first paint is already white; the record's vertical containment, the large
-cover width, the fully-exposed logo and the zero horizontal overflow are asserted at 375, 390,
-768 and 1440 px.
+`catalog.js` gives each beat its own pressing: FLESH is `vinylVariant: "white"` (a pearl-white
+disc with a broad black centre label and the full flower, no spindle hole) and THE FLOW is
+`vinylVariant: "gold"` (the classic black disc with liquid gold drips, droplets and splashes).
+`script.js` writes the variant onto the card (`data-vinyl`) and the record
+(`.vinyl-record--white` / `.vinyl-record--gold`); a bare black disc remains the base/fallback.
+The gold itself is supplied by `assets/gold-splatter.svg` through
+`.vinyl-record__gold`'s background image — it sits above the grooves but below the centre
+label and the spinning flower, and it adds no gold CSS color literal. The pre-rendered FLESH
+card in `index.html` mirrors the white markup so the first paint is already white; the
+record's vertical containment, the large cover width, the fully-exposed logo and the zero
+horizontal overflow are asserted at 375, 390, 768 and 1440 px, and the gold splash/label
+stacking is asserted on THE FLOW.
 
 ## Preview responsiveness in this sandbox
 

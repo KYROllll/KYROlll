@@ -32,6 +32,20 @@ function specLine(beat) {
   return `${beat.bpm} BPM // ${String(beat.key).toUpperCase()}`;
 }
 
+/* Each beat owns a pressing: FLESH is pearl white, THE FLOW is black with a
+   liquid-gold splash. Anything that does not opt into a known variant keeps the
+   white standard, so a new catalog entry can never render an unstyled disc. */
+function vinylVariantFor(beat) {
+  if (beat && beat.vinylVariant === "gold") return "gold";
+  if (beat && beat.vinylVariant === "black") return "black";
+  return "white";
+}
+function vinylModifier(variant) {
+  if (variant === "white") return " vinyl-record--white";
+  if (variant === "gold") return " vinyl-record--gold";
+  return "";
+}
+
 /* The scheduled-release clock lives in catalog.js: a beat with a future
    `releaseAt` is a *scheduled drop*. Until it lands the store paints the tile
    with a live countdown pill where the button sits, and the beat page with no
@@ -146,9 +160,8 @@ function actionsSlotHTML(beat, compact) {
 
 function beatDetailInner(beat) {
   const pending = releasePending(beat);
-  // The white/black pressing is the store's standard. A beat that explicitly
-  // asks for the classic black disc can still opt into it.
-  const vinylVariant = beat.vinylVariant === "black" ? "black" : "white";
+  const vinylVariant = vinylVariantFor(beat);
+  const goldSplash = vinylVariant === "gold" ? `<span class="vinyl-record__gold" aria-hidden="true"></span>` : "";
   const meta = pending
     ? `<div class="card__specs">${specLine(beat)} // SCHEDULED DROP</div>`
     : `<div class="card__specs">${specLine(beat)} // TAGGED AUDIO</div>`;
@@ -169,7 +182,8 @@ function beatDetailInner(beat) {
       </div>
     </section>
     <div class="beat-detail__artwork-wrap">
-      <div class="vinyl-record${vinylVariant === "white" ? " vinyl-record--white" : ""}" data-vinyl="${vinylVariant}" aria-hidden="true">
+      <div class="vinyl-record${vinylModifier(vinylVariant)}" data-vinyl="${vinylVariant}" aria-hidden="true">
+        ${goldSplash}
         <span class="vinyl-record__logo-frame" aria-hidden="true">
           <img class="vinyl-record__logo" src="assets/kyrolll-flower.svg" alt="" width="300" height="300" loading="lazy">
         </span>
@@ -239,7 +253,7 @@ function buildGrid() {
     card.id = "card-" + beat.id;
     if (detail) {
       card.className = "beat-detail";
-      card.setAttribute("data-vinyl", beat.vinylVariant === "black" ? "black" : "white");
+      card.setAttribute("data-vinyl", vinylVariantFor(beat));
       card.innerHTML = beatDetailInner(beat);
     } else {
       const pending = releasePending(beat);
