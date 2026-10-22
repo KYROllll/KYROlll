@@ -157,8 +157,11 @@
     },
     {
       id: "a4acc928-410a-4200-8463-13bd9258058d",
-      slug: "steam",
-      title: "[FREE 100%] FUTURE TYPE BEAT - STEAM",
+      slug: "green-flesh",
+      /* The old STEAM links still land on the renamed beat while the supplied
+         artwork and audio keep their original asset paths. */
+      aliases: ["steam"],
+      title: "[FREE 100%] LIL BABY TYPE BEAT - GREEN FLESH",
       img: "assets/steam.png",
       bpm: 138,
       key: "B",
@@ -176,16 +179,16 @@
       releaseAt: "2026-10-22T23:00:00+03:00",
       deliverables: {
         mp3: [
-          { file: "assets/previews/steam.mp3", name: "KYROIII - STEAM (138 BPM - B).mp3", label: "TAGGED MP3" }
+          { file: "assets/previews/steam.mp3", name: "KYROIII - GREEN FLESH (138 BPM - B).mp3", label: "TAGGED MP3" }
         ],
         wav: [
-          { file: "assets/previews/steam.mp3", name: "KYROIII - STEAM (138 BPM - B).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/steam.wav", name: "KYROIII - STEAM (138 BPM - B).wav", label: "HIGH-QUALITY WAV" }
+          { file: "assets/previews/steam.mp3", name: "KYROIII - GREEN FLESH (138 BPM - B).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/steam.wav", name: "KYROIII - GREEN FLESH (138 BPM - B).wav", label: "HIGH-QUALITY WAV" }
         ],
         exclusive: [
-          { file: "assets/previews/steam.mp3", name: "KYROIII - STEAM (138 BPM - B).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/steam.wav", name: "KYROIII - STEAM (138 BPM - B).wav", label: "HIGH-QUALITY WAV" },
-          { file: "assets/previews/steam-stems.zip", name: "KYROIII - STEAM (138 BPM - B) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
+          { file: "assets/previews/steam.mp3", name: "KYROIII - GREEN FLESH (138 BPM - B).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/steam.wav", name: "KYROIII - GREEN FLESH (138 BPM - B).wav", label: "HIGH-QUALITY WAV" },
+          { file: "assets/previews/steam-stems.zip", name: "KYROIII - GREEN FLESH - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
       }
     }
@@ -256,7 +259,9 @@
     },
     beatById(id) {
       const key = String(id == null ? "" : id);
-      return window.KYROlll_CATALOG.find((beat) => beat.id === key || beat.slug === key) || null;
+      return window.KYROlll_CATALOG.find((beat) =>
+        beat.id === key || beat.slug === key ||
+        (Array.isArray(beat.aliases) && beat.aliases.includes(key))) || null;
     },
     packageById(id) {
       return window.KYROlll_PACKAGES.find((pack) => pack.id === id) || null;

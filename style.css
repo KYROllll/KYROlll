@@ -1525,8 +1525,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .vinyl-record--gold-rim .vinyl-record__logo-frame { z-index: 2; }
 /* End THE FLOW gold-rim palette. */
 
-/* STEAM sage-white-rim palette — the third pressing's deliberate colour exception. */
-/* STEAM's atmospheric collector pressing: a smoky grey-green body with fine
+/* GREEN FLESH sage-white-rim palette — the third pressing's deliberate colour exception. */
+/* GREEN FLESH's atmospheric collector pressing: a smoky grey-green body with fine
    concentric micro-grooves, a soft specular sheen and one delicate pure-white
    hairline along the outer perimeter. The centre label stays deep matte black,
    so the complete spinning flower has the same stage as the other pressings.
@@ -1570,7 +1570,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   opacity: 1;
 }
 .vinyl-record--sage-white-rim .vinyl-record__logo-frame { z-index: 2; }
-/* End STEAM sage-white-rim palette. */
+/* End GREEN FLESH sage-white-rim palette. */
 
 .vinyl-record__logo {
   display: block;

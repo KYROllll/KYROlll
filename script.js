@@ -33,8 +33,8 @@ function specLine(beat) {
 }
 
 /* Each beat owns a pressing: FLESH is pearl white, THE FLOW is a deep matte
-   black disc with a single fine gold rim, and STEAM is a smoky grey-green disc
-   with a delicate white outer hairline. The old "gold" value still resolves to
+   black disc with a single fine gold rim, and GREEN FLESH is a smoky grey-green
+   disc with a delicate white outer hairline. The old "gold" value still resolves to
    the refined "gold-rim" pressing, so a stale link or cached catalog can never
    render an unstyled disc. Anything unknown keeps the white standard. */
 function vinylVariantFor(beat) {

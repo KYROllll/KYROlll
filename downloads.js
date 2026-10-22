@@ -91,9 +91,10 @@
      A studio engineer should be able to read the tempo and the key straight
      off the filename, so every hand-over is renamed on the way out:
      `KYROIII - FLESH (130 BPM - AM).mp3`. Audio files take that convention
-     exactly; the tracked-stems archive carries the same stem plus its own
-     label, so a zip is never mistaken for a take. Only the extension stays
-     lowercase — everything else is in the store's ALL-CAPS voice. */
+     exactly; a non-audio hand-over (the tracked-stems archive) uses the
+     explicit studio name authored in `catalog.js`, so a zip is never mistaken
+     for a take. Only the extension stays lowercase — everything else is in the
+     store's ALL-CAPS voice. */
   const AUDIO_EXT = /^\.(mp3|wav|m4a|aac|aiff|aif|flac|ogg)$/i;
   function callName(beat) {
     const title = String((beat && beat.title) || "").trim();
@@ -106,6 +107,8 @@
     const stem = "KYROIII - " + callName(beat) + " (" + beat.bpm + " BPM - " +
       String(beat.key || "").toUpperCase() + ")";
     if (AUDIO_EXT.test(ext)) return stem + ext;
+    const explicit = String(item.name || "").trim();
+    if (explicit) return explicit;
     const label = String(item.label || "").toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim();
     return (label ? stem + " - " + label : stem) + ext;
   }

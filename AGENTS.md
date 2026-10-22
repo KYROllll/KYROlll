@@ -303,9 +303,10 @@ never nudge a surrounding box.
 `catalog.js` gives each beat its own pressing: FLESH is `vinylVariant: "white"` (a pearl-white
 disc with a broad black centre label and the full flower, no spindle hole), THE FLOW is
 `vinylVariant: "gold-rim"` (a deep matte `#0a0a0c` disc with a single ultra-fine metallic gold
-foil rim), and STEAM is `vinylVariant: "black"` (the classic matte-black disc with the complete
-flower in its centre label). `script.js` writes the variant onto the card (`data-vinyl`) and the
-record (`.vinyl-record--white` / `.vinyl-record--gold-rim`; black is the base pressing); the old
+foil rim), and GREEN FLESH is `vinylVariant: "sage-white-rim"` (a smoky grey-green disc with a
+delicate white outer hairline and the complete flower in its deep matte black centre label).
+`script.js` writes the variant onto the card (`data-vinyl`) and the record
+(`.vinyl-record--white` / `.vinyl-record--gold-rim` / `.vinyl-record--sage-white-rim`); the old
 `"gold"` value resolves to `gold-rim`, and a bare black disc remains the base/fallback. The rim is
 `.vinyl-record__rim`, a conic-gradient masked to a ~1.6px outer hairline. It sits above the
 grooves (z-index 3) but only at the perimeter, while the centre label (z-index 1) and the

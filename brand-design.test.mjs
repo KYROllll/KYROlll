@@ -146,10 +146,10 @@ const PROVIDER = 'https://formspree.io/f/xgaoppwo';
 const FLOW_ID = '5f9bbcab-e010-4efe-b459-9c9182e1d85b';
 const FLOW_CARD = '#card-5f9bbcab-e010-4efe-b459-9c9182e1d85b';
 const FLOW_RELEASE = Date.parse('2026-10-19T23:00:00+03:00');
-// The third release, [FREE 100%] FUTURE TYPE BEAT - STEAM, drops tonight.
-const STEAM_ID = 'a4acc928-410a-4200-8463-13bd9258058d';
-const STEAM_CARD = '#card-a4acc928-410a-4200-8463-13bd9258058d';
-const STEAM_RELEASE = Date.parse('2026-10-22T23:00:00+03:00');
+// The third release, [FREE 100%] LIL BABY TYPE BEAT - GREEN FLESH, drops tonight.
+const GREEN_FLESH_ID = 'a4acc928-410a-4200-8463-13bd9258058d';
+const GREEN_FLESH_CARD = '#card-a4acc928-410a-4200-8463-13bd9258058d';
+const GREEN_FLESH_RELEASE = Date.parse('2026-10-22T23:00:00+03:00');
 
 // Nothing about a gate may be remembered: the storefront writes no gate state
 // at all (no unlock set, no remembered address).
@@ -303,7 +303,8 @@ try {
   assert.equal(await desktop.locator('#grid .catalog-tile').count(), 3);
   assert.equal(await desktop.locator('.catalog-tile__art img').first().evaluate(el => getComputedStyle(el).filter), 'none', 'catalog cover art keeps its original colour');
   assert.match(await desktop.locator(CARD).innerText(), /\[FREE 100%\] DON TOLIVER TYPE BEAT - FLESH/i);
-  assert.match(await desktop.locator(STEAM_CARD).innerText(), /\[FREE 100%\] FUTURE TYPE BEAT - STEAM/i);
+  assert.match(await desktop.locator(GREEN_FLESH_CARD).innerText(), /\[FREE 100%\] LIL BABY TYPE BEAT - GREEN FLESH/i);
+  assert.match(await desktop.locator('.marquee-track').innerText(), /LIL BABY TYPE BEAT - GREEN FLESH/i, 'the ticker announces the renamed third drop');
   await shot(desktop, 'desktop');
 
   // ------------------------------------------------------------------ marquee
@@ -1505,78 +1506,82 @@ try {
   await shot(flowPage, 'download-flow');
   await flowPage.close();
 
-  // ------------------------------------------ third release: STEAM (23:00)
+  // ------------------------------------------ third release: GREEN FLESH (23:00)
   // The third official drop is scheduled for 23:00 Israel time. It follows the
   // same pre-release contract as THE FLOW — a countdown-only tile, a locked
   // detail page, and an in-page unlock — and it wears the smoky grey-green
   // sage-white-rim pressing with the complete spinning flower. The studio count
   // must stay at two releases until its clock lands, then become three.
-  const steamPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
-  await steamPre.goto(`${url}/?now=${STEAM_RELEASE - 3600000}`);
-  await steamPre.locator(`[data-countdown="${STEAM_ID}"]`).waitFor();
-  assert.equal(await steamPre.locator('#grid .catalog-tile').count(), 3, 'the third release is in the catalog');
-  assert.equal(await steamPre.locator(STEAM_CARD).getAttribute('data-vinyl'), 'sage-white-rim', 'the STEAM catalog card carries its own pressing');
-  assert.match(await steamPre.locator(`${STEAM_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'STEAM carries its countdown pill');
-  assert.doesNotMatch(await steamPre.locator(`${STEAM_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
-  assert.match(await steamPre.locator(`${STEAM_CARD} [data-countdown="${STEAM_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'STEAM shows a live HH:MM:SS clock');
-  assert.equal(await steamPre.locator(`${STEAM_CARD} .download-trigger`).count(), 0, 'the STEAM tile renders no download button before its drop');
-  assert.equal(await steamPre.locator(`${STEAM_CARD} .download-trigger--locked`).count(), 0, 'the STEAM tile renders no secondary LOCKED control');
-  assert.equal(await steamPre.locator(`${STEAM_CARD} .drop-locked`).count(), 0, 'the STEAM tile renders no locked player pane');
-  assert(await steamPre.evaluate((id) => {
+  const greenPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+  await greenPre.goto(`${url}/?now=${GREEN_FLESH_RELEASE - 3600000}`);
+  await greenPre.locator(`[data-countdown="${GREEN_FLESH_ID}"]`).waitFor();
+  assert.equal(await greenPre.locator('#grid .catalog-tile').count(), 3, 'the third release is in the catalog');
+  assert.equal(await greenPre.locator(GREEN_FLESH_CARD).getAttribute('data-vinyl'), 'sage-white-rim', 'the GREEN FLESH catalog card carries its own pressing');
+  assert.match(await greenPre.locator(`${GREEN_FLESH_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'GREEN FLESH carries its countdown pill');
+  assert.doesNotMatch(await greenPre.locator(`${GREEN_FLESH_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
+  assert.match(await greenPre.locator(`${GREEN_FLESH_CARD} [data-countdown="${GREEN_FLESH_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'GREEN FLESH shows a live HH:MM:SS clock');
+  assert.equal(await greenPre.locator(`${GREEN_FLESH_CARD} .download-trigger`).count(), 0, 'the GREEN FLESH tile renders no download button before its drop');
+  assert.equal(await greenPre.locator(`${GREEN_FLESH_CARD} .download-trigger--locked`).count(), 0, 'the GREEN FLESH tile renders no secondary LOCKED control');
+  assert.equal(await greenPre.locator(`${GREEN_FLESH_CARD} .drop-locked`).count(), 0, 'the GREEN FLESH tile renders no locked player pane');
+  assert(await greenPre.evaluate((id) => {
     const slot = document.getElementById('card-' + id).querySelector('.catalog-tile__actions');
     return !!slot && slot.querySelectorAll('button').length === 0 && !!slot.querySelector('.drop-countdown');
-  }, STEAM_ID), 'the countdown pill is the whole STEAM action slot, with no button beside it');
-  assert.match(await steamPre.locator('.marquee-track').innerText(), /2 RELEASES LIVE/, 'the studio count excludes the not-yet-live third release');
-  await steamPre.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), STEAM_ID);
-  await steamPre.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), STEAM_ID);
-  assert.equal(await steamPre.locator('.gate-modal').count(), 0, 'the scheduled STEAM drop opens no gate');
-  assert.equal(await steamPre.locator('.download-menu').count(), 0, 'the scheduled STEAM drop opens no drawer');
-  assert.equal(await steamPre.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), STEAM_ID), 'https://www.youtube.com/@KYROlll00?sub_confirmation=1', 'the helper withholds the STEAM video URL until release');
-  await noCardBleed(steamPre, 'STEAM desktop catalog');
-  await steamPre.close();
+  }, GREEN_FLESH_ID), 'the countdown pill is the whole GREEN FLESH action slot, with no button beside it');
+  assert.match(await greenPre.locator('.marquee-track').innerText(), /2 RELEASES LIVE/, 'the studio count excludes the not-yet-live third release');
+  await greenPre.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), GREEN_FLESH_ID);
+  await greenPre.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), GREEN_FLESH_ID);
+  assert.equal(await greenPre.locator('.gate-modal').count(), 0, 'the scheduled GREEN FLESH drop opens no gate');
+  assert.equal(await greenPre.locator('.download-menu').count(), 0, 'the scheduled GREEN FLESH drop opens no drawer');
+  assert.equal(await greenPre.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), GREEN_FLESH_ID), 'https://www.youtube.com/@KYROlll00?sub_confirmation=1', 'the helper withholds the GREEN FLESH video URL until release');
+  await noCardBleed(greenPre, 'GREEN FLESH desktop catalog');
+  await greenPre.close();
 
-  const steamLive = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'no-preference' });
-  await steamLive.goto(`${url}/?beat=steam&now=${STEAM_RELEASE - 2500}`);
-  await steamLive.locator(`[data-countdown="${STEAM_ID}"]`).waitFor();
-  assert.equal(await steamLive.locator(`${STEAM_CARD}.beat-detail`).count(), 1, 'the STEAM beat page renders');
-  assert.match(await steamLive.locator(STEAM_CARD).innerText(), /\[FREE 100%\] FUTURE TYPE BEAT - STEAM/i);
-  assert.match(await steamLive.locator(STEAM_CARD).innerText(), /138 BPM \/\/ B/i);
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .beat-preview`).count(), 0, 'STEAM has no player before its drop');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .drop-locked`).count(), 1, 'STEAM shows the locked player stand-in');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .card__actions .download-trigger--locked`).count(), 1, 'STEAM shows the dedicated LOCKED control');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .download-trigger[disabled]`).count(), 1, 'the STEAM LOCKED control is inert');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} a.card__youtube-link`).count(), 0, 'no live STEAM YouTube link before the drop');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .card__youtube-link--locked`).count(), 1, 'the STEAM YouTube icon is shown locked');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .card__youtube-link--locked`).getAttribute('href'), null, 'the locked STEAM icon carries no URL');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .card__youtube-link--locked`).evaluate(el => getComputedStyle(el).pointerEvents), 'none', 'the locked STEAM icon is not clickable');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .card__youtube-link--locked`).evaluate(el => el.tagName), 'SPAN', 'the locked STEAM icon is not an anchor');
-  const steamUrlBeforeDrop = steamLive.url();
-  await steamLive.waitForFunction((id) => {
+  const greenLive = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'no-preference' });
+  // Leave enough pre-release runway for the locked-state assertions on a slow
+  // software-rendered run, and stop at DOM readiness so the 3D flower's first
+  // paint cannot spend that runway before the page is inspected.
+  await greenLive.goto(`${url}/?beat=green-flesh&now=${GREEN_FLESH_RELEASE - 12000}`, { waitUntil: 'domcontentloaded' });
+  await greenLive.locator(`[data-countdown="${GREEN_FLESH_ID}"]`).waitFor();
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD}.beat-detail`).count(), 1, 'the GREEN FLESH beat page renders');
+  assert.match(await greenLive.locator(GREEN_FLESH_CARD).innerText(), /\[FREE 100%\] LIL BABY TYPE BEAT - GREEN FLESH/i);
+  assert.equal(await greenLive.evaluate(() => window.KYROlll_HELPERS.beatById('steam').slug), 'green-flesh', 'the old STEAM URL still resolves to the renamed beat');
+  assert.match(await greenLive.locator(GREEN_FLESH_CARD).innerText(), /138 BPM \/\/ B/i);
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .beat-preview`).count(), 0, 'GREEN FLESH has no player before its drop');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .drop-locked`).count(), 1, 'GREEN FLESH shows the locked player stand-in');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .card__actions .download-trigger--locked`).count(), 1, 'GREEN FLESH shows the dedicated LOCKED control');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .download-trigger[disabled]`).count(), 1, 'the GREEN FLESH LOCKED control is inert');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} a.card__youtube-link`).count(), 0, 'no live GREEN FLESH YouTube link before the drop');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .card__youtube-link--locked`).count(), 1, 'the GREEN FLESH YouTube icon is shown locked');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .card__youtube-link--locked`).getAttribute('href'), null, 'the locked GREEN FLESH icon carries no URL');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .card__youtube-link--locked`).evaluate(el => getComputedStyle(el).pointerEvents), 'none', 'the locked GREEN FLESH icon is not clickable');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .card__youtube-link--locked`).evaluate(el => el.tagName), 'SPAN', 'the locked GREEN FLESH icon is not an anchor');
+  const greenUrlBeforeDrop = greenLive.url();
+  await greenLive.waitForFunction((id) => {
     const card = document.getElementById('card-' + id);
     return !!(card && card.querySelector('.beat-preview__toggle')
       && card.querySelector('.download-trigger[data-download-trigger]')
       && !card.querySelector('.drop-countdown')
       && !card.querySelector('.download-trigger--locked'));
-  }, STEAM_ID, { timeout: 15000 });
-  assert.equal(steamLive.url(), steamUrlBeforeDrop, 'STEAM unlocks in page, with no reload');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .beat-preview`).count(), 1, 'the STEAM player appears the second the clock lands');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .download-trigger`).count(), 1, 'the STEAM download button is live at release');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .drop-countdown`).count(), 0, 'the STEAM countdown is gone at release');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .download-trigger--locked`).count(), 0, 'the STEAM LOCKED control is gone at release');
-  const steamYoutube = steamLive.locator(`${STEAM_CARD} a.card__youtube-link`);
-  assert.equal(await steamYoutube.count(), 1, 'the STEAM YouTube link appears at release');
-  assert.equal(await steamYoutube.getAttribute('href'), 'https://www.youtube.com/@KYROlll00', 'the live STEAM link points at the official channel until the beat video is published');
-  assert.equal(await steamYoutube.evaluate(el => getComputedStyle(el).pointerEvents), 'auto', 'the live STEAM link is clickable');
-  assert.equal(await steamLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), STEAM_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the STEAM link with the clock');
+  }, GREEN_FLESH_ID, { timeout: 30000 });
+  assert.equal(greenLive.url(), greenUrlBeforeDrop, 'GREEN FLESH unlocks in page, with no reload');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .beat-preview`).count(), 1, 'the GREEN FLESH player appears the second the clock lands');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .download-trigger`).count(), 1, 'the GREEN FLESH download button is live at release');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .drop-countdown`).count(), 0, 'the GREEN FLESH countdown is gone at release');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .download-trigger--locked`).count(), 0, 'the GREEN FLESH LOCKED control is gone at release');
+  const greenYoutube = greenLive.locator(`${GREEN_FLESH_CARD} a.card__youtube-link`);
+  assert.equal(await greenYoutube.count(), 1, 'the GREEN FLESH YouTube link appears at release');
+  assert.equal(await greenYoutube.getAttribute('href'), 'https://www.youtube.com/@KYROlll00', 'the live GREEN FLESH link points at the official channel until the beat video is published');
+  assert.equal(await greenYoutube.evaluate(el => getComputedStyle(el).pointerEvents), 'auto', 'the live GREEN FLESH link is clickable');
+  assert.equal(await greenLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), GREEN_FLESH_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the GREEN FLESH link with the clock');
   // The third pressing is the smoky grey-green collector disc: a delicate white
   // outer hairline, the deep matte black centre label and the complete flower,
   // with no splash, blob or random graphic anywhere on the record.
-  assert.equal(await steamLive.locator(`${STEAM_CARD}.beat-detail`).getAttribute('data-vinyl'), 'sage-white-rim', 'STEAM renders the sage-white-rim pressing');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'sage-white-rim', 'the STEAM record itself carries the variant');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .vinyl-record--sage-white-rim`).count(), 1, 'STEAM carries the sage-white-rim modifier');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .vinyl-record--white`).count(), 0, 'STEAM does not share the pearl-white disc');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .vinyl-record--gold-rim`).count(), 0, 'STEAM does not share THE FLOW gold rim');
-  const steamVinyl = await steamLive.locator(`${STEAM_CARD} .vinyl-record`).evaluate(el => {
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD}.beat-detail`).getAttribute('data-vinyl'), 'sage-white-rim', 'GREEN FLESH renders the sage-white-rim pressing');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'sage-white-rim', 'the GREEN FLESH record itself carries the variant');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .vinyl-record--sage-white-rim`).count(), 1, 'GREEN FLESH carries the sage-white-rim modifier');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .vinyl-record--white`).count(), 0, 'GREEN FLESH does not share the pearl-white disc');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .vinyl-record--gold-rim`).count(), 0, 'GREEN FLESH does not share THE FLOW gold rim');
+  const greenVinyl = await greenLive.locator(`${GREEN_FLESH_CARD} .vinyl-record`).evaluate(el => {
     const rim = el.querySelector('.vinyl-record__rim');
     const rimStyle = rim ? getComputedStyle(rim) : null;
     const label = getComputedStyle(el, '::after');
@@ -1601,40 +1606,65 @@ try {
       coverFilter: getComputedStyle(document.querySelector('.beat-detail__artwork img')).filter,
     };
   });
-  assert.match(steamVinyl.bodyBg, /rgb\(45, 59, 54\)|rgb\(58, 75, 68\)/, 'the STEAM disc body is smoky grey-green');
-  assert.doesNotMatch(steamVinyl.bodyBg, /\.svg|splatter|blob/, 'the STEAM disc body carries no artwork layer');
-  assert.match(steamVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(0, 0, 0\)/, 'the STEAM centre label stays deep matte black');
-  assert.match(steamVinyl.rimBg, /conic-gradient/, 'the STEAM outer rim is a crisp white hairline');
-  assert.match(steamVinyl.rimBg, /rgb\(245, 245, 245\)|rgb\(255, 255, 255\)/, 'the STEAM rim uses the specified white tones');
-  assert.match(steamVinyl.rimBg, /rgba\(255, 255, 255, 0\.85\)/, 'the STEAM rim carries its delicate translucent white sheen');
-  assert.match(steamVinyl.rimMask, /radial-gradient/, 'the STEAM rim is masked down to a fine perimeter hairline');
-  assert.deepEqual(steamVinyl.children, ['vinyl-record__rim', 'vinyl-record__logo-frame'], 'the STEAM record holds only the clean rim and the flower');
-  assert.equal(steamVinyl.splashCount, 0, 'zero splash, blob or splatter elements remain on STEAM');
-  assert.equal(steamVinyl.rimZ, '3', 'the STEAM rim paints above the disc');
-  assert.equal(steamVinyl.labelZ, '1', 'the STEAM centre label sits above the disc');
-  assert.equal(steamVinyl.logoZ, '2', 'the spinning flower sits above the STEAM label');
-  assert.equal(steamVinyl.logo, true, 'the complete flower survives on the STEAM pressing');
-  assert.equal(steamVinyl.logoAnimation, 'vinylCenterSpin', 'the STEAM flower keeps its slow spin');
-  assert.equal(steamVinyl.logoDuration, '16s', 'the STEAM flower keeps the 16s linear loop');
-  assert(Math.abs(steamVinyl.diameterRatio - 0.92) < 0.01, 'the STEAM record keeps its 92% inset diameter');
-  assert.equal(steamVinyl.coverFilter, 'none', 'the STEAM cover art keeps its original colour');
+  assert.match(greenVinyl.bodyBg, /rgb\(45, 59, 54\)|rgb\(58, 75, 68\)/, 'the GREEN FLESH disc body is smoky grey-green');
+  assert.doesNotMatch(greenVinyl.bodyBg, /\.svg|splatter|blob/, 'the GREEN FLESH disc body carries no artwork layer');
+  assert.match(greenVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(0, 0, 0\)/, 'the GREEN FLESH centre label stays deep matte black');
+  assert.match(greenVinyl.rimBg, /conic-gradient/, 'the GREEN FLESH outer rim is a crisp white hairline');
+  assert.match(greenVinyl.rimBg, /rgb\(245, 245, 245\)|rgb\(255, 255, 255\)/, 'the GREEN FLESH rim uses the specified white tones');
+  assert.match(greenVinyl.rimBg, /rgba\(255, 255, 255, 0\.85\)/, 'the GREEN FLESH rim carries its delicate translucent white sheen');
+  assert.match(greenVinyl.rimMask, /radial-gradient/, 'the GREEN FLESH rim is masked down to a fine perimeter hairline');
+  assert.deepEqual(greenVinyl.children, ['vinyl-record__rim', 'vinyl-record__logo-frame'], 'the GREEN FLESH record holds only the clean rim and the flower');
+  assert.equal(greenVinyl.splashCount, 0, 'zero splash, blob or splatter elements remain on GREEN FLESH');
+  assert.equal(greenVinyl.rimZ, '3', 'the GREEN FLESH rim paints above the disc');
+  assert.equal(greenVinyl.labelZ, '1', 'the GREEN FLESH centre label sits above the disc');
+  assert.equal(greenVinyl.logoZ, '2', 'the spinning flower sits above the GREEN FLESH label');
+  assert.equal(greenVinyl.logo, true, 'the complete flower survives on the GREEN FLESH pressing');
+  assert.equal(greenVinyl.logoAnimation, 'vinylCenterSpin', 'the GREEN FLESH flower keeps its slow spin');
+  assert.equal(greenVinyl.logoDuration, '16s', 'the GREEN FLESH flower keeps the 16s linear loop');
+  assert(Math.abs(greenVinyl.diameterRatio - 0.92) < 0.01, 'the GREEN FLESH record keeps its 92% inset diameter');
+  assert.equal(greenVinyl.coverFilter, 'none', 'the GREEN FLESH cover art keeps its original colour');
   // The pro package's hand-over names are built from the beat's own metadata.
-  assert.deepEqual(await steamLive.evaluate((id) => window.KYROlll_DOWNLOADS.deliverablesFor(id, 'exclusive').map(item => item.name), STEAM_ID), [
-    'KYROIII - STEAM (138 BPM - B).mp3',
-    'KYROIII - STEAM (138 BPM - B).wav',
-    'KYROIII - STEAM (138 BPM - B) - TRACKED STEMS.zip',
-  ], 'STEAM hands over the studio MP3, WAV and tracked stems names');
-  await shot(steamLive, 'steam-live');
-  await steamLive.close();
+  assert.deepEqual(await greenLive.evaluate((id) => window.KYROlll_DOWNLOADS.deliverablesFor(id, 'exclusive').map(item => item.name), GREEN_FLESH_ID), [
+    'KYROIII - GREEN FLESH (138 BPM - B).mp3',
+    'KYROIII - GREEN FLESH (138 BPM - B).wav',
+    'KYROIII - GREEN FLESH - TRACKED STEMS.zip',
+  ], 'GREEN FLESH hands over the studio MP3, WAV and tracked stems names');
+  await shot(greenLive, 'green-flesh-live');
+  await greenLive.close();
 
-  const steamAfter = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
-  await steamAfter.goto(`${url}/?now=${STEAM_RELEASE + 1000}`);
-  await steamAfter.locator(`${STEAM_CARD} .download-trigger`).waitFor();
-  assert.match(await steamAfter.locator('.marquee-track').innerText(), /3 RELEASES LIVE/, 'the studio count becomes three once STEAM is live');
-  await steamAfter.close();
+  // The renamed beat also owns the download page and the license: the page
+  // title, every studio filename and the PDF serial all follow GREEN FLESH,
+  // while the supplied steam.* asset paths stay untouched.
+  const greenDownload = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce', acceptDownloads: true });
+  await greenDownload.goto(`${url}/download.html?beat=${GREEN_FLESH_ID}&package=exclusive&t=greenflesh&sign=Jordan%20Vega&now=${GREEN_FLESH_RELEASE + 1000}`, { waitUntil: 'domcontentloaded' });
+  await greenDownload.locator('#license-serial').waitFor();
+  assert.match(await greenDownload.locator('#download-title').innerText(), /LIL BABY TYPE BEAT - GREEN FLESH/i);
+  assert.match(await greenDownload.locator('#license-serial').innerText(), /^KYRO-\d{4}-GREEN-FLESH-\d{6}$/, 'the GREEN FLESH serial carries its renamed slug');
+  assert.deepEqual(await greenDownload.locator('.download-item__name').evaluateAll(nodes => nodes.map(node => node.textContent)), [
+    'KYROIII - GREEN FLESH (138 BPM - B).mp3',
+    'KYROIII - GREEN FLESH (138 BPM - B).wav',
+    'KYROIII - GREEN FLESH - TRACKED STEMS.zip',
+  ], 'the GREEN FLESH download page lists the renamed studio files');
+  const [greenPdf] = await Promise.all([
+    greenDownload.waitForEvent('download'),
+    greenDownload.locator('[data-license-pdf]').click(),
+  ]);
+  assert.match(greenPdf.suggestedFilename(), /^KYROIII - LICENSE - GREEN FLESH \(KYRO-\d{4}-GREEN-FLESH-\d{6}\)\.pdf$/, 'the GREEN FLESH license saves under its renamed studio name and serial');
+  const greenPdfText = (await readFile(await greenPdf.path())).toString('latin1');
+  const greenPdfRuns = pdfRuns(greenPdfText).join(' ');
+  assert.match(greenPdfRuns, /\[FREE 100%\] LIL BABY TYPE/, 'the GREEN FLESH license carries the renamed title opening');
+  assert.match(greenPdfRuns, /BEAT - GREEN FLESH/, 'the GREEN FLESH license carries the renamed title tail');
+  assert.equal(greenPdfText.includes('STEAM'), false, 'the GREEN FLESH license carries no trace of the old title');
+  await greenDownload.close();
+
+  const greenAfter = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+  await greenAfter.goto(`${url}/?now=${GREEN_FLESH_RELEASE + 1000}`, { waitUntil: 'domcontentloaded' });
+  await greenAfter.locator(`${GREEN_FLESH_CARD} .download-trigger`).waitFor();
+  assert.match(await greenAfter.locator('.marquee-track').innerText(), /3 RELEASES LIVE/, 'the studio count becomes three once GREEN FLESH is live');
+  await greenAfter.close();
 
   // Keep the rest of the stylesheet monochrome while expressly checking the
-  // isolated green / pink hero accents, THE FLOW's gold-rim palette, STEAM's
+  // isolated green / pink hero accents, THE FLOW's gold-rim palette, GREEN FLESH's
   // sage-white-rim palette and the ALL-CAPS rules.
   const cssText = await readFile(new URL('./style.css', import.meta.url), 'utf8');
   const scriptText = await readFile(new URL('./script.js', import.meta.url), 'utf8');
@@ -1703,11 +1733,11 @@ try {
   assert.match(goldRimCss, /mask:\s*radial-gradient/, 'the gold rim is masked to a hairline ring');
   assert.doesNotMatch(goldRimCss, /\.vinyl-record__rim::after/, 'the gold rim has no inner pseudo-ring');
   assert.doesNotMatch(goldRimCss, /\.vinyl-record__gold/, 'the gold-rim palette has no splash layer');
-  // STEAM's collector pressing is the third deliberate palette exception: the
+  // GREEN FLESH's collector pressing is the third deliberate palette exception: the
   // smoky grey-green body and delicate white outer hairline are the vinyl's
   // specified colours, isolated so every other stylesheet literal stays neutral.
-  const sageStart = cssText.indexOf('/* STEAM sage-white-rim palette');
-  const sageEnd = cssText.indexOf('/* End STEAM sage-white-rim palette. */', sageStart);
+  const sageStart = cssText.indexOf('/* GREEN FLESH sage-white-rim palette');
+  const sageEnd = cssText.indexOf('/* End GREEN FLESH sage-white-rim palette. */', sageStart);
   assert(sageStart >= 0 && sageEnd > sageStart, 'the sage-white-rim palette is isolated in its own stylesheet section');
   const sageCss = cssText.slice(sageStart, sageEnd);
   assert.match(sageCss, /#2d3b36/i, 'the sage-white-rim disc body uses the specified smoked grey-green');
