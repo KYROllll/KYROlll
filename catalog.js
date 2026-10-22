@@ -166,9 +166,10 @@
       /* The beat's own video is not published yet; the official channel keeps the
          YouTube icon and the "like this beat" gate step live until it is. */
       youtube: "https://www.youtube.com/@KYROlll00",
-      /* The third pressing: the classic deep matte-black disc, with the complete
-         spinning flower in its centre label. */
-      vinylVariant: "black",
+      /* The third pressing: an atmospheric smoky grey-green collector disc with
+         a delicate white outer hairline and the complete spinning flower in its
+         deep matte black centre label. */
+      vinylVariant: "sage-white-rim",
       /* The third official release drops tonight at 23:00 Israel time. Until
          then the tile is a timezone-proof countdown, and the beat page keeps its
          player, YouTube icon and download drawer locked. */

@@ -1508,13 +1508,14 @@ try {
   // ------------------------------------------ third release: STEAM (23:00)
   // The third official drop is scheduled for 23:00 Israel time. It follows the
   // same pre-release contract as THE FLOW — a countdown-only tile, a locked
-  // detail page, and an in-page unlock — and it wears the classic matte-black
-  // pressing with the complete spinning flower. The studio count must stay at
-  // two releases until its clock lands, then become three.
+  // detail page, and an in-page unlock — and it wears the smoky grey-green
+  // sage-white-rim pressing with the complete spinning flower. The studio count
+  // must stay at two releases until its clock lands, then become three.
   const steamPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await steamPre.goto(`${url}/?now=${STEAM_RELEASE - 3600000}`);
   await steamPre.locator(`[data-countdown="${STEAM_ID}"]`).waitFor();
   assert.equal(await steamPre.locator('#grid .catalog-tile').count(), 3, 'the third release is in the catalog');
+  assert.equal(await steamPre.locator(STEAM_CARD).getAttribute('data-vinyl'), 'sage-white-rim', 'the STEAM catalog card carries its own pressing');
   assert.match(await steamPre.locator(`${STEAM_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'STEAM carries its countdown pill');
   assert.doesNotMatch(await steamPre.locator(`${STEAM_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
   assert.match(await steamPre.locator(`${STEAM_CARD} [data-countdown="${STEAM_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'STEAM shows a live HH:MM:SS clock');
@@ -1567,12 +1568,56 @@ try {
   assert.equal(await steamYoutube.getAttribute('href'), 'https://www.youtube.com/@KYROlll00', 'the live STEAM link points at the official channel until the beat video is published');
   assert.equal(await steamYoutube.evaluate(el => getComputedStyle(el).pointerEvents), 'auto', 'the live STEAM link is clickable');
   assert.equal(await steamLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), STEAM_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the STEAM link with the clock');
-  // The third pressing is the classic black disc with the complete flower.
-  assert.equal(await steamLive.locator(`${STEAM_CARD}.beat-detail`).getAttribute('data-vinyl'), 'black', 'STEAM renders the black pressing');
+  // The third pressing is the smoky grey-green collector disc: a delicate white
+  // outer hairline, the deep matte black centre label and the complete flower,
+  // with no splash, blob or random graphic anywhere on the record.
+  assert.equal(await steamLive.locator(`${STEAM_CARD}.beat-detail`).getAttribute('data-vinyl'), 'sage-white-rim', 'STEAM renders the sage-white-rim pressing');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'sage-white-rim', 'the STEAM record itself carries the variant');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .vinyl-record--sage-white-rim`).count(), 1, 'STEAM carries the sage-white-rim modifier');
   assert.equal(await steamLive.locator(`${STEAM_CARD} .vinyl-record--white`).count(), 0, 'STEAM does not share the pearl-white disc');
   assert.equal(await steamLive.locator(`${STEAM_CARD} .vinyl-record--gold-rim`).count(), 0, 'STEAM does not share THE FLOW gold rim');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .vinyl-record__logo`).count(), 1, 'the complete flower survives on the STEAM pressing');
-  assert.equal(await steamLive.locator(`${STEAM_CARD} .vinyl-record__logo`).evaluate(el => getComputedStyle(el).animationName), 'vinylCenterSpin', 'the STEAM flower keeps its slow spin');
+  const steamVinyl = await steamLive.locator(`${STEAM_CARD} .vinyl-record`).evaluate(el => {
+    const rim = el.querySelector('.vinyl-record__rim');
+    const rimStyle = rim ? getComputedStyle(rim) : null;
+    const label = getComputedStyle(el, '::after');
+    const logo = el.querySelector('.vinyl-record__logo');
+    const logoFrame = el.querySelector('.vinyl-record__logo-frame');
+    const recordRect = el.getBoundingClientRect();
+    const sleeveRect = document.querySelector('.beat-detail__artwork').getBoundingClientRect();
+    return {
+      bodyBg: getComputedStyle(el).backgroundImage,
+      labelBg: label.backgroundImage,
+      labelZ: label.zIndex,
+      rimBg: rimStyle ? rimStyle.backgroundImage : null,
+      rimMask: rimStyle ? (rimStyle.maskImage || rimStyle.webkitMaskImage) : null,
+      rimZ: rimStyle ? rimStyle.zIndex : null,
+      logoZ: logoFrame ? getComputedStyle(logoFrame).zIndex : null,
+      children: [...el.children].map(child => child.className),
+      splashCount: el.querySelectorAll('.vinyl-record__gold, [class*="splash"], [class*="blob"], [class*="splatter"]').length,
+      logo: !!logo,
+      logoAnimation: logo ? getComputedStyle(logo).animationName : null,
+      logoDuration: logo ? getComputedStyle(logo).animationDuration : null,
+      diameterRatio: recordRect.width / sleeveRect.width,
+      coverFilter: getComputedStyle(document.querySelector('.beat-detail__artwork img')).filter,
+    };
+  });
+  assert.match(steamVinyl.bodyBg, /rgb\(45, 59, 54\)|rgb\(58, 75, 68\)/, 'the STEAM disc body is smoky grey-green');
+  assert.doesNotMatch(steamVinyl.bodyBg, /\.svg|splatter|blob/, 'the STEAM disc body carries no artwork layer');
+  assert.match(steamVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(0, 0, 0\)/, 'the STEAM centre label stays deep matte black');
+  assert.match(steamVinyl.rimBg, /conic-gradient/, 'the STEAM outer rim is a crisp white hairline');
+  assert.match(steamVinyl.rimBg, /rgb\(245, 245, 245\)|rgb\(255, 255, 255\)/, 'the STEAM rim uses the specified white tones');
+  assert.match(steamVinyl.rimBg, /rgba\(255, 255, 255, 0\.85\)/, 'the STEAM rim carries its delicate translucent white sheen');
+  assert.match(steamVinyl.rimMask, /radial-gradient/, 'the STEAM rim is masked down to a fine perimeter hairline');
+  assert.deepEqual(steamVinyl.children, ['vinyl-record__rim', 'vinyl-record__logo-frame'], 'the STEAM record holds only the clean rim and the flower');
+  assert.equal(steamVinyl.splashCount, 0, 'zero splash, blob or splatter elements remain on STEAM');
+  assert.equal(steamVinyl.rimZ, '3', 'the STEAM rim paints above the disc');
+  assert.equal(steamVinyl.labelZ, '1', 'the STEAM centre label sits above the disc');
+  assert.equal(steamVinyl.logoZ, '2', 'the spinning flower sits above the STEAM label');
+  assert.equal(steamVinyl.logo, true, 'the complete flower survives on the STEAM pressing');
+  assert.equal(steamVinyl.logoAnimation, 'vinylCenterSpin', 'the STEAM flower keeps its slow spin');
+  assert.equal(steamVinyl.logoDuration, '16s', 'the STEAM flower keeps the 16s linear loop');
+  assert(Math.abs(steamVinyl.diameterRatio - 0.92) < 0.01, 'the STEAM record keeps its 92% inset diameter');
+  assert.equal(steamVinyl.coverFilter, 'none', 'the STEAM cover art keeps its original colour');
   // The pro package's hand-over names are built from the beat's own metadata.
   assert.deepEqual(await steamLive.evaluate((id) => window.KYROlll_DOWNLOADS.deliverablesFor(id, 'exclusive').map(item => item.name), STEAM_ID), [
     'KYROIII - STEAM (138 BPM - B).mp3',
@@ -1589,12 +1634,12 @@ try {
   await steamAfter.close();
 
   // Keep the rest of the stylesheet monochrome while expressly checking the
-  // isolated green / pink hero accents, THE FLOW's gold-rim palette and the
-  // ALL-CAPS rules.
+  // isolated green / pink hero accents, THE FLOW's gold-rim palette, STEAM's
+  // sage-white-rim palette and the ALL-CAPS rules.
   const cssText = await readFile(new URL('./style.css', import.meta.url), 'utf8');
   const scriptText = await readFile(new URL('./script.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(scriptText, /vinyl-record__gold|goldSplash|gold-splatter/, 'the record generates no splash, blob or splatter layer');
-  assert.doesNotMatch(cssText, /vinyl-record__gold|gold-splatter/, 'the stylesheet carries no splash layer or artwork');
+  assert.doesNotMatch(scriptText, /vinyl-record__gold|goldSplash|gold-splatter|sageSplash|sage-blob/, 'the record generates no splash, blob or splatter layer');
+  assert.doesNotMatch(cssText, /vinyl-record__gold|gold-splatter|sage-splatter/, 'the stylesheet carries no splash layer or artwork');
   // The vinyl reveal contract: the record's *first* computed state is tucked
   // behind the sleeve (so nothing can flash in the exposed position), and the
   // reveal is a 1 s translate-only slide with the elite easing. The 360° spin it
@@ -1658,7 +1703,25 @@ try {
   assert.match(goldRimCss, /mask:\s*radial-gradient/, 'the gold rim is masked to a hairline ring');
   assert.doesNotMatch(goldRimCss, /\.vinyl-record__rim::after/, 'the gold rim has no inner pseudo-ring');
   assert.doesNotMatch(goldRimCss, /\.vinyl-record__gold/, 'the gold-rim palette has no splash layer');
-  const auditedCss = cssText.slice(0, taglineStart) + cssText.slice(taglineEnd, goldRimStart) + cssText.slice(goldRimEnd);
+  // STEAM's collector pressing is the third deliberate palette exception: the
+  // smoky grey-green body and delicate white outer hairline are the vinyl's
+  // specified colours, isolated so every other stylesheet literal stays neutral.
+  const sageStart = cssText.indexOf('/* STEAM sage-white-rim palette');
+  const sageEnd = cssText.indexOf('/* End STEAM sage-white-rim palette. */', sageStart);
+  assert(sageStart >= 0 && sageEnd > sageStart, 'the sage-white-rim palette is isolated in its own stylesheet section');
+  const sageCss = cssText.slice(sageStart, sageEnd);
+  assert.match(sageCss, /#2d3b36/i, 'the sage-white-rim disc body uses the specified smoked grey-green');
+  assert.match(sageCss, /#3a4b44/i, 'the sage-white-rim disc body carries its lighter sage-slate tone');
+  assert.match(sageCss, /#f5f5f5/i, 'the sage-white-rim uses the specified pure-white hairline');
+  assert.match(sageCss, /rgba\(255, 255, 255, 0\.85\)/i, 'the white rim carries its delicate translucent sheen');
+  assert.match(sageCss, /#0a0a0a/i, 'the sage-white-rim centre label stays deep matte black');
+  assert.equal((sageCss.match(/conic-gradient/g) || []).length, 1, 'the sage-white-rim palette paints exactly one delicate ring');
+  assert.match(sageCss, /\.vinyl-record--sage-white-rim\s+\.vinyl-record__logo-frame\s*\{\s*z-index:\s*2/, 'the spinning flower sits above the sage centre label');
+  assert.doesNotMatch(sageCss, /splash|blob|splatter|\.vinyl-record__sage/, 'the sage-white-rim palette has no splash, blob or random graphic');
+  const auditedCss = cssText.slice(0, taglineStart)
+    + cssText.slice(taglineEnd, goldRimStart)
+    + cssText.slice(goldRimEnd, sageStart)
+    + cssText.slice(sageEnd);
   const literal = value => (value.includes(',')
     ? value.split(',').slice(0, 3).map(part => Number(part.trim()))
     : (value.length <= 4 ? value.slice(0, 3).split('').map(c => parseInt(c + c, 16)) : [0, 2, 4].map(i => parseInt(value.slice(i, i + 2), 16))));
@@ -1671,7 +1734,7 @@ try {
     const [r, g, b] = literal(value);
     return !(r === g && g === b);
   });
-  assert.deepEqual(cssTinted, [], `every colour literal outside the tagline section is an equal-channel grey: ${cssTinted.join(', ')}`);
+  assert.deepEqual(cssTinted, [], `every colour literal outside the marked palette sections is an equal-channel grey: ${cssTinted.join(', ')}`);
   assert.match(cssText, /html \{ text-transform: uppercase; \}/, 'the page-wide ALL-CAPS rule');
   assert.match(cssText, /input::placeholder, textarea::placeholder \{ text-transform: uppercase; \}/, 'placeholders are uppercase too');
   assert.equal(/\.gate-input[^}]*text-transform: none/.test(cssText), false, 'no casing opt-out is left on the fields');

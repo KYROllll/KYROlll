@@ -1525,6 +1525,53 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .vinyl-record--gold-rim .vinyl-record__logo-frame { z-index: 2; }
 /* End THE FLOW gold-rim palette. */
 
+/* STEAM sage-white-rim palette — the third pressing's deliberate colour exception. */
+/* STEAM's atmospheric collector pressing: a smoky grey-green body with fine
+   concentric micro-grooves, a soft specular sheen and one delicate pure-white
+   hairline along the outer perimeter. The centre label stays deep matte black,
+   so the complete spinning flower has the same stage as the other pressings.
+   The rim reuses the base masked hairline, so no graphic ever enters the disc. */
+.vinyl-record--sage-white-rim {
+  background:
+    radial-gradient(circle at 30% 24%, rgba(224, 235, 228, 0.16) 0%, rgba(224, 235, 228, 0) 34%),
+    radial-gradient(circle at 72% 80%, rgba(5, 16, 12, 0.24) 0%, rgba(5, 16, 12, 0) 44%),
+    repeating-radial-gradient(circle at 50% 50%, rgba(235, 245, 239, 0.045) 0 1px, transparent 1px 7px),
+    repeating-radial-gradient(circle at 50% 50%, rgba(5, 16, 12, 0.16) 0 2px, transparent 2px 9px),
+    radial-gradient(circle at 50% 50%, #3a4b44 0%, #2d3b36 58%, #22302b 82%, #2d3b36 100%);
+  box-shadow:
+    0 26px 58px rgba(0, 0, 0, 0.85),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 0 42px rgba(0, 0, 0, 0.44);
+}
+.vinyl-record--sage-white-rim::before {
+  inset: 7%;
+  background:
+    repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, rgba(5, 16, 12, 0.16) 3px 4px, transparent 4px 8px);
+  opacity: 0.62;
+}
+.vinyl-record--sage-white-rim::after {
+  width: 36%;
+  height: 36%;
+  background: radial-gradient(circle at 50% 38%, #1a1a1a 0%, #0a0a0a 70%, #050505 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.9);
+  z-index: 1;
+}
+.vinyl-record--sage-white-rim .vinyl-record__rim {
+  background: conic-gradient(from 215deg,
+    #f5f5f5 0deg,
+    rgba(255, 255, 255, 0.85) 38deg,
+    #ffffff 74deg,
+    #f5f5f5 128deg,
+    rgba(255, 255, 255, 0.85) 196deg,
+    #ffffff 252deg,
+    #f5f5f5 312deg,
+    #ffffff 360deg);
+  opacity: 1;
+}
+.vinyl-record--sage-white-rim .vinyl-record__logo-frame { z-index: 2; }
+/* End STEAM sage-white-rim palette. */
+
 .vinyl-record__logo {
   display: block;
   width: 100%;

@@ -33,10 +33,12 @@ function specLine(beat) {
 }
 
 /* Each beat owns a pressing: FLESH is pearl white, THE FLOW is a deep matte
-   black disc with a single fine gold rim. The old "gold" value still resolves to
+   black disc with a single fine gold rim, and STEAM is a smoky grey-green disc
+   with a delicate white outer hairline. The old "gold" value still resolves to
    the refined "gold-rim" pressing, so a stale link or cached catalog can never
    render an unstyled disc. Anything unknown keeps the white standard. */
 function vinylVariantFor(beat) {
+  if (beat && beat.vinylVariant === "sage-white-rim") return "sage-white-rim";
   if (beat && (beat.vinylVariant === "gold-rim" || beat.vinylVariant === "gold")) return "gold-rim";
   if (beat && beat.vinylVariant === "black") return "black";
   return "white";
@@ -44,6 +46,7 @@ function vinylVariantFor(beat) {
 function vinylModifier(variant) {
   if (variant === "white") return " vinyl-record--white";
   if (variant === "gold-rim") return " vinyl-record--gold-rim";
+  if (variant === "sage-white-rim") return " vinyl-record--sage-white-rim";
   return "";
 }
 
@@ -162,7 +165,9 @@ function actionsSlotHTML(beat, compact) {
 function beatDetailInner(beat) {
   const pending = releasePending(beat);
   const vinylVariant = vinylVariantFor(beat);
-  const goldRim = vinylVariant === "gold-rim" ? `<span class="vinyl-record__rim" aria-hidden="true"></span>` : "";
+  const outerRim = vinylVariant === "gold-rim" || vinylVariant === "sage-white-rim"
+    ? `<span class="vinyl-record__rim" aria-hidden="true"></span>`
+    : "";
   const meta = pending
     ? `<div class="card__specs">${specLine(beat)} // SCHEDULED DROP</div>`
     : `<div class="card__specs">${specLine(beat)} // TAGGED AUDIO</div>`;
@@ -184,7 +189,7 @@ function beatDetailInner(beat) {
     </section>
     <div class="beat-detail__artwork-wrap">
       <div class="vinyl-record${vinylModifier(vinylVariant)}" data-vinyl="${vinylVariant}" aria-hidden="true">
-        ${goldRim}
+        ${outerRim}
         <span class="vinyl-record__logo-frame" aria-hidden="true">
           <img class="vinyl-record__logo" src="assets/kyrolll-flower.svg" alt="" width="300" height="300" loading="lazy">
         </span>
@@ -252,9 +257,9 @@ function buildGrid() {
   list.forEach((beat) => {
     const card = document.createElement("article");
     card.id = "card-" + beat.id;
+    card.setAttribute("data-vinyl", vinylVariantFor(beat));
     if (detail) {
       card.className = "beat-detail";
-      card.setAttribute("data-vinyl", vinylVariantFor(beat));
       card.innerHTML = beatDetailInner(beat);
     } else {
       const pending = releasePending(beat);
