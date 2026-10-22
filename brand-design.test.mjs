@@ -146,6 +146,10 @@ const PROVIDER = 'https://formspree.io/f/xgaoppwo';
 const FLOW_ID = '5f9bbcab-e010-4efe-b459-9c9182e1d85b';
 const FLOW_CARD = '#card-5f9bbcab-e010-4efe-b459-9c9182e1d85b';
 const FLOW_RELEASE = Date.parse('2026-10-19T23:00:00+03:00');
+// The third release, [FREE 100%] FUTURE TYPE BEAT - STEAM, drops tonight.
+const STEAM_ID = 'a4acc928-410a-4200-8463-13bd9258058d';
+const STEAM_CARD = '#card-a4acc928-410a-4200-8463-13bd9258058d';
+const STEAM_RELEASE = Date.parse('2026-10-22T23:00:00+03:00');
 
 // Nothing about a gate may be remembered: the storefront writes no gate state
 // at all (no unlock set, no remembered address).
@@ -296,9 +300,10 @@ try {
     green: getComputedStyle(el, '::before').color,
     pink: getComputedStyle(el, '::after').color,
   })), { green: 'rgb(57, 255, 139)', pink: 'rgb(255, 62, 165)' });
-  assert.equal(await desktop.locator('#grid .catalog-tile').count(), 2);
+  assert.equal(await desktop.locator('#grid .catalog-tile').count(), 3);
   assert.equal(await desktop.locator('.catalog-tile__art img').first().evaluate(el => getComputedStyle(el).filter), 'none', 'catalog cover art keeps its original colour');
   assert.match(await desktop.locator(CARD).innerText(), /\[FREE 100%\] DON TOLIVER TYPE BEAT - FLESH/i);
+  assert.match(await desktop.locator(STEAM_CARD).innerText(), /\[FREE 100%\] FUTURE TYPE BEAT - STEAM/i);
   await shot(desktop, 'desktop');
 
   // ------------------------------------------------------------------ marquee
@@ -1371,7 +1376,7 @@ try {
   await noOverflow(preDrop);
   await noHue(preDrop, 'the storefront before the drop');
   await noLowercase(preDrop, 'the storefront before the drop');
-  assert.equal(await preDrop.locator('#grid .catalog-tile').count(), 2, 'both releases sit in the catalog');
+  assert.equal(await preDrop.locator('#grid .catalog-tile').count(), 3, 'all three releases sit in the catalog');
   assert.match(await preDrop.locator(`${FLOW_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'the scheduled drop carries its countdown pill');
   assert.doesNotMatch(await preDrop.locator(`${FLOW_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
   assert.match(await preDrop.locator(`${FLOW_CARD} [data-countdown="${FLOW_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'the pill shows a live HH:MM:SS clock');
@@ -1499,6 +1504,89 @@ try {
   assert.deepEqual(pdfRuns(flowText).filter(run => /[a-z]/.test(run)), [], 'the flow license is ALL CAPS');
   await shot(flowPage, 'download-flow');
   await flowPage.close();
+
+  // ------------------------------------------ third release: STEAM (23:00)
+  // The third official drop is scheduled for 23:00 Israel time. It follows the
+  // same pre-release contract as THE FLOW — a countdown-only tile, a locked
+  // detail page, and an in-page unlock — and it wears the classic matte-black
+  // pressing with the complete spinning flower. The studio count must stay at
+  // two releases until its clock lands, then become three.
+  const steamPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+  await steamPre.goto(`${url}/?now=${STEAM_RELEASE - 3600000}`);
+  await steamPre.locator(`[data-countdown="${STEAM_ID}"]`).waitFor();
+  assert.equal(await steamPre.locator('#grid .catalog-tile').count(), 3, 'the third release is in the catalog');
+  assert.match(await steamPre.locator(`${STEAM_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'STEAM carries its countdown pill');
+  assert.doesNotMatch(await steamPre.locator(`${STEAM_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
+  assert.match(await steamPre.locator(`${STEAM_CARD} [data-countdown="${STEAM_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'STEAM shows a live HH:MM:SS clock');
+  assert.equal(await steamPre.locator(`${STEAM_CARD} .download-trigger`).count(), 0, 'the STEAM tile renders no download button before its drop');
+  assert.equal(await steamPre.locator(`${STEAM_CARD} .download-trigger--locked`).count(), 0, 'the STEAM tile renders no secondary LOCKED control');
+  assert.equal(await steamPre.locator(`${STEAM_CARD} .drop-locked`).count(), 0, 'the STEAM tile renders no locked player pane');
+  assert(await steamPre.evaluate((id) => {
+    const slot = document.getElementById('card-' + id).querySelector('.catalog-tile__actions');
+    return !!slot && slot.querySelectorAll('button').length === 0 && !!slot.querySelector('.drop-countdown');
+  }, STEAM_ID), 'the countdown pill is the whole STEAM action slot, with no button beside it');
+  assert.match(await steamPre.locator('.marquee-track').innerText(), /2 RELEASES LIVE/, 'the studio count excludes the not-yet-live third release');
+  await steamPre.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), STEAM_ID);
+  await steamPre.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), STEAM_ID);
+  assert.equal(await steamPre.locator('.gate-modal').count(), 0, 'the scheduled STEAM drop opens no gate');
+  assert.equal(await steamPre.locator('.download-menu').count(), 0, 'the scheduled STEAM drop opens no drawer');
+  assert.equal(await steamPre.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), STEAM_ID), 'https://www.youtube.com/@KYROlll00?sub_confirmation=1', 'the helper withholds the STEAM video URL until release');
+  await noCardBleed(steamPre, 'STEAM desktop catalog');
+  await steamPre.close();
+
+  const steamLive = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'no-preference' });
+  await steamLive.goto(`${url}/?beat=steam&now=${STEAM_RELEASE - 2500}`);
+  await steamLive.locator(`[data-countdown="${STEAM_ID}"]`).waitFor();
+  assert.equal(await steamLive.locator(`${STEAM_CARD}.beat-detail`).count(), 1, 'the STEAM beat page renders');
+  assert.match(await steamLive.locator(STEAM_CARD).innerText(), /\[FREE 100%\] FUTURE TYPE BEAT - STEAM/i);
+  assert.match(await steamLive.locator(STEAM_CARD).innerText(), /138 BPM \/\/ B/i);
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .beat-preview`).count(), 0, 'STEAM has no player before its drop');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .drop-locked`).count(), 1, 'STEAM shows the locked player stand-in');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .card__actions .download-trigger--locked`).count(), 1, 'STEAM shows the dedicated LOCKED control');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .download-trigger[disabled]`).count(), 1, 'the STEAM LOCKED control is inert');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} a.card__youtube-link`).count(), 0, 'no live STEAM YouTube link before the drop');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .card__youtube-link--locked`).count(), 1, 'the STEAM YouTube icon is shown locked');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .card__youtube-link--locked`).getAttribute('href'), null, 'the locked STEAM icon carries no URL');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .card__youtube-link--locked`).evaluate(el => getComputedStyle(el).pointerEvents), 'none', 'the locked STEAM icon is not clickable');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .card__youtube-link--locked`).evaluate(el => el.tagName), 'SPAN', 'the locked STEAM icon is not an anchor');
+  const steamUrlBeforeDrop = steamLive.url();
+  await steamLive.waitForFunction((id) => {
+    const card = document.getElementById('card-' + id);
+    return !!(card && card.querySelector('.beat-preview__toggle')
+      && card.querySelector('.download-trigger[data-download-trigger]')
+      && !card.querySelector('.drop-countdown')
+      && !card.querySelector('.download-trigger--locked'));
+  }, STEAM_ID, { timeout: 15000 });
+  assert.equal(steamLive.url(), steamUrlBeforeDrop, 'STEAM unlocks in page, with no reload');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .beat-preview`).count(), 1, 'the STEAM player appears the second the clock lands');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .download-trigger`).count(), 1, 'the STEAM download button is live at release');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .drop-countdown`).count(), 0, 'the STEAM countdown is gone at release');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .download-trigger--locked`).count(), 0, 'the STEAM LOCKED control is gone at release');
+  const steamYoutube = steamLive.locator(`${STEAM_CARD} a.card__youtube-link`);
+  assert.equal(await steamYoutube.count(), 1, 'the STEAM YouTube link appears at release');
+  assert.equal(await steamYoutube.getAttribute('href'), 'https://www.youtube.com/@KYROlll00', 'the live STEAM link points at the official channel until the beat video is published');
+  assert.equal(await steamYoutube.evaluate(el => getComputedStyle(el).pointerEvents), 'auto', 'the live STEAM link is clickable');
+  assert.equal(await steamLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), STEAM_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the STEAM link with the clock');
+  // The third pressing is the classic black disc with the complete flower.
+  assert.equal(await steamLive.locator(`${STEAM_CARD}.beat-detail`).getAttribute('data-vinyl'), 'black', 'STEAM renders the black pressing');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .vinyl-record--white`).count(), 0, 'STEAM does not share the pearl-white disc');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .vinyl-record--gold-rim`).count(), 0, 'STEAM does not share THE FLOW gold rim');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .vinyl-record__logo`).count(), 1, 'the complete flower survives on the STEAM pressing');
+  assert.equal(await steamLive.locator(`${STEAM_CARD} .vinyl-record__logo`).evaluate(el => getComputedStyle(el).animationName), 'vinylCenterSpin', 'the STEAM flower keeps its slow spin');
+  // The pro package's hand-over names are built from the beat's own metadata.
+  assert.deepEqual(await steamLive.evaluate((id) => window.KYROlll_DOWNLOADS.deliverablesFor(id, 'exclusive').map(item => item.name), STEAM_ID), [
+    'KYROIII - STEAM (138 BPM - B).mp3',
+    'KYROIII - STEAM (138 BPM - B).wav',
+    'KYROIII - STEAM (138 BPM - B) - TRACKED STEMS.zip',
+  ], 'STEAM hands over the studio MP3, WAV and tracked stems names');
+  await shot(steamLive, 'steam-live');
+  await steamLive.close();
+
+  const steamAfter = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+  await steamAfter.goto(`${url}/?now=${STEAM_RELEASE + 1000}`);
+  await steamAfter.locator(`${STEAM_CARD} .download-trigger`).waitFor();
+  assert.match(await steamAfter.locator('.marquee-track').innerText(), /3 RELEASES LIVE/, 'the studio count becomes three once STEAM is live');
+  await steamAfter.close();
 
   // Keep the rest of the stylesheet monochrome while expressly checking the
   // isolated green / pink hero accents, THE FLOW's gold-rim palette and the

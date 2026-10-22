@@ -154,6 +154,39 @@
           { file: "assets/previews/the-flow-stems.zip", name: "KYROIII - THE FLOW (124 BPM - C#M) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
       }
+    },
+    {
+      id: "a4acc928-410a-4200-8463-13bd9258058d",
+      slug: "steam",
+      title: "[FREE 100%] FUTURE TYPE BEAT - STEAM",
+      img: "assets/steam.png",
+      bpm: 138,
+      key: "B",
+      preview: "assets/previews/steam.mp3",
+      /* The beat's own video is not published yet; the official channel keeps the
+         YouTube icon and the "like this beat" gate step live until it is. */
+      youtube: "https://www.youtube.com/@KYROlll00",
+      /* The third pressing: the classic deep matte-black disc, with the complete
+         spinning flower in its centre label. */
+      vinylVariant: "black",
+      /* The third official release drops tonight at 23:00 Israel time. Until
+         then the tile is a timezone-proof countdown, and the beat page keeps its
+         player, YouTube icon and download drawer locked. */
+      releaseAt: "2026-10-22T23:00:00+03:00",
+      deliverables: {
+        mp3: [
+          { file: "assets/previews/steam.mp3", name: "KYROIII - STEAM (138 BPM - B).mp3", label: "TAGGED MP3" }
+        ],
+        wav: [
+          { file: "assets/previews/steam.mp3", name: "KYROIII - STEAM (138 BPM - B).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/steam.wav", name: "KYROIII - STEAM (138 BPM - B).wav", label: "HIGH-QUALITY WAV" }
+        ],
+        exclusive: [
+          { file: "assets/previews/steam.mp3", name: "KYROIII - STEAM (138 BPM - B).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/steam.wav", name: "KYROIII - STEAM (138 BPM - B).wav", label: "HIGH-QUALITY WAV" },
+          { file: "assets/previews/steam-stems.zip", name: "KYROIII - STEAM (138 BPM - B) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
+        ]
+      }
     }
   ];
 

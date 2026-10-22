@@ -33,21 +33,30 @@
   }[char]));
 
   // Newest catalog beat first; older releases follow in reverse catalog order.
+  // A scheduled drop is announced as "DROPPING SOON" rather than as a crate
+  // item, and the studio count only includes beats whose clock has landed.
   function headlineItems() {
     const catalog = window.KYROlll_CATALOG || [];
-    const drops = catalog.slice().reverse().map((beat) =>
-      "NEW DROP — " + beat.title + " — " + beat.bpm + " BPM // " + String(beat.key).toUpperCase() + " — IN THE CRATE"
-    );
+    const helpers = window.KYROlll_HELPERS;
+    const released = (beat) => !helpers || !helpers.isReleased || helpers.isReleased(beat);
+    const drops = catalog.slice().reverse().map((beat) => {
+      const live = released(beat);
+      return (live ? "NEW DROP" : "DROPPING SOON") +
+        " — " + beat.title + " — " + beat.bpm + " BPM // " + String(beat.key).toUpperCase() +
+        (live ? " — IN THE CRATE" : " — IN THE WORKSHOP");
+    });
     // Studio intelligence, computed from the catalog so the ticker never drifts
     // from what the shop actually holds: the live release count plus the single
-    // freshest beat, worded like a studio note rather than a stock counter.
+    // freshest *released* beat, worded like a studio note rather than a stock
+    // counter. A beat that is still counting down is not "live" yet.
+    const liveCatalog = catalog.filter(released);
     const studio = [];
-    if (catalog.length) {
+    if (liveCatalog.length) {
       studio.push(
-        "STUDIO UPDATE — " + catalog.length + (catalog.length === 1 ? " RELEASE LIVE" : " RELEASES LIVE") +
+        "STUDIO UPDATE — " + liveCatalog.length + (liveCatalog.length === 1 ? " RELEASE LIVE" : " RELEASES LIVE") +
         " — FREE DOWNLOADS READY"
       );
-      const newest = catalog[catalog.length - 1];
+      const newest = liveCatalog[liveCatalog.length - 1];
       if (newest) {
         studio.push("FRESHEST OUT THE STUDIO — " + newest.title + " — " + newest.bpm + " BPM // " + String(newest.key).toUpperCase());
       }
