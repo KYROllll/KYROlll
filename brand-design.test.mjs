@@ -1431,6 +1431,159 @@ try {
   await shot(preDropPhone, 'store-before-drop-phone');
   await preDropPhone.close();
 
+  // ------------------------------------------------ mobile title isolation
+  // The phone's glass beat card is the worst case for a WebKit re-rasterisation
+  // jitter: a backdrop-filtered surface fading in while a live countdown and the
+  // delayed vinyl reveal run inside it. The title, its head and the info sheet
+  // are permanent compositor layers now, and the countdown readout is tabular
+  // and fixed-width. Sample the title's document-space box and computed
+  // transform through 60 real animation frames in each phase — the entrance
+  // fade, a countdown tick, and the record sliding out — and require exactly
+  // 0.00px of drift.
+  const titlePhone = await setupPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'no-preference' });
+  const titleSelector = `${FLOW_CARD} .beat-detail__title`;
+  const timerSelector = '[data-release-countdown] .drop-countdown__time';
+  await titlePhone.goto(`${url}/?beat=the-flow&now=${FLOW_RELEASE - 3600000}`);
+  await titlePhone.locator(titleSelector).waitFor();
+
+  const identityTransform = value => {
+    const match = String(value).match(/^matrix(3d)?\((.+)\)$/);
+    if (!match) return false;
+    const actual = match[2].split(',').map(Number);
+    const identity = match[1]
+      ? [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+      : [1, 0, 0, 1, 0, 0];
+    return actual.length === identity.length && actual.every((n, i) => Math.abs(n - identity[i]) < 1e-6);
+  };
+
+  const layerStyles = await titlePhone.evaluate(() => {
+    const read = selector => {
+      const cs = getComputedStyle(document.querySelector(selector));
+      return {
+        transform: cs.transform,
+        backfaceVisibility: cs.backfaceVisibility,
+        fontSmoothing: cs.getPropertyValue('-webkit-font-smoothing'),
+        textRendering: cs.textRendering,
+        contain: cs.contain,
+        isolation: cs.isolation,
+        willChange: cs.willChange,
+        textShadow: cs.textShadow,
+        filter: cs.filter,
+        animationName: cs.animationName,
+        fontVariantNumeric: cs.fontVariantNumeric,
+        fontFeatureSettings: cs.fontFeatureSettings,
+      };
+    };
+    return {
+      info: read('.beat-detail__info'),
+      head: read('.beat-detail__head'),
+      title: read('.beat-detail__title'),
+      countdown: read('[data-release-countdown]'),
+      timer: read('[data-release-countdown] .drop-countdown__time'),
+    };
+  });
+  for (const layer of ['info', 'head', 'title']) {
+    const style = layerStyles[layer];
+    assert(identityTransform(style.transform), `${layer}: the beat-detail layer settles on translate3d(0, 0, 0) (${style.transform})`);
+    assert.equal(style.backfaceVisibility, 'hidden', `${layer}: the layer is backface-hidden`);
+    assert.equal(style.fontSmoothing, 'antialiased', `${layer}: the layer keeps antialiased text`);
+    assert.equal(style.textRendering.toLowerCase(), 'geometricprecision', `${layer}: the layer uses geometric text precision`);
+    assert.equal(style.isolation, 'isolate', `${layer}: the layer is isolated`);
+    assert.equal(style.willChange, 'transform', `${layer}: the layer is held on its own compositor surface`);
+  }
+  for (const layer of ['info', 'head']) assert.match(layerStyles[layer].contain, /layout/, `${layer}: layout containment isolates its children`);
+  assert.match(layerStyles.info.contain, /style/, 'the info sheet carries style containment too');
+  assert.match(layerStyles.head.contain, /style/, 'the title head carries style containment too');
+  assert.equal(layerStyles.title.animationName, 'none', 'the title carries no continuous animation');
+  assert.equal(layerStyles.title.textShadow, 'none', 'the title carries no text-shadow animation');
+  assert.equal(layerStyles.title.filter, 'none', 'the title carries no filter animation');
+  assert.equal(layerStyles.countdown.fontVariantNumeric, 'tabular-nums', 'the countdown pill uses tabular figures');
+  assert.match(layerStyles.countdown.fontFeatureSettings, /tnum/, 'the countdown pill enables the tnum feature');
+  assert.equal(layerStyles.timer.fontVariantNumeric, 'tabular-nums', 'the countdown readout uses tabular figures');
+  assert.match(layerStyles.timer.fontFeatureSettings, /tnum/, 'the countdown readout enables the tnum feature');
+
+  const titleFrames = async (phase, frames = 60) => {
+    const samples = await titlePhone.evaluate(async count => {
+      const title = document.querySelector('.beat-detail__title');
+      const card = document.querySelector('.beat-detail');
+      const timer = document.querySelector('[data-release-countdown] .drop-countdown__time');
+      const pill = document.querySelector('[data-release-countdown]');
+      const record = document.querySelector('.vinyl-record');
+      const rows = [];
+      const read = () => {
+        const rect = title.getBoundingClientRect();
+        const timerRect = timer && timer.getBoundingClientRect();
+        const pillRect = pill && pill.getBoundingClientRect();
+        return {
+          x: rect.left + scrollX,
+          y: rect.top + scrollY,
+          width: rect.width,
+          height: rect.height,
+          transform: getComputedStyle(title).transform,
+          cardOpacity: Number(getComputedStyle(card).opacity),
+          countdown: timer ? timer.textContent : '',
+          timerWidth: timerRect ? timerRect.width : 0,
+          pillWidth: pillRect ? pillRect.width : 0,
+          recordTransform: record ? getComputedStyle(record).transform : 'none',
+        };
+      };
+      await new Promise(resolve => {
+        const step = () => {
+          rows.push(read());
+          if (rows.length >= count) resolve();
+          else requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      });
+      return rows;
+    }, frames);
+    const first = samples[0];
+    const worst = Math.max(...samples.flatMap(sample => [
+      Math.abs(sample.x - first.x),
+      Math.abs(sample.y - first.y),
+      Math.abs(sample.width - first.width),
+      Math.abs(sample.height - first.height),
+    ]));
+    assert.equal(Math.round(worst * 100) / 100, 0, `${phase}: the beat title drift is 0.00px (measured ${worst}px)`);
+    assert(samples.every(sample => sample.transform === first.transform), `${phase}: the title's computed transform never changes`);
+    return samples;
+  };
+
+  // 1. The card's entrance fade. Restart it deliberately so all 60 frames cover
+  //    the 0.8 s fade instead of racing the page load.
+  await titlePhone.evaluate(() => {
+    const card = document.querySelector('.beat-detail');
+    card.style.animation = 'none';
+    void card.offsetWidth;
+    card.style.animation = '';
+  });
+  const entranceFrames = await titleFrames('entrance');
+  assert(entranceFrames.some(sample => sample.cardOpacity < 0.99), 'the 60-frame sample really covers the entrance fade');
+  assert(entranceFrames.some(sample => sample.cardOpacity >= 0.99), 'the entrance fade settles at full opacity');
+
+  // 2. A live countdown tick. Start just after one tick so the 60-frame window
+  //    necessarily crosses the next, and prove both the digits and the boxes hold.
+  const initialCountdown = await titlePhone.locator(timerSelector).innerText();
+  await titlePhone.waitForFunction(
+    ([selector, previous]) => document.querySelector(selector)?.textContent !== previous,
+    [timerSelector, initialCountdown],
+    { timeout: 5000 },
+  );
+  await titlePhone.waitForTimeout(850);
+  const countdownFrames = await titleFrames('countdown tick');
+  assert(new Set(countdownFrames.map(sample => sample.countdown)).size >= 2, 'the countdown sample spans at least one real tick');
+  assert.equal(new Set(countdownFrames.map(sample => sample.timerWidth)).size, 1, 'the countdown readout width never changes');
+  assert.equal(new Set(countdownFrames.map(sample => sample.pillWidth)).size, 1, 'the countdown pill width never changes');
+
+  // 3. The delayed vinyl reveal. Reload so the 60-frame window starts exactly as
+  //    `vinyl-open` lands, and prove the record really is moving under it.
+  await titlePhone.reload({ waitUntil: 'domcontentloaded' });
+  await titlePhone.locator(titleSelector).waitFor();
+  await titlePhone.locator(`${FLOW_CARD}.beat-detail.vinyl-open`).waitFor({ timeout: 15000 });
+  const vinylFrames = await titleFrames('vinyl slide-out');
+  assert(new Set(vinylFrames.map(sample => sample.recordTransform)).size > 1, 'the vinyl sample spans the slide-out transition');
+  await titlePhone.close();
+
   // The beat page before the drop carries no player, a countdown pill and the
   // dedicated inert LOCKED control — and the exact second the clock lands it
   // unlocks itself in place.

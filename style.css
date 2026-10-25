@@ -674,6 +674,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   padding: 24px 0;
   box-sizing: border-box;
   color: var(--white);
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
   animation: detailFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .beat-detail__content {
@@ -882,15 +884,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   overflow: hidden;
   background: var(--paper);
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
-}
-
-/* Gorgeous Fade & Glow Animations */
-@keyframes softGlow {
-  0%, 100% { opacity: 0.9; text-shadow: 0 0 10px rgba(255,255,255,0.1); }
-  50% { opacity: 1; text-shadow: 0 0 20px rgba(255,255,255,0.3); }
-}
-.animate-glow {
-  animation: softGlow 4s ease-in-out infinite;
 }
 
 /* Layout Padding & Alignment (Zero Left Clipping) */
@@ -1699,6 +1692,39 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   -webkit-backdrop-filter: blur(16px) saturate(1.25);
 }
 
+/* ---- 6a. Beat-detail title: its own isolated compositor layer ------------- */
+/* iOS Safari re-rasterises the title's glyphs while the glass card fades in,
+   the countdown ticks or the record slides out. Give the info panel, the
+   title block and the title itself permanent, independent GPU layers, and let
+   their layout stay self-contained: a paint or layout change inside the player,
+   countdown or artwork can then never reach the title text. The title carries no
+   glow, text-shadow or filter animation at all; its only motion is the card's
+   clean opacity fade, which settles on the resting translate3d. */
+.beat-detail__info,
+.beat-detail__head,
+.beat-detail__title {
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+  -webkit-isolation: isolate;
+  isolation: isolate;
+  will-change: transform;
+}
+
+.beat-detail__info,
+.beat-detail__head {
+  contain: layout style;
+}
+
+.beat-detail__title {
+  animation: none;
+  text-shadow: none;
+  filter: none;
+}
+
 .catalog-tile {
   border-radius: 6px;
   /* Colour only. The box-shadow lift still appears on hover, but it is not
@@ -1954,6 +1980,26 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   line-height: 1;
   white-space: nowrap;
   overflow: hidden;
+}
+
+/* The timer is a fixed-width tabular readout. Every digit occupies the same
+   advance, and the box itself never changes width as 09 becomes 10, so a tick
+   can never resize the pill, nudge the download slot or invalidate the title
+   layer above it on a phone. `width` is in em so both pill sizes stay locked. */
+.drop-countdown[data-release-countdown] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  contain: layout style;
+}
+
+.drop-countdown[data-release-countdown] .drop-countdown__time {
+  display: inline-block;
+  width: 5.6em;
+  min-width: 5.6em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .drop-countdown__dot {

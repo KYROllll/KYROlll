@@ -77,7 +77,7 @@ function releaseLabel(beat) {
    tile the pill is the whole action slot; on the beat page it sits above the
    inert LOCKED control (`lockedButtonHTML`). */
 function countdownBadgeHTML(beat, large) {
-  return `<span class="drop-countdown${large ? " drop-countdown--lg" : ""}" role="timer" aria-live="off">
+  return `<span class="drop-countdown${large ? " drop-countdown--lg" : ""}" data-release-countdown role="timer" aria-live="off">
           <span class="drop-countdown__dot" aria-hidden="true"></span>
           <span class="drop-countdown__label">${attr(releaseLabel(beat))}</span>
           <span class="drop-countdown__time" data-countdown="${attr(beat.id)}">${countdownText(beat)}</span>
@@ -176,10 +176,10 @@ function beatDetailInner(beat) {
     ? `<div class="card__specs">${specLine(beat)} // SCHEDULED DROP</div>`
     : `<div class="card__specs">${specLine(beat)} // TAGGED AUDIO</div>`;
   return `
-    <section class="beat-detail__content" aria-label="Beat details and free downloads">
-      <div class="card__meta">
+    <section class="beat-detail__content beat-detail__info" aria-label="Beat details and free downloads">
+      <div class="card__meta beat-detail__head">
         <div class="card__name">
-          <h2 class="card__title-link animate-glow">
+          <h2 class="card__title-link beat-detail__title">
               <span>${beat.title}</span>
           </h2>
           ${youtubeHTML(beat, true, pending)}
