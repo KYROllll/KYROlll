@@ -409,7 +409,7 @@ payment gateway.
   a gate carries the grant token and goes straight through.
 - `window.KYROlll_NEWSLETTER` — `{ provider, username, endpoint }`, where the email gate sends a
   new subscriber. The repo ships with a **Formspree** form wired to `endpoint`
-  (`https://formspree.io/f/xgaoppwo`), posted to with `fetch` and `Accept: application/json` so
+  (`https://formspree.io/f/xkjjjnry`), posted to with `fetch` and `Accept: application/json` so
   the submission lands in the dashboard; swap it for any provider that accepts a form POST and
   answers with CORS (Buttondown's `embed-subscribe` URL, a Beehiiv subscribe form, …) — for
   Buttondown just set `username`. Left blank, the gate still unlocks the files and sends nothing.

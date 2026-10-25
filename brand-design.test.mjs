@@ -37,6 +37,9 @@ const errors = [];
 // now happens at SIGN & UNLOCK, with a JSON body, so the test answers the CORS
 // preflight too and records the headers alongside the parsed body.
 const subscribeRequests = [];
+// Every request that reaches Formspree, preflight included. The final assertion
+// proves the new kyroill.store form is the only endpoint the store ever contacts.
+const providerRequests = [];
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'POST, OPTIONS',
@@ -60,6 +63,9 @@ async function setupPage(options = {}) {
   await context.route('**/*', async route => {
     const req = route.request(), target = new URL(req.url());
     if (target.origin === url) return route.continue();
+    if (target.origin === 'https://formspree.io') {
+      providerRequests.push({ url: req.url(), method: req.method() });
+    }
     // application/json is not a CORS-safelisted content type, so the browser
     // sends a preflight before the Formspree POST. Answer it with the headers
     // Formspree itself answers with, then record and answer the POST.
@@ -165,7 +171,7 @@ const noLowercase = async (page, label) => {
 };
 const CARD = '#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af';
 const BEAT_ID = '6c56eda2-df4a-45b0-b9b7-68f8efdbb1af';
-const PROVIDER = 'https://formspree.io/f/xgaoppwo';
+const PROVIDER = 'https://formspree.io/f/xkjjjnry';
 // The scheduled second release, [FREE 100%] FUTURE TYPE BEAT - THE FLOW.
 const FLOW_ID = '5f9bbcab-e010-4efe-b459-9c9182e1d85b';
 const FLOW_CARD = '#card-5f9bbcab-e010-4efe-b459-9c9182e1d85b';
@@ -2191,6 +2197,12 @@ try {
   assert.match(cssText, /html \{ text-transform: uppercase; \}/, 'the page-wide ALL-CAPS rule');
   assert.match(cssText, /input::placeholder, textarea::placeholder \{ text-transform: uppercase; \}/, 'placeholders are uppercase too');
   assert.equal(/\.gate-input[^}]*text-transform: none/.test(cssText), false, 'no casing opt-out is left on the fields');
+
+  assert(providerRequests.length > 0, 'the flows really contacted Formspree');
+  assert(providerRequests.every(request => request.url === PROVIDER),
+    'every Formspree request targets the new kyroill.store form and never a superseded endpoint');
+  assert(subscribeRequests.every(request => request.url === PROVIDER),
+    'every analytics POST targets the new kyroill.store form');
 
   assert.deepEqual(errors, []);
   console.log('Passed storefront layout, tagged audio preview, and the free-download drawer + all three package-specific gates (email + opt-in only for the MP3 lease, subscribe + like the beat + Instagram for the WAV lease, and those plus TikTok and X for the Pro package, the REVIEW & SIGN stage with read-to-the-end terms, a typed full name AND a drawn signature required together in BOTH TYPE and DRAW with a single word or a drawing alone refused even with the disabled attribute stripped, and a re-sign single word refused on the download page — an upright never-flipped signature mark, no flower watermark on the signature sheet / the certificate (the flower now lives in the PDF\'s LICENSOR approval stamp) and a pure-white drawn signature ink, a backdrop that never dismisses the gate or the signature stage, a border-free floating flower and white/silver monochrome PDF borders, a direct studio-named PDF download with its serial, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts, and the whole flow walked at 390x844 with touch).');

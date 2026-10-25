@@ -34,7 +34,7 @@
   // endpoint, a Beehiiv subscribe form, …) works by putting its action URL in
   // `endpoint` (or, for Buttondown, just its `username`). Left blank, the gate
   // still unlocks the files and sends nothing.
-  window.KYROlll_NEWSLETTER = { provider: "formspree", username: "", endpoint: "https://formspree.io/f/xgaoppwo" };
+  window.KYROlll_NEWSLETTER = { provider: "formspree", username: "", endpoint: "https://formspree.io/f/xkjjjnry" };
 
   // The three free ways a beat leaves the store. `gate` is the whole behaviour:
   //   "email"    → Email input + mandatory opt-in → submit → REVIEW & SIGN → files + PDF.
