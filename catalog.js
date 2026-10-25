@@ -78,10 +78,11 @@
     }
   ];
 
-  // `id` is the beat's uuid and `slug` is the stable human handle kept for old
-  // links (`?beat=flesh`); the helpers resolve either. `youtube` is the beat's
-  // own video: the YouTube icon beside the title and the WAV/exclusive "like
-  // this beat" gate step both read this exact URL through `videoFor`.
+  // `id` is the beat's stable id (the uuid for the original releases, the short
+  // store handle for newer catalog entries) and `slug` is the human handle kept
+  // for links (`?beat=flesh`); the helpers resolve either. `youtube` is the
+  // beat's own video: the YouTube icon beside the title and the WAV/exclusive
+  // "like this beat" gate step both read this exact URL through `videoFor`.
   //
   // `deliverables` maps a package to the files the download page hands over:
   // each entry is `{ file, name, label }`, a same-origin `file`, the `name` the
@@ -189,6 +190,44 @@
           { file: "assets/previews/steam.mp3", name: "KYROIII - GREEN FLESH (138 BPM - B).mp3", label: "TAGGED MP3" },
           { file: "assets/previews/steam.wav", name: "KYROIII - GREEN FLESH (138 BPM - B).wav", label: "HIGH-QUALITY WAV" },
           { file: "assets/previews/steam-stems.zip", name: "KYROIII - GREEN FLESH - TRACKED STEMS.zip", label: "TRACKED STEMS" }
+        ]
+      }
+    },
+    {
+      /* The fourth official release, and the newest card in the store: the
+         catalog is authored oldest-first and `script.js` sorts the newest to the
+         front of the grid. */
+      id: "squish",
+      slug: "squish",
+      title: "[FREE 100%] LIL GOTIT TYPE BEAT - SQUISH!",
+      shortTitle: "SQUISH!",
+      img: "assets/squish.png",
+      bpm: 124,
+      key: "FM",
+      preview: "assets/previews/squish.mp3",
+      /* The beat's own video is not published yet; the official channel keeps
+         the YouTube icon and the "like this beat" gate step live until it is. */
+      youtube: "https://www.youtube.com/@KYROlll00",
+      /* The fourth pressing: an icy silver / chrome-slate collector disc with
+         fine diamond-silver micro-grooves and a crisp pure-white perimeter
+         hairline, around the complete spinning flower. */
+      vinylVariant: "ice-silver-rim",
+      /* The fourth official release drops tonight at 23:00 Israel time. Until
+         then the tile is a timezone-proof countdown, and the beat page keeps its
+         player, YouTube icon and download drawer locked. */
+      releaseAt: "2026-10-25T23:00:00+02:00",
+      deliverables: {
+        mp3: [
+          { file: "assets/previews/squish.mp3", name: "KYROIII - SQUISH! (124 BPM - FM).mp3", label: "TAGGED MP3" }
+        ],
+        wav: [
+          { file: "assets/previews/squish.mp3", name: "KYROIII - SQUISH! (124 BPM - FM).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/squish.wav", name: "KYROIII - SQUISH! (124 BPM - FM).wav", label: "HIGH-QUALITY WAV" }
+        ],
+        exclusive: [
+          { file: "assets/previews/squish.mp3", name: "KYROIII - SQUISH! (124 BPM - FM).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/squish.wav", name: "KYROIII - SQUISH! (124 BPM - FM).wav", label: "HIGH-QUALITY WAV" },
+          { file: "assets/previews/squish-stems.zip", name: "KYROIII - SQUISH! - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
       }
     }

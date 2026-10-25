@@ -33,12 +33,14 @@ function specLine(beat) {
 }
 
 /* Each beat owns a pressing: FLESH is pearl white, THE FLOW is a deep matte
-   black disc with a single fine gold rim, and GREEN FLESH is a smoky grey-green
-   disc with a delicate white outer hairline. The old "gold" value still resolves to
+   black disc with a single fine gold rim, GREEN FLESH is a smoky grey-green disc
+   with a delicate white outer hairline, and SQUISH! is an icy silver collector
+   disc with a pure-white perimeter rim. The old "gold" value still resolves to
    the refined "gold-rim" pressing, so a stale link or cached catalog can never
    render an unstyled disc. Anything unknown keeps the white standard. */
 function vinylVariantFor(beat) {
   if (beat && beat.vinylVariant === "sage-white-rim") return "sage-white-rim";
+  if (beat && beat.vinylVariant === "ice-silver-rim") return "ice-silver-rim";
   if (beat && (beat.vinylVariant === "gold-rim" || beat.vinylVariant === "gold")) return "gold-rim";
   if (beat && beat.vinylVariant === "black") return "black";
   return "white";
@@ -47,6 +49,7 @@ function vinylModifier(variant) {
   if (variant === "white") return " vinyl-record--white";
   if (variant === "gold-rim") return " vinyl-record--gold-rim";
   if (variant === "sage-white-rim") return " vinyl-record--sage-white-rim";
+  if (variant === "ice-silver-rim") return " vinyl-record--ice-silver-rim";
   return "";
 }
 
@@ -166,6 +169,7 @@ function beatDetailInner(beat) {
   const pending = releasePending(beat);
   const vinylVariant = vinylVariantFor(beat);
   const outerRim = vinylVariant === "gold-rim" || vinylVariant === "sage-white-rim"
+    || vinylVariant === "ice-silver-rim"
     ? `<span class="vinyl-record__rim" aria-hidden="true"></span>`
     : "";
   const meta = pending

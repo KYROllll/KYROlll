@@ -97,6 +97,8 @@
      store's ALL-CAPS voice. */
   const AUDIO_EXT = /^\.(mp3|wav|m4a|aac|aiff|aif|flac|ogg)$/i;
   function callName(beat) {
+    const short = String((beat && beat.shortTitle) || "").trim();
+    if (short) return short.toUpperCase();
     const title = String((beat && beat.title) || "").trim();
     const tail = title.split(/\s+-\s+/).pop() || "";
     return String(tail || (beat && beat.slug) || (beat && beat.id) || "BEAT").toUpperCase();

@@ -735,13 +735,16 @@
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
 
-  /* The beat's studio name — the tail of its title, exactly like the audio
-     hand-overs in `downloads.js` (`… - FLESH`), falling back to the slug. */
+  /* The beat's studio name — its explicit short title or the tail of its title,
+     exactly like the audio hand-overs in `downloads.js` (`… - FLESH`), falling
+     back to the slug. The `!` is part of the authored name (SQUISH!), so it
+     survives into the saved PDF filename. */
   function beatLabel(beat) {
+    const short = String((beat && beat.shortTitle) || "").trim();
     const title = String((beat && beat.title) || "").trim();
-    const tail = title.split(/\s+-\s+/).pop() || "";
+    const tail = short || title.split(/\s+-\s+/).pop() || "";
     const safe = toAscii(tail || (beat && beat.slug) || "BEAT")
-      .replace(/[^A-Za-z0-9 .,-]/g, " ").trim().replace(/\s+/g, " ");
+      .replace(/[^A-Za-z0-9 .,!-]/g, " ").trim().replace(/\s+/g, " ");
     return safe || "BEAT";
   }
 

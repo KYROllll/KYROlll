@@ -150,6 +150,10 @@ const FLOW_RELEASE = Date.parse('2026-10-19T23:00:00+03:00');
 const GREEN_FLESH_ID = 'a4acc928-410a-4200-8463-13bd9258058d';
 const GREEN_FLESH_CARD = '#card-a4acc928-410a-4200-8463-13bd9258058d';
 const GREEN_FLESH_RELEASE = Date.parse('2026-10-22T23:00:00+03:00');
+// The fourth release, [FREE 100%] LIL GOTIT TYPE BEAT - SQUISH!, drops tonight.
+const SQUISH_ID = 'squish';
+const SQUISH_CARD = '#card-squish';
+const SQUISH_RELEASE = Date.parse('2026-10-25T23:00:00+02:00');
 
 // Nothing about a gate may be remembered: the storefront writes no gate state
 // at all (no unlock set, no remembered address).
@@ -300,10 +304,13 @@ try {
     green: getComputedStyle(el, '::before').color,
     pink: getComputedStyle(el, '::after').color,
   })), { green: 'rgb(57, 255, 139)', pink: 'rgb(255, 62, 165)' });
-  assert.equal(await desktop.locator('#grid .catalog-tile').count(), 3);
+  assert.equal(await desktop.locator('#grid .catalog-tile').count(), 4);
+  assert.equal(await desktop.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-squish', 'the newest release leads the grid');
   assert.equal(await desktop.locator('.catalog-tile__art img').first().evaluate(el => getComputedStyle(el).filter), 'none', 'catalog cover art keeps its original colour');
   assert.match(await desktop.locator(CARD).innerText(), /\[FREE 100%\] DON TOLIVER TYPE BEAT - FLESH/i);
   assert.match(await desktop.locator(GREEN_FLESH_CARD).innerText(), /\[FREE 100%\] LIL BABY TYPE BEAT - GREEN FLESH/i);
+  assert.match(await desktop.locator(SQUISH_CARD).innerText(), /\[FREE 100%\] LIL GOTIT TYPE BEAT - SQUISH!/i);
+  assert.match(await desktop.locator('.marquee-track').innerText(), /LIL GOTIT TYPE BEAT - SQUISH!/i, 'the ticker announces the fourth drop');
   assert.match(await desktop.locator('.marquee-track').innerText(), /LIL BABY TYPE BEAT - GREEN FLESH/i, 'the ticker announces the renamed third drop');
   await shot(desktop, 'desktop');
 
@@ -431,6 +438,8 @@ try {
   const vinylVariants = await direct.evaluate(() => Object.fromEntries(window.KYROlll_CATALOG.map(beat => [beat.slug, beat.vinylVariant])));
   assert.equal(vinylVariants.flesh, 'white', 'catalog data marks FLESH as the white pressing');
   assert.equal(vinylVariants['the-flow'], 'gold-rim', 'catalog data gives THE FLOW its own black/gold-rim pressing');
+  assert.equal(vinylVariants['green-flesh'], 'sage-white-rim', 'catalog data gives GREEN FLESH its sage-white pressing');
+  assert.equal(vinylVariants.squish, 'ice-silver-rim', 'catalog data gives SQUISH! its ice-silver pressing');
   await shot(direct, 'beat-detail');
   await direct.close();
 
@@ -1377,7 +1386,7 @@ try {
   await noOverflow(preDrop);
   await noHue(preDrop, 'the storefront before the drop');
   await noLowercase(preDrop, 'the storefront before the drop');
-  assert.equal(await preDrop.locator('#grid .catalog-tile').count(), 3, 'all three releases sit in the catalog');
+  assert.equal(await preDrop.locator('#grid .catalog-tile').count(), 4, 'all four releases sit in the catalog');
   assert.match(await preDrop.locator(`${FLOW_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'the scheduled drop carries its countdown pill');
   assert.doesNotMatch(await preDrop.locator(`${FLOW_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
   assert.match(await preDrop.locator(`${FLOW_CARD} [data-countdown="${FLOW_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'the pill shows a live HH:MM:SS clock');
@@ -1515,7 +1524,7 @@ try {
   const greenPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await greenPre.goto(`${url}/?now=${GREEN_FLESH_RELEASE - 3600000}`);
   await greenPre.locator(`[data-countdown="${GREEN_FLESH_ID}"]`).waitFor();
-  assert.equal(await greenPre.locator('#grid .catalog-tile').count(), 3, 'the third release is in the catalog');
+  assert.equal(await greenPre.locator('#grid .catalog-tile').count(), 4, 'the third release is in the four-card catalog');
   assert.equal(await greenPre.locator(GREEN_FLESH_CARD).getAttribute('data-vinyl'), 'sage-white-rim', 'the GREEN FLESH catalog card carries its own pressing');
   assert.match(await greenPre.locator(`${GREEN_FLESH_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'GREEN FLESH carries its countdown pill');
   assert.doesNotMatch(await greenPre.locator(`${GREEN_FLESH_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
@@ -1663,9 +1672,158 @@ try {
   assert.match(await greenAfter.locator('.marquee-track').innerText(), /3 RELEASES LIVE/, 'the studio count becomes three once GREEN FLESH is live');
   await greenAfter.close();
 
+  // ------------------------------------------ fourth release: SQUISH! (23:00)
+  // The newest drop follows the same countdown contract and adds the icy
+  // silver collector pressing. The studio count must stay at three until its
+  // clock lands, then become four.
+  const squishPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+  await squishPre.goto(`${url}/?now=${SQUISH_RELEASE - 3600000}`);
+  await squishPre.locator(`[data-countdown="${SQUISH_ID}"]`).waitFor();
+  assert.equal(await squishPre.locator('#grid .catalog-tile').count(), 4, 'the fourth release is in the four-card catalog');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-squish', 'SQUISH! leads the catalog as the newest drop');
+  assert.equal(await squishPre.locator(SQUISH_CARD).getAttribute('data-vinyl'), 'ice-silver-rim', 'the SQUISH! catalog card carries its own pressing');
+  assert.match(await squishPre.locator(SQUISH_CARD).innerText(), /\[FREE 100%\] LIL GOTIT TYPE BEAT - SQUISH!/i);
+  assert.match(await squishPre.locator(`${SQUISH_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'SQUISH! carries its countdown pill');
+  assert.doesNotMatch(await squishPre.locator(`${SQUISH_CARD} .drop-countdown__label`).innerText(), /\d/, 'the SQUISH! label carries no clock hour');
+  assert.match(await squishPre.locator(`${SQUISH_CARD} [data-countdown="${SQUISH_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'SQUISH! shows a live HH:MM:SS clock');
+  assert.equal(await squishPre.locator(`${SQUISH_CARD} .download-trigger`).count(), 0, 'the SQUISH! tile renders no download button before its drop');
+  assert.equal(await squishPre.locator(`${SQUISH_CARD} .download-trigger--locked`).count(), 0, 'the SQUISH! tile renders no secondary LOCKED control');
+  assert.equal(await squishPre.locator(`${SQUISH_CARD} .drop-locked`).count(), 0, 'the SQUISH! tile renders no locked player pane');
+  assert(await squishPre.evaluate((id) => {
+    const slot = document.getElementById('card-' + id).querySelector('.catalog-tile__actions');
+    return !!slot && slot.querySelectorAll('button').length === 0 && !!slot.querySelector('.drop-countdown');
+  }, SQUISH_ID), 'the countdown pill is the whole SQUISH! action slot, with no button beside it');
+  assert.match(await squishPre.locator('.marquee-track').innerText(), /3 RELEASES LIVE/, 'the studio count excludes the not-yet-live fourth release');
+  await squishPre.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), SQUISH_ID);
+  await squishPre.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), SQUISH_ID);
+  assert.equal(await squishPre.locator('.gate-modal').count(), 0, 'the scheduled SQUISH! drop opens no gate');
+  assert.equal(await squishPre.locator('.download-menu').count(), 0, 'the scheduled SQUISH! drop opens no drawer');
+  assert.equal(await squishPre.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), SQUISH_ID), 'https://www.youtube.com/@KYROlll00?sub_confirmation=1', 'the helper withholds the SQUISH! video URL until release');
+  await noCardBleed(squishPre, 'SQUISH! desktop catalog');
+  await squishPre.close();
+
+  const squishLive = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'no-preference' });
+  await squishLive.goto(`${url}/?beat=squish&now=${SQUISH_RELEASE - 12000}`, { waitUntil: 'domcontentloaded' });
+  await squishLive.locator(`[data-countdown="${SQUISH_ID}"]`).waitFor();
+  assert.equal(await squishLive.locator(`${SQUISH_CARD}.beat-detail`).count(), 1, 'the SQUISH! beat page renders');
+  assert.match(await squishLive.locator(SQUISH_CARD).innerText(), /\[FREE 100%\] LIL GOTIT TYPE BEAT - SQUISH!/i);
+  assert.match(await squishLive.locator(SQUISH_CARD).innerText(), /124 BPM \/\/ FM/i);
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .beat-preview`).count(), 0, 'SQUISH! has no player before its drop');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .drop-locked`).count(), 1, 'SQUISH! shows the locked player stand-in');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .card__actions .download-trigger--locked`).count(), 1, 'SQUISH! shows the dedicated LOCKED control');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .download-trigger[disabled]`).count(), 1, 'the SQUISH! LOCKED control is inert');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} a.card__youtube-link`).count(), 0, 'no live SQUISH! YouTube link before the drop');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .card__youtube-link--locked`).count(), 1, 'the SQUISH! YouTube icon is shown locked');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .card__youtube-link--locked`).getAttribute('href'), null, 'the locked SQUISH! icon carries no URL');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .card__youtube-link--locked`).evaluate(el => getComputedStyle(el).pointerEvents), 'none', 'the locked SQUISH! icon is not clickable');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .card__youtube-link--locked`).evaluate(el => el.tagName), 'SPAN', 'the locked SQUISH! icon is not an anchor');
+  const squishUrlBeforeDrop = squishLive.url();
+  await squishLive.waitForFunction((id) => {
+    const card = document.getElementById('card-' + id);
+    return !!(card && card.querySelector('.beat-preview__toggle')
+      && card.querySelector('.download-trigger[data-download-trigger]')
+      && !card.querySelector('.drop-countdown')
+      && !card.querySelector('.download-trigger--locked'));
+  }, SQUISH_ID, { timeout: 30000 });
+  assert.equal(squishLive.url(), squishUrlBeforeDrop, 'SQUISH! unlocks in page, with no reload');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .beat-preview`).count(), 1, 'the SQUISH! player appears the second the clock lands');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .download-trigger`).count(), 1, 'the SQUISH! download button is live at release');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .drop-countdown`).count(), 0, 'the SQUISH! countdown is gone at release');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .download-trigger--locked`).count(), 0, 'the SQUISH! LOCKED control is gone at release');
+  const squishYoutube = squishLive.locator(`${SQUISH_CARD} a.card__youtube-link`);
+  assert.equal(await squishYoutube.count(), 1, 'the SQUISH! YouTube link appears at release');
+  assert.equal(await squishYoutube.getAttribute('href'), 'https://www.youtube.com/@KYROlll00', 'the live SQUISH! link points at the official channel until the beat video is published');
+  assert.equal(await squishYoutube.evaluate(el => getComputedStyle(el).pointerEvents), 'auto', 'the live SQUISH! link is clickable');
+  assert.equal(await squishLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), SQUISH_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the SQUISH! link with the clock');
+  // The fourth pressing is the icy silver collector disc: chrome-slate body,
+  // fine diamond-silver grooves, a crisp white perimeter hairline, the deep
+  // matte black centre label and the complete spinning flower.
+  assert.equal(await squishLive.locator(`${SQUISH_CARD}.beat-detail`).getAttribute('data-vinyl'), 'ice-silver-rim', 'SQUISH! renders the ice-silver-rim pressing');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'ice-silver-rim', 'the SQUISH! record itself carries the variant');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .vinyl-record--ice-silver-rim`).count(), 1, 'SQUISH! carries the ice-silver-rim modifier');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .vinyl-record--white`).count(), 0, 'SQUISH! does not share the pearl-white disc');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .vinyl-record--gold-rim`).count(), 0, 'SQUISH! does not share THE FLOW gold rim');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .vinyl-record--sage-white-rim`).count(), 0, 'SQUISH! does not share the GREEN FLESH sage disc');
+  const squishVinyl = await squishLive.locator(`${SQUISH_CARD} .vinyl-record`).evaluate(el => {
+    const rim = el.querySelector('.vinyl-record__rim');
+    const rimStyle = rim ? getComputedStyle(rim) : null;
+    const label = getComputedStyle(el, '::after');
+    const logo = el.querySelector('.vinyl-record__logo');
+    const logoFrame = el.querySelector('.vinyl-record__logo-frame');
+    const recordRect = el.getBoundingClientRect();
+    const sleeveRect = document.querySelector('.beat-detail__artwork').getBoundingClientRect();
+    return {
+      bodyBg: getComputedStyle(el).backgroundImage,
+      labelBg: label.backgroundImage,
+      labelZ: label.zIndex,
+      rimBg: rimStyle ? rimStyle.backgroundImage : null,
+      rimMask: rimStyle ? (rimStyle.maskImage || rimStyle.webkitMaskImage) : null,
+      rimZ: rimStyle ? rimStyle.zIndex : null,
+      logoZ: logoFrame ? getComputedStyle(logoFrame).zIndex : null,
+      children: [...el.children].map(child => child.className),
+      splashCount: el.querySelectorAll('.vinyl-record__gold, [class*="splash"], [class*="blob"], [class*="splatter"]').length,
+      logo: !!logo,
+      logoAnimation: logo ? getComputedStyle(logo).animationName : null,
+      logoDuration: logo ? getComputedStyle(logo).animationDuration : null,
+      diameterRatio: recordRect.width / sleeveRect.width,
+      coverFilter: getComputedStyle(document.querySelector('.beat-detail__artwork img')).filter,
+    };
+  });
+  assert.match(squishVinyl.bodyBg, /rgb\(207, 212, 218\)|rgb\(184, 190, 198\)/, 'the SQUISH! disc body is icy chrome-slate');
+  assert.doesNotMatch(squishVinyl.bodyBg, /\.svg|splatter|blob/, 'the SQUISH! disc body carries no artwork layer');
+  assert.match(squishVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(0, 0, 0\)/, 'the SQUISH! centre label stays deep matte black');
+  assert.match(squishVinyl.rimBg, /conic-gradient/, 'the SQUISH! outer rim is a crisp white hairline');
+  assert.match(squishVinyl.rimBg, /rgb\(255, 255, 255\)/, 'the SQUISH! rim uses the specified pure-white tones');
+  assert.match(squishVinyl.rimMask, /radial-gradient/, 'the SQUISH! rim is masked down to a fine perimeter hairline');
+  assert.deepEqual(squishVinyl.children, ['vinyl-record__rim', 'vinyl-record__logo-frame'], 'the SQUISH! record holds only the clean rim and the flower');
+  assert.equal(squishVinyl.splashCount, 0, 'zero splash, blob or splatter elements remain on SQUISH!');
+  assert.equal(squishVinyl.rimZ, '3', 'the SQUISH! rim paints above the disc');
+  assert.equal(squishVinyl.labelZ, '1', 'the SQUISH! centre label sits above the disc');
+  assert.equal(squishVinyl.logoZ, '2', 'the spinning flower sits above the SQUISH! label');
+  assert.equal(squishVinyl.logo, true, 'the complete flower survives on the SQUISH! pressing');
+  assert.equal(squishVinyl.logoAnimation, 'vinylCenterSpin', 'the SQUISH! flower keeps its slow spin');
+  assert.equal(squishVinyl.logoDuration, '16s', 'the SQUISH! flower keeps the 16s linear loop');
+  assert(Math.abs(squishVinyl.diameterRatio - 0.92) < 0.01, 'the SQUISH! record keeps its 92% inset diameter');
+  assert.equal(squishVinyl.coverFilter, 'none', 'the SQUISH! cover art keeps its original colour');
+  assert.deepEqual(await squishLive.evaluate((id) => window.KYROlll_DOWNLOADS.deliverablesFor(id, 'exclusive').map(item => item.name), SQUISH_ID), [
+    'KYROIII - SQUISH! (124 BPM - FM).mp3',
+    'KYROIII - SQUISH! (124 BPM - FM).wav',
+    'KYROIII - SQUISH! - TRACKED STEMS.zip',
+  ], 'SQUISH! hands over the studio MP3, WAV and tracked stems names');
+  await shot(squishLive, 'squish-live');
+  await squishLive.close();
+
+  const squishDownload = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce', acceptDownloads: true });
+  await squishDownload.goto(`${url}/download.html?beat=${SQUISH_ID}&package=exclusive&t=squishflow&sign=Squish%20Buyer&now=${SQUISH_RELEASE + 1000}`, { waitUntil: 'domcontentloaded' });
+  await squishDownload.locator('#license-serial').waitFor();
+  assert.match(await squishDownload.locator('#download-title').innerText(), /LIL GOTIT TYPE BEAT - SQUISH!/i);
+  assert.match(await squishDownload.locator('#license-serial').innerText(), /^KYRO-\d{4}-SQUISH-\d{6}$/, 'the SQUISH! serial carries its slug');
+  assert.deepEqual(await squishDownload.locator('.download-item__name').evaluateAll(nodes => nodes.map(node => node.textContent)), [
+    'KYROIII - SQUISH! (124 BPM - FM).mp3',
+    'KYROIII - SQUISH! (124 BPM - FM).wav',
+    'KYROIII - SQUISH! - TRACKED STEMS.zip',
+  ], 'the SQUISH! download page lists the studio files');
+  const [squishPdf] = await Promise.all([
+    squishDownload.waitForEvent('download'),
+    squishDownload.locator('[data-license-pdf]').click(),
+  ]);
+  assert.match(squishPdf.suggestedFilename(), /^KYROIII - LICENSE - SQUISH! \(KYRO-\d{4}-SQUISH-\d{6}\)\.pdf$/, 'the SQUISH! license saves with its exclamation and serial');
+  const squishPdfText = (await readFile(await squishPdf.path())).toString('latin1');
+  const squishPdfRuns = pdfRuns(squishPdfText).join(' ');
+  assert.match(squishPdfRuns, /\[FREE 100%\] LIL GOTIT TYPE/, 'the SQUISH! license carries its title opening');
+  assert.match(squishPdfRuns, /BEAT - SQUISH!/, 'the SQUISH! license carries its title tail');
+  await squishDownload.close();
+
+  const squishAfter = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+  await squishAfter.goto(`${url}/?now=${SQUISH_RELEASE + 1000}`, { waitUntil: 'domcontentloaded' });
+  await squishAfter.locator(`${SQUISH_CARD} .download-trigger`).waitFor();
+  assert.match(await squishAfter.locator('.marquee-track').innerText(), /4 RELEASES LIVE/, 'the studio count becomes four once SQUISH! is live');
+  await squishAfter.close();
+
   // Keep the rest of the stylesheet monochrome while expressly checking the
   // isolated green / pink hero accents, THE FLOW's gold-rim palette, GREEN FLESH's
-  // sage-white-rim palette and the ALL-CAPS rules.
+  // sage-white-rim palette, SQUISH!'s ice-silver-rim palette and the ALL-CAPS
+  // rules.
   const cssText = await readFile(new URL('./style.css', import.meta.url), 'utf8');
   const scriptText = await readFile(new URL('./script.js', import.meta.url), 'utf8');
   assert.doesNotMatch(scriptText, /vinyl-record__gold|goldSplash|gold-splatter|sageSplash|sage-blob/, 'the record generates no splash, blob or splatter layer');
@@ -1748,10 +1906,27 @@ try {
   assert.equal((sageCss.match(/conic-gradient/g) || []).length, 1, 'the sage-white-rim palette paints exactly one delicate ring');
   assert.match(sageCss, /\.vinyl-record--sage-white-rim\s+\.vinyl-record__logo-frame\s*\{\s*z-index:\s*2/, 'the spinning flower sits above the sage centre label');
   assert.doesNotMatch(sageCss, /splash|blob|splatter|\.vinyl-record__sage/, 'the sage-white-rim palette has no splash, blob or random graphic');
+  // SQUISH!'s ice-silver-rim pressing is the fourth deliberate palette exception:
+  // the chrome-slate body and composite white perimeter hairline are the vinyl's
+  // specified colours, isolated so the rest of the storefront stays neutral.
+  const iceStart = cssText.indexOf('/* SQUISH! ice-silver-rim palette');
+  const iceEnd = cssText.indexOf('/* End SQUISH! ice-silver-rim palette. */', iceStart);
+  assert(iceStart >= 0 && iceEnd > iceStart, 'the ice-silver-rim palette is isolated in its own stylesheet section');
+  const iceCss = cssText.slice(iceStart, iceEnd);
+  assert.match(iceCss, /#cfd4da/i, 'the ice-silver-rim disc body uses the specified light chrome-slate');
+  assert.match(iceCss, /#b8bec6/i, 'the ice-silver-rim disc body uses the specified deeper silver');
+  assert.match(iceCss, /#ffffff/i, 'the ice-silver-rim uses the specified pure-white hairline');
+  assert.match(iceCss, /rgba\(255, 255, 255, 0\.72\)/i, 'the ice-silver rim carries its translucent white sheen');
+  assert.match(iceCss, /#0a0a0a/i, 'the ice-silver-rim centre label stays deep matte black');
+  assert.equal((iceCss.match(/conic-gradient/g) || []).length, 1, 'the ice-silver-rim palette paints exactly one metallic ring');
+  assert.match(iceCss, /mask:\s*radial-gradient/, 'the ice-silver rim is masked to a hairline ring');
+  assert.match(iceCss, /\.vinyl-record--ice-silver-rim\s+\.vinyl-record__logo-frame\s*\{\s*z-index:\s*2/, 'the spinning flower sits above the ice-silver centre label');
+  assert.doesNotMatch(iceCss, /splash|blob|splatter|\.vinyl-record__ice/, 'the ice-silver-rim palette has no splash, blob or random graphic');
   const auditedCss = cssText.slice(0, taglineStart)
     + cssText.slice(taglineEnd, goldRimStart)
     + cssText.slice(goldRimEnd, sageStart)
-    + cssText.slice(sageEnd);
+    + cssText.slice(sageEnd, iceStart)
+    + cssText.slice(iceEnd);
   const literal = value => (value.includes(',')
     ? value.split(',').slice(0, 3).map(part => Number(part.trim()))
     : (value.length <= 4 ? value.slice(0, 3).split('').map(c => parseInt(c + c, 16)) : [0, 2, 4].map(i => parseInt(value.slice(i, i + 2), 16))));
