@@ -42,13 +42,15 @@
  * `KYROIII - <BEAT> (<BPM> BPM - <KEY>).<ext>` — built from the beat's own
  * metadata, so an engineer can read the tempo and key off the filename.
  *
- * The only outbound request is the address itself: a real `fetch` POST to the
- * newsletter provider (Formspree) with `Accept: application/json`, so every
- * submitted address lands in the provider's dashboard. A failed post never
- * blocks the files — they are free — it is logged and the unlock continues.
+ * The only outbound request is the single analytics POST at SIGN & UNLOCK: a
+ * real `fetch` POST to the configured provider (Formspree) with
+ * `Accept: application/json` and a JSON body, so every complete download record
+ * lands in the provider's dashboard. A failed post never blocks the files — they
+ * are free — it is logged and the unlock continues.
  *
- * The address the visitor just typed is carried forward to `download.html` in
- * that one flow's query string (see `downloadUrl`), never stored.
+ * The address the visitor just typed, the signature and the exact license serial
+ * minted at SIGN & UNLOCK are carried forward to `download.html` in that one
+ * flow's query string (see `downloadUrl`), never stored.
  */
 (function () {
   "use strict";
@@ -60,6 +62,15 @@
     const h = helpers();
     return h && h.newsletterEndpoint ? h.newsletterEndpoint() : "";
   }
+
+  /* The one human-readable record of what a package's gate asked for. A gate
+     only reaches SIGN & UNLOCK once every step is done, so the package's own
+     tier is an accurate record of the completed steps. */
+  const SOCIAL_STEP_SUMMARY = {
+    email: "NONE (EMAIL GATE)",
+    youtube: "YOUTUBE SUBSCRIBE + BEAT LIKE + INSTAGRAM",
+    exclusive: "YOUTUBE SUBSCRIBE + BEAT LIKE + INSTAGRAM + TIKTOK + X"
+  };
 
   /* ------------------------------------------------------ low-level download */
   /* A same-origin file gets `dl`/`name` appended so the server can answer with
@@ -125,6 +136,97 @@
     });
   }
 
+  /* A compact, human-readable summary of the files unlocked by a package — the
+     same shape the license promises: "MP3 + WAV + TRACKED STEMS + PDF LICENSE". */
+  function packageFileSummary(beat, pack) {
+    const files = deliverablesFor(beat.id, pack.id);
+    const labels = files.map((item) => {
+      const file = String((item && item.file) || "");
+      if (/\.mp3$/i.test(file)) return "MP3";
+      if (/\.wav$/i.test(file)) return "WAV";
+      if (/\.zip$/i.test(file)) return "TRACKED STEMS";
+      return String((item && item.label) || "FILE").toUpperCase();
+    });
+    labels.push("PDF LICENSE");
+    return labels.filter((label, index) => labels.indexOf(label) === index).join(" + ");
+  }
+
+  /* Analytics helpers deliberately read only what is on the page at the moment
+     SIGN & UNLOCK is clicked. Nothing is stored, and the same payload shape is
+     produced whether the sign stage runs on the store or over a cold download
+     page. */
+  function analyticsDeviceType() {
+    const touch = ((navigator && navigator.maxTouchPoints) || 0) > 0 ||
+      !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+    const width = Math.min(
+      Number(window.innerWidth) || 0,
+      Number(window.screen && window.screen.width) || Number(window.innerWidth) || 0
+    );
+    return (touch || (width > 0 && width <= 768)) ? "MOBILE" : "DESKTOP";
+  }
+  function analyticsSourcePage() {
+    const path = String(window.location && window.location.pathname || "");
+    const file = path.split("/").filter(Boolean).pop() || "";
+    return file === "download.html" ? "download.html" : "index.html";
+  }
+  function localTimestamp(date) {
+    const d = date || new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const offset = -d.getTimezoneOffset();
+    const sign = offset >= 0 ? "+" : "-";
+    const absolute = Math.abs(offset);
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+      "T" + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()) +
+      sign + pad(Math.floor(absolute / 60)) + ":" + pad(absolute % 60);
+  }
+  /* Mint the serial at SIGN & UNLOCK, before the download page exists. It travels
+     in the flow URL and the page adopts it, so the Formspree record, the serial
+     on screen and the serial printed in the PDF are the same string. On the
+     store `license-pdf.js` is not loaded yet, so the fallback reproduces its
+     exact `KYRO-<year>-<SLUG>-<6 digits>` contract locally. */
+  function makeLicenseSerial(beat) {
+    const pdf = window.KYROlll_LICENSE_PDF;
+    if (pdf && pdf.makeLicenseId) return pdf.makeLicenseId(beat);
+    const year = String(new Date().getFullYear());
+    const raw = String((beat && (beat.slug || beat.id)) || "BEAT").toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const slug = ((raw || "BEAT").slice(0, 12).replace(/-+$/g, "") || "BEAT");
+    const values = new Uint32Array(6);
+    if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(values);
+    else for (let i = 0; i < values.length; i += 1) values[i] = Math.floor(Math.random() * 4294967296);
+    return "KYRO-" + year + "-" + slug + "-" + Array.prototype.map.call(values, (value) => String(value % 10)).join("");
+  }
+
+  /* The complete record Formspree receives. This is the one and only POST in the
+     whole flow: it carries the address from the email step, the verified full
+     name and stroke count from the signature step, the exact serial the PDF will
+     print, and the package/beat context the dashboard needs to read the row. */
+  function analyticsPayload(beat, pack, email, fullName, serial, optin, strokeCount) {
+    const shortTitle = callName(beat);
+    const name = String(fullName == null ? "" : fullName).trim() || String(email || "").trim();
+    return {
+      _subject: "KYROIII STORE — [" + pack.name + "] " + shortTitle + " (" + name + ")",
+      email: String(email == null ? "" : email).trim(),
+      fullName: String(fullName == null ? "" : fullName).trim(),
+      beatTitle: String(beat.title || ""),
+      beatShortTitle: shortTitle,
+      beatId: String(beat.slug || beat.id || ""),
+      beatBpmAndKey: beat.bpm + " BPM // " + String(beat.key || "").toUpperCase(),
+      packageTier: String(pack.id || ""),
+      packageName: String(pack.name || ""),
+      includedFiles: packageFileSummary(beat, pack),
+      licenseSerial: String(serial || ""),
+      socialStepsCompleted: SOCIAL_STEP_SUMMARY[pack.gate] || SOCIAL_STEP_SUMMARY.email,
+      newsletterOptIn: optin ? "YES" : "NO",
+      signatureMethod: "DRAW + TYPE SYNCHRONIZED",
+      signatureStrokes: String(Math.max(0, Number(strokeCount) || 0)),
+      deviceType: analyticsDeviceType(),
+      sourcePage: analyticsSourcePage(),
+      timestampLocal: localTimestamp()
+    };
+  }
+
   /* -------------------------------------------------------------- the flow */
   /* A one-shot token handed from a passed gate to `download.html`. It is not
      stored anywhere: it only says "this browser passed the gate in this flow a
@@ -136,22 +238,26 @@
     else for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
     return Array.prototype.map.call(bytes, (b) => ("0" + b.toString(16)).slice(-2)).join("");
   }
-  function downloadUrl(beatId, packageId, email) {
+  function downloadUrl(beatId, packageId, email, serial) {
     let url = "download.html?beat=" + encodeURIComponent(beatId) +
       "&package=" + encodeURIComponent(packageId) + "&t=" + grantToken();
     const address = String(email == null ? "" : email).trim();
     if (address) url += "&email=" + encodeURIComponent(address);
     /* The signature captured in the REVIEW & SIGN stage rides along too: the
        typed name as `?sign=`, a drawing packed as `?sig=`. Like the address it
-       is never stored — losing the URL loses the signature. */
+       is never stored — losing the URL loses the signature. The serial minted at
+       SIGN & UNLOCK rides along as `?serial=`, so the download page and its PDF
+       use exactly the serial already recorded in the Formspree payload. */
     const payload = signaturePayload();
     if (payload.name) url += "&sign=" + encodeURIComponent(payload.name);
     const packed = encodeStrokes(payload.strokes);
     if (packed) url += "&sig=" + encodeURIComponent(packed);
+    const licenseSerial = String(serial == null ? "" : serial).trim();
+    if (licenseSerial) url += "&serial=" + encodeURIComponent(licenseSerial);
     return url;
   }
-  function goToDownload(beat, pack, email) {
-    window.location.assign(downloadUrl(beat.id, pack.id, email));
+  function goToDownload(beat, pack, email, serial) {
+    window.location.assign(downloadUrl(beat.id, pack.id, email, serial));
   }
   /* ------------------------------------------------------ session memory
      One unlocked package per beat, remembered only for the life of this page.
@@ -279,8 +385,8 @@
     const pack = catalog && catalog.packageById(packageId);
     if (!beat || !pack) { showToast("BEAT OR PACKAGE NOT FOUND"); return; }
     if (holdScheduledDrop(beat)) return;
-    if (pack.gate === "instant") { goToDownload(beat, pack, ""); return; }
-    openGate(beat, pack, (b, p, email) => { goToDownload(b, p, email); });
+    if (pack.gate === "instant") { goToDownload(beat, pack, "", ""); return; }
+    openGate(beat, pack, (b, p, email, serial) => { goToDownload(b, p, email, serial); });
   }
 
   /* ------------------------------------------------------ menu */
@@ -781,7 +887,7 @@
       '<p class="sign-terms__end">END OF TERMS</p>';
   }
 
-  function showSignStage(beat, pack, email, onUnlocked) {
+  function showSignStage(beat, pack, email, onUnlocked, optin) {
     const modal = gate;
     const card = modal && modal.querySelector(".gate-modal__card");
     if (!modal || !card) return;
@@ -840,6 +946,7 @@
     let mode = "type";
     let strokes = [];
     let current = null;
+    let submitted = false;
     const ctx = canvas && canvas.getContext ? canvas.getContext("2d") : null;
 
     /* A crisp pen on a retina phone: the bitmap is scaled by the device pixel
@@ -1042,6 +1149,7 @@
     requestAnimationFrame(applyState);
 
     if (submitBtn) submitBtn.addEventListener("click", () => {
+      if (submitted) return;
       if (!termsRead()) { showGateError(errEl, "READ THE TERMS TO THE END FIRST"); return; }
       /* The full name is enforced again here — the one thing a script can do is
          strip the `disabled` attribute, so a single word is refused on submit
@@ -1065,23 +1173,35 @@
          the name last. */
       setSignature(typedName());
       setDrawnSignature(strokes);
+      submitted = true;
       submitBtn.disabled = true;
       if (hint) hint.textContent = "SIGNED — UNLOCKING YOUR FILES…";
+      /* This is the single authoritative Formspree POST. By now the email step
+         has supplied the address and opt-in, and this stage supplies the
+         verified name and drawing, so the record is complete. The serial is
+         minted here and travels in the flow URL so the download page — and the
+         PDF it issues — print exactly the serial already recorded. */
+      const serial = makeLicenseSerial(beat);
+      const payload = analyticsPayload(beat, pack, email, typedName(), serial, optin, strokes.length);
+      postAnalytics(payload).then((res) => {
+        if (!res.ok && typeof console !== "undefined") console.warn("KYROIII analytics post failed:", res.error);
+      });
       closeGate();
-      finalizeGate(beat, pack, onUnlocked, email);
+      finalizeGate(beat, pack, onUnlocked, email, serial);
     });
   }
 
   /* Common completion: show the success beat, record the grant for this page
      view (a record only — it never skips a later gate), then proceed and hand
-     the just-submitted address to the next step. Nothing is ever written down. */
-  function finalizeGate(beat, pack, onUnlocked, email) {
+     the just-submitted address and the serial minted at SIGN & UNLOCK to the
+     next step. Nothing is ever written down. */
+  function finalizeGate(beat, pack, onUnlocked, email, serial) {
     rememberGrant(beat.id, pack.id, email);
     const sm = showSuccessModal();
     setTimeout(() => {
       if (sm && sm.parentNode) sm.remove();
       unlockPage();
-      if (onUnlocked) onUnlocked(beat, pack, email || "");
+      if (onUnlocked) onUnlocked(beat, pack, email || "", serial || "");
     }, 1400);
   }
 
@@ -1097,10 +1217,13 @@
     el.textContent = "";
   }
 
-  /* ------------------------------------------------------- the one submission
-     Every gate funnels through here: validate, POST the address, unlock. The
-     button is only ever enabled once the whole form is valid, so this is also
-     the Enter-key and defensive path. */
+  /* ------------------------------------------------------- the gate hand-off
+     Validate the email step and hand the card to REVIEW & SIGN. The one
+     Formspree POST deliberately does not happen here: it belongs at SIGN &
+     UNLOCK, where the full name, the drawing and the license serial also exist,
+     so a record can never arrive half-empty. The button is only ever enabled
+     once the whole form is valid, so this is also the Enter-key and defensive
+     path. */
   function submitGate(beat, pack, modal, onUnlocked, read) {
     const errEl = modal.querySelector("#gate-error");
     const submit = modal.querySelector("[data-gate-submit]");
@@ -1122,13 +1245,8 @@
     hideGateError(errEl);
     if (submit) submit.disabled = true;
     const hint = modal.querySelector("#gate-hint");
-    if (hint) hint.textContent = "RECORDING YOUR EMAIL...";
-    postSubscribe(state.email).then((res) => {
-      if (!res.ok && typeof console !== "undefined") console.warn("KYROIII newsletter post failed:", res.error);
-      /* The address is recorded; the gate now hands over to the REVIEW & SIGN
-         stage, which is what actually unlocks the files. */
-      showSignStage(beat, pack, state.email, onUnlocked);
-    });
+    if (hint) hint.textContent = "EMAIL CONFIRMED — REVIEW & SIGN TO UNLOCK";
+    showSignStage(beat, pack, state.email, onUnlocked, state.optin);
   }
 
   /* ---------------------------------------------------------- openGate dispatcher */
@@ -1225,30 +1343,23 @@
     wireGateDismiss(modal);
   }
 
-  /* --------------------------------------------------- newsletter submission
-     A real AJAX POST to the configured provider (Formspree), with
-     `Accept: application/json` so the provider answers JSON instead of a
-     redirect and the address lands in the dashboard. The body is
-     form-urlencoded — a CORS-safelisted content type, so no preflight — which
-     is the same shape the provider's own form sends. The promise never
-     rejects; a failure is reported to the caller and the free files still
-     unlock. */
-  function postSubscribe(email) {
+  /* ------------------------------------------------------- analytics submission
+     The one and only POST in the flow: a JSON record to the configured provider
+     (Formspree) at SIGN & UNLOCK, once every field exists. `keepalive` lets the
+     request finish while the flow moves on to the download page, so the record
+     is not lost to the navigation. The promise never rejects — a failed post
+     never blocks the free files, it is logged and the unlock continues. */
+  function postAnalytics(payload) {
     const endpoint = newsletterEndpoint();
     if (!endpoint) return Promise.resolve({ ok: false, error: "no newsletter endpoint configured" });
-    const body = new URLSearchParams();
-    body.set("email", String(email || "").trim());
-    body.set("opt_in", "yes");
-    body.set("embed", "1");
-    body.set("tag", "beat-download");
-    body.set("_subject", "KYROIII BEAT DOWNLOAD");
     return fetch(endpoint, {
       method: "POST",
       headers: {
         "Accept": "application/json",
-        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+        "Content-Type": "application/json"
       },
-      body: body.toString()
+      body: JSON.stringify(payload || {}),
+      keepalive: true
     }).then((res) => {
       if (!res || !res.ok) return { ok: false, error: "HTTP " + (res ? res.status : "0") };
       return { ok: true };
@@ -1315,7 +1426,7 @@
     downloadUrl, start, goToDownload, openMenu, closeMenu, openGate, closeGate,
     deliverablesFor: deliverablesFor,
     proFileName: proFileName,
-    newsletterEndpoint, postSubscribe,
+    newsletterEndpoint, postAnalytics,
     downloadItem, showToast
   };
   } catch (e) { /* ignore top-level errors */ }

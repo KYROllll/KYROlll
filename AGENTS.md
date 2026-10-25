@@ -419,9 +419,12 @@ payment gateway.
 `readEmail`/`writeEmail`/`markUnlocked` API is gone). Its one memory is the in-page `grants`
 `Map`: `isUnlocked(beatId, packageId)` answers from it and `finalizeGate` fills it, but it is a
 **record only** — no path consults it to skip a step, so every selection re-opens the full gate
-and re-requires REVIEW & SIGN, and a reload starts empty. The only outbound request is the email
-gate's subscribe POST (`postSubscribe`: `fetch(endpoint)` with `Accept: application/json` and a
-form-urlencoded body — the shape Formspree records in its dashboard):
+and re-requires REVIEW & SIGN, and a reload starts empty. The only outbound request is the
+single authoritative analytics POST at SIGN & UNLOCK (`postAnalytics`: `fetch(endpoint)` with
+`Accept: application/json` and a JSON body), carrying the email, verified full name, beat and
+package context, the exact license serial, the completed social steps, the opt-in and the
+device/source page. It is deliberately not sent at the email step, so a Formspree record can
+never arrive half-empty:
 
 - The `[data-download-trigger]` button (delegated once on `document`, so a re-rendered
   grid keeps working) opens the `.download-menu` — the old downward-only license dropdown,
@@ -528,11 +531,11 @@ form-urlencoded body — the shape Formspree records in its dashboard):
   cannot skip anything; Enter on the field runs the same `submitGate`, which is also where a
   malformed address is refused with `#gate-error`. **Only CANCEL closes the dialog** — the
   backdrop is inert (no `data-gate-cancel`, no outside-click listener) and Escape does nothing,
-  so a stray tap or key cannot close a gate mid-step. `submitGate` posts
-  the address with `postSubscribe` and then hands the *same* card over to the sign stage
-  (below) instead of leaving for the download page — the files stay locked until the license
-  is signed.
-- `showSignStage(beat, pack, email, onUnlocked)` is the last screen of every gate: the terms
+  so a stray tap or key cannot close a gate mid-step. `submitGate` validates the address and
+  opt-in and then hands the *same* card over to the sign stage (below) without posting — the
+  files stay locked until the license is signed, and the one authoritative Formspree POST fires
+  at SIGN & UNLOCK with every analytics field present.
+- `showSignStage(beat, pack, email, onUnlocked, optin)` is the last screen of every gate: the terms
   in their own scroll pane (`.sign-terms`), the **FULL NAME — FIRST AND LAST** field
   (`#sign-name`) **above** the TYPE / DRAW switch (`.sign-mode`) and never hidden — it is
   required in **both** modes, so switching to DRAW can never skip the name — then the signature
@@ -676,9 +679,12 @@ instead of opening it in a viewer.
 `download-page.js` fills `download.html` from the `?beat=`/`?package=` params and gives the
 hand-off the full luxury treatment: a glass hero with the live 3D flower (`.dl-hero__flower`,
 one `.logo-stage` with no preloader veil), a glassmorphism file card with one row per file, and a
-`.license-cert` block that shows the minted serial (`#license-serial`) over the signature that
-came with the flow — `boot()` adopts `?sign=` / `?sig=` through `adoptSignature` before anything
-is rendered, so the stamp line (`#license-stamp`) shows the name signed in the gate, or replays
+`.license-cert` block that shows the serial minted at SIGN & UNLOCK (`#license-serial`) over the
+signature that came with the flow — `boot()` adopts `?sign=` / `?sig=` through `adoptSignature`
+and `?serial=` beside them before anything is rendered, so the serial recorded in the Formspree
+analytics, the serial on screen and the serial printed in the PDF are the same string; a cold link
+mints its own serial, and a gate passed on this page adopts the one its SIGN & UNLOCK just
+recorded — so the stamp line (`#license-stamp`) shows the name signed in the gate, or replays
 a hand-drawn one as an inline SVG (`.license-cert__mark`), and the PDF carries the same mark.
 **That replay copies the pad's points straight across — `point[1] * h`, no `1 - y`** — because
 SVG shares the canvas' top-left origin, while `license-pdf.js`'s `drawSignature` *does* flip

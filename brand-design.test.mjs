@@ -33,8 +33,25 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const url = `http://127.0.0.1:${server.address().port}`;
 let browser;
 const errors = [];
-// Every POST the email gate makes to the newsletter provider.
+// Every POST the gates make to the newsletter provider. The authoritative post
+// now happens at SIGN & UNLOCK, with a JSON body, so the test answers the CORS
+// preflight too and records the headers alongside the parsed body.
 const subscribeRequests = [];
+const CORS_HEADERS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'POST, OPTIONS',
+  'access-control-allow-headers': 'accept, content-type',
+};
+const postJSON = (index) => {
+  try { return JSON.parse(subscribeRequests[index].body); } catch { return null; }
+};
+const waitForPostCount = async (count, label = '') => {
+  const started = Date.now();
+  while (subscribeRequests.length < count && Date.now() - started < 8000) {
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  assert.equal(subscribeRequests.length, count, label || `${count} newsletter post(s) recorded`);
+};
 async function setupPage(options = {}) {
   const context = await browser.newContext(options);
   // Keep the run hermetic: same-origin files come from the test server, bundled
@@ -43,12 +60,19 @@ async function setupPage(options = {}) {
   await context.route('**/*', async route => {
     const req = route.request(), target = new URL(req.url());
     if (target.origin === url) return route.continue();
-    // The email gate posts the address to whatever provider `catalog.js`
-    // configures (Formspree today). Record it and answer with a tiny page so the
-    // hidden iframe's load handler fires, exactly as the real provider would.
+    // application/json is not a CORS-safelisted content type, so the browser
+    // sends a preflight before the Formspree POST. Answer it with the headers
+    // Formspree itself answers with, then record and answer the POST.
+    if (req.method() === 'OPTIONS') {
+      return route.fulfill({ status: 204, headers: CORS_HEADERS });
+    }
     if (req.method() === 'POST') {
-      subscribeRequests.push({ url: req.url(), body: req.postData() || '' });
-      return route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>subscribed</title>' });
+      subscribeRequests.push({ url: req.url(), body: req.postData() || '', headers: req.headers() });
+      return route.fulfill({
+        status: 200,
+        headers: Object.assign({ 'content-type': 'application/json' }, CORS_HEADERS),
+        body: JSON.stringify({ ok: true }),
+      });
     }
     if (target.pathname.startsWith('/assets/')) {
       return route.fulfill({ path: new URL(`.${target.pathname}`, root).pathname });
@@ -618,6 +642,7 @@ try {
   // on the same card instead of leaving for the download page — the files stay
   // locked until the terms are read and the license is signed.
   await signStage(mp3Page).waitFor();
+  assert.equal(subscribeRequests.length, 0, 'the email step alone posts nothing — the one record belongs at SIGN & UNLOCK');
   assert.equal(await mp3Page.evaluate(() => new URLSearchParams(location.search).has('t')), false, 'the gate has not left for the download page yet');
   assert.equal(await mp3Page.locator('.gate-step').count(), 0, 'the sign stage replaces the gate body');
   assert.equal(await mp3Page.locator('[data-sign-submit]').isDisabled(), true, 'SIGN & UNLOCK starts locked');
@@ -672,11 +697,29 @@ try {
   assert.match(mp3Page.url(), /sign=Jordan(%20|\+)Vega/, 'the signature is handed forward in the flow URL');
   assert.match(mp3Page.url(), /sig=/, 'the drawn signature is handed forward alongside the full name');
   await noGateMemory(mp3Page, 'after the MP3 gate');
-  assert.equal(subscribeRequests.length, 1, 'the valid address is posted to the provider');
+  await waitForPostCount(1, 'the valid address is posted to the provider');
   assert.equal(subscribeRequests[0].url, PROVIDER, 'posted to the configured Formspree endpoint');
-  assert.match(subscribeRequests[0].body, /email=mp3-buyer%40example\.com/);
-  assert.match(subscribeRequests[0].body, /opt_in=yes/);
-  assert.match(subscribeRequests[0].body, /embed=1/);
+  assert.match(subscribeRequests[0].headers['content-type'], /^application\/json/i, 'the analytics post is JSON');
+  assert.equal(subscribeRequests[0].headers.accept, 'application/json', 'the analytics post asks for a JSON answer');
+  const mp3Post = postJSON(0);
+  assert(mp3Post, 'the Formspree body is valid JSON');
+  assert.equal(mp3Post.email, 'mp3-buyer@example.com', 'the record carries the email from the gate');
+  assert.equal(mp3Post.fullName, 'Jordan Vega', 'the record carries the verified full name');
+  assert.equal(mp3Post.beatTitle, '[FREE 100%] DON TOLIVER TYPE BEAT - FLESH', 'the record carries the full catalog title');
+  assert.equal(mp3Post.beatShortTitle, 'FLESH', 'the record carries the short beat title');
+  assert.equal(mp3Post.beatId, 'flesh', 'the record carries the beat slug');
+  assert.equal(mp3Post.beatBpmAndKey, '130 BPM // AM', 'the record carries the beat tempo and key');
+  assert.equal(mp3Post.packageTier, 'mp3', 'the record carries the package tier');
+  assert.equal(mp3Post.packageName, 'MP3 LEASE', 'the record carries the full package label');
+  assert.equal(mp3Post.includedFiles, 'MP3 + PDF LICENSE', 'the record lists the unlocked files');
+  assert.match(mp3Post.licenseSerial, /^KYRO-\d{4}-FLESH-\d{6}$/, 'the record carries the exact license serial');
+  assert.equal(mp3Post.socialStepsCompleted, 'NONE (EMAIL GATE)', 'the MP3 gate records that it has no social step');
+  assert.equal(mp3Post.newsletterOptIn, 'YES', 'the record confirms the mandatory opt-in');
+  assert.equal(mp3Post.signatureMethod, 'DRAW + TYPE SYNCHRONIZED', 'the record confirms the signature method');
+  assert.equal(mp3Post.deviceType, 'DESKTOP', 'the record carries the device class');
+  assert.equal(mp3Post.sourcePage, 'index.html', 'the record carries the source page');
+  assert.match(mp3Post.timestampLocal, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/, 'the record carries a local timestamp');
+  assert.match(mp3Post._subject, /^KYROIII STORE — \[MP3 LEASE\] FLESH \(Jordan Vega\)$/, 'the subject is human-readable and complete');
   assert.match(await mp3Page.title(), /MP3 LEASE/);
   assert.equal(await mp3Page.locator('.dl-hero__flower').count(), 1); // the 3D flower branding
   assert.equal(await mp3Page.locator('.download-item').count(), 1); // the tagged MP3 (license is its own panel)
@@ -694,6 +737,8 @@ try {
   assert.equal(await mp3Page.locator('[data-license-pdf]').count(), 1);
   const serial = await mp3Page.locator('#license-serial').innerText();
   assert.match(serial, /^KYRO-\d{4}-FLESH-\d{6}$/);
+  assert.equal(mp3Post.licenseSerial, serial, 'the Formspree record and the issued license share one serial');
+  assert.equal(mp3Page.url().includes(encodeURIComponent(serial)), true, 'the sign-stage serial rides to the download page in the flow URL');
   serials.push(serial);
   // The hand-over is named the way an engineer reads it: the beat, its tempo and
   // its key, straight off the filename.
@@ -831,7 +876,20 @@ try {
   await wavPage.locator('[data-gate-submit]').click();
   await signLicense(wavPage, 'Wav Buyer');
   await wavPage.waitForURL(/package=wav/);
-  assert.equal(subscribeRequests.length, 2, 'the WAV gate posts its address too');
+  await waitForPostCount(2, 'the WAV gate posts its address too');
+  const wavPost = postJSON(1);
+  assert(wavPost, 'the WAV Formspree body is valid JSON');
+  assert.equal(wavPost.email, 'wav-buyer@example.com', 'the WAV record carries its email');
+  assert.equal(wavPost.fullName, 'Wav Buyer', 'the WAV record carries its full name');
+  assert.equal(wavPost.beatId, 'flesh', 'the WAV record carries the beat slug');
+  assert.equal(wavPost.packageTier, 'wav', 'the WAV record carries its tier');
+  assert.equal(wavPost.packageName, 'STANDARD WAV LEASE', 'the WAV record carries its label');
+  assert.equal(wavPost.includedFiles, 'MP3 + WAV + PDF LICENSE', 'the WAV record lists its files');
+  assert.equal(wavPost.socialStepsCompleted, 'YOUTUBE SUBSCRIBE + BEAT LIKE + INSTAGRAM', 'the WAV record names the three completed social steps');
+  assert.equal(wavPost.deviceType, 'DESKTOP', 'the WAV record carries the device class');
+  assert.equal(wavPost.sourcePage, 'index.html', 'the WAV record carries the source page');
+  assert.equal(wavPost.newsletterOptIn, 'YES', 'the WAV record confirms the opt-in');
+  assert.match(subscribeRequests[1].headers['content-type'], /^application\/json/i, 'the WAV analytics post is JSON');
   assert.match(await wavPage.locator('#download-sub').innerText(), /SUBSCRIBE, LIKE THE BEAT, FOLLOW ON INSTAGRAM, AND ENTER YOUR EMAIL TO UNLOCK/i, 'the download page records the WAV gate requirements');
   assert.match(await wavPage.locator('#download-meta').innerText(), /SUBSCRIBE \+ LIKE \+ IG/i, 'the download page carries the package badge');
   assert.match(await wavPage.locator('#download-list').innerText(), /HIGH-QUALITY WAV/i);
@@ -845,6 +903,7 @@ try {
   // minted, one PDF action, no raw text.
   const wavSerial = await wavPage.locator('#license-serial').innerText();
   assert.match(wavSerial, /^KYRO-\d{4}-FLESH-\d{6}$/);
+  assert.equal(wavPost.licenseSerial, wavSerial, 'the WAV Formspree record and its PDF share one serial');
   serials.push(wavSerial);
   assert.equal(await wavPage.locator('#license-view').count(), 0);
   assert.equal(await wavPage.locator('.download-list__empty').count(), 0);
@@ -967,10 +1026,25 @@ try {
   assert(mark.paths >= 2, 'the mark replays both drawn strokes');
   assert(Math.abs(mark.fy - 0.72) < 0.05, `the drawn signature is upright, not flipped (first pen at ${mark.fy.toFixed(2)} of the pad's height)`);
   assert(Math.abs(mark.fx - 0.205) < 0.04, 'the mark keeps the pad aspect ratio and its horizontal placement');
-  assert.equal(subscribeRequests.length, 3, 'the valid address is posted to the newsletter provider');
+  await waitForPostCount(3, 'the valid address is posted to the newsletter provider');
   assert.equal(subscribeRequests[2].url, endpoint, 'posted to the configured provider endpoint');
-  assert.match(subscribeRequests[2].body, /email=producer%40example\.com/);
-  assert.match(subscribeRequests[2].body, /embed=1/);
+  assert.match(subscribeRequests[2].headers['content-type'], /^application\/json/i, 'the Pro analytics post is JSON');
+  const proPost = postJSON(2);
+  assert(proPost, 'the Pro Formspree body is valid JSON');
+  assert.equal(proPost.email, 'producer@example.com', 'the Pro record carries its email');
+  assert.equal(proPost.fullName, 'MATAN MAMADOV', 'the Pro record carries the drawn signature\'s full name');
+  assert.equal(proPost.beatTitle, '[FREE 100%] DON TOLIVER TYPE BEAT - FLESH', 'the Pro record carries the full title');
+  assert.equal(proPost.beatShortTitle, 'FLESH', 'the Pro record carries the short title');
+  assert.equal(proPost.beatId, 'flesh', 'the Pro record carries the beat slug');
+  assert.equal(proPost.packageTier, 'exclusive', 'the Pro record carries its tier');
+  assert.equal(proPost.packageName, 'EXCLUSIVE / PRO PACKAGE', 'the Pro record carries its label');
+  assert.equal(proPost.includedFiles, 'MP3 + WAV + TRACKED STEMS + PDF LICENSE', 'the Pro record lists every unlocked file');
+  assert.equal(proPost.socialStepsCompleted, 'YOUTUBE SUBSCRIBE + BEAT LIKE + INSTAGRAM + TIKTOK + X', 'the Pro record names all five social steps');
+  assert.equal(proPost.deviceType, 'DESKTOP', 'the Pro record carries the device class');
+  assert.equal(proPost.sourcePage, 'index.html', 'the Pro record carries the source page');
+  assert.equal(proPost.newsletterOptIn, 'YES', 'the Pro record confirms the opt-in');
+  assert.equal(proPost.signatureMethod, 'DRAW + TYPE SYNCHRONIZED', 'the Pro record confirms the signature method');
+  assert.match(proPost._subject, /^KYROIII STORE — \[EXCLUSIVE \/ PRO PACKAGE\] FLESH \(MATAN MAMADOV\)$/, 'the Pro subject is human-readable and complete');
   assert.match(await proPage.locator('#download-list').innerText(), /TRACKED STEMS/i);
   assert.equal(await proPage.locator('.download-item').count(), 3); // MP3 + WAV + stems (license is its own panel)
   assert.deepEqual(await proPage.locator('.download-item__name').allTextContents(), [
@@ -980,6 +1054,7 @@ try {
   ]);
   const proSerial = await proPage.locator('#license-serial').innerText();
   assert.match(proSerial, /^KYRO-\d{4}-FLESH-\d{6}$/);
+  assert.equal(proPost.licenseSerial, proSerial, 'the Pro Formspree record and its PDF share one serial');
   serials.push(proSerial);
   assert.equal(await proPage.locator('#license-view').count(), 0);
   // Every issuance mints its own serial — no two licenses ever share an id.
@@ -1056,6 +1131,17 @@ try {
   // The success beat holds ~1.4 s and then the page paints its file rows.
   await coldPage.locator('.download-item').first().waitFor({ timeout: 15000 });
   assert.match(await coldPage.locator('#download-list').innerText(), /TRACKED STEMS/i);
+  await waitForPostCount(4, 'a gate passed on the download page posts one complete record too');
+  const coldPost = postJSON(3);
+  assert(coldPost, 'the cold-gate Formspree body is valid JSON');
+  assert.equal(coldPost.email, 'cold-entrant@example.com', 'the cold record carries its email');
+  assert.equal(coldPost.fullName, 'Cold Entrant', 'the cold record carries its full name');
+  assert.equal(coldPost.packageTier, 'exclusive', 'the cold record carries its tier');
+  assert.equal(coldPost.socialStepsCompleted, 'YOUTUBE SUBSCRIBE + BEAT LIKE + INSTAGRAM + TIKTOK + X', 'the cold record names all social steps');
+  assert.equal(coldPost.deviceType, 'DESKTOP', 'the cold record carries the device class');
+  assert.equal(coldPost.sourcePage, 'download.html', 'the record knows it was signed on the download page');
+  const coldSerial = await coldPage.locator('#license-serial').innerText();
+  assert.equal(coldPost.licenseSerial, coldSerial, 'the cold gate adopts the serial it recorded into the PDF');
   assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), true, 'the pass is recorded for this view');
   await noGateMemory(coldPage, 'after a gate passed on the download page itself');
   const postsBeforeMemory = subscribeRequests.length;
@@ -1123,6 +1209,15 @@ try {
   assert.equal(await phone.locator('[data-sign-submit]').isDisabled(), false, 'a full name plus a drawn signature unlocks on a phone too');
   await phone.locator('[data-sign-submit]').click();
   await phone.waitForURL(/package=exclusive/);
+  await waitForPostCount(5, 'the phone flow posts its complete record too');
+  const phonePost = postJSON(4);
+  assert(phonePost, 'the phone Formspree body is valid JSON');
+  assert.equal(phonePost.fullName, 'Ada Lovelace', 'the phone record carries the full name');
+  assert.equal(phonePost.email, 'phone-buyer@example.com', 'the phone record carries the email');
+  assert.equal(phonePost.packageTier, 'exclusive', 'the phone record carries the tier');
+  assert.equal(phonePost.socialStepsCompleted, 'YOUTUBE SUBSCRIBE + BEAT LIKE + INSTAGRAM + TIKTOK + X', 'the phone record names all social steps');
+  assert.equal(phonePost.deviceType, 'MOBILE', 'a 390px touch viewport is recorded as MOBILE');
+  assert.equal(phonePost.sourcePage, 'index.html', 'the phone record carries the source page');
   await noOverflow(phone);
   await noHue(phone, 'the phone flow');
   assert.equal(await phone.locator('.license-cert__watermark').count(), 0, 'the certificate carries no flower watermark on a phone either');

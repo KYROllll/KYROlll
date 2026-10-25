@@ -111,10 +111,17 @@
   const signErrorEl = document.getElementById("license-sign-error");
   const stampEl = document.getElementById("license-stamp");
 
-  /* One serial per page view, minted by the same generator the PDF uses, so the
-     id shown here is exactly the id printed in the document — and the prebuilt
-     blob is cached under that same serial. */
-  const serial = (window.KYROlll_LICENSE_PDF && beat && window.KYROlll_LICENSE_PDF.makeLicenseId(beat)) || "";
+  /* One serial per page view. A flow that just passed SIGN & UNLOCK already
+     minted the serial and recorded it in the Formspree payload, carrying it
+     here as `?serial=`; this page adopts that exact string. A cold entry point
+     mints a fresh one with the same generator the PDF uses. Either way the id
+     shown here is the id printed in the document, and the prebuilt blob is
+     cached under that same serial. */
+  const SERIAL_RE = /^KYRO-\d{4}-[A-Z0-9]+(?:-[A-Z0-9]+)*-\d{6}$/i;
+  const serialParam = String(params.get("serial") || "").trim();
+  let serial = SERIAL_RE.test(serialParam)
+    ? serialParam.toUpperCase()
+    : ((window.KYROlll_LICENSE_PDF && beat && window.KYROlll_LICENSE_PDF.makeLicenseId(beat)) || "");
 
   function fileRowHTML(item, index) {
     return (
@@ -244,9 +251,10 @@
     }
   }
 
-  /* The license panel is static markup and the serial is minted once at load,
-     so everything is bound exactly once. `render()` can run again after a gate
-     opens over the page; it must not re-bind or re-mint. */
+  /* The license panel is static markup and the serial is established once this
+     page knows which flow it belongs to, so everything is bound exactly once.
+     `render()` can run again after a gate opens over the page; adopting the
+     sign-stage serial and repainting the panel must not re-bind the controls. */
   let licenseWired = false;
   let stampTimer = 0;
   function showLicensePanel() {
@@ -362,8 +370,15 @@
         subEl.textContent = "ONE QUICK STEP AND YOUR FILES UNLOCK.";
         renderMeta([]);
         listEl.innerHTML = '<div class="download-list__empty">UNLOCK THIS PACKAGE TO REVEAL YOUR FILES.</div>';
-        d.openGate(beat, pack, (b, p, email) => {
+        d.openGate(beat, pack, (b, p, email, gateSerial) => {
           if (email) licensee = String(email).trim();
+          /* The cold gate's SIGN & UNLOCK mints the serial it just recorded in
+             the Formspree payload. Adopt it before rebuilding the license, so
+             the document and the analytics row always agree. */
+          if (gateSerial) {
+            serial = String(gateSerial).trim();
+            if (serialEl && serial) serialEl.textContent = serial;
+          }
           prebuildLicense();
           render();
         });
