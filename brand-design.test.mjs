@@ -7,9 +7,10 @@
 import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 import { createServer } from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 
 const root = new URL('./', import.meta.url);
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.mp3': 'audio/mpeg' };
@@ -38,7 +39,7 @@ const errors = [];
 // preflight too and records the headers alongside the parsed body.
 const subscribeRequests = [];
 // Every request that reaches Formspree, preflight included. The final assertion
-// proves the new kyroill.store form is the only endpoint the store ever contacts.
+// proves the KYROIII — FREE DOWNLOADS form is the only endpoint the store contacts.
 const providerRequests = [];
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
@@ -55,6 +56,33 @@ const waitForPostCount = async (count, label = '') => {
   }
   assert.equal(subscribeRequests.length, count, label || `${count} newsletter post(s) recorded`);
 };
+// The superseded forms must not exist anywhere in the source. They are assembled
+// from fragments so this assertion does not itself leave a live old id behind.
+const SUPERSEDED_FORM_IDS = ['x' + 'kjjjnry', 'xg' + 'aoppwo'];
+const TEXT_EXTENSIONS = new Set(['.js', '.mjs', '.cjs', '.html', '.css', '.md', '.json', '.txt', '.yml', '.yaml', '.xml', '.svg']);
+const SKIP_DIRECTORIES = new Set(['.git', 'node_modules']);
+async function textFilesUnder(dir) {
+  const files = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (!SKIP_DIRECTORIES.has(entry.name)) files.push(...await textFilesUnder(path));
+    } else if (TEXT_EXTENSIONS.has(extname(entry.name))) {
+      files.push(path);
+    }
+  }
+  return files;
+}
+async function supersededFormReferences() {
+  const hits = [];
+  for (const file of await textFilesUnder(fileURLToPath(root))) {
+    const text = await readFile(file, 'utf8');
+    for (const id of SUPERSEDED_FORM_IDS) {
+      if (text.includes(id)) hits.push(`${file}: ${id}`);
+    }
+  }
+  return hits;
+}
 async function setupPage(options = {}) {
   const context = await browser.newContext(options);
   // Keep the run hermetic: same-origin files come from the test server, bundled
@@ -171,7 +199,7 @@ const noLowercase = async (page, label) => {
 };
 const CARD = '#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af';
 const BEAT_ID = '6c56eda2-df4a-45b0-b9b7-68f8efdbb1af';
-const PROVIDER = 'https://formspree.io/f/xkjjjnry';
+const PROVIDER = 'https://formspree.io/f/mvkkkoew';
 // The scheduled second release, [FREE 100%] FUTURE TYPE BEAT - THE FLOW.
 const FLOW_ID = '5f9bbcab-e010-4efe-b459-9c9182e1d85b';
 const FLOW_CARD = '#card-5f9bbcab-e010-4efe-b459-9c9182e1d85b';
@@ -936,6 +964,16 @@ try {
   const endpoint = await proPage.evaluate(() => window.KYROlll_NEWSLETTER && window.KYROlll_NEWSLETTER.endpoint);
   assert.match(endpoint, /^https:\/\//, 'a newsletter provider endpoint is configured');
   assert.equal(endpoint, PROVIDER, 'the Formspree endpoint the gate posts to');
+  const endpointConfig = await proPage.evaluate(() => ({
+    site: window.KYROlll_SITE && window.KYROlll_SITE.formspreeEndpoint,
+    paid: window.KYROlll_SITE && window.KYROlll_SITE.paidFormspreeEndpoint,
+    paidConfig: window.KYROlll_NEWSLETTER && window.KYROlll_NEWSLETTER.paidEndpoint,
+    resolved: window.KYROlll_DOWNLOADS && window.KYROlll_DOWNLOADS.newsletterEndpoint(),
+  }));
+  assert.equal(endpointConfig.site, PROVIDER, 'catalog exposes the free form as SITE.formspreeEndpoint');
+  assert.equal(endpointConfig.paid, '', 'the future paid endpoint slot exists but is intentionally unset');
+  assert.equal(endpointConfig.paidConfig, endpointConfig.paid, 'the newsletter config keeps the paid slot separate');
+  assert.equal(endpointConfig.resolved, PROVIDER, 'the download layer resolves the free-download form');
   await proPage.locator(`${CARD} .download-trigger`).click();
   await proPage.locator('.download-menu.is-open').waitFor();
   await proPage.locator('.download-tier[data-package="exclusive"]').click();
@@ -2200,9 +2238,12 @@ try {
 
   assert(providerRequests.length > 0, 'the flows really contacted Formspree');
   assert(providerRequests.every(request => request.url === PROVIDER),
-    'every Formspree request targets the new kyroill.store form and never a superseded endpoint');
+    'every Formspree request targets the KYROIII — FREE DOWNLOADS form and never a superseded endpoint');
+  assert(subscribeRequests.length > 0, 'the flows really posted their analytics');
   assert(subscribeRequests.every(request => request.url === PROVIDER),
-    'every analytics POST targets the new kyroill.store form');
+    'every analytics POST targets the KYROIII — FREE DOWNLOADS form');
+  assert.deepEqual(await supersededFormReferences(), [],
+    'no superseded Formspree form id remains anywhere in the repository');
 
   assert.deepEqual(errors, []);
   console.log('Passed storefront layout, tagged audio preview, and the free-download drawer + all three package-specific gates (email + opt-in only for the MP3 lease, subscribe + like the beat + Instagram for the WAV lease, and those plus TikTok and X for the Pro package, the REVIEW & SIGN stage with read-to-the-end terms, a typed full name AND a drawn signature required together in BOTH TYPE and DRAW with a single word or a drawing alone refused even with the disabled attribute stripped, and a re-sign single word refused on the download page — an upright never-flipped signature mark, no flower watermark on the signature sheet / the certificate (the flower now lives in the PDF\'s LICENSOR approval stamp) and a pure-white drawn signature ink, a backdrop that never dismisses the gate or the signature stage, a border-free floating flower and white/silver monochrome PDF borders, a direct studio-named PDF download with its serial, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts, and the whole flow walked at 390x844 with touch).');

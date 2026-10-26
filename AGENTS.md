@@ -407,12 +407,18 @@ payment gateway.
   real time, so a countdown genuinely counts down. A cold `download.html` link to a drop
   that has not landed shows the same countdown and unlocks itself; a flow that just passed
   a gate carries the grant token and goes straight through.
-- `window.KYROlll_NEWSLETTER` — `{ provider, username, endpoint }`, where the email gate sends a
-  new subscriber. The repo ships with a **Formspree** form wired to `endpoint`
-  (`https://formspree.io/f/xkjjjnry`), posted to with `fetch` and `Accept: application/json` so
-  the submission lands in the dashboard; swap it for any provider that accepts a form POST and
-  answers with CORS (Buttondown's `embed-subscribe` URL, a Beehiiv subscribe form, …) — for
-  Buttondown just set `username`. Left blank, the gate still unlocks the files and sends nothing.
+- `window.KYROlll_SITE` — `{ formspreeEndpoint, paidFormspreeEndpoint }`. `formspreeEndpoint`
+  is the authoritative **KYROIII — FREE DOWNLOADS** form (`https://formspree.io/f/mvkkkoew`)
+  for every `[FREE 100%]` beat, while `paidFormspreeEndpoint` is an intentionally empty slot for
+  a future paid category, so the two flows can never share a form by accident.
+- `window.KYROlll_NEWSLETTER` — `{ provider, username, endpoint, paidEndpoint }`, where the
+  email gate sends a new subscriber. `endpoint` mirrors `SITE.formspreeEndpoint` and
+  `paidEndpoint` mirrors the paid slot. The repo ships with a **Formspree** form wired to
+  `endpoint` (`https://formspree.io/f/mvkkkoew`), posted to with `fetch` and
+  `Accept: application/json` so the submission lands in the dashboard; swap it for any provider
+  that accepts a form POST and answers with CORS (Buttondown's `embed-subscribe` URL, a Beehiiv
+  subscribe form, …) — for Buttondown just set `username`. Left blank, the gate still unlocks
+  the files and sends nothing.
 
 `downloads.js` exposes `window.KYROlll_DOWNLOADS` and owns the whole interaction. It has
 **no backend** — no Supabase, no worker and no storage of any kind (the old

@@ -26,6 +26,22 @@
 
   const helpers = () => window.KYROlll_HELPERS || null;
   const downloads = () => window.KYROlll_DOWNLOADS || null;
+  /* The authoritative [FREE 100%] form. `catalog.js` exposes it as
+     `KYROlll_SITE.formspreeEndpoint`; this hardcoded fallback means a cold
+     download page still sends its gate to the `KYROIII — FREE DOWNLOADS` form if
+     that config is ever missing. A separate paid endpoint can be added later
+     without changing this free path. */
+  const FREE_FORMSPREE_ENDPOINT = "https://formspree.io/f/mvkkkoew";
+  function ensureFreeFormspreeEndpoint() {
+    const site = window.KYROlll_SITE || {};
+    const config = window.KYROlll_NEWSLETTER || {};
+    const endpoint = String(config.endpoint || site.formspreeEndpoint || FREE_FORMSPREE_ENDPOINT);
+    if (!config.endpoint) {
+      config.endpoint = endpoint;
+      window.KYROlll_NEWSLETTER = config;
+    }
+    return endpoint;
+  }
   const escapeHTML = (value) => (helpers() ? helpers().escapeHTML(value) : String(value == null ? "" : value));
   /* The same rule the gate's REVIEW & SIGN stage enforces: a license is signed
      by a FULL name — first AND last. A re-sign here that is a single word never
@@ -352,6 +368,7 @@
 
   function boot() {
     try {
+      ensureFreeFormspreeEndpoint();
       if (!beat || !pack) { showError(); return; }
       if (releasePending() && !granted) { showLocked(); return; }
       /* The signature captured in the gate's sign step arrives in this flow's

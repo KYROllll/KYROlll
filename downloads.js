@@ -57,10 +57,18 @@
 
   try {
     const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  // The authoritative free-download form. `catalog.js` exposes the same URL as
+  // `KYROlll_SITE.formspreeEndpoint`; this hardcoded fallback keeps every free
+  // download on the `KYROIII — FREE DOWNLOADS` form even if a page ships without
+  // that config, and a future paid form can live beside it without ever catching
+  // a free beat by accident.
+  const FREE_FORMSPREE_ENDPOINT = "https://formspree.io/f/mvkkkoew";
   function helpers() { return window.KYROlll_HELPERS || null; }
   function newsletterEndpoint() {
     const h = helpers();
-    return h && h.newsletterEndpoint ? h.newsletterEndpoint() : "";
+    const configured = h && h.newsletterEndpoint ? h.newsletterEndpoint() : "";
+    const site = window.KYROlll_SITE || {};
+    return String(configured || site.formspreeEndpoint || FREE_FORMSPREE_ENDPOINT);
   }
 
   /* The one human-readable record of what a package's gate asked for. A gate

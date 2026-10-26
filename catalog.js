@@ -27,6 +27,15 @@
   };
   window.KYROlll_YOUTUBE_CHANNEL = window.KYROlll_SOCIAL.youtube + "?sub_confirmation=1";
 
+  // The store's external endpoints. `formspreeEndpoint` is authoritative for
+  // every [FREE 100%] beat download; `paidFormspreeEndpoint` is reserved for a
+  // future paid category, so free and paid submissions can never drift onto the
+  // same Formspree form. The free form is the `KYROIII — FREE DOWNLOADS` form.
+  const SITE = window.KYROlll_SITE = {
+    formspreeEndpoint: "https://formspree.io/f/mvkkkoew",
+    paidFormspreeEndpoint: ""
+  };
+
   // Where the email gate delivers a new subscriber. The gate `fetch`es this URL
   // with `Accept: application/json`, so the submission is recorded by the
   // provider instead of navigating the page. Formspree is wired up here; any
@@ -34,7 +43,12 @@
   // endpoint, a Beehiiv subscribe form, …) works by putting its action URL in
   // `endpoint` (or, for Buttondown, just its `username`). Left blank, the gate
   // still unlocks the files and sends nothing.
-  window.KYROlll_NEWSLETTER = { provider: "formspree", username: "", endpoint: "https://formspree.io/f/xkjjjnry" };
+  window.KYROlll_NEWSLETTER = {
+    provider: "formspree",
+    username: "",
+    endpoint: SITE.formspreeEndpoint,
+    paidEndpoint: SITE.paidFormspreeEndpoint
+  };
 
   // The three free ways a beat leaves the store. `gate` is the whole behaviour:
   //   "email"    → Email input + mandatory opt-in → submit → REVIEW & SIGN → files + PDF.
