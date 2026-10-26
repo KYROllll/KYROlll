@@ -1618,6 +1618,60 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .vinyl-record--ice-silver-rim .vinyl-record__logo-frame { z-index: 2; }
 /* End SQUISH! ice-silver-rim palette. */
 
+/* JUST DO IT rage-fire-rim palette — the fifth pressing's deliberate colour exception. */
+/* JUST DO IT's collector pressing: a deep matte black body in #0a0a0a with fine
+   concentric micro-grooves, a soft neutral sheen and one delicate fiery
+   red/orange hairline around the perimeter. The matte black centre label keeps
+   the complete spinning flower in its usual clean stage; the record still holds
+   only the masked rim and the flower, with no extra graphic layer. */
+.vinyl-record--rage-fire-rim {
+  background:
+    radial-gradient(circle at 31% 22%, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 34%),
+    radial-gradient(circle at 72% 82%, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0) 46%),
+    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 7px),
+    repeating-radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.46) 0 2px, transparent 2px 9px),
+    radial-gradient(circle at 50% 50%, #0a0a0a 0%, #0a0a0a 58%, #060606 82%, #0a0a0a 100%);
+  box-shadow:
+    0 26px 58px rgba(0, 0, 0, 0.88),
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 42px rgba(0, 0, 0, 0.72);
+}
+.vinyl-record--rage-fire-rim::before {
+  inset: 7%;
+  background:
+    repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, rgba(255, 255, 255, 0.045) 3px 4px, transparent 4px 8px);
+  opacity: 0.66;
+}
+.vinyl-record--rage-fire-rim::after {
+  width: 36%;
+  height: 36%;
+  background: radial-gradient(circle at 50% 38%, #151515 0%, #0a0a0a 70%, #050505 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    inset 0 0 22px rgba(0, 0, 0, 0.94),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+  z-index: 1;
+}
+.vinyl-record--rage-fire-rim .vinyl-record__rim {
+  background: conic-gradient(from 215deg,
+    #7a140f 0deg,
+    #ff3b30 26deg,
+    #ff7a18 48deg,
+    #ff4d4f 72deg,
+    #a51d16 112deg,
+    #ff6a2a 148deg,
+    #7a140f 190deg,
+    #ff3b30 228deg,
+    #ffb15c 262deg,
+    #ff4d4f 300deg,
+    #7a140f 360deg);
+  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - 2.4px), #000 calc(100% - 1.6px) 100%);
+  mask: radial-gradient(circle closest-side, transparent calc(100% - 2.4px), #000 calc(100% - 1.6px) 100%);
+  opacity: 0.98;
+}
+.vinyl-record--rage-fire-rim .vinyl-record__logo-frame { z-index: 2; }
+/* End JUST DO IT rage-fire-rim palette. */
+
 .vinyl-record__logo {
   display: block;
   width: 100%;

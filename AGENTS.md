@@ -304,20 +304,23 @@ never nudge a surrounding box.
 disc with a broad black centre label and the full flower, no spindle hole), THE FLOW is
 `vinylVariant: "gold-rim"` (a deep matte `#0a0a0c` disc with a single ultra-fine metallic gold
 foil rim), GREEN FLESH is `vinylVariant: "sage-white-rim"` (a smoky grey-green disc with a
-delicate white outer hairline and the complete flower in its deep matte black centre label), and
+delicate white outer hairline and the complete flower in its deep matte black centre label),
 SQUISH! is `vinylVariant: "ice-silver-rim"` (an icy chrome-slate disc with diamond-silver
-micro-grooves and a pure-white perimeter hairline). `script.js` writes the variant onto the card
-(`data-vinyl`) and the record (`.vinyl-record--white` / `.vinyl-record--gold-rim` /
-`.vinyl-record--sage-white-rim` / `.vinyl-record--ice-silver-rim`); the old `"gold"` value
-resolves to `gold-rim`, and a bare black disc remains the base/fallback. The rim is
-`.vinyl-record__rim`, a conic-gradient masked to a ~1.6px outer hairline. It sits above the
-grooves (z-index 3) but only at the perimeter, while the centre label (z-index 1) and the
-spinning flower (z-index 2) stay clean on top. The record DOM holds only that rim and the
-flower — there is no splash, blob or other graphic layer. The gold-rim palette is isolated
-between the `THE FLOW gold-rim palette` CSS markers and excluded from the equal-channel audit.
-The pre-rendered FLESH card in `index.html` mirrors the white markup so the first paint is
-already white; the record's vertical containment, the large cover width, the fully-exposed
-logo and the zero horizontal overflow are asserted at 375, 390, 768 and 1440 px, and the
+micro-grooves and a pure-white perimeter hairline), and JUST DO IT is
+`vinylVariant: "rage-fire-rim"` (a deep matte `#0a0a0a` disc with one delicate fire-red/orange
+perimeter hairline and the complete flower in its matte black centre label). `script.js` writes
+the variant onto the card (`data-vinyl`) and the record (`.vinyl-record--white` /
+`.vinyl-record--gold-rim` / `.vinyl-record--sage-white-rim` / `.vinyl-record--ice-silver-rim` /
+`.vinyl-record--rage-fire-rim`); the old `"gold"` value resolves to `gold-rim`, and a bare black
+disc remains the base/fallback. The rim is `.vinyl-record__rim`, a conic-gradient masked to a
+~1.6px outer hairline. It sits above the grooves (z-index 3) but only at the perimeter, while
+the centre label (z-index 1) and the spinning flower (z-index 2) stay clean on top. The record
+DOM holds only that rim and the flower — there is no splash, blob or other graphic layer. Each
+coloured pressing is isolated between its own palette markers and excluded from the
+equal-channel audit. The pre-rendered FLESH card in `index.html` mirrors the white markup so the
+first paint is already white; the record's vertical containment, the large cover width, the
+fully-exposed logo and the zero horizontal overflow are asserted at 375, 390, 768 and 1440 px,
+and the
 gold-rim body, single rim gradient/mask, clean DOM and stacking are asserted on THE FLOW.
 
 ## Preview responsiveness in this sandbox
@@ -748,8 +751,11 @@ no archive metadata (`zip -X -j`), so the pro package hands over the stems and n
 `TEXTURE.wav`) — but rendered **16-bit/48 kHz** rather than the supplied 24-bit. The 24-bit
 set is ~419 MB of PCM and zips to ~136 MB, over GitHub's 100 MB hard per-file limit, while
 the 16-bit set zips to ~65 MB; the reduction is a plain round-to-nearest, so nothing else
-about the stems changes and the archive stays a normal file any machine can open. Keep that
-in mind if a future stem set is rebuilt: `zip` here only speaks `store`/`deflate`, so the
+about the stems changes and the archive stays a normal file any machine can open.
+`just-do-it-stems.zip` follows the same rule with its nine supplied stems (`808.wav`,
+`BASS.wav`, `HI HAT.wav`, `MELODY.wav`, `OPEN.wav`, `PERC 2.wav`, `PERC.wav`, `SFX.wav`,
+`SNARE.wav`), rendered 16-bit/48 kHz and archived flat with `zip -X -j`; it is ~48 MB. Keep
+that in mind if a future stem set is rebuilt: `zip` here only speaks `store`/`deflate`, so the
 bit depth is the only lever that actually moves the size.
 
 ## Verify it works

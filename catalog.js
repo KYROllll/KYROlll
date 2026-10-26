@@ -244,6 +244,46 @@
           { file: "assets/previews/squish-stems.zip", name: "KYROIII - SQUISH! - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
       }
+    },
+    {
+      /* The fifth official release, and the newest card in the store: the
+         catalog is authored oldest-first and `script.js` sorts the newest to the
+         front of the grid. */
+      id: "just-do-it",
+      slug: "just-do-it",
+      title: "[FREE 100%] YEAT TYPE BEAT - JUST DO IT",
+      shortTitle: "JUST DO IT",
+      img: "assets/just-do-it.png",
+      bpm: 135,
+      key: "Am",
+      preview: "assets/previews/just-do-it.mp3",
+      /* The beat's own video is not published yet; the official channel keeps
+         the YouTube icon and the "like this beat" gate step live until it is. */
+      youtube: "https://www.youtube.com/@KYROlll00",
+      /* The fifth pressing: a deep matte black disc with one delicate
+         fire-red/orange perimeter hairline, a matte black centre label and the
+         complete spinning flower. The blazing rim is the cover's only colour
+         cue on an otherwise monochrome record. */
+      vinylVariant: "rage-fire-rim",
+      /* The fifth official release is scheduled for 23:00 Israel time on
+         27 October 2026. Until then the tile is a timezone-proof countdown, and
+         the beat page keeps its player, YouTube icon and download drawer
+         locked. */
+      releaseAt: "2026-10-27T23:00:00+02:00",
+      deliverables: {
+        mp3: [
+          { file: "assets/previews/just-do-it.mp3", name: "KYROIII - JUST DO IT (135 BPM - AM).mp3", label: "TAGGED MP3" }
+        ],
+        wav: [
+          { file: "assets/previews/just-do-it.mp3", name: "KYROIII - JUST DO IT (135 BPM - AM).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/just-do-it.wav", name: "KYROIII - JUST DO IT (135 BPM - AM).wav", label: "HIGH-QUALITY WAV" }
+        ],
+        exclusive: [
+          { file: "assets/previews/just-do-it.mp3", name: "KYROIII - JUST DO IT (135 BPM - AM).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/just-do-it.wav", name: "KYROIII - JUST DO IT (135 BPM - AM).wav", label: "HIGH-QUALITY WAV" },
+          { file: "assets/previews/just-do-it-stems.zip", name: "KYROIII - JUST DO IT - TRACKED STEMS.zip", label: "TRACKED STEMS" }
+        ]
+      }
     }
   ];
 

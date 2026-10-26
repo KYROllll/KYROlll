@@ -151,9 +151,10 @@ const noCardBleed = async (page, label) => {
 };
 
 // Every rendered colour except the hero tagline's green / pink glitch palette
-// and THE FLOW's intentionally gold-rimmed vinyl must be an equal-channel grey.
-// (The rim's gold sits in gradient background images, which this computed-style
-// sweep does not read; the CSS text audit below exempts that one scoped section.)
+// and the vinyl pressings' intentionally coloured rims must be an equal-channel
+// grey. (The rims sit in gradient background images, which this computed-style
+// sweep does not read; the CSS text audit below exempts only those scoped
+// sections.)
 const noHue = async (page, label) => {
   const report = await page.evaluate(() => {
     const plain = ['color', 'backgroundColor', 'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor', 'outlineColor', 'textDecorationColor', 'caretColor', 'fill', 'stroke', 'columnRuleColor', 'boxShadow', 'textShadow'];
@@ -212,6 +213,11 @@ const GREEN_FLESH_RELEASE = Date.parse('2026-10-22T23:00:00+03:00');
 const SQUISH_ID = 'squish';
 const SQUISH_CARD = '#card-squish';
 const SQUISH_RELEASE = Date.parse('2026-10-25T23:00:00+02:00');
+// The fifth release, [FREE 100%] YEAT TYPE BEAT - JUST DO IT, is scheduled for
+// 23:00 Israel time on 27 October 2026.
+const JUST_DO_IT_ID = 'just-do-it';
+const JUST_DO_IT_CARD = '#card-just-do-it';
+const JUST_DO_IT_RELEASE = Date.parse('2026-10-27T23:00:00+02:00');
 
 // Nothing about a gate may be remembered: the storefront writes no gate state
 // at all (no unlock set, no remembered address).
@@ -362,12 +368,15 @@ try {
     green: getComputedStyle(el, '::before').color,
     pink: getComputedStyle(el, '::after').color,
   })), { green: 'rgb(57, 255, 139)', pink: 'rgb(255, 62, 165)' });
-  assert.equal(await desktop.locator('#grid .catalog-tile').count(), 4);
-  assert.equal(await desktop.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-squish', 'the newest release leads the grid');
+  assert.equal(await desktop.locator('#grid .catalog-tile').count(), 5);
+  assert.equal(await desktop.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-just-do-it', 'the newest scheduled release leads the grid');
   assert.equal(await desktop.locator('.catalog-tile__art img').first().evaluate(el => getComputedStyle(el).filter), 'none', 'catalog cover art keeps its original colour');
   assert.match(await desktop.locator(CARD).innerText(), /\[FREE 100%\] DON TOLIVER TYPE BEAT - FLESH/i);
   assert.match(await desktop.locator(GREEN_FLESH_CARD).innerText(), /\[FREE 100%\] LIL BABY TYPE BEAT - GREEN FLESH/i);
   assert.match(await desktop.locator(SQUISH_CARD).innerText(), /\[FREE 100%\] LIL GOTIT TYPE BEAT - SQUISH!/i);
+  assert.match(await desktop.locator(JUST_DO_IT_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - JUST DO IT/i);
+  assert.match(await desktop.locator('.marquee-track').innerText(), /YEAT TYPE BEAT - JUST DO IT/i, 'the ticker announces the fifth drop');
+  assert.match(await desktop.locator('.marquee-track').innerText(), /4 RELEASES LIVE/, 'the studio count excludes the scheduled fifth release until it lands');
   assert.match(await desktop.locator('.marquee-track').innerText(), /LIL GOTIT TYPE BEAT - SQUISH!/i, 'the ticker announces the fourth drop');
   assert.match(await desktop.locator('.marquee-track').innerText(), /LIL BABY TYPE BEAT - GREEN FLESH/i, 'the ticker announces the renamed third drop');
   await shot(desktop, 'desktop');
@@ -498,6 +507,7 @@ try {
   assert.equal(vinylVariants['the-flow'], 'gold-rim', 'catalog data gives THE FLOW its own black/gold-rim pressing');
   assert.equal(vinylVariants['green-flesh'], 'sage-white-rim', 'catalog data gives GREEN FLESH its sage-white pressing');
   assert.equal(vinylVariants.squish, 'ice-silver-rim', 'catalog data gives SQUISH! its ice-silver pressing');
+  assert.equal(vinylVariants['just-do-it'], 'rage-fire-rim', 'catalog data gives JUST DO IT its fire-rim pressing');
   await shot(direct, 'beat-detail');
   await direct.close();
 
@@ -1525,7 +1535,7 @@ try {
   await noOverflow(preDrop);
   await noHue(preDrop, 'the storefront before the drop');
   await noLowercase(preDrop, 'the storefront before the drop');
-  assert.equal(await preDrop.locator('#grid .catalog-tile').count(), 4, 'all four releases sit in the catalog');
+  assert.equal(await preDrop.locator('#grid .catalog-tile').count(), 5, 'all five releases sit in the catalog');
   assert.match(await preDrop.locator(`${FLOW_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'the scheduled drop carries its countdown pill');
   assert.doesNotMatch(await preDrop.locator(`${FLOW_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
   assert.match(await preDrop.locator(`${FLOW_CARD} [data-countdown="${FLOW_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'the pill shows a live HH:MM:SS clock');
@@ -1816,7 +1826,7 @@ try {
   const greenPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await greenPre.goto(`${url}/?now=${GREEN_FLESH_RELEASE - 3600000}`);
   await greenPre.locator(`[data-countdown="${GREEN_FLESH_ID}"]`).waitFor();
-  assert.equal(await greenPre.locator('#grid .catalog-tile').count(), 4, 'the third release is in the four-card catalog');
+  assert.equal(await greenPre.locator('#grid .catalog-tile').count(), 5, 'the third release is in the five-card catalog');
   assert.equal(await greenPre.locator(GREEN_FLESH_CARD).getAttribute('data-vinyl'), 'sage-white-rim', 'the GREEN FLESH catalog card carries its own pressing');
   assert.match(await greenPre.locator(`${GREEN_FLESH_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'GREEN FLESH carries its countdown pill');
   assert.doesNotMatch(await greenPre.locator(`${GREEN_FLESH_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
@@ -1971,8 +1981,9 @@ try {
   const squishPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await squishPre.goto(`${url}/?now=${SQUISH_RELEASE - 3600000}`);
   await squishPre.locator(`[data-countdown="${SQUISH_ID}"]`).waitFor();
-  assert.equal(await squishPre.locator('#grid .catalog-tile').count(), 4, 'the fourth release is in the four-card catalog');
-  assert.equal(await squishPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-squish', 'SQUISH! leads the catalog as the newest drop');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').count(), 5, 'the fourth release is in the five-card catalog');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-just-do-it', 'JUST DO IT leads the catalog as the newest scheduled drop');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-squish', 'SQUISH! follows the newest scheduled drop');
   assert.equal(await squishPre.locator(SQUISH_CARD).getAttribute('data-vinyl'), 'ice-silver-rim', 'the SQUISH! catalog card carries its own pressing');
   assert.match(await squishPre.locator(SQUISH_CARD).innerText(), /\[FREE 100%\] LIL GOTIT TYPE BEAT - SQUISH!/i);
   assert.match(await squishPre.locator(`${SQUISH_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'SQUISH! carries its countdown pill');
@@ -2112,10 +2123,162 @@ try {
   assert.match(await squishAfter.locator('.marquee-track').innerText(), /4 RELEASES LIVE/, 'the studio count becomes four once SQUISH! is live');
   await squishAfter.close();
 
+  // ------------------------------------------ fifth release: JUST DO IT (23:00)
+  // The newest drop is scheduled for 23:00 Israel time on 27 October 2026. It
+  // follows the same countdown contract and adds the deep matte black
+  // rage-fire-rim pressing. The studio count must stay at four until its clock
+  // lands, then become five.
+  const justDoItPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+  await justDoItPre.goto(`${url}/?now=${JUST_DO_IT_RELEASE - 3600000}`);
+  await justDoItPre.locator(`[data-countdown="${JUST_DO_IT_ID}"]`).waitFor();
+  assert.equal(await justDoItPre.locator('#grid .catalog-tile').count(), 5, 'the fifth release is in the five-card catalog');
+  assert.equal(await justDoItPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-just-do-it', 'JUST DO IT leads the catalog as the newest drop');
+  assert.equal(await justDoItPre.locator(JUST_DO_IT_CARD).getAttribute('data-vinyl'), 'rage-fire-rim', 'the JUST DO IT catalog card carries its own pressing');
+  assert.match(await justDoItPre.locator(JUST_DO_IT_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - JUST DO IT/i);
+  assert.match(await justDoItPre.locator(`${JUST_DO_IT_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'JUST DO IT carries its countdown pill');
+  assert.doesNotMatch(await justDoItPre.locator(`${JUST_DO_IT_CARD} .drop-countdown__label`).innerText(), /\d/, 'the JUST DO IT label carries no clock hour');
+  assert.match(await justDoItPre.locator(`${JUST_DO_IT_CARD} [data-countdown="${JUST_DO_IT_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'JUST DO IT shows a live HH:MM:SS clock');
+  assert.equal(await justDoItPre.locator(`${JUST_DO_IT_CARD} .download-trigger`).count(), 0, 'the JUST DO IT tile renders no download button before its drop');
+  assert.equal(await justDoItPre.locator(`${JUST_DO_IT_CARD} .download-trigger--locked`).count(), 0, 'the JUST DO IT tile renders no secondary LOCKED control');
+  assert.equal(await justDoItPre.locator(`${JUST_DO_IT_CARD} .drop-locked`).count(), 0, 'the JUST DO IT tile renders no locked player pane');
+  assert(await justDoItPre.evaluate((id) => {
+    const slot = document.getElementById('card-' + id).querySelector('.catalog-tile__actions');
+    return !!slot && slot.querySelectorAll('button').length === 0 && !!slot.querySelector('.drop-countdown');
+  }, JUST_DO_IT_ID), 'the countdown pill is the whole JUST DO IT action slot, with no button beside it');
+  assert.match(await justDoItPre.locator('.marquee-track').innerText(), /4 RELEASES LIVE/, 'the studio count excludes the not-yet-live fifth release');
+  await justDoItPre.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), JUST_DO_IT_ID);
+  await justDoItPre.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), JUST_DO_IT_ID);
+  assert.equal(await justDoItPre.locator('.gate-modal').count(), 0, 'the scheduled JUST DO IT drop opens no gate');
+  assert.equal(await justDoItPre.locator('.download-menu').count(), 0, 'the scheduled JUST DO IT drop opens no drawer');
+  assert.equal(await justDoItPre.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), JUST_DO_IT_ID), 'https://www.youtube.com/@KYROlll00?sub_confirmation=1', 'the helper withholds the JUST DO IT video URL until release');
+  await noCardBleed(justDoItPre, 'JUST DO IT desktop catalog');
+  await justDoItPre.close();
+
+  const justDoItLive = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'no-preference' });
+  await justDoItLive.goto(`${url}/?beat=just-do-it&now=${JUST_DO_IT_RELEASE - 12000}`, { waitUntil: 'domcontentloaded' });
+  await justDoItLive.locator(`[data-countdown="${JUST_DO_IT_ID}"]`).waitFor();
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD}.beat-detail`).count(), 1, 'the JUST DO IT beat page renders');
+  assert.match(await justDoItLive.locator(JUST_DO_IT_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - JUST DO IT/i);
+  assert.match(await justDoItLive.locator(JUST_DO_IT_CARD).innerText(), /135 BPM \/\/ AM/i);
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .beat-preview`).count(), 0, 'JUST DO IT has no player before its drop');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .drop-locked`).count(), 1, 'JUST DO IT shows the locked player stand-in');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .card__actions .download-trigger--locked`).count(), 1, 'JUST DO IT shows the dedicated LOCKED control');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .download-trigger[disabled]`).count(), 1, 'the JUST DO IT LOCKED control is inert');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} a.card__youtube-link`).count(), 0, 'no live JUST DO IT YouTube link before the drop');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .card__youtube-link--locked`).count(), 1, 'the JUST DO IT YouTube icon is shown locked');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .card__youtube-link--locked`).getAttribute('href'), null, 'the locked JUST DO IT icon carries no URL');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .card__youtube-link--locked`).evaluate(el => getComputedStyle(el).pointerEvents), 'none', 'the locked JUST DO IT icon is not clickable');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .card__youtube-link--locked`).evaluate(el => el.tagName), 'SPAN', 'the locked JUST DO IT icon is not an anchor');
+  const justDoItUrlBeforeDrop = justDoItLive.url();
+  await justDoItLive.waitForFunction((id) => {
+    const card = document.getElementById('card-' + id);
+    return !!(card && card.querySelector('.beat-preview__toggle')
+      && card.querySelector('.download-trigger[data-download-trigger]')
+      && !card.querySelector('.drop-countdown')
+      && !card.querySelector('.download-trigger--locked'));
+  }, JUST_DO_IT_ID, { timeout: 30000 });
+  assert.equal(justDoItLive.url(), justDoItUrlBeforeDrop, 'JUST DO IT unlocks in page, with no reload');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .beat-preview`).count(), 1, 'the JUST DO IT player appears the second the clock lands');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .download-trigger`).count(), 1, 'the JUST DO IT download button is live at release');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .drop-countdown`).count(), 0, 'the JUST DO IT countdown is gone at release');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .download-trigger--locked`).count(), 0, 'the JUST DO IT LOCKED control is gone at release');
+  const justDoItYoutube = justDoItLive.locator(`${JUST_DO_IT_CARD} a.card__youtube-link`);
+  assert.equal(await justDoItYoutube.count(), 1, 'the JUST DO IT YouTube link appears at release');
+  assert.equal(await justDoItYoutube.getAttribute('href'), 'https://www.youtube.com/@KYROlll00', 'the live JUST DO IT link points at the official channel until the beat video is published');
+  assert.equal(await justDoItYoutube.evaluate(el => getComputedStyle(el).pointerEvents), 'auto', 'the live JUST DO IT link is clickable');
+  assert.equal(await justDoItLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), JUST_DO_IT_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the JUST DO IT link with the clock');
+  // The fifth pressing is the deep matte black rage-fire disc: a fine fiery
+  // red/orange perimeter hairline, the matte black centre label and the complete
+  // spinning flower.
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD}.beat-detail`).getAttribute('data-vinyl'), 'rage-fire-rim', 'JUST DO IT renders the rage-fire-rim pressing');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'rage-fire-rim', 'the JUST DO IT record itself carries the variant');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--rage-fire-rim`).count(), 1, 'JUST DO IT carries the rage-fire-rim modifier');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--white`).count(), 0, 'JUST DO IT does not share the pearl-white disc');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--gold-rim`).count(), 0, 'JUST DO IT does not share THE FLOW gold rim');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--sage-white-rim`).count(), 0, 'JUST DO IT does not share the GREEN FLESH sage disc');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--ice-silver-rim`).count(), 0, 'JUST DO IT does not share the SQUISH! ice-silver disc');
+  const justDoItVinyl = await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record`).evaluate(el => {
+    const rim = el.querySelector('.vinyl-record__rim');
+    const rimStyle = rim ? getComputedStyle(rim) : null;
+    const label = getComputedStyle(el, '::after');
+    const logo = el.querySelector('.vinyl-record__logo');
+    const logoFrame = el.querySelector('.vinyl-record__logo-frame');
+    const recordRect = el.getBoundingClientRect();
+    const sleeveRect = document.querySelector('.beat-detail__artwork').getBoundingClientRect();
+    return {
+      bodyBg: getComputedStyle(el).backgroundImage,
+      labelBg: label.backgroundImage,
+      labelZ: label.zIndex,
+      rimBg: rimStyle ? rimStyle.backgroundImage : null,
+      rimMask: rimStyle ? (rimStyle.maskImage || rimStyle.webkitMaskImage) : null,
+      rimZ: rimStyle ? rimStyle.zIndex : null,
+      logoZ: logoFrame ? getComputedStyle(logoFrame).zIndex : null,
+      children: [...el.children].map(child => child.className),
+      splashCount: el.querySelectorAll('.vinyl-record__gold, [class*="splash"], [class*="blob"], [class*="splatter"]').length,
+      logo: !!logo,
+      logoAnimation: logo ? getComputedStyle(logo).animationName : null,
+      logoDuration: logo ? getComputedStyle(logo).animationDuration : null,
+      diameterRatio: recordRect.width / sleeveRect.width,
+      coverFilter: getComputedStyle(document.querySelector('.beat-detail__artwork img')).filter,
+    };
+  });
+  assert.match(justDoItVinyl.bodyBg, /rgb\(10, 10, 10\)|rgb\(6, 6, 6\)/, 'the JUST DO IT disc body is deep matte black');
+  assert.doesNotMatch(justDoItVinyl.bodyBg, /\.svg|splatter|blob/, 'the JUST DO IT disc body carries no artwork layer');
+  assert.match(justDoItVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(5, 5, 5\)/, 'the JUST DO IT centre label stays matte black');
+  assert.match(justDoItVinyl.rimBg, /conic-gradient/, 'the JUST DO IT outer rim is a crisp fire hairline');
+  assert.match(justDoItVinyl.rimBg, /rgb\(255, 59, 48\)/, 'the JUST DO IT rim uses the specified fire red');
+  assert.match(justDoItVinyl.rimBg, /rgb\(255, 77, 79\)/, 'the JUST DO IT rim carries its lighter red tone');
+  assert.match(justDoItVinyl.rimMask, /radial-gradient/, 'the JUST DO IT rim is masked down to a fine perimeter hairline');
+  assert.deepEqual(justDoItVinyl.children, ['vinyl-record__rim', 'vinyl-record__logo-frame'], 'the JUST DO IT record holds only the clean rim and the flower');
+  assert.equal(justDoItVinyl.splashCount, 0, 'zero splash, blob or splatter elements remain on JUST DO IT');
+  assert.equal(justDoItVinyl.rimZ, '3', 'the JUST DO IT rim paints above the disc');
+  assert.equal(justDoItVinyl.labelZ, '1', 'the JUST DO IT centre label sits above the disc');
+  assert.equal(justDoItVinyl.logoZ, '2', 'the spinning flower sits above the JUST DO IT label');
+  assert.equal(justDoItVinyl.logo, true, 'the complete flower survives on the JUST DO IT pressing');
+  assert.equal(justDoItVinyl.logoAnimation, 'vinylCenterSpin', 'the JUST DO IT flower keeps its slow spin');
+  assert.equal(justDoItVinyl.logoDuration, '16s', 'the JUST DO IT flower keeps the 16s linear loop');
+  assert(Math.abs(justDoItVinyl.diameterRatio - 0.92) < 0.01, 'the JUST DO IT record keeps its 92% inset diameter');
+  assert.equal(justDoItVinyl.coverFilter, 'none', 'the JUST DO IT cover art keeps its original colour');
+  assert.deepEqual(await justDoItLive.evaluate((id) => window.KYROlll_DOWNLOADS.deliverablesFor(id, 'exclusive').map(item => item.name), JUST_DO_IT_ID), [
+    'KYROIII - JUST DO IT (135 BPM - AM).mp3',
+    'KYROIII - JUST DO IT (135 BPM - AM).wav',
+    'KYROIII - JUST DO IT - TRACKED STEMS.zip',
+  ], 'JUST DO IT hands over the studio MP3, WAV and tracked stems names');
+  await shot(justDoItLive, 'just-do-it-live');
+  await justDoItLive.close();
+
+  const justDoItDownload = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce', acceptDownloads: true });
+  await justDoItDownload.goto(`${url}/download.html?beat=${JUST_DO_IT_ID}&package=exclusive&t=justdoit&sign=Just%20Buyer&now=${JUST_DO_IT_RELEASE + 1000}`, { waitUntil: 'domcontentloaded' });
+  await justDoItDownload.locator('#license-serial').waitFor();
+  assert.match(await justDoItDownload.locator('#download-title').innerText(), /YEAT TYPE BEAT - JUST DO IT/i);
+  assert.match(await justDoItDownload.locator('#license-serial').innerText(), /^KYRO-\d{4}-JUST-DO-IT-\d{6}$/, 'the JUST DO IT serial carries its hyphenated slug');
+  assert.deepEqual(await justDoItDownload.locator('.download-item__name').evaluateAll(nodes => nodes.map(node => node.textContent)), [
+    'KYROIII - JUST DO IT (135 BPM - AM).mp3',
+    'KYROIII - JUST DO IT (135 BPM - AM).wav',
+    'KYROIII - JUST DO IT - TRACKED STEMS.zip',
+  ], 'the JUST DO IT download page lists the studio files');
+  const [justDoItPdf] = await Promise.all([
+    justDoItDownload.waitForEvent('download'),
+    justDoItDownload.locator('[data-license-pdf]').click(),
+  ]);
+  assert.match(justDoItPdf.suggestedFilename(), /^KYROIII - LICENSE - JUST DO IT \(KYRO-\d{4}-JUST-DO-IT-\d{6}\)\.pdf$/, 'the JUST DO IT license saves under the studio name');
+  const justDoItPdfText = (await readFile(await justDoItPdf.path())).toString('latin1');
+  const justDoItPdfRuns = pdfRuns(justDoItPdfText).join(' ');
+  assert.match(justDoItPdfRuns, /\[FREE 100%\] YEAT TYPE/, 'the JUST DO IT license carries its title opening');
+  assert.match(justDoItPdfRuns, /JUST DO IT/, 'the JUST DO IT license carries its title tail');
+  assert(justDoItPdfText.includes('PAGE 1 OF 1'), 'the JUST DO IT license fits one page');
+  await justDoItDownload.close();
+
+  const justDoItAfter = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+  await justDoItAfter.goto(`${url}/?now=${JUST_DO_IT_RELEASE + 1000}`, { waitUntil: 'domcontentloaded' });
+  await justDoItAfter.locator(`${JUST_DO_IT_CARD} .download-trigger`).waitFor();
+  assert.match(await justDoItAfter.locator('.marquee-track').innerText(), /5 RELEASES LIVE/, 'the studio count becomes five once JUST DO IT is live');
+  await justDoItAfter.close();
+
   // Keep the rest of the stylesheet monochrome while expressly checking the
   // isolated green / pink hero accents, THE FLOW's gold-rim palette, GREEN FLESH's
-  // sage-white-rim palette, SQUISH!'s ice-silver-rim palette and the ALL-CAPS
-  // rules.
+  // sage-white-rim palette, SQUISH!'s ice-silver-rim palette, JUST DO IT's
+  // rage-fire-rim palette and the ALL-CAPS rules.
   const cssText = await readFile(new URL('./style.css', import.meta.url), 'utf8');
   const scriptText = await readFile(new URL('./script.js', import.meta.url), 'utf8');
   assert.doesNotMatch(scriptText, /vinyl-record__gold|goldSplash|gold-splatter|sageSplash|sage-blob/, 'the record generates no splash, blob or splatter layer');
@@ -2214,11 +2377,28 @@ try {
   assert.match(iceCss, /mask:\s*radial-gradient/, 'the ice-silver rim is masked to a hairline ring');
   assert.match(iceCss, /\.vinyl-record--ice-silver-rim\s+\.vinyl-record__logo-frame\s*\{\s*z-index:\s*2/, 'the spinning flower sits above the ice-silver centre label');
   assert.doesNotMatch(iceCss, /splash|blob|splatter|\.vinyl-record__ice/, 'the ice-silver-rim palette has no splash, blob or random graphic');
+  // JUST DO IT's rage-fire-rim pressing is the fifth deliberate palette
+  // exception: the deep matte black body and fiery red/orange perimeter hairline
+  // are the vinyl's specified colours, isolated so the rest of the storefront
+  // stays neutral.
+  const fireStart = cssText.indexOf('/* JUST DO IT rage-fire-rim palette');
+  const fireEnd = cssText.indexOf('/* End JUST DO IT rage-fire-rim palette. */', fireStart);
+  assert(fireStart >= 0 && fireEnd > fireStart, 'the rage-fire-rim palette is isolated in its own stylesheet section');
+  const fireCss = cssText.slice(fireStart, fireEnd);
+  assert.match(fireCss, /#0a0a0a/i, 'the rage-fire-rim disc body is deep matte black');
+  assert.match(fireCss, /#ff3b30/i, 'the rage-fire rim uses the specified fire red');
+  assert.match(fireCss, /#ff4d4f/i, 'the rage-fire rim carries its lighter fire red');
+  assert.match(fireCss, /#ff7a18/i, 'the rage-fire rim carries the cover\'s orange flame tone');
+  assert.equal((fireCss.match(/conic-gradient/g) || []).length, 1, 'the rage-fire-rim palette paints exactly one delicate ring');
+  assert.match(fireCss, /mask:\s*radial-gradient/, 'the fire rim is masked to a hairline ring');
+  assert.match(fireCss, /\.vinyl-record--rage-fire-rim\s+\.vinyl-record__logo-frame\s*\{\s*z-index:\s*2/, 'the spinning flower sits above the fire-rim centre label');
+  assert.doesNotMatch(fireCss, /splash|blob|splatter|\.vinyl-record__rage/, 'the rage-fire-rim palette has no splash, blob or random graphic');
   const auditedCss = cssText.slice(0, taglineStart)
     + cssText.slice(taglineEnd, goldRimStart)
     + cssText.slice(goldRimEnd, sageStart)
     + cssText.slice(sageEnd, iceStart)
-    + cssText.slice(iceEnd);
+    + cssText.slice(iceEnd, fireStart)
+    + cssText.slice(fireEnd);
   const literal = value => (value.includes(',')
     ? value.split(',').slice(0, 3).map(part => Number(part.trim()))
     : (value.length <= 4 ? value.slice(0, 3).split('').map(c => parseInt(c + c, 16)) : [0, 2, 4].map(i => parseInt(value.slice(i, i + 2), 16))));

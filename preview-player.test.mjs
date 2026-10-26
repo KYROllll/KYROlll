@@ -7,6 +7,37 @@ const context = vm.createContext({});
 vm.runInContext(readFileSync(new URL("./preview-player.js", import.meta.url), "utf8"), context);
 const BeatPreviewPlayer = vm.runInContext("BeatPreviewPlayer", context);
 
+test("the fifth release is scheduled, packaged and pointed at the free-download form", () => {
+  const window = {};
+  const catalogContext = vm.createContext({ window });
+  vm.runInContext(readFileSync(new URL("./catalog.js", import.meta.url), "utf8"), catalogContext);
+  const catalog = window.KYROlll_CATALOG;
+  assert.equal(catalog.length, 5, "the catalog carries five releases");
+  const beat = window.KYROlll_HELPERS.beatById("just-do-it");
+  assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - JUST DO IT");
+  assert.equal(beat.shortTitle, "JUST DO IT");
+  assert.equal(beat.bpm, 135);
+  assert.equal(beat.key, "Am");
+  assert.equal(beat.vinylVariant, "rage-fire-rim");
+  assert.equal(beat.releaseAt, "2026-10-27T23:00:00+02:00");
+  const releaseAt = Date.parse("2026-10-27T23:00:00+02:00");
+  assert.equal(window.KYROlll_HELPERS.releaseAt(beat), releaseAt);
+  assert.equal(window.KYROlll_HELPERS.isReleased(beat, releaseAt - 1), false);
+  assert.equal(window.KYROlll_HELPERS.isReleased(beat, releaseAt), true);
+  assert.equal(window.KYROlll_SITE.formspreeEndpoint, "https://formspree.io/f/mvkkkoew");
+  assert.equal(window.KYROlll_NEWSLETTER.endpoint, "https://formspree.io/f/mvkkkoew");
+  assert.deepEqual(Array.from(beat.deliverables.exclusive, (item) => item.file), [
+    "assets/previews/just-do-it.mp3",
+    "assets/previews/just-do-it.wav",
+    "assets/previews/just-do-it-stems.zip",
+  ]);
+  assert.deepEqual(Array.from(beat.deliverables.exclusive, (item) => item.name), [
+    "KYROIII - JUST DO IT (135 BPM - AM).mp3",
+    "KYROIII - JUST DO IT (135 BPM - AM).wav",
+    "KYROIII - JUST DO IT - TRACKED STEMS.zip",
+  ]);
+});
+
 function setup() {
   const listeners = new Map();
   const root = {
