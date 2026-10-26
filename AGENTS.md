@@ -306,7 +306,7 @@ disc with a broad black centre label and the full flower, no spindle hole), THE 
 foil rim), GREEN FLESH is `vinylVariant: "sage-white-rim"` (a smoky grey-green disc with a
 delicate white outer hairline and the complete flower in its deep matte black centre label),
 SQUISH! is `vinylVariant: "ice-silver-rim"` (an icy chrome-slate disc with diamond-silver
-micro-grooves and a pure-white perimeter hairline), and JUST DO IT is
+micro-grooves and a pure-white perimeter hairline), and JUST D0 IT is
 `vinylVariant: "rage-fire-rim"` (a deep matte `#0a0a0a` disc with one delicate fire-red/orange
 perimeter hairline and the complete flower in its matte black centre label). `script.js` writes
 the variant onto the card (`data-vinyl`) and the record (`.vinyl-record--white` /
@@ -396,12 +396,12 @@ payment gateway.
   `HH:MM:SS`, standing alone in the action slot where `DOWNLOAD FREE` normally sits, with
   no button at all. The beat's own page shows the same pill with a dedicated **inert
   `LOCKED` control** beneath it (`lockedButtonHTML`; it carries no
-  `data-download-trigger`, so the drawer cannot be reached) and no player. The
-  YouTube icon beside the title is locked too: `youtubeHTML(beat, true, pending)` renders a
-  dimmed `<span>` (no `href`, no tab stop, `pointer-events: none`) carrying no URL at all,
-  and `videoFor()` withholds the beat's own video until `isReleased()` — the real, clickable
-  anchor appears on the same rebuild that unlocks the card. `start`/`openMenu`
-  refuse a locked drop with a toast even if called directly.
+  `data-download-trigger`, so the drawer cannot be reached) and no player.
+  There is no YouTube icon beside the title in either state — the beat-detail head is
+  the title and its specs only, and the old locked `<span>` / live anchor pair is gone.
+  `videoFor()` still withholds the beat's own video from the gate's "like this beat"
+  step until `isReleased()`, and the gate step itself unlocks with the clock.
+  `start`/`openMenu` refuse a locked drop with a toast even if called directly.
   The second the clock lands, `script.js` (`refreshReleaseWatch`: a 1 s display interval
   plus a precise timeout) rebuilds the grid in place, so the full player and the drawer
   appear with no reload and no redeploy. The clock is read off `now()`, which honours an
@@ -506,6 +506,17 @@ never arrive half-empty:
   — ~28px on phones, 40px on desktop — never from a per-tile `margin-bottom` that could double up.
   `brand-design.test.mjs` asserts both halves: no card's contents overflow its box and the pill
   clears the next card on a 390px viewport.
+- **The beat-detail title is a balanced display block, and the head holds nothing else.** The h2
+  is `display: block` with `text-wrap: balance`, `overflow-wrap: normal` and no hyphenation, so the
+  longest titles (`[FREE 100%] LIL GOTIT TYPE BEAT - SQUISH!`, `… JUST D0 IT`) split into evenly
+  weighted whole-word lines inside the glass card instead of leaving an orphaned word or breaking
+  mid-word. Its size is fluid but capped (`clamp(25px, 2.9vw, 38px)`, `clamp(23px, 6vw, 30px)` on
+  phones) with a tight display tracking and a ~1.12 line-height; `brand-design.test.mjs` measures
+  the rendered line boxes, the card containment and the specs clearance at 390, 1024 and 1440 px.
+  The YouTube icon that used to sit beside it — a locked `<span>` before a drop, a live anchor
+  after — is gone in both states: `.beat-detail__head` is the title and `.card__specs` only, and
+  `style.css` carries no `.card__youtube-link` rule. The gate's "like this beat" step still opens
+  `videoFor(beat.id)`, so the beat video remains one tap away inside the WAV/exclusive flows.
 - `start(beatId, packageId)` resolves the beat + package, then opens that package's gate and
   continues on success (`gate: "instant"` short-circuits straight to the download page). There is
   **no grant shortcut**: even a package this view already passed opens the gate from scratch and
@@ -518,8 +529,9 @@ never arrive half-empty:
   and X (`socialSteps(actions, video)`, one `.gate-step` row per step, each with a
   `data-gate-action` of `sub` / `like` / `ig` / `tt` / `x`); each row opens in a new tab,
   and each completed step morphs its number into a tick that draws itself
-  (`.gate-step__tick`, monochrome). The `like` href is `videoFor(beat.id)` — the exact same
-  URL the YouTube icon beside the title opens. All three gates are wired by **one**
+  (`.gate-step__tick`, monochrome). The `like` href is `videoFor(beat.id)` — the
+  same helper whose URL the old title icon used to open, and the only place the beat
+  video is linked from the page now. All three gates are wired by **one**
   block: only the step count (`[]` / `[false, false, false]` /
   `[false, false, false, false, false]`) and the two hint lines (`STEP_COPY`) differ, so
   the three copies of the same input/change/keydown/submit listeners are gone and a fourth

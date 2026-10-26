@@ -95,8 +95,8 @@
   // `id` is the beat's stable id (the uuid for the original releases, the short
   // store handle for newer catalog entries) and `slug` is the human handle kept
   // for links (`?beat=flesh`); the helpers resolve either. `youtube` is the
-  // beat's own video: the YouTube icon beside the title and the WAV/exclusive
-  // "like this beat" gate step both read this exact URL through `videoFor`.
+  // beat's own video: the WAV/exclusive "like this beat" gate step reads this
+  // exact URL through `videoFor`.
   //
   // `deliverables` maps a package to the files the download page hands over:
   // each entry is `{ file, name, label }`, a same-origin `file`, the `name` the
@@ -182,7 +182,7 @@
       key: "B",
       preview: "assets/previews/steam.mp3",
       /* The beat's own video is not published yet; the official channel keeps the
-         YouTube icon and the "like this beat" gate step live until it is. */
+         "like this beat" gate step live until it is. */
       youtube: "https://www.youtube.com/@KYROlll00",
       /* The third pressing: an atmospheric smoky grey-green collector disc with
          a delicate white outer hairline and the complete spinning flower in its
@@ -190,7 +190,7 @@
       vinylVariant: "sage-white-rim",
       /* The third official release drops tonight at 23:00 Israel time. Until
          then the tile is a timezone-proof countdown, and the beat page keeps its
-         player, YouTube icon and download drawer locked. */
+         player and download drawer locked. */
       releaseAt: "2026-10-22T23:00:00+03:00",
       deliverables: {
         mp3: [
@@ -220,7 +220,7 @@
       key: "FM",
       preview: "assets/previews/squish.mp3",
       /* The beat's own video is not published yet; the official channel keeps
-         the YouTube icon and the "like this beat" gate step live until it is. */
+         the "like this beat" gate step live until it is. */
       youtube: "https://www.youtube.com/@KYROlll00",
       /* The fourth pressing: an icy silver / chrome-slate collector disc with
          fine diamond-silver micro-grooves and a crisp pure-white perimeter
@@ -228,7 +228,7 @@
       vinylVariant: "ice-silver-rim",
       /* The fourth official release drops tonight at 23:00 Israel time. Until
          then the tile is a timezone-proof countdown, and the beat page keeps its
-         player, YouTube icon and download drawer locked. */
+         player and download drawer locked. */
       releaseAt: "2026-10-25T23:00:00+02:00",
       deliverables: {
         mp3: [
@@ -249,16 +249,16 @@
       /* The fifth official release, and the newest card in the store: the
          catalog is authored oldest-first and `script.js` sorts the newest to the
          front of the grid. */
-      id: "just-do-it",
-      slug: "just-do-it",
-      title: "[FREE 100%] YEAT TYPE BEAT - JUST DO IT",
-      shortTitle: "JUST DO IT",
+      id: "just-d0-it",
+      slug: "just-d0-it",
+      title: "[FREE 100%] YEAT TYPE BEAT - JUST D0 IT",
+      shortTitle: "JUST D0 IT",
       img: "assets/just-do-it.png",
       bpm: 135,
       key: "Am",
       preview: "assets/previews/just-do-it.mp3",
       /* The beat's own video is not published yet; the official channel keeps
-         the YouTube icon and the "like this beat" gate step live until it is. */
+         the "like this beat" gate step live until it is. */
       youtube: "https://www.youtube.com/@KYROlll00",
       /* The fifth pressing: a deep matte black disc with one delicate
          fire-red/orange perimeter hairline, a matte black centre label and the
@@ -267,21 +267,20 @@
       vinylVariant: "rage-fire-rim",
       /* The fifth official release is scheduled for 23:00 Israel time on
          27 October 2026. Until then the tile is a timezone-proof countdown, and
-         the beat page keeps its player, YouTube icon and download drawer
-         locked. */
+         the beat page keeps its player and download drawer locked. */
       releaseAt: "2026-10-27T23:00:00+02:00",
       deliverables: {
         mp3: [
-          { file: "assets/previews/just-do-it.mp3", name: "KYROIII - JUST DO IT (135 BPM - AM).mp3", label: "TAGGED MP3" }
+          { file: "assets/previews/just-do-it.mp3", name: "KYROIII - JUST D0 IT (135 BPM - AM).mp3", label: "TAGGED MP3" }
         ],
         wav: [
-          { file: "assets/previews/just-do-it.mp3", name: "KYROIII - JUST DO IT (135 BPM - AM).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/just-do-it.wav", name: "KYROIII - JUST DO IT (135 BPM - AM).wav", label: "HIGH-QUALITY WAV" }
+          { file: "assets/previews/just-do-it.mp3", name: "KYROIII - JUST D0 IT (135 BPM - AM).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/just-do-it.wav", name: "KYROIII - JUST D0 IT (135 BPM - AM).wav", label: "HIGH-QUALITY WAV" }
         ],
         exclusive: [
-          { file: "assets/previews/just-do-it.mp3", name: "KYROIII - JUST DO IT (135 BPM - AM).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/just-do-it.wav", name: "KYROIII - JUST DO IT (135 BPM - AM).wav", label: "HIGH-QUALITY WAV" },
-          { file: "assets/previews/just-do-it-stems.zip", name: "KYROIII - JUST DO IT - TRACKED STEMS.zip", label: "TRACKED STEMS" }
+          { file: "assets/previews/just-do-it.mp3", name: "KYROIII - JUST D0 IT (135 BPM - AM).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/just-do-it.wav", name: "KYROIII - JUST D0 IT (135 BPM - AM).wav", label: "HIGH-QUALITY WAV" },
+          { file: "assets/previews/just-do-it-stems.zip", name: "KYROIII - JUST D0 IT - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
       }
     }

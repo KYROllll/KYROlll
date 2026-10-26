@@ -35,7 +35,7 @@ function specLine(beat) {
 /* Each beat owns a pressing: FLESH is pearl white, THE FLOW is a deep matte
    black disc with a single fine gold rim, GREEN FLESH is a smoky grey-green disc
    with a delicate white outer hairline, SQUISH! is an icy silver collector disc
-   with a pure-white perimeter rim, and JUST DO IT is a deep matte black disc
+   with a pure-white perimeter rim, and JUST D0 IT is a deep matte black disc
    with one fiery red/orange hairline. The old "gold" value still resolves to
    the refined "gold-rim" pressing, so a stale link or cached catalog can never
    render an unstyled disc. Anything unknown keeps the white standard. */
@@ -95,24 +95,8 @@ function dropLockedHTML() {
       </div>`;
 }
 
-/* The YouTube icon beside the title. While a scheduled drop is still counting
-   down it is rendered as a *locked* placeholder: a `<span>`, never an anchor, so
-   there is no href in the DOM, no tab stop and nothing to click. It is dimmed by
-   CSS (`pointer-events: none`) and swapped for the real, fully clickable anchor
-   by the same rebuild that unlocks the card the moment the clock lands. */
-function youtubeHTML(beat, show, locked) {
-  if (!show || !beat.youtube) return "";
-  const icon = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>';
-  if (locked) {
-    return `<span class="card__youtube-link card__youtube-link--locked" data-youtube-locked="true" role="img" aria-label="YouTube video unlocks at release" title="YouTube video unlocks at release">${icon}</span>`;
-  }
-  return `<a href="${beat.youtube}" target="_blank" rel="noopener noreferrer" class="card__youtube-link" aria-label="Watch on YouTube" title="Watch on YouTube" onclick="event.stopPropagation()">${icon}</a>`;
-}
-
 function previewHTML(beat) {
-  if (!beat.preview) return beat.youtube
-    ? `<a class="beat-preview__unavailable" href="${attr(beat.youtube)}" target="_blank" rel="noopener noreferrer">PREVIEW ON YOUTUBE ↗</a>`
-    : '<p class="beat-preview__unavailable">PREVIEW COMING SOON</p>';
+  if (!beat.preview) return '<p class="beat-preview__unavailable">PREVIEW COMING SOON</p>';
   const title = attr(beat.title);
   return `<div class="beat-preview" data-title="${title}" data-state="idle">
     <audio class="beat-preview__audio" src="${attr(beat.preview)}" preload="none"></audio>
@@ -185,7 +169,6 @@ function beatDetailInner(beat) {
           <h2 class="card__title-link beat-detail__title">
               <span>${beat.title}</span>
           </h2>
-          ${youtubeHTML(beat, true, pending)}
         </div>
         ${meta}
       </div>

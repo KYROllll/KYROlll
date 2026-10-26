@@ -269,40 +269,6 @@ button {
   text-decoration: none;
 }
 
-.card__youtube-link {
-  display: inline-flex;
-  align-items: center;
-  color: #999999;
-  /* Colour/opacity only: nothing on this card changes size or position on hover.
-     A `transform: scale()` here was the one scaling hover left in the card, and a
-     glyph that grows under the pointer while the title beside it stays put reads
-     as a shimmer/jitter — the whole card now holds perfectly still. */
-  transition: opacity 0.2s ease, color 0.2s ease;
-  flex-shrink: 0;
-}
-
-/* A scheduled drop's YouTube icon is a locked placeholder: script.js renders it
-   as a `<span>` (never an anchor), so it has no href, no tab stop and nothing to
-   click. It stays visibly dimmed and inert until the live anchor replaces it at
-   release. `pointer-events: none` is the belt to the span's braces; scoping the
-   hover to `a.` keeps the placeholder from ever brightening under the pointer. */
-.card__youtube-link--locked,
-.card__youtube-link[data-youtube-locked] {
-  pointer-events: none;
-  opacity: 0.24;
-  cursor: default;
-}
-
-a.card__youtube-link:hover {
-  opacity: 0.6;
-  color: var(--white);
-}
-
-.card__youtube-link svg {
-  width: 14px;
-  height: 14px;
-}
-
 .beat-preview {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);
@@ -703,8 +669,15 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   box-sizing: border-box;
 }
 .beat-detail .card__name {
-  font-size: clamp(26px, 3.5vw, 42px);
-  line-height: 1.15;
+  /* The display line is the longest string on the page — a title like
+     `[FREE 100%] YEAT TYPE BEAT - JUST D0 IT` is the worst case. The size is
+     fluid but capped so it never turns into a wall of caps: it steps down on a
+     tablet and again on a phone, and the title itself balances its lines (see
+     `.beat-detail__title`) instead of leaving one stranded word. */
+  display: block;
+  font-size: clamp(25px, 2.9vw, 38px);
+  line-height: 1.12;
+  letter-spacing: -0.012em;
 }
 .beat-detail .card__specs {
   margin-top: 14px;
@@ -753,7 +726,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
     margin: 0 auto;
   }
   .beat-detail .card__name {
-    font-size: clamp(24px, 6vw, 34px);
+    font-size: clamp(23px, 6vw, 30px);
+    line-height: 1.13;
+    letter-spacing: -0.008em;
   }
 }
 @media (max-width: 600px) {
@@ -1618,8 +1593,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .vinyl-record--ice-silver-rim .vinyl-record__logo-frame { z-index: 2; }
 /* End SQUISH! ice-silver-rim palette. */
 
-/* JUST DO IT rage-fire-rim palette — the fifth pressing's deliberate colour exception. */
-/* JUST DO IT's collector pressing: a deep matte black body in #0a0a0a with fine
+/* JUST D0 IT rage-fire-rim palette — the fifth pressing's deliberate colour exception. */
+/* JUST D0 IT's collector pressing: a deep matte black body in #0a0a0a with fine
    concentric micro-grooves, a soft neutral sheen and one delicate fiery
    red/orange hairline around the perimeter. The matte black centre label keeps
    the complete spinning flower in its usual clean stage; the record still holds
@@ -1670,7 +1645,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   opacity: 0.98;
 }
 .vinyl-record--rage-fire-rim .vinyl-record__logo-frame { z-index: 2; }
-/* End JUST DO IT rage-fire-rim palette. */
+/* End JUST D0 IT rage-fire-rim palette. */
 
 .vinyl-record__logo {
   display: block;
@@ -1774,9 +1749,34 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 
 .beat-detail__title {
+  /* A block title is what lets the text wrap as a paragraph: an inline-flex h2
+     turns its text into one anonymous flex item, which `text-wrap` cannot
+     balance. Whole words only — no mid-word breaking, no hyphenation — and
+     `balance` splits the title into evenly weighted lines instead of leaving a
+     single orphaned word on the last line. */
+  display: block;
+  margin: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  color: inherit;
+  text-decoration: none;
+  text-wrap: balance;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
   animation: none;
   text-shadow: none;
   filter: none;
+}
+
+/* `.card__name > span` clips a single-line label elsewhere; on the beat page the
+   full title is the content, so it always wraps. */
+.beat-detail__title > span {
+  display: inline;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .catalog-tile {

@@ -13,9 +13,9 @@ test("the fifth release is scheduled, packaged and pointed at the free-download 
   vm.runInContext(readFileSync(new URL("./catalog.js", import.meta.url), "utf8"), catalogContext);
   const catalog = window.KYROlll_CATALOG;
   assert.equal(catalog.length, 5, "the catalog carries five releases");
-  const beat = window.KYROlll_HELPERS.beatById("just-do-it");
-  assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - JUST DO IT");
-  assert.equal(beat.shortTitle, "JUST DO IT");
+  const beat = window.KYROlll_HELPERS.beatById("just-d0-it");
+  assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - JUST D0 IT");
+  assert.equal(beat.shortTitle, "JUST D0 IT");
   assert.equal(beat.bpm, 135);
   assert.equal(beat.key, "Am");
   assert.equal(beat.vinylVariant, "rage-fire-rim");
@@ -32,9 +32,9 @@ test("the fifth release is scheduled, packaged and pointed at the free-download 
     "assets/previews/just-do-it-stems.zip",
   ]);
   assert.deepEqual(Array.from(beat.deliverables.exclusive, (item) => item.name), [
-    "KYROIII - JUST DO IT (135 BPM - AM).mp3",
-    "KYROIII - JUST DO IT (135 BPM - AM).wav",
-    "KYROIII - JUST DO IT - TRACKED STEMS.zip",
+    "KYROIII - JUST D0 IT (135 BPM - AM).mp3",
+    "KYROIII - JUST D0 IT (135 BPM - AM).wav",
+    "KYROIII - JUST D0 IT - TRACKED STEMS.zip",
   ]);
 });
 

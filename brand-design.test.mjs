@@ -120,7 +120,61 @@ async function setupPage(options = {}) {
   return page;
 }
 const shot = (page, name) => page.screenshot({ path: join(tmpdir(), 'opencode', `kyrolll-${name}.png`), fullPage: true });
+// The beat-detail head is the title and its specs only. The YouTube icon that
+// used to sit beside the title is gone in both the locked and the live state:
+// `videoFor()` still backs the gate's "like this beat" step, but nothing in the
+// page chrome links out to YouTube.
+const noYouTubeButton = async (page, card) => {
+  assert.equal(await page.locator(`${card} .card__youtube-link`).count(), 0, 'the beat detail renders no YouTube icon');
+  assert.equal(await page.locator(`${card} .beat-detail__head a[href*="youtube.com"]`).count(), 0, 'the beat detail head carries no YouTube link');
+  assert.equal(await page.locator(`${card} .beat-detail__head svg`).count(), 0, 'the title block holds no icon at all');
+};
+
 const noOverflow = async page => assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'horizontal overflow');
+
+// The beat-detail title is the page's display line, and the longest ones —
+// `[FREE 100%] LIL GOTIT TYPE BEAT - SQUISH!` and `… JUST D0 IT` — have to read
+// as a balanced block at every width: inside the glass card, wrapping whole
+// words, with display leading and clear air before the specs line.
+const assertCleanTitle = async (page, card, label) => {
+  const report = await page.evaluate((selector) => {
+    const root = document.querySelector(selector);
+    const title = root && root.querySelector('.beat-detail__title');
+    const content = root && root.querySelector('.beat-detail__content');
+    const specs = root && root.querySelector('.card__specs');
+    if (!title || !content) return null;
+    const style = getComputedStyle(title);
+    const rect = title.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
+    const span = title.querySelector('span') || title;
+    const range = document.createRange();
+    range.selectNodeContents(span);
+    const boxes = Array.from(range.getClientRects()).filter(box => box.width > 1 && box.height > 1);
+    const specsRect = specs ? specs.getBoundingClientRect() : null;
+    return {
+      text: title.textContent.replace(/\s+/g, ' ').trim(),
+      fontSize: parseFloat(style.fontSize),
+      lineHeight: parseFloat(style.lineHeight),
+      whiteSpace: style.whiteSpace,
+      overflow: title.scrollWidth - title.clientWidth,
+      width: rect.width,
+      contentWidth: contentRect.width,
+      lines: new Set(boxes.map(box => Math.round(box.top * 100) / 100)).size,
+      widestLine: boxes.length ? Math.max(...boxes.map(box => box.width)) : 0,
+      gapToSpecs: specsRect ? Math.round((specsRect.top - rect.bottom) * 10) / 10 : null,
+    };
+  }, card);
+  assert(report, `${label}: the beat title renders`);
+  assert(report.width <= report.contentWidth + 1, `${label}: the title stays inside the glass card (${report.width} vs ${report.contentWidth})`);
+  assert(report.overflow <= 1, `${label}: the title clips nothing (${report.overflow}px)`);
+  assert.notEqual(report.whiteSpace, 'nowrap', `${label}: the title is allowed to wrap`);
+  assert(report.lineHeight >= report.fontSize * 1.02, `${label}: the title keeps readable display leading`);
+  assert(report.lineHeight <= report.fontSize * 1.32, `${label}: the title is not loosely spaced`);
+  assert(report.lines >= 1 && report.lines <= 4, `${label}: the title wraps to ${report.lines} clean lines`);
+  assert(report.widestLine <= report.width + 1, `${label}: every rendered line stays inside the title box`);
+  assert(report.gapToSpecs === null || report.gapToSpecs >= 0, `${label}: the specs line never overlaps the title`);
+  return report;
+};
 
 // No catalog card may paint outside its own bounds. `.catalog-tile__link` used to
 // be `height: 100%` inside a grid-stretched tile, so the action slot — the
@@ -213,10 +267,10 @@ const GREEN_FLESH_RELEASE = Date.parse('2026-10-22T23:00:00+03:00');
 const SQUISH_ID = 'squish';
 const SQUISH_CARD = '#card-squish';
 const SQUISH_RELEASE = Date.parse('2026-10-25T23:00:00+02:00');
-// The fifth release, [FREE 100%] YEAT TYPE BEAT - JUST DO IT, is scheduled for
+// The fifth release, [FREE 100%] YEAT TYPE BEAT - JUST D0 IT, is scheduled for
 // 23:00 Israel time on 27 October 2026.
-const JUST_DO_IT_ID = 'just-do-it';
-const JUST_DO_IT_CARD = '#card-just-do-it';
+const JUST_DO_IT_ID = 'just-d0-it';
+const JUST_DO_IT_CARD = '#card-just-d0-it';
 const JUST_DO_IT_RELEASE = Date.parse('2026-10-27T23:00:00+02:00');
 
 // Nothing about a gate may be remembered: the storefront writes no gate state
@@ -369,13 +423,13 @@ try {
     pink: getComputedStyle(el, '::after').color,
   })), { green: 'rgb(57, 255, 139)', pink: 'rgb(255, 62, 165)' });
   assert.equal(await desktop.locator('#grid .catalog-tile').count(), 5);
-  assert.equal(await desktop.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-just-do-it', 'the newest scheduled release leads the grid');
+  assert.equal(await desktop.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-just-d0-it', 'the newest scheduled release leads the grid');
   assert.equal(await desktop.locator('.catalog-tile__art img').first().evaluate(el => getComputedStyle(el).filter), 'none', 'catalog cover art keeps its original colour');
   assert.match(await desktop.locator(CARD).innerText(), /\[FREE 100%\] DON TOLIVER TYPE BEAT - FLESH/i);
   assert.match(await desktop.locator(GREEN_FLESH_CARD).innerText(), /\[FREE 100%\] LIL BABY TYPE BEAT - GREEN FLESH/i);
   assert.match(await desktop.locator(SQUISH_CARD).innerText(), /\[FREE 100%\] LIL GOTIT TYPE BEAT - SQUISH!/i);
-  assert.match(await desktop.locator(JUST_DO_IT_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - JUST DO IT/i);
-  assert.match(await desktop.locator('.marquee-track').innerText(), /YEAT TYPE BEAT - JUST DO IT/i, 'the ticker announces the fifth drop');
+  assert.match(await desktop.locator(JUST_DO_IT_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - JUST D0 IT/i);
+  assert.match(await desktop.locator('.marquee-track').innerText(), /YEAT TYPE BEAT - JUST D0 IT/i, 'the ticker announces the fifth drop');
   assert.match(await desktop.locator('.marquee-track').innerText(), /4 RELEASES LIVE/, 'the studio count excludes the scheduled fifth release until it lands');
   assert.match(await desktop.locator('.marquee-track').innerText(), /LIL GOTIT TYPE BEAT - SQUISH!/i, 'the ticker announces the fourth drop');
   assert.match(await desktop.locator('.marquee-track').innerText(), /LIL BABY TYPE BEAT - GREEN FLESH/i, 'the ticker announces the renamed third drop');
@@ -507,7 +561,7 @@ try {
   assert.equal(vinylVariants['the-flow'], 'gold-rim', 'catalog data gives THE FLOW its own black/gold-rim pressing');
   assert.equal(vinylVariants['green-flesh'], 'sage-white-rim', 'catalog data gives GREEN FLESH its sage-white pressing');
   assert.equal(vinylVariants.squish, 'ice-silver-rim', 'catalog data gives SQUISH! its ice-silver pressing');
-  assert.equal(vinylVariants['just-do-it'], 'rage-fire-rim', 'catalog data gives JUST DO IT its fire-rim pressing');
+  assert.equal(vinylVariants['just-d0-it'], 'rage-fire-rim', 'catalog data gives JUST D0 IT its fire-rim pressing');
   await shot(direct, 'beat-detail');
   await direct.close();
 
@@ -907,7 +961,7 @@ try {
   const wavLikeHref = await wavPage.locator('[data-gate-action="like"]').getAttribute('href');
   assert.equal(wavLikeHref, 'https://www.youtube.com/watch?v=8OhRJQn2YCU', 'the like step opens FLESH\'s exact official video');
   assert.equal(wavLikeHref, await wavPage.evaluate(id => window.KYROlll_HELPERS.videoFor(id), BEAT_ID), 'the gate and videoFor agree on the beat video');
-  assert.equal(await wavPage.locator(`${CARD} a.card__youtube-link`).getAttribute('href'), wavLikeHref, 'the like step matches the YouTube icon beside the title');
+  await noYouTubeButton(wavPage, CARD);
   assert.equal(await wavPage.locator('[data-gate-action="ig"]').getAttribute('href'), 'https://www.instagram.com/kyroill00', 'the Instagram step opens the official profile');
   assert.equal(await wavPage.locator('[data-gate-action="tt"]').count(), 0, 'the WAV lease carries no TikTok step');
   assert.equal(await wavPage.locator('[data-gate-action="x"]').count(), 0, 'the WAV lease carries no X step');
@@ -1014,7 +1068,7 @@ try {
   const proLikeHref = await proPage.locator('[data-gate-action="like"]').getAttribute('href');
   assert.equal(proLikeHref, 'https://www.youtube.com/watch?v=8OhRJQn2YCU', 'the like step opens FLESH\'s exact official video');
   assert.equal(proLikeHref, await proPage.evaluate(id => window.KYROlll_HELPERS.videoFor(id), BEAT_ID), 'the gate and videoFor agree on the beat video');
-  assert.equal(await proPage.locator(`${CARD} a.card__youtube-link`).getAttribute('href'), proLikeHref, 'the like step matches the YouTube icon beside the title');
+  await noYouTubeButton(proPage, CARD);
   assert.equal(await proPage.locator('[data-gate-action="ig"]').getAttribute('href'), 'https://www.instagram.com/kyroill00', 'the Instagram step opens the official profile');
   assert.equal(await proPage.locator('[data-gate-action="tt"]').getAttribute('href'), 'https://www.tiktok.com/@kyroill00', 'the TikTok step opens the official profile');
   assert.equal(await proPage.locator('[data-gate-action="x"]').getAttribute('href'), 'https://x.com/KYROlllll', 'the X step opens the official profile');
@@ -1594,6 +1648,8 @@ try {
   const timerSelector = '[data-release-countdown] .drop-countdown__time';
   await titlePhone.goto(`${url}/?beat=the-flow&now=${FLOW_RELEASE - 3600000}`);
   await titlePhone.locator(titleSelector).waitFor();
+  const flowPhoneTitle = await assertCleanTitle(titlePhone, FLOW_CARD, 'THE FLOW phone title');
+  assert.match(flowPhoneTitle.text, /\[FREE 100%\] FUTURE TYPE BEAT - THE FLOW/i);
 
   const identityTransform = value => {
     const match = String(value).match(/^matrix(3d)?\((.+)\)$/);
@@ -1746,13 +1802,9 @@ try {
   assert.match(await liveDrop.locator(`${FLOW_CARD} .card__actions .drop-countdown`).innerText(), /DROPPING SOON/, 'the beat page action slot carries the countdown pill');
   assert.equal(await liveDrop.locator(`${FLOW_CARD} .card__actions .download-trigger--locked`).count(), 1, 'the beat page carries the dedicated LOCKED control');
   assert.equal(await liveDrop.locator(`${FLOW_CARD} .download-trigger[disabled]`).count(), 1, 'the LOCKED control is inert');
-  // The YouTube icon is locked too: it is not an anchor, carries no URL, cannot
-  // be clicked and is dimmed — the official video stays unreachable until release.
-  assert.equal(await liveDrop.locator(`${FLOW_CARD} a.card__youtube-link`).count(), 0, 'no live YouTube link before the drop');
-  assert.equal(await liveDrop.locator(`${FLOW_CARD} .card__youtube-link--locked`).count(), 1, 'the YouTube icon is shown locked');
-  assert.equal(await liveDrop.locator(`${FLOW_CARD} .card__youtube-link--locked`).getAttribute('href'), null, 'the locked icon carries no URL');
-  assert.equal(await liveDrop.locator(`${FLOW_CARD} .card__youtube-link--locked`).evaluate(el => getComputedStyle(el).pointerEvents), 'none', 'the locked icon is not clickable');
-  assert.equal(await liveDrop.locator(`${FLOW_CARD} .card__youtube-link--locked`).evaluate(el => el.tagName), 'SPAN', 'the locked icon is not an anchor');
+  // The title block is the title and the specs only — no YouTube icon, locked
+  // or otherwise, while the drop waits.
+  await noYouTubeButton(liveDrop, FLOW_CARD);
   // Clicking the inert control opens nothing at all.
   await liveDrop.evaluate((id) => {
     const locked = document.querySelector('#card-' + id + ' .download-trigger--locked');
@@ -1773,12 +1825,8 @@ try {
   assert.equal(await liveDrop.locator(`${FLOW_CARD} .download-trigger--locked`).count(), 0, 'the LOCKED control is gone the moment the clock lands');
   assert.equal(await liveDrop.locator(`${FLOW_CARD} .download-trigger`).count(), 1, 'the download button is live the moment the clock lands');
   assert.equal(await liveDrop.locator(`${FLOW_CARD} .drop-countdown`).count(), 0, 'the countdown is gone once the drop lands');
-  // …and the YouTube icon is now the real, fully clickable official link.
-  const liveYoutube = liveDrop.locator(`${FLOW_CARD} a.card__youtube-link`);
-  assert.equal(await liveYoutube.count(), 1, 'the YouTube link appears the moment the drop lands');
-  assert.equal(await liveYoutube.getAttribute('href'), 'https://www.youtube.com/watch?v=aHMCkzw9Wuo', 'the live link points at the official video');
-  assert.equal(await liveYoutube.evaluate(el => getComputedStyle(el).pointerEvents), 'auto', 'the live link is clickable');
-  assert.equal(await liveDrop.locator(`${FLOW_CARD} .card__youtube-link--locked`).count(), 0, 'the locked icon is gone at release');
+  // …and the title block stays icon-free after the unlock too.
+  await noYouTubeButton(liveDrop, FLOW_CARD);
   assert.equal(await liveDrop.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), FLOW_ID), 'https://www.youtube.com/watch?v=aHMCkzw9Wuo', 'the helper releases the video URL with the clock');
   await liveDrop.close();
 
@@ -1861,11 +1909,7 @@ try {
   assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .drop-locked`).count(), 1, 'GREEN FLESH shows the locked player stand-in');
   assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .card__actions .download-trigger--locked`).count(), 1, 'GREEN FLESH shows the dedicated LOCKED control');
   assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .download-trigger[disabled]`).count(), 1, 'the GREEN FLESH LOCKED control is inert');
-  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} a.card__youtube-link`).count(), 0, 'no live GREEN FLESH YouTube link before the drop');
-  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .card__youtube-link--locked`).count(), 1, 'the GREEN FLESH YouTube icon is shown locked');
-  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .card__youtube-link--locked`).getAttribute('href'), null, 'the locked GREEN FLESH icon carries no URL');
-  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .card__youtube-link--locked`).evaluate(el => getComputedStyle(el).pointerEvents), 'none', 'the locked GREEN FLESH icon is not clickable');
-  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .card__youtube-link--locked`).evaluate(el => el.tagName), 'SPAN', 'the locked GREEN FLESH icon is not an anchor');
+  await noYouTubeButton(greenLive, GREEN_FLESH_CARD);
   const greenUrlBeforeDrop = greenLive.url();
   await greenLive.waitForFunction((id) => {
     const card = document.getElementById('card-' + id);
@@ -1879,10 +1923,7 @@ try {
   assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .download-trigger`).count(), 1, 'the GREEN FLESH download button is live at release');
   assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .drop-countdown`).count(), 0, 'the GREEN FLESH countdown is gone at release');
   assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .download-trigger--locked`).count(), 0, 'the GREEN FLESH LOCKED control is gone at release');
-  const greenYoutube = greenLive.locator(`${GREEN_FLESH_CARD} a.card__youtube-link`);
-  assert.equal(await greenYoutube.count(), 1, 'the GREEN FLESH YouTube link appears at release');
-  assert.equal(await greenYoutube.getAttribute('href'), 'https://www.youtube.com/@KYROlll00', 'the live GREEN FLESH link points at the official channel until the beat video is published');
-  assert.equal(await greenYoutube.evaluate(el => getComputedStyle(el).pointerEvents), 'auto', 'the live GREEN FLESH link is clickable');
+  await noYouTubeButton(greenLive, GREEN_FLESH_CARD);
   assert.equal(await greenLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), GREEN_FLESH_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the GREEN FLESH link with the clock');
   // The third pressing is the smoky grey-green collector disc: a delicate white
   // outer hairline, the deep matte black centre label and the complete flower,
@@ -1982,7 +2023,7 @@ try {
   await squishPre.goto(`${url}/?now=${SQUISH_RELEASE - 3600000}`);
   await squishPre.locator(`[data-countdown="${SQUISH_ID}"]`).waitFor();
   assert.equal(await squishPre.locator('#grid .catalog-tile').count(), 5, 'the fourth release is in the five-card catalog');
-  assert.equal(await squishPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-just-do-it', 'JUST DO IT leads the catalog as the newest scheduled drop');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-just-d0-it', 'JUST D0 IT leads the catalog as the newest scheduled drop');
   assert.equal(await squishPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-squish', 'SQUISH! follows the newest scheduled drop');
   assert.equal(await squishPre.locator(SQUISH_CARD).getAttribute('data-vinyl'), 'ice-silver-rim', 'the SQUISH! catalog card carries its own pressing');
   assert.match(await squishPre.locator(SQUISH_CARD).innerText(), /\[FREE 100%\] LIL GOTIT TYPE BEAT - SQUISH!/i);
@@ -2015,11 +2056,7 @@ try {
   assert.equal(await squishLive.locator(`${SQUISH_CARD} .drop-locked`).count(), 1, 'SQUISH! shows the locked player stand-in');
   assert.equal(await squishLive.locator(`${SQUISH_CARD} .card__actions .download-trigger--locked`).count(), 1, 'SQUISH! shows the dedicated LOCKED control');
   assert.equal(await squishLive.locator(`${SQUISH_CARD} .download-trigger[disabled]`).count(), 1, 'the SQUISH! LOCKED control is inert');
-  assert.equal(await squishLive.locator(`${SQUISH_CARD} a.card__youtube-link`).count(), 0, 'no live SQUISH! YouTube link before the drop');
-  assert.equal(await squishLive.locator(`${SQUISH_CARD} .card__youtube-link--locked`).count(), 1, 'the SQUISH! YouTube icon is shown locked');
-  assert.equal(await squishLive.locator(`${SQUISH_CARD} .card__youtube-link--locked`).getAttribute('href'), null, 'the locked SQUISH! icon carries no URL');
-  assert.equal(await squishLive.locator(`${SQUISH_CARD} .card__youtube-link--locked`).evaluate(el => getComputedStyle(el).pointerEvents), 'none', 'the locked SQUISH! icon is not clickable');
-  assert.equal(await squishLive.locator(`${SQUISH_CARD} .card__youtube-link--locked`).evaluate(el => el.tagName), 'SPAN', 'the locked SQUISH! icon is not an anchor');
+  await noYouTubeButton(squishLive, SQUISH_CARD);
   const squishUrlBeforeDrop = squishLive.url();
   await squishLive.waitForFunction((id) => {
     const card = document.getElementById('card-' + id);
@@ -2033,10 +2070,7 @@ try {
   assert.equal(await squishLive.locator(`${SQUISH_CARD} .download-trigger`).count(), 1, 'the SQUISH! download button is live at release');
   assert.equal(await squishLive.locator(`${SQUISH_CARD} .drop-countdown`).count(), 0, 'the SQUISH! countdown is gone at release');
   assert.equal(await squishLive.locator(`${SQUISH_CARD} .download-trigger--locked`).count(), 0, 'the SQUISH! LOCKED control is gone at release');
-  const squishYoutube = squishLive.locator(`${SQUISH_CARD} a.card__youtube-link`);
-  assert.equal(await squishYoutube.count(), 1, 'the SQUISH! YouTube link appears at release');
-  assert.equal(await squishYoutube.getAttribute('href'), 'https://www.youtube.com/@KYROlll00', 'the live SQUISH! link points at the official channel until the beat video is published');
-  assert.equal(await squishYoutube.evaluate(el => getComputedStyle(el).pointerEvents), 'auto', 'the live SQUISH! link is clickable');
+  await noYouTubeButton(squishLive, SQUISH_CARD);
   assert.equal(await squishLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), SQUISH_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the SQUISH! link with the clock');
   // The fourth pressing is the icy silver collector disc: chrome-slate body,
   // fine diamond-silver grooves, a crisp white perimeter hairline, the deep
@@ -2123,7 +2157,7 @@ try {
   assert.match(await squishAfter.locator('.marquee-track').innerText(), /4 RELEASES LIVE/, 'the studio count becomes four once SQUISH! is live');
   await squishAfter.close();
 
-  // ------------------------------------------ fifth release: JUST DO IT (23:00)
+  // ------------------------------------------ fifth release: JUST D0 IT (23:00)
   // The newest drop is scheduled for 23:00 Israel time on 27 October 2026. It
   // follows the same countdown contract and adds the deep matte black
   // rage-fire-rim pressing. The studio count must stay at four until its clock
@@ -2132,43 +2166,41 @@ try {
   await justDoItPre.goto(`${url}/?now=${JUST_DO_IT_RELEASE - 3600000}`);
   await justDoItPre.locator(`[data-countdown="${JUST_DO_IT_ID}"]`).waitFor();
   assert.equal(await justDoItPre.locator('#grid .catalog-tile').count(), 5, 'the fifth release is in the five-card catalog');
-  assert.equal(await justDoItPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-just-do-it', 'JUST DO IT leads the catalog as the newest drop');
-  assert.equal(await justDoItPre.locator(JUST_DO_IT_CARD).getAttribute('data-vinyl'), 'rage-fire-rim', 'the JUST DO IT catalog card carries its own pressing');
-  assert.match(await justDoItPre.locator(JUST_DO_IT_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - JUST DO IT/i);
-  assert.match(await justDoItPre.locator(`${JUST_DO_IT_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'JUST DO IT carries its countdown pill');
-  assert.doesNotMatch(await justDoItPre.locator(`${JUST_DO_IT_CARD} .drop-countdown__label`).innerText(), /\d/, 'the JUST DO IT label carries no clock hour');
-  assert.match(await justDoItPre.locator(`${JUST_DO_IT_CARD} [data-countdown="${JUST_DO_IT_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'JUST DO IT shows a live HH:MM:SS clock');
-  assert.equal(await justDoItPre.locator(`${JUST_DO_IT_CARD} .download-trigger`).count(), 0, 'the JUST DO IT tile renders no download button before its drop');
-  assert.equal(await justDoItPre.locator(`${JUST_DO_IT_CARD} .download-trigger--locked`).count(), 0, 'the JUST DO IT tile renders no secondary LOCKED control');
-  assert.equal(await justDoItPre.locator(`${JUST_DO_IT_CARD} .drop-locked`).count(), 0, 'the JUST DO IT tile renders no locked player pane');
+  assert.equal(await justDoItPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-just-d0-it', 'JUST D0 IT leads the catalog as the newest drop');
+  assert.equal(await justDoItPre.locator(JUST_DO_IT_CARD).getAttribute('data-vinyl'), 'rage-fire-rim', 'the JUST D0 IT catalog card carries its own pressing');
+  assert.match(await justDoItPre.locator(JUST_DO_IT_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - JUST D0 IT/i);
+  assert.match(await justDoItPre.locator(`${JUST_DO_IT_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'JUST D0 IT carries its countdown pill');
+  assert.doesNotMatch(await justDoItPre.locator(`${JUST_DO_IT_CARD} .drop-countdown__label`).innerText(), /\d/, 'the JUST D0 IT label carries no clock hour');
+  assert.match(await justDoItPre.locator(`${JUST_DO_IT_CARD} [data-countdown="${JUST_DO_IT_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'JUST D0 IT shows a live HH:MM:SS clock');
+  assert.equal(await justDoItPre.locator(`${JUST_DO_IT_CARD} .download-trigger`).count(), 0, 'the JUST D0 IT tile renders no download button before its drop');
+  assert.equal(await justDoItPre.locator(`${JUST_DO_IT_CARD} .download-trigger--locked`).count(), 0, 'the JUST D0 IT tile renders no secondary LOCKED control');
+  assert.equal(await justDoItPre.locator(`${JUST_DO_IT_CARD} .drop-locked`).count(), 0, 'the JUST D0 IT tile renders no locked player pane');
   assert(await justDoItPre.evaluate((id) => {
     const slot = document.getElementById('card-' + id).querySelector('.catalog-tile__actions');
     return !!slot && slot.querySelectorAll('button').length === 0 && !!slot.querySelector('.drop-countdown');
-  }, JUST_DO_IT_ID), 'the countdown pill is the whole JUST DO IT action slot, with no button beside it');
+  }, JUST_DO_IT_ID), 'the countdown pill is the whole JUST D0 IT action slot, with no button beside it');
   assert.match(await justDoItPre.locator('.marquee-track').innerText(), /4 RELEASES LIVE/, 'the studio count excludes the not-yet-live fifth release');
   await justDoItPre.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), JUST_DO_IT_ID);
   await justDoItPre.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), JUST_DO_IT_ID);
-  assert.equal(await justDoItPre.locator('.gate-modal').count(), 0, 'the scheduled JUST DO IT drop opens no gate');
-  assert.equal(await justDoItPre.locator('.download-menu').count(), 0, 'the scheduled JUST DO IT drop opens no drawer');
-  assert.equal(await justDoItPre.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), JUST_DO_IT_ID), 'https://www.youtube.com/@KYROlll00?sub_confirmation=1', 'the helper withholds the JUST DO IT video URL until release');
-  await noCardBleed(justDoItPre, 'JUST DO IT desktop catalog');
+  assert.equal(await justDoItPre.locator('.gate-modal').count(), 0, 'the scheduled JUST D0 IT drop opens no gate');
+  assert.equal(await justDoItPre.locator('.download-menu').count(), 0, 'the scheduled JUST D0 IT drop opens no drawer');
+  assert.equal(await justDoItPre.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), JUST_DO_IT_ID), 'https://www.youtube.com/@KYROlll00?sub_confirmation=1', 'the helper withholds the JUST D0 IT video URL until release');
+  await noCardBleed(justDoItPre, 'JUST D0 IT desktop catalog');
   await justDoItPre.close();
 
   const justDoItLive = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'no-preference' });
-  await justDoItLive.goto(`${url}/?beat=just-do-it&now=${JUST_DO_IT_RELEASE - 12000}`, { waitUntil: 'domcontentloaded' });
+  await justDoItLive.goto(`${url}/?beat=just-d0-it&now=${JUST_DO_IT_RELEASE - 12000}`, { waitUntil: 'domcontentloaded' });
   await justDoItLive.locator(`[data-countdown="${JUST_DO_IT_ID}"]`).waitFor();
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD}.beat-detail`).count(), 1, 'the JUST DO IT beat page renders');
-  assert.match(await justDoItLive.locator(JUST_DO_IT_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - JUST DO IT/i);
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD}.beat-detail`).count(), 1, 'the JUST D0 IT beat page renders');
+  assert.match(await justDoItLive.locator(JUST_DO_IT_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - JUST D0 IT/i);
+  const justDoItTitle = await assertCleanTitle(justDoItLive, JUST_DO_IT_CARD, 'JUST D0 IT title');
+  assert.match(justDoItTitle.text, /\[FREE 100%\] YEAT TYPE BEAT - JUST D0 IT/i);
   assert.match(await justDoItLive.locator(JUST_DO_IT_CARD).innerText(), /135 BPM \/\/ AM/i);
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .beat-preview`).count(), 0, 'JUST DO IT has no player before its drop');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .drop-locked`).count(), 1, 'JUST DO IT shows the locked player stand-in');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .card__actions .download-trigger--locked`).count(), 1, 'JUST DO IT shows the dedicated LOCKED control');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .download-trigger[disabled]`).count(), 1, 'the JUST DO IT LOCKED control is inert');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} a.card__youtube-link`).count(), 0, 'no live JUST DO IT YouTube link before the drop');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .card__youtube-link--locked`).count(), 1, 'the JUST DO IT YouTube icon is shown locked');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .card__youtube-link--locked`).getAttribute('href'), null, 'the locked JUST DO IT icon carries no URL');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .card__youtube-link--locked`).evaluate(el => getComputedStyle(el).pointerEvents), 'none', 'the locked JUST DO IT icon is not clickable');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .card__youtube-link--locked`).evaluate(el => el.tagName), 'SPAN', 'the locked JUST DO IT icon is not an anchor');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .beat-preview`).count(), 0, 'JUST D0 IT has no player before its drop');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .drop-locked`).count(), 1, 'JUST D0 IT shows the locked player stand-in');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .card__actions .download-trigger--locked`).count(), 1, 'JUST D0 IT shows the dedicated LOCKED control');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .download-trigger[disabled]`).count(), 1, 'the JUST D0 IT LOCKED control is inert');
+  await noYouTubeButton(justDoItLive, JUST_DO_IT_CARD);
   const justDoItUrlBeforeDrop = justDoItLive.url();
   await justDoItLive.waitForFunction((id) => {
     const card = document.getElementById('card-' + id);
@@ -2177,26 +2209,23 @@ try {
       && !card.querySelector('.drop-countdown')
       && !card.querySelector('.download-trigger--locked'));
   }, JUST_DO_IT_ID, { timeout: 30000 });
-  assert.equal(justDoItLive.url(), justDoItUrlBeforeDrop, 'JUST DO IT unlocks in page, with no reload');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .beat-preview`).count(), 1, 'the JUST DO IT player appears the second the clock lands');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .download-trigger`).count(), 1, 'the JUST DO IT download button is live at release');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .drop-countdown`).count(), 0, 'the JUST DO IT countdown is gone at release');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .download-trigger--locked`).count(), 0, 'the JUST DO IT LOCKED control is gone at release');
-  const justDoItYoutube = justDoItLive.locator(`${JUST_DO_IT_CARD} a.card__youtube-link`);
-  assert.equal(await justDoItYoutube.count(), 1, 'the JUST DO IT YouTube link appears at release');
-  assert.equal(await justDoItYoutube.getAttribute('href'), 'https://www.youtube.com/@KYROlll00', 'the live JUST DO IT link points at the official channel until the beat video is published');
-  assert.equal(await justDoItYoutube.evaluate(el => getComputedStyle(el).pointerEvents), 'auto', 'the live JUST DO IT link is clickable');
-  assert.equal(await justDoItLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), JUST_DO_IT_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the JUST DO IT link with the clock');
+  assert.equal(justDoItLive.url(), justDoItUrlBeforeDrop, 'JUST D0 IT unlocks in page, with no reload');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .beat-preview`).count(), 1, 'the JUST D0 IT player appears the second the clock lands');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .download-trigger`).count(), 1, 'the JUST D0 IT download button is live at release');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .drop-countdown`).count(), 0, 'the JUST D0 IT countdown is gone at release');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .download-trigger--locked`).count(), 0, 'the JUST D0 IT LOCKED control is gone at release');
+  await noYouTubeButton(justDoItLive, JUST_DO_IT_CARD);
+  assert.equal(await justDoItLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), JUST_DO_IT_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the JUST D0 IT link with the clock');
   // The fifth pressing is the deep matte black rage-fire disc: a fine fiery
   // red/orange perimeter hairline, the matte black centre label and the complete
   // spinning flower.
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD}.beat-detail`).getAttribute('data-vinyl'), 'rage-fire-rim', 'JUST DO IT renders the rage-fire-rim pressing');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'rage-fire-rim', 'the JUST DO IT record itself carries the variant');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--rage-fire-rim`).count(), 1, 'JUST DO IT carries the rage-fire-rim modifier');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--white`).count(), 0, 'JUST DO IT does not share the pearl-white disc');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--gold-rim`).count(), 0, 'JUST DO IT does not share THE FLOW gold rim');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--sage-white-rim`).count(), 0, 'JUST DO IT does not share the GREEN FLESH sage disc');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--ice-silver-rim`).count(), 0, 'JUST DO IT does not share the SQUISH! ice-silver disc');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD}.beat-detail`).getAttribute('data-vinyl'), 'rage-fire-rim', 'JUST D0 IT renders the rage-fire-rim pressing');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'rage-fire-rim', 'the JUST D0 IT record itself carries the variant');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--rage-fire-rim`).count(), 1, 'JUST D0 IT carries the rage-fire-rim modifier');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--white`).count(), 0, 'JUST D0 IT does not share the pearl-white disc');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--gold-rim`).count(), 0, 'JUST D0 IT does not share THE FLOW gold rim');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--sage-white-rim`).count(), 0, 'JUST D0 IT does not share the GREEN FLESH sage disc');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--ice-silver-rim`).count(), 0, 'JUST D0 IT does not share the SQUISH! ice-silver disc');
   const justDoItVinyl = await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record`).evaluate(el => {
     const rim = el.querySelector('.vinyl-record__rim');
     const rimStyle = rim ? getComputedStyle(rim) : null;
@@ -2222,62 +2251,76 @@ try {
       coverFilter: getComputedStyle(document.querySelector('.beat-detail__artwork img')).filter,
     };
   });
-  assert.match(justDoItVinyl.bodyBg, /rgb\(10, 10, 10\)|rgb\(6, 6, 6\)/, 'the JUST DO IT disc body is deep matte black');
-  assert.doesNotMatch(justDoItVinyl.bodyBg, /\.svg|splatter|blob/, 'the JUST DO IT disc body carries no artwork layer');
-  assert.match(justDoItVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(5, 5, 5\)/, 'the JUST DO IT centre label stays matte black');
-  assert.match(justDoItVinyl.rimBg, /conic-gradient/, 'the JUST DO IT outer rim is a crisp fire hairline');
-  assert.match(justDoItVinyl.rimBg, /rgb\(255, 59, 48\)/, 'the JUST DO IT rim uses the specified fire red');
-  assert.match(justDoItVinyl.rimBg, /rgb\(255, 77, 79\)/, 'the JUST DO IT rim carries its lighter red tone');
-  assert.match(justDoItVinyl.rimMask, /radial-gradient/, 'the JUST DO IT rim is masked down to a fine perimeter hairline');
-  assert.deepEqual(justDoItVinyl.children, ['vinyl-record__rim', 'vinyl-record__logo-frame'], 'the JUST DO IT record holds only the clean rim and the flower');
-  assert.equal(justDoItVinyl.splashCount, 0, 'zero splash, blob or splatter elements remain on JUST DO IT');
-  assert.equal(justDoItVinyl.rimZ, '3', 'the JUST DO IT rim paints above the disc');
-  assert.equal(justDoItVinyl.labelZ, '1', 'the JUST DO IT centre label sits above the disc');
-  assert.equal(justDoItVinyl.logoZ, '2', 'the spinning flower sits above the JUST DO IT label');
-  assert.equal(justDoItVinyl.logo, true, 'the complete flower survives on the JUST DO IT pressing');
-  assert.equal(justDoItVinyl.logoAnimation, 'vinylCenterSpin', 'the JUST DO IT flower keeps its slow spin');
-  assert.equal(justDoItVinyl.logoDuration, '16s', 'the JUST DO IT flower keeps the 16s linear loop');
-  assert(Math.abs(justDoItVinyl.diameterRatio - 0.92) < 0.01, 'the JUST DO IT record keeps its 92% inset diameter');
-  assert.equal(justDoItVinyl.coverFilter, 'none', 'the JUST DO IT cover art keeps its original colour');
+  assert.match(justDoItVinyl.bodyBg, /rgb\(10, 10, 10\)|rgb\(6, 6, 6\)/, 'the JUST D0 IT disc body is deep matte black');
+  assert.doesNotMatch(justDoItVinyl.bodyBg, /\.svg|splatter|blob/, 'the JUST D0 IT disc body carries no artwork layer');
+  assert.match(justDoItVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(5, 5, 5\)/, 'the JUST D0 IT centre label stays matte black');
+  assert.match(justDoItVinyl.rimBg, /conic-gradient/, 'the JUST D0 IT outer rim is a crisp fire hairline');
+  assert.match(justDoItVinyl.rimBg, /rgb\(255, 59, 48\)/, 'the JUST D0 IT rim uses the specified fire red');
+  assert.match(justDoItVinyl.rimBg, /rgb\(255, 77, 79\)/, 'the JUST D0 IT rim carries its lighter red tone');
+  assert.match(justDoItVinyl.rimMask, /radial-gradient/, 'the JUST D0 IT rim is masked down to a fine perimeter hairline');
+  assert.deepEqual(justDoItVinyl.children, ['vinyl-record__rim', 'vinyl-record__logo-frame'], 'the JUST D0 IT record holds only the clean rim and the flower');
+  assert.equal(justDoItVinyl.splashCount, 0, 'zero splash, blob or splatter elements remain on JUST D0 IT');
+  assert.equal(justDoItVinyl.rimZ, '3', 'the JUST D0 IT rim paints above the disc');
+  assert.equal(justDoItVinyl.labelZ, '1', 'the JUST D0 IT centre label sits above the disc');
+  assert.equal(justDoItVinyl.logoZ, '2', 'the spinning flower sits above the JUST D0 IT label');
+  assert.equal(justDoItVinyl.logo, true, 'the complete flower survives on the JUST D0 IT pressing');
+  assert.equal(justDoItVinyl.logoAnimation, 'vinylCenterSpin', 'the JUST D0 IT flower keeps its slow spin');
+  assert.equal(justDoItVinyl.logoDuration, '16s', 'the JUST D0 IT flower keeps the 16s linear loop');
+  assert(Math.abs(justDoItVinyl.diameterRatio - 0.92) < 0.01, 'the JUST D0 IT record keeps its 92% inset diameter');
+  assert.equal(justDoItVinyl.coverFilter, 'none', 'the JUST D0 IT cover art keeps its original colour');
   assert.deepEqual(await justDoItLive.evaluate((id) => window.KYROlll_DOWNLOADS.deliverablesFor(id, 'exclusive').map(item => item.name), JUST_DO_IT_ID), [
-    'KYROIII - JUST DO IT (135 BPM - AM).mp3',
-    'KYROIII - JUST DO IT (135 BPM - AM).wav',
-    'KYROIII - JUST DO IT - TRACKED STEMS.zip',
-  ], 'JUST DO IT hands over the studio MP3, WAV and tracked stems names');
+    'KYROIII - JUST D0 IT (135 BPM - AM).mp3',
+    'KYROIII - JUST D0 IT (135 BPM - AM).wav',
+    'KYROIII - JUST D0 IT - TRACKED STEMS.zip',
+  ], 'JUST D0 IT hands over the studio MP3, WAV and tracked stems names');
   await shot(justDoItLive, 'just-do-it-live');
   await justDoItLive.close();
+
+  // The longest display titles at desktop width. Each must wrap into a balanced
+  // block inside the glass card — never one unbroken line, never a clipped one.
+  const titleDesktop = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+  for (const beat of [
+    { id: JUST_DO_IT_ID, card: JUST_DO_IT_CARD, expected: /\[FREE 100%\] YEAT TYPE BEAT - JUST D0 IT/i },
+    { id: SQUISH_ID, card: SQUISH_CARD, expected: /\[FREE 100%\] LIL GOTIT TYPE BEAT - SQUISH!/i },
+  ]) {
+    await titleDesktop.goto(`${url}/?beat=${beat.id}&now=${JUST_DO_IT_RELEASE + 1000}`);
+    await titleDesktop.locator(`${beat.card} .beat-detail__title`).waitFor();
+    const report = await assertCleanTitle(titleDesktop, beat.card, `${beat.id} 1440px title`);
+    assert.match(report.text, beat.expected);
+  }
+  await titleDesktop.close();
 
   const justDoItDownload = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce', acceptDownloads: true });
   await justDoItDownload.goto(`${url}/download.html?beat=${JUST_DO_IT_ID}&package=exclusive&t=justdoit&sign=Just%20Buyer&now=${JUST_DO_IT_RELEASE + 1000}`, { waitUntil: 'domcontentloaded' });
   await justDoItDownload.locator('#license-serial').waitFor();
-  assert.match(await justDoItDownload.locator('#download-title').innerText(), /YEAT TYPE BEAT - JUST DO IT/i);
-  assert.match(await justDoItDownload.locator('#license-serial').innerText(), /^KYRO-\d{4}-JUST-DO-IT-\d{6}$/, 'the JUST DO IT serial carries its hyphenated slug');
+  assert.match(await justDoItDownload.locator('#download-title').innerText(), /YEAT TYPE BEAT - JUST D0 IT/i);
+  assert.match(await justDoItDownload.locator('#license-serial').innerText(), /^KYRO-\d{4}-JUST-D0-IT-\d{6}$/, 'the JUST D0 IT serial carries its hyphenated slug');
   assert.deepEqual(await justDoItDownload.locator('.download-item__name').evaluateAll(nodes => nodes.map(node => node.textContent)), [
-    'KYROIII - JUST DO IT (135 BPM - AM).mp3',
-    'KYROIII - JUST DO IT (135 BPM - AM).wav',
-    'KYROIII - JUST DO IT - TRACKED STEMS.zip',
-  ], 'the JUST DO IT download page lists the studio files');
+    'KYROIII - JUST D0 IT (135 BPM - AM).mp3',
+    'KYROIII - JUST D0 IT (135 BPM - AM).wav',
+    'KYROIII - JUST D0 IT - TRACKED STEMS.zip',
+  ], 'the JUST D0 IT download page lists the studio files');
   const [justDoItPdf] = await Promise.all([
     justDoItDownload.waitForEvent('download'),
     justDoItDownload.locator('[data-license-pdf]').click(),
   ]);
-  assert.match(justDoItPdf.suggestedFilename(), /^KYROIII - LICENSE - JUST DO IT \(KYRO-\d{4}-JUST-DO-IT-\d{6}\)\.pdf$/, 'the JUST DO IT license saves under the studio name');
+  assert.match(justDoItPdf.suggestedFilename(), /^KYROIII - LICENSE - JUST D0 IT \(KYRO-\d{4}-JUST-D0-IT-\d{6}\)\.pdf$/, 'the JUST D0 IT license saves under the studio name');
   const justDoItPdfText = (await readFile(await justDoItPdf.path())).toString('latin1');
   const justDoItPdfRuns = pdfRuns(justDoItPdfText).join(' ');
-  assert.match(justDoItPdfRuns, /\[FREE 100%\] YEAT TYPE/, 'the JUST DO IT license carries its title opening');
-  assert.match(justDoItPdfRuns, /JUST DO IT/, 'the JUST DO IT license carries its title tail');
-  assert(justDoItPdfText.includes('PAGE 1 OF 1'), 'the JUST DO IT license fits one page');
+  assert.match(justDoItPdfRuns, /\[FREE 100%\] YEAT TYPE/, 'the JUST D0 IT license carries its title opening');
+  assert.match(justDoItPdfRuns, /JUST D0 IT/, 'the JUST D0 IT license carries its title tail');
+  assert(justDoItPdfText.includes('PAGE 1 OF 1'), 'the JUST D0 IT license fits one page');
   await justDoItDownload.close();
 
   const justDoItAfter = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await justDoItAfter.goto(`${url}/?now=${JUST_DO_IT_RELEASE + 1000}`, { waitUntil: 'domcontentloaded' });
   await justDoItAfter.locator(`${JUST_DO_IT_CARD} .download-trigger`).waitFor();
-  assert.match(await justDoItAfter.locator('.marquee-track').innerText(), /5 RELEASES LIVE/, 'the studio count becomes five once JUST DO IT is live');
+  assert.match(await justDoItAfter.locator('.marquee-track').innerText(), /5 RELEASES LIVE/, 'the studio count becomes five once JUST D0 IT is live');
   await justDoItAfter.close();
 
   // Keep the rest of the stylesheet monochrome while expressly checking the
   // isolated green / pink hero accents, THE FLOW's gold-rim palette, GREEN FLESH's
-  // sage-white-rim palette, SQUISH!'s ice-silver-rim palette, JUST DO IT's
+  // sage-white-rim palette, SQUISH!'s ice-silver-rim palette, JUST D0 IT's
   // rage-fire-rim palette and the ALL-CAPS rules.
   const cssText = await readFile(new URL('./style.css', import.meta.url), 'utf8');
   const scriptText = await readFile(new URL('./script.js', import.meta.url), 'utf8');
@@ -2300,6 +2343,14 @@ try {
   assert.match(cssText, /\.marquee-track \{[^}]*transform:\s*translate3d\(0, 0, 0\)/, 'the moving track is GPU-promoted');
   assert.match(cssText, /\.marquee-banner\.reveal[\s\S]{0,160}?opacity:\s*1/, 'the marquee is exempt from the reveal opacity curtain');
   assert.match(cssText, /\.marquee-track\.is-scrolling \{[^}]*animation:\s*marquee-scroll[^}]*linear infinite/, 'the fallback ticker still loops linearly');
+  // The beat-detail head carries no YouTube icon or button any more, in either
+  // state, so its selectors are gone from the stylesheet entirely.
+  assert.doesNotMatch(cssText, /card__youtube-link/, 'the removed YouTube icon leaves no stylesheet rule behind');
+  // The display title is a wrapping block with balanced lines and whole words.
+  assert.match(cssText, /\.beat-detail__title \{[^}]*display:\s*block/, 'the beat title wraps as a block, not a single flex line');
+  assert.match(cssText, /\.beat-detail__title \{[^}]*text-wrap:\s*balance/, 'the beat title balances its rendered lines');
+  assert.match(cssText, /\.beat-detail__title \{[^}]*overflow-wrap:\s*normal/, 'the beat title keeps whole words');
+  assert.doesNotMatch(cssText, /\.beat-detail__title \{[^}]*overflow:\s*hidden/, 'the beat title never clips its own text');
   // The mobile player locks its own layout, and the drawer freezes its geometry
   // and keeps `transform` free for the per-scroll tracking translate.
   assert.match(cssText, /\.beat-preview \{[^}]*contain:\s*layout style/, 'the player box is strictly contained');
@@ -2377,12 +2428,12 @@ try {
   assert.match(iceCss, /mask:\s*radial-gradient/, 'the ice-silver rim is masked to a hairline ring');
   assert.match(iceCss, /\.vinyl-record--ice-silver-rim\s+\.vinyl-record__logo-frame\s*\{\s*z-index:\s*2/, 'the spinning flower sits above the ice-silver centre label');
   assert.doesNotMatch(iceCss, /splash|blob|splatter|\.vinyl-record__ice/, 'the ice-silver-rim palette has no splash, blob or random graphic');
-  // JUST DO IT's rage-fire-rim pressing is the fifth deliberate palette
+  // JUST D0 IT's rage-fire-rim pressing is the fifth deliberate palette
   // exception: the deep matte black body and fiery red/orange perimeter hairline
   // are the vinyl's specified colours, isolated so the rest of the storefront
   // stays neutral.
-  const fireStart = cssText.indexOf('/* JUST DO IT rage-fire-rim palette');
-  const fireEnd = cssText.indexOf('/* End JUST DO IT rage-fire-rim palette. */', fireStart);
+  const fireStart = cssText.indexOf('/* JUST D0 IT rage-fire-rim palette');
+  const fireEnd = cssText.indexOf('/* End JUST D0 IT rage-fire-rim palette. */', fireStart);
   assert(fireStart >= 0 && fireEnd > fireStart, 'the rage-fire-rim palette is isolated in its own stylesheet section');
   const fireCss = cssText.slice(fireStart, fireEnd);
   assert.match(fireCss, /#0a0a0a/i, 'the rage-fire-rim disc body is deep matte black');
