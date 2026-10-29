@@ -79,9 +79,8 @@ function specLine(beat) {
 /* Each beat owns a pressing: FLESH is pearl white, THE FLOW is a deep matte
    black disc with a single fine gold rim, GREEN FLESH is a smoky grey-green disc
    with a delicate white outer hairline, SQUISH! is an icy silver collector disc
-   with a pure-white perimeter rim, JUST D0 IT is a deep matte black disc with
-   one fiery red/orange hairline, and ADLL is a deep matte black disc scattered
-   with white graffiti paint. The old "gold" value still resolves to the refined
+   with a pure-white perimeter rim and JUST D0 IT is a deep matte black disc with
+   one fiery red/orange hairline. The old "gold" value still resolves to the refined
    "gold-rim" pressing, so a stale link or cached catalog can never render an
    unstyled disc. Anything unknown keeps the white standard. */
 function vinylVariantFor(beat) {

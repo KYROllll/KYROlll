@@ -283,46 +283,6 @@
           { file: "assets/previews/just-do-it-stems.zip", name: "KYROIII - JUST D0 IT - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
       }
-    },
-    {
-      /* The sixth official release, and the newest card in the store: the
-         catalog is authored oldest-first and `script.js` sorts the newest to the
-         front of the grid. */
-      id: "adll",
-      slug: "adll",
-      title: "[FREE 100%] YEAT TYPE BEAT - ADLL",
-      shortTitle: "ADLL",
-      img: "assets/adll.png",
-      bpm: 124,
-      key: "C#",
-      preview: "assets/previews/adll.mp3",
-      /* The beat's own video is not published yet; the official channel keeps
-         the "like this beat" gate step live until it is. */
-      youtube: "https://www.youtube.com/@KYROlll00",
-      /* The sixth pressing: a deep matte black disc in #0a0a0a with organic
-         white graffiti paint splashes and fine mist droplets across the exposed
-         vinyl, a matte black centre label and the complete spinning flower. The
-         paint is painted as background layers, never as extra DOM elements, so
-         it cannot interfere with the flower's rotation. */
-      vinylVariant: "graffiti-splatter",
-      /* The sixth official release is scheduled for 22:00 Israel time on
-         29 October 2026. Until then the tile is a timezone-proof countdown, and
-         the beat page keeps its player and download drawer locked. */
-      releaseAt: "2026-10-29T22:00:00+02:00",
-      deliverables: {
-        mp3: [
-          { file: "assets/previews/adll.mp3", name: "KYROIII - ADLL (124 BPM - C#).mp3", label: "TAGGED MP3" }
-        ],
-        wav: [
-          { file: "assets/previews/adll.mp3", name: "KYROIII - ADLL (124 BPM - C#).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/adll.wav", name: "KYROIII - ADLL (124 BPM - C#).wav", label: "HIGH-QUALITY WAV" }
-        ],
-        exclusive: [
-          { file: "assets/previews/adll.mp3", name: "KYROIII - ADLL (124 BPM - C#).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/adll.wav", name: "KYROIII - ADLL (124 BPM - C#).wav", label: "HIGH-QUALITY WAV" },
-          { file: "assets/previews/adll-stems.zip", name: "KYROIII - ADLL - TRACKED STEMS.zip", label: "TRACKED STEMS" }
-        ]
-      }
     }
   ];
 

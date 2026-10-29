@@ -1797,7 +1797,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .vinyl-record--rage-fire-rim .vinyl-record__logo-frame { z-index: 2; }
 /* End JUST D0 IT rage-fire-rim palette. */
 
-/* ADLL's graffiti-splatter pressing: a deep matte black disc dusted with an
+/* The graffiti-splatter pressing: a deep matte black disc dusted with an
    ultra-fine white aerosol spray — micro-speckles, fine mist droplets and three
    off-phase grain grids between 1px and 2.5px. The dust is painted as layered
    radial gradients on the disc itself, never extra DOM elements and never an

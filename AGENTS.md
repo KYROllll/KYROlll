@@ -319,8 +319,9 @@ SQUISH! is `vinylVariant: "ice-silver-rim"` (an icy chrome-slate disc with a dia
 specular facet, crystal-clear shimmer micro-grooves at two densities and a pure-white perimeter
 hairline), JUST D0 IT is
 `vinylVariant: "rage-fire-rim"` (a deep matte `#0a0a0a` disc with one delicate fire-red/orange
-perimeter hairline and the complete flower in its matte black centre label), and ADLL is
-`vinylVariant: "graffiti-splatter"` (a deep matte `#0a0a0a` disc dusted with an ultra-fine white
+perimeter hairline and the complete flower in its matte black centre label), and the store also
+keeps a reserved pressing, `vinylVariant: "graffiti-splatter"` (a deep matte `#0a0a0a` disc
+dusted with an ultra-fine white
 aerosol spray — 1px–2.5px `rgba(255,255,255,.75)` micro-speckles fading to `.3`, tiled off-phase
 `9px 11px` / `8px 10px` grain fields and scattered mist droplets as background paint layers, never
 a large blob — with the complete flower in its clean matte black centre label). `script.js` writes
@@ -336,7 +337,7 @@ monochrome audit; keep them if a pressing is retuned, because they are what make
 read as six pressings from one plant instead of six illustrations. The rim is `.vinyl-record__rim`, a conic-gradient masked to a
 ~1.6px outer hairline. It sits above the grooves (z-index 3) but only at the perimeter, while
 the centre label (z-index 1) and the spinning flower (z-index 2) stay clean on top. A rim
-pressing's DOM holds only that rim and the flower; ADLL's paint is part of the disc's own
+pressing's DOM holds only that rim and the flower; the graffiti paint is part of the disc's own
 background layers and adds no DOM element at all — there is no splash, blob or other graphic
 layer on any record. Each coloured pressing is isolated between its own palette markers and
 excluded from the equal-channel audit; the graffiti pressing is white-on-black, so it stays
@@ -791,10 +792,7 @@ the 16-bit set zips to ~65 MB; the reduction is a plain round-to-nearest, so not
 about the stems changes and the archive stays a normal file any machine can open.
 `just-do-it-stems.zip` follows the same rule with its nine supplied stems (`808.wav`,
 `BASS.wav`, `HI HAT.wav`, `MELODY.wav`, `OPEN.wav`, `PERC 2.wav`, `PERC.wav`, `SFX.wav`,
-`SNARE.wav`), rendered 16-bit/48 kHz and archived flat with `zip -X -j`; it is ~48 MB.
-`adll-stems.zip` carries its seven supplied stems (`808.wav`, `HI HAT.wav`, `KICK.wav`,
-`MELODY.wav`, `OPEN.wav`, `SFX.wav`, `SNARE.wav`) the same way, 16-bit/48 kHz and flat; it is
-~65 MB. Keep
+`SNARE.wav`), rendered 16-bit/48 kHz and archived flat with `zip -X -j`; it is ~48 MB. Keep
 that in mind if a future stem set is rebuilt: `zip` here only speaks `store`/`deflate`, so the
 bit depth is the only lever that actually moves the size.
 
@@ -918,8 +916,7 @@ Tests that ship with the repo:
   re-opens the full gate and still requires the signature (nothing is auto-opened or prefilled,
   nothing is re-posted until submit, and the record is gone after a reload), and that no gate
   state is written to `localStorage`/`sessionStorage` (only the catalog scroll key may appear).
-  It drives the six-card catalog, checks the ADLL drop's countdown and in-page unlock at 22:00,
-  the white graffiti-splatter pressing, its studio filenames and `KYRO-YYYY-ADLL-NNNNNN` serial,
+  It drives the five-card catalog, walks each scheduled drop's countdown and in-page unlock,
   and taps a
   tile with a real mouse and a real touch to prove Back and ALL BEATS land on the remembered
   catalog offset. It needs

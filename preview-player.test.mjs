@@ -12,7 +12,7 @@ test("the fifth release is scheduled, packaged and pointed at the free-download 
   const catalogContext = vm.createContext({ window });
   vm.runInContext(readFileSync(new URL("./catalog.js", import.meta.url), "utf8"), catalogContext);
   const catalog = window.KYROlll_CATALOG;
-  assert.equal(catalog.length, 6, "the catalog carries six releases");
+  assert.equal(catalog.length, 5, "the catalog carries five releases");
   const beat = window.KYROlll_HELPERS.beatById("just-d0-it");
   assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - JUST D0 IT");
   assert.equal(beat.shortTitle, "JUST D0 IT");
@@ -38,36 +38,23 @@ test("the fifth release is scheduled, packaged and pointed at the free-download 
   ]);
 });
 
-test("the sixth release ADLL is scheduled, packaged and pointed at the free-download form", () => {
+test("the removed ADLL beat is gone from the catalog, the ticker and every page", () => {
   const window = {};
   const catalogContext = vm.createContext({ window });
   vm.runInContext(readFileSync(new URL("./catalog.js", import.meta.url), "utf8"), catalogContext);
   const catalog = window.KYROlll_CATALOG;
-  assert.equal(catalog.length, 6, "the catalog carries six releases");
-  const beat = window.KYROlll_HELPERS.beatById("adll");
-  assert.equal(beat.slug, "adll");
-  assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - ADLL");
-  assert.equal(beat.shortTitle, "ADLL");
-  assert.equal(beat.bpm, 124);
-  assert.equal(beat.key, "C#");
-  assert.equal(beat.vinylVariant, "graffiti-splatter");
-  assert.equal(beat.releaseAt, "2026-10-29T22:00:00+02:00");
-  const releaseAt = Date.parse("2026-10-29T22:00:00+02:00");
-  assert.equal(window.KYROlll_HELPERS.releaseAt(beat), releaseAt);
-  assert.equal(window.KYROlll_HELPERS.isReleased(beat, releaseAt - 1), false);
-  assert.equal(window.KYROlll_HELPERS.isReleased(beat, releaseAt), true);
-  assert.equal(window.KYROlll_SITE.formspreeEndpoint, "https://formspree.io/f/mvkkkoew");
-  assert.equal(window.KYROlll_NEWSLETTER.endpoint, "https://formspree.io/f/mvkkkoew");
-  assert.deepEqual(Array.from(beat.deliverables.exclusive, (item) => item.file), [
-    "assets/previews/adll.mp3",
-    "assets/previews/adll.wav",
-    "assets/previews/adll-stems.zip",
-  ]);
-  assert.deepEqual(Array.from(beat.deliverables.exclusive, (item) => item.name), [
-    "KYROIII - ADLL (124 BPM - C#).mp3",
-    "KYROIII - ADLL (124 BPM - C#).wav",
-    "KYROIII - ADLL - TRACKED STEMS.zip",
-  ]);
+  assert.equal(catalog.length, 5, "the catalog carries five releases");
+  assert.deepEqual(Array.from(catalog, (beat) => beat.slug), ["flesh", "the-flow", "green-flesh", "squish", "just-d0-it"],
+    "the five kept beats are intact, in order, and nothing else is left in the store");
+  assert.equal(window.KYROlll_HELPERS.beatById("adll"), null, "the removed beat resolves to nothing");
+  assert.equal(catalog.some((beat) => /adll/i.test(JSON.stringify(beat))), false,
+    "no deliverable, asset path or metadata points at the removed beat");
+  const marquee = readFileSync(new URL("./marquee-items.js", import.meta.url), "utf8");
+  assert.doesNotMatch(marquee, /adll/i, "the ticker carries no headline for the removed beat");
+  ["index.html", "download.html", "support.html", "script.js", "style.css"].forEach((name) => {
+    const source = readFileSync(new URL(`./${name}`, import.meta.url), "utf8");
+    assert.doesNotMatch(source, /adll/i, `${name} no longer references the removed beat`);
+  });
 });
 
 test("the catalog remembers the visitor's scroll position for the trip back", () => {
@@ -90,7 +77,6 @@ test("every beat keeps its own bespoke pressing, and the beat page keeps a stick
     "green-flesh": "sage-white-rim",
     squish: "ice-silver-rim",
     "just-d0-it": "rage-fire-rim",
-    adll: "graffiti-splatter",
   }, "each release keeps its own collector pressing");
   const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
   assert.match(css, /\.vinyl-record--white \{[\s\S]*?rgba\(38, 38, 38, 0\.38\)/, "FLESH is a charcoal-marbled pearl disc");
