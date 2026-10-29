@@ -613,9 +613,54 @@ body > canvas {
 .beat-page .brand-logo-container { width: auto; }
 .beat-page .logo-stage { width: 88px; }
 .beat-page .logo-fallback { padding: 0; }
-.beat-navigation { max-width: 1440px; margin: 0 auto; }
-.beat-navigation a { color: var(--gray); font-size: 10px; font-weight: 700; letter-spacing: .15em; text-decoration: none; }
-.beat-navigation a:hover { color: var(--white); }
+/* The way back to the catalog is a sticky glass rail: it sits in the flow at the
+   top of the beat page, then pins itself to the top of the viewport for the whole
+   scroll, so the return control is never more than a glance away — no hunting for
+   a link above the fold. It is a root-level paint of its own (sticky, z-index
+   below the package drawer) and it never re-measures or listens to scroll. */
+.beat-navigation {
+  position: sticky;
+  top: 0;
+  /* Above the storefront's own content (tiles hover at 5, the marquee at 80),
+     below the preloader veil (400), the package drawer (999999) and the gate
+     modal (1000000): the rail never floats over a dialog or the first paint. */
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  max-width: none;
+  margin: 0;
+  padding: 12px clamp(16px, 4vw, 40px) 16px;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, rgba(11, 11, 11, 0.94) 0%, rgba(11, 11, 11, 0.72) 64%, rgba(11, 11, 11, 0) 100%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  backdrop-filter: blur(18px) saturate(130%);
+  contain: layout style;
+}
+.beat-navigation a {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 20px 0 15px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--white);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: .18em;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  touch-action: manipulation;
+  transition: border-color .25s ease, background-color .25s ease;
+}
+.beat-navigation a:hover,
+.beat-navigation a:focus-visible {
+  border-color: var(--white);
+  background: rgba(255, 255, 255, 0.18);
+}
 /* index.html pre-renders the active release's card so a direct beat link
    (?beat=…) paints without a flash. The home route swaps it for the catalog
    tiles right after parse, so keep it hidden until then — otherwise the store
@@ -628,6 +673,10 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 .beat-detail {
   display: grid;
+  /* The card lands *under* the sticky ALL BEATS rail instead of beneath it: a
+     beat page auto-scrolls the card to the top of the viewport, and without this
+     margin the pinned rail would cover the first line of the title. */
+  scroll-margin-top: 84px;
   /* A wider, art-forward split: the sleeve needs ~620px of stage to land at
      ~420px square while the record still has room to ride out to the right. */
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
@@ -886,10 +935,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 }
 .grid {
   padding: 0 clamp(20px, 4vw, 48px) 64px;
-  box-sizing: border-box;
-}
-.beat-navigation {
-  padding: 22px clamp(20px, 4vw, 48px) 0;
   box-sizing: border-box;
 }
 
@@ -1350,13 +1395,23 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   z-index: 1;
 }
 
-/* FLESH's pressing: a pearl-white disc whose black centre label is the whole
-   point of the slide-out. The vinyl paint itself is built from equal-channel
-   greys (the storefront's monochrome rule): a soft radial specular highlight at
-   the top-left, one set of fine dark micro-grooves and a second set of bright
-   rings, over a pearl-white body that falls away to a silver rim. */
+/* FLESH's pressing: a premium white collector disc shot through with smoky
+   charcoal marbling — soft charcoal plumes drifting under the pearl surface, a
+   fine charcoal flake field and the black centre label that is the whole point
+   of the slide-out. Every tone is an equal-channel grey (the storefront's
+   monochrome rule): the marbling never turns the pearl disc into a coloured
+   record, it deepens it. A soft specular highlight at the top-left and two sets
+   of concentric grooves keep it reading as pressed vinyl. */
 .vinyl-record--white {
   background:
+    /* smoky charcoal marbling under the pearl surface */
+    radial-gradient(ellipse 26% 11% at 63% 23%, rgba(38, 38, 38, 0.38) 0%, rgba(38, 38, 38, 0.14) 46%, rgba(38, 38, 38, 0) 74%),
+    radial-gradient(ellipse 19% 8% at 29% 57%, rgba(46, 46, 46, 0.3) 0%, rgba(46, 46, 46, 0) 72%),
+    radial-gradient(ellipse 32% 7% at 54% 79%, rgba(30, 30, 30, 0.24) 0%, rgba(30, 30, 30, 0) 74%),
+    radial-gradient(ellipse 13% 5% at 78% 61%, rgba(52, 52, 52, 0.22) 0%, rgba(52, 52, 52, 0) 78%),
+    /* a fine charcoal flake field scattered through the smoke */
+    radial-gradient(circle, rgba(40, 40, 40, 0.4) 0 0.7px, transparent 1.1px) 3px 5px / 13px 17px,
+    radial-gradient(circle, rgba(60, 60, 60, 0.26) 0 0.9px, transparent 1.4px) 9px 2px / 21px 27px,
     radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0) 34%),
     radial-gradient(circle at 72% 80%, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0) 42%),
     repeating-radial-gradient(circle at 50% 50%, rgba(20, 20, 20, 0.08) 0 1px, transparent 1px 6px),
@@ -1467,6 +1522,34 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
     repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 7px),
     radial-gradient(circle at 50% 50%, #0a0a0c 0%, #0a0a0c 58%, #070708 82%, #0a0a0c 100%);
 }
+/* Gold flake micro-dust suspended in the black pressing: two off-phase tiled
+   flake fields (0.6–0.9px) plus a handful of individual foil flecks between 1px
+   and 1.7px, so the disc catches the light while it slides out. Nothing here is
+   ever large enough to read as a splatter, and the label stays clean above it. */
+.vinyl-record--gold-rim::before {
+  inset: 8%;
+  background:
+    radial-gradient(circle, rgba(212, 175, 55, 0.55) 0 0.6px, transparent 1px) 3px 4px / 11px 13px,
+    radial-gradient(circle, rgba(229, 193, 88, 0.34) 0 0.8px, transparent 1.3px) 7px 2px / 19px 23px,
+    radial-gradient(circle 1.4px at 22% 27%, rgba(212, 175, 55, 0.62) 0 100%, transparent 100%),
+    radial-gradient(circle 1.1px at 34% 12%, rgba(255, 243, 176, 0.5) 0 100%, transparent 100%),
+    radial-gradient(circle 1.7px at 47% 38%, rgba(229, 193, 88, 0.58) 0 100%, transparent 100%),
+    radial-gradient(circle 1.2px at 58% 71%, rgba(212, 175, 55, 0.44) 0 100%, transparent 100%),
+    radial-gradient(circle 1.5px at 69% 24%, rgba(255, 243, 176, 0.5) 0 100%, transparent 100%),
+    radial-gradient(circle 1px at 78% 52%, rgba(229, 193, 88, 0.4) 0 100%, transparent 100%),
+    radial-gradient(circle 1.6px at 86% 79%, rgba(212, 175, 55, 0.56) 0 100%, transparent 100%),
+    radial-gradient(circle 1.2px at 15% 63%, rgba(255, 243, 176, 0.42) 0 100%, transparent 100%),
+    radial-gradient(circle 1.3px at 41% 88%, rgba(229, 193, 88, 0.46) 0 100%, transparent 100%),
+    repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, rgba(255, 255, 255, 0.045) 3px 4px, transparent 4px 8px);
+  opacity: 0.92;
+}
+/* The foil edge is given a touch more body than the plain hairline so the
+   metallic ring reads as a brushed gold rim rather than a printed line. */
+.vinyl-record--gold-rim .vinyl-record__rim {
+  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - 3px), #000 calc(100% - 1.8px) 100%);
+  mask: radial-gradient(circle closest-side, transparent calc(100% - 3px), #000 calc(100% - 1.8px) 100%);
+  opacity: 1;
+}
 .vinyl-record__rim {
   position: absolute;
   inset: 0;
@@ -1501,6 +1584,13 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    The rim reuses the base masked hairline, so no graphic ever enters the disc. */
 .vinyl-record--sage-white-rim {
   background:
+    /* translucent marbling: pale sage veins drifting over a darker body */
+    radial-gradient(ellipse 24% 9% at 64% 21%, rgba(214, 230, 221, 0.24) 0%, rgba(214, 230, 221, 0.08) 48%, rgba(214, 230, 221, 0) 76%),
+    radial-gradient(ellipse 17% 7% at 33% 58%, rgba(8, 22, 17, 0.36) 0%, rgba(8, 22, 17, 0) 74%),
+    radial-gradient(ellipse 28% 6% at 57% 84%, rgba(196, 216, 206, 0.18) 0%, rgba(196, 216, 206, 0) 76%),
+    radial-gradient(ellipse 11% 5% at 78% 62%, rgba(12, 26, 21, 0.3) 0%, rgba(12, 26, 21, 0) 80%),
+    /* a fine mineral grain inside the marble */
+    radial-gradient(circle, rgba(220, 235, 228, 0.24) 0 0.7px, transparent 1.1px) 4px 7px / 15px 19px,
     radial-gradient(circle at 30% 24%, rgba(224, 235, 228, 0.16) 0%, rgba(224, 235, 228, 0) 34%),
     radial-gradient(circle at 72% 80%, rgba(5, 16, 12, 0.24) 0%, rgba(5, 16, 12, 0) 44%),
     repeating-radial-gradient(circle at 50% 50%, rgba(235, 245, 239, 0.045) 0 1px, transparent 1px 7px),
@@ -1511,11 +1601,14 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
     0 0 0 1px rgba(255, 255, 255, 0.1),
     inset 0 0 42px rgba(0, 0, 0, 0.44);
 }
+/* The outer edge wears a soft white mist inside the crisp hairline: a pale halo
+   that fades in over the last few percent of the disc, painted under the label. */
 .vinyl-record--sage-white-rim::before {
   inset: 7%;
   background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0) 0 86%, rgba(255, 255, 255, 0.1) 93%, rgba(255, 255, 255, 0.26) 98.5%, rgba(255, 255, 255, 0) 100%),
     repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, rgba(5, 16, 12, 0.16) 3px 4px, transparent 4px 8px);
-  opacity: 0.62;
+  opacity: 0.78;
 }
 .vinyl-record--sage-white-rim::after {
   width: 36%;
@@ -1548,8 +1641,14 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    stage; the record still holds only the masked rim and the flower. */
 .vinyl-record--ice-silver-rim {
   background:
+    /* diamond-cut facets: two crossing specular bands and a cool counter-sheen */
+    linear-gradient(116deg, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, 0.62) 50%, rgba(255, 255, 255, 0) 60%),
+    linear-gradient(-118deg, rgba(255, 255, 255, 0) 42%, rgba(255, 255, 255, 0.34) 50%, rgba(255, 255, 255, 0) 58%),
+    radial-gradient(ellipse 30% 12% at 68% 26%, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 72%),
     radial-gradient(circle at 31% 22%, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0) 31%),
     radial-gradient(circle at 72% 82%, rgba(52, 60, 70, 0.3) 0%, rgba(52, 60, 70, 0) 46%),
+    /* crystal-clear shimmer micro-grooves, two densities */
+    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.34) 0 1px, transparent 1px 4px),
     repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.2) 0 1px, transparent 1px 6px),
     repeating-radial-gradient(circle at 50% 50%, rgba(90, 100, 112, 0.22) 0 2px, transparent 2px 9px),
     radial-gradient(circle at 50% 50%, #cfd4da 0%, #c7ccd3 42%, #b8bec6 72%, #cbd0d6 88%, #b8bec6 100%);
@@ -1561,9 +1660,11 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .vinyl-record--ice-silver-rim::before {
   inset: 7%;
   background:
+    /* a crisp white outer edge that fades into the disc */
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0) 0 88%, rgba(255, 255, 255, 0.22) 95%, rgba(255, 255, 255, 0.52) 99%, rgba(255, 255, 255, 0) 100%),
     repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, rgba(255, 255, 255, 0.2) 3px 4px, transparent 4px 8px),
     repeating-radial-gradient(circle at 50% 50%, transparent 0 11px, rgba(90, 100, 112, 0.18) 11px 12px, transparent 12px 18px);
-  opacity: 0.78;
+  opacity: 0.82;
 }
 .vinyl-record--ice-silver-rim::after {
   width: 36%;

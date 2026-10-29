@@ -561,6 +561,9 @@ try {
     };
   });
   assert.match(fleshVinyl.discBg, /rgb\(245, 245, 245\)|rgb\(255, 255, 255\)/, 'the FLESH disc is painted pearl white');
+  assert.match(fleshVinyl.discBg, /rgba\(38, 38, 38, 0\.38\)/, 'the FLESH disc carries smoky charcoal marbling');
+  assert.match(fleshVinyl.discBg, /rgba\(46, 46, 46, 0\.3\)/, 'the charcoal marbling drifts across the pearl body');
+  assert.match(fleshVinyl.discBg, /rgba\(40, 40, 40, 0\.4\)/, 'the FLESH disc scatters a fine charcoal flake field');
   assert.match(fleshVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(0, 0, 0\)/, 'the FLESH centre label is matte black');
   assert.equal(fleshVinyl.spindleCount, 0, 'no spindle hole covers the centre of the flower');
   assert.equal(fleshVinyl.logoSrc, 'assets/kyrolll-flower.svg', 'the complete official KYROIII flower is the vinyl centre');
@@ -621,6 +624,57 @@ try {
   await checkScrollMemory(desktopScroll, 'desktop', ({ x, y }) => desktopScroll.mouse.click(x, y), 900);
   const phoneScroll = await setupPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
   await checkScrollMemory(phoneScroll, 'phone', ({ x, y }) => phoneScroll.touchscreen.tap(x, y), 844);
+
+  // The way back to the catalog is a sticky glass rail, not a link that scrolls
+  // away: it is hidden on the catalog, visible on every beat page, still pinned to
+  // the top of the viewport after a long scroll, a real 44px tap target, and it
+  // returns to the remembered catalog offset rather than the top of the grid.
+  const railPage = await setupPage({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
+  await railPage.goto(`${url}/`);
+  await railPage.locator('#grid .catalog-tile').first().waitFor();
+  assert.equal(await railPage.locator('#beat-navigation').isVisible(), false, 'the catalog hides the ALL BEATS rail');
+  await railPage.locator('#grid .catalog-tile__link').first().click();
+  await railPage.locator('.beat-detail').waitFor();
+  assert.equal(await railPage.locator('#beat-navigation').isVisible(), true, 'the beat page shows the ALL BEATS rail');
+  const railContract = await railPage.evaluate(() => {
+    const nav = document.getElementById('beat-navigation');
+    const link = document.getElementById('all-beats-link');
+    const navStyle = getComputedStyle(nav);
+    const linkStyle = getComputedStyle(link);
+    const rect = link.getBoundingClientRect();
+    return {
+      position: navStyle.position,
+      top: navStyle.top,
+      zIndex: Number(navStyle.zIndex),
+      veilZ: Number(getComputedStyle(document.querySelector('.preloader')).zIndex),
+      linkHeight: Math.round(rect.height),
+      linkWidth: Math.round(rect.width),
+      linkText: link.innerText.replace(/\s+/g, ' ').trim(),
+      isReturnControl: link.hasAttribute('data-beat-back'),
+      radius: linkStyle.borderTopLeftRadius,
+      cursor: linkStyle.cursor,
+      label: link.getAttribute('aria-label'),
+    };
+  });
+  assert.equal(railContract.position, 'sticky', 'the ALL BEATS rail is sticky');
+  assert.equal(railContract.top, '0px', 'the rail pins to the top of the viewport');
+  assert(railContract.zIndex < railContract.veilZ, 'the rail paints under the loading veil');
+  assert(railContract.zIndex < 999999, 'the rail paints under the package drawer and the gate modal');
+  assert.equal(railContract.linkText, '← ALL BEATS', 'the rail reads as a back control');
+  assert.equal(railContract.label, 'Back to all beats', 'the rail is labelled for assistive tech');
+  assert.equal(railContract.isReturnControl, true, 'the link is marked as the beat-page return control');
+  assert.equal(railContract.radius, '999px', 'the return control is a pill, not a bare text link');
+  assert.equal(railContract.cursor, 'pointer', 'the return control reads as clickable');
+  assert(railContract.linkHeight >= 44, `the return control is a ${railContract.linkHeight}px tap target`);
+  assert(railContract.linkWidth >= 120, `the return control is a ${railContract.linkWidth}px wide target`);
+  await railPage.evaluate(() => window.scrollTo(0, Math.min(700, document.documentElement.scrollHeight - window.innerHeight)));
+  await railPage.waitForTimeout(150);
+  const pinnedTop = await railPage.evaluate(() => document.getElementById('beat-navigation').getBoundingClientRect().top);
+  assert(Math.abs(pinnedTop) <= 1, `the rail stays pinned while the beat page scrolls (top ${pinnedTop})`);
+  await railPage.locator('#all-beats-link').click();
+  await railPage.locator('#grid .catalog-tile').first().waitFor();
+  assert.equal(await railPage.evaluate(() => document.documentElement.classList.contains('beat-page')), false, 'the return control leaves the beat page');
+  await railPage.close();
 
   // The reveal is deliberately bold, but it is still just a translate: the
   // record must clear the sleeve enough to show the black centre label, stay
@@ -738,8 +792,12 @@ try {
   const flowVinyl = await vinylPage.locator('.vinyl-record--gold-rim').evaluate(el => {
     const rim = el.querySelector('.vinyl-record__rim');
     const rimStyle = rim ? getComputedStyle(rim) : null;
+    const flake = getComputedStyle(el, '::before');
     return {
       bodyBg: getComputedStyle(el).backgroundImage,
+      flakeBg: flake.backgroundImage,
+      flakeSize: flake.backgroundSize,
+      flakeOpacity: flake.opacity,
       children: [...el.children].map(child => child.className),
       splashCount: el.querySelectorAll('.vinyl-record__gold, [class*="splash"], [class*="blob"], [class*="splatter"]').length,
       rimBg: rimStyle ? rimStyle.backgroundImage : null,
@@ -761,6 +819,11 @@ try {
   assert.match(flowVinyl.rimMask, /radial-gradient/, 'the rim is masked down to an ultra-fine hairline');
   assert.equal(flowVinyl.innerRimContent, 'none', 'the rim is one hairline, with no inner pseudo-ring');
   assert.equal(flowVinyl.rimZ, '3', 'the rim paints above the disc');
+  assert.match(flowVinyl.flakeBg, /rgba\(212, 175, 55, 0\.55\)/, 'the gold pressing suspends gold flake micro-dust');
+  assert.match(flowVinyl.flakeBg, /rgba\(255, 243, 176, 0\.5\)/, 'the gold flake catches the light in pale gold');
+  assert.match(flowVinyl.flakeSize, /11px 13px/, 'the gold flake dust is a tiled micro-field');
+  assert.match(flowVinyl.flakeBg, /1\.7px at/, 'the largest gold fleck stays under 2px');
+  assert.equal(flowVinyl.flakeOpacity, '0.92', 'the gold dust stays a light dusting over the black disc');
   assert.equal(flowVinyl.labelZ, '1', 'the centre label stays above the disc');
   assert.equal(flowVinyl.logoZ, '2', 'the spinning flower sits above the label');
   assert.equal(flowVinyl.logo, true, 'the spinning flower survives the gold-rim pressing');
@@ -1998,8 +2061,11 @@ try {
     const logoFrame = el.querySelector('.vinyl-record__logo-frame');
     const recordRect = el.getBoundingClientRect();
     const sleeveRect = document.querySelector('.beat-detail__artwork').getBoundingClientRect();
+    const mist = getComputedStyle(el, '::before');
     return {
       bodyBg: getComputedStyle(el).backgroundImage,
+      mistBg: mist.backgroundImage,
+      mistOpacity: mist.opacity,
       labelBg: label.backgroundImage,
       labelZ: label.zIndex,
       rimBg: rimStyle ? rimStyle.backgroundImage : null,
@@ -2016,6 +2082,11 @@ try {
     };
   });
   assert.match(greenVinyl.bodyBg, /rgb\(45, 59, 54\)|rgb\(58, 75, 68\)/, 'the GREEN FLESH disc body is smoky grey-green');
+  assert.match(greenVinyl.bodyBg, /rgba\(214, 230, 221, 0\.24\)/, 'the GREEN FLESH disc carries pale sage marbling');
+  assert.match(greenVinyl.bodyBg, /rgba\(8, 22, 17, 0\.36\)/, 'the sage marbling drifts over a darker smoked body');
+  assert.match(greenVinyl.bodyBg, /rgba\(220, 235, 228, 0\.24\)/, 'the marbled body carries a fine mineral grain');
+  assert.match(greenVinyl.mistBg, /rgba\(255, 255, 255, 0\.26\)/, 'the GREEN FLESH outer edge wears a delicate white mist');
+  assert.equal(greenVinyl.mistOpacity, '0.78', 'the white edge mist stays a soft halo');
   assert.doesNotMatch(greenVinyl.bodyBg, /\.svg|splatter|blob/, 'the GREEN FLESH disc body carries no artwork layer');
   assert.match(greenVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(0, 0, 0\)/, 'the GREEN FLESH centre label stays deep matte black');
   assert.match(greenVinyl.rimBg, /conic-gradient/, 'the GREEN FLESH outer rim is a crisp white hairline');
@@ -2165,6 +2236,9 @@ try {
     };
   });
   assert.match(squishVinyl.bodyBg, /rgb\(207, 212, 218\)|rgb\(184, 190, 198\)/, 'the SQUISH! disc body is icy chrome-slate');
+  assert.match(squishVinyl.bodyBg, /linear-gradient\(116deg/, 'the SQUISH! disc carries a diamond-cut specular facet');
+  assert.match(squishVinyl.bodyBg, /rgba\(255, 255, 255, 0\.62\)/, 'the diamond facet catches a crisp white highlight');
+  assert.match(squishVinyl.bodyBg, /rgba\(255, 255, 255, 0\.34\)/, 'the SQUISH! disc carries crystal-clear shimmer micro-grooves');
   assert.doesNotMatch(squishVinyl.bodyBg, /\.svg|splatter|blob/, 'the SQUISH! disc body carries no artwork layer');
   assert.match(squishVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(0, 0, 0\)/, 'the SQUISH! centre label stays deep matte black');
   assert.match(squishVinyl.rimBg, /conic-gradient/, 'the SQUISH! outer rim is a crisp white hairline');
@@ -2604,6 +2678,19 @@ try {
   assert.match(taglineCss, /#39ff8b/i, 'the tagline keeps its original neon-green accent');
   assert.match(taglineCss, /#ff3ea5/i, 'the tagline keeps its original vivid-pink accent');
   assert.match(taglineCss, /#ff2e9a/i, 'the pixel heart keeps its original pink base');
+  // FLESH's pearl pressing is upgraded from a plain white disc to a marbled
+  // collector: smoky charcoal plumes under the pearl surface and a fine charcoal
+  // flake field. Every tone is an equal-channel grey, so it stays inside the
+  // monochrome audit; the black centre label and the flower are untouched.
+  const whiteStart = cssText.indexOf('.vinyl-record--white {');
+  const whiteEnd = cssText.indexOf('/* The frame is a positioning wrapper', whiteStart);
+  assert(whiteStart >= 0 && whiteEnd > whiteStart, 'the pearl-white pressing has its own stylesheet block');
+  const whiteCss = cssText.slice(whiteStart, whiteEnd);
+  assert.match(whiteCss, /rgba\(38, 38, 38, 0\.38\)/, 'the pearl disc carries smoky charcoal marbling');
+  assert.match(whiteCss, /rgba\(46, 46, 46, 0\.3\)/, 'the charcoal marbling drifts in soft plumes');
+  assert.match(whiteCss, /rgba\(40, 40, 40, 0\.4\)/, 'the pearl disc scatters a fine charcoal flake field');
+  assert.match(whiteCss, /13px 17px/, 'the charcoal flake field is tiled');
+  assert.match(whiteCss, /#f5f5f5/, 'the pearl body itself is unchanged underneath the marble');
   // THE FLOW's collector pressing is the second deliberate palette exception:
   // the deep matte body and the single ultra-fine gold foil rim are the vinyl's
   // specified palette, isolated so every other stylesheet literal stays neutral.
@@ -2618,6 +2705,11 @@ try {
   assert.match(goldRimCss, /mask:\s*radial-gradient/, 'the gold rim is masked to a hairline ring');
   assert.doesNotMatch(goldRimCss, /\.vinyl-record__rim::after/, 'the gold rim has no inner pseudo-ring');
   assert.doesNotMatch(goldRimCss, /\.vinyl-record__gold/, 'the gold-rim palette has no splash layer');
+  assert.match(goldRimCss, /\.vinyl-record--gold-rim::before\s*\{[^}]*rgba\(212, 175, 55, 0\.55\)/, 'the gold pressing suspends gold flake micro-dust');
+  assert.match(goldRimCss, /\.vinyl-record--gold-rim::before\s*\{[^}]*11px 13px/, 'the gold flake is a tiled micro-field');
+  assert.match(goldRimCss, /rgba\(255, 243, 176, 0\.5\)/, 'the gold flake catches a pale foil highlight');
+  assert.match(goldRimCss, /\.vinyl-record--gold-rim\s+\.vinyl-record__rim\s*\{[^}]*calc\(100% - 3px\)/, 'the brushed gold rim is given a touch more body');
+  assert.equal((goldRimCss.match(/conic-gradient/g) || []).length, 1, 'the gold flake adds no second metallic ring');
   // GREEN FLESH's collector pressing is the third deliberate palette exception: the
   // smoky grey-green body and delicate white outer hairline are the vinyl's
   // specified colours, isolated so every other stylesheet literal stays neutral.
@@ -2633,6 +2725,10 @@ try {
   assert.equal((sageCss.match(/conic-gradient/g) || []).length, 1, 'the sage-white-rim palette paints exactly one delicate ring');
   assert.match(sageCss, /\.vinyl-record--sage-white-rim\s+\.vinyl-record__logo-frame\s*\{\s*z-index:\s*2/, 'the spinning flower sits above the sage centre label');
   assert.doesNotMatch(sageCss, /splash|blob|splatter|\.vinyl-record__sage/, 'the sage-white-rim palette has no splash, blob or random graphic');
+  assert.match(sageCss, /rgba\(214, 230, 221, 0\.24\)/, 'the sage disc carries pale sage marbling');
+  assert.match(sageCss, /rgba\(8, 22, 17, 0\.36\)/, 'the sage marbling drifts over a smoked body');
+  assert.match(sageCss, /rgba\(220, 235, 228, 0\.24\)/, 'the marble carries a fine mineral grain');
+  assert.match(sageCss, /\.vinyl-record--sage-white-rim::before\s*\{[^}]*rgba\(255, 255, 255, 0\.26\)/, 'the sage outer edge wears a white mist halo');
   // SQUISH!'s ice-silver-rim pressing is the fourth deliberate palette exception:
   // the chrome-slate body and composite white perimeter hairline are the vinyl's
   // specified colours, isolated so the rest of the storefront stays neutral.
@@ -2649,6 +2745,10 @@ try {
   assert.match(iceCss, /mask:\s*radial-gradient/, 'the ice-silver rim is masked to a hairline ring');
   assert.match(iceCss, /\.vinyl-record--ice-silver-rim\s+\.vinyl-record__logo-frame\s*\{\s*z-index:\s*2/, 'the spinning flower sits above the ice-silver centre label');
   assert.doesNotMatch(iceCss, /splash|blob|splatter|\.vinyl-record__ice/, 'the ice-silver-rim palette has no splash, blob or random graphic');
+  assert.match(iceCss, /linear-gradient\(116deg/, 'the ice-silver disc carries a diamond-cut facet');
+  assert.match(iceCss, /linear-gradient\(-118deg/, 'the diamond facet is crossed by a second reflection');
+  assert.match(iceCss, /rgba\(255, 255, 255, 0\.34\)/, 'the ice-silver disc carries crystal-clear shimmer micro-grooves');
+  assert.match(iceCss, /\.vinyl-record--ice-silver-rim::before\s*\{[^}]*rgba\(255, 255, 255, 0\.52\)/, 'the ice-silver disc keeps a crisp white outer edge');
   // JUST D0 IT's rage-fire-rim pressing is the fifth deliberate palette
   // exception: the deep matte black body and fiery red/orange perimeter hairline
   // are the vinyl's specified colours, isolated so the rest of the storefront

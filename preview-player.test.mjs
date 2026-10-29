@@ -79,6 +79,32 @@ test("the catalog remembers the visitor's scroll position for the trip back", ()
   assert.match(script, /history\.scrollRestoration = "manual"/);
 });
 
+test("every beat keeps its own bespoke pressing, and the beat page keeps a sticky way back", () => {
+  const window = {};
+  const catalogContext = vm.createContext({ window });
+  vm.runInContext(readFileSync(new URL("./catalog.js", import.meta.url), "utf8"), catalogContext);
+  const pressings = Object.fromEntries(window.KYROlll_CATALOG.map((beat) => [beat.slug, beat.vinylVariant]));
+  assert.deepEqual(pressings, {
+    flesh: "white",
+    "the-flow": "gold-rim",
+    "green-flesh": "sage-white-rim",
+    squish: "ice-silver-rim",
+    "just-d0-it": "rage-fire-rim",
+    adll: "graffiti-splatter",
+  }, "each release keeps its own collector pressing");
+  const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
+  assert.match(css, /\.vinyl-record--white \{[\s\S]*?rgba\(38, 38, 38, 0\.38\)/, "FLESH is a charcoal-marbled pearl disc");
+  assert.match(css, /\.vinyl-record--gold-rim::before \{[\s\S]*?rgba\(212, 175, 55, 0\.55\)/, "THE FLOW suspends gold flake dust");
+  assert.match(css, /\.vinyl-record--sage-white-rim \{[\s\S]*?rgba\(214, 230, 221, 0\.24\)/, "GREEN FLESH is a marbled sage disc");
+  assert.match(css, /\.vinyl-record--ice-silver-rim \{[\s\S]*?linear-gradient\(116deg/, "SQUISH! is a diamond-cut silver disc");
+  assert.match(css, /\.beat-navigation \{[^}]*position:\s*sticky/, "the ALL BEATS rail is sticky");
+  const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
+  assert.match(html, /id="all-beats-link"[^>]*aria-label="Back to all beats"/, "the beat page carries a labelled ALL BEATS control");
+  const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
+  assert.match(script, /allBeatsLink\.setAttribute\("data-beat-back", ""\)/, "the return control is wired in script.js");
+  assert.match(script, /if \(!restoreCatalogScroll\(\)\)/, "the return control restores the saved catalog offset");
+});
+
 function setup() {
   const listeners = new Map();
   const root = {

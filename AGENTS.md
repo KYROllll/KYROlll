@@ -304,12 +304,16 @@ rest immediately, and adding `vinyl-open` is a no-op. `.beat-detail__artwork-wra
 never nudge a surrounding box.
 
 `catalog.js` gives each beat its own pressing: FLESH is `vinylVariant: "white"` (a pearl-white
-disc with a broad black centre label and the full flower, no spindle hole), THE FLOW is
+disc with a broad black centre label and the full flower, no spindle hole, shot through with
+smoky charcoal marbling and a fine charcoal flake field), THE FLOW is
 `vinylVariant: "gold-rim"` (a deep matte `#0a0a0c` disc with a single ultra-fine metallic gold
-foil rim), GREEN FLESH is `vinylVariant: "sage-white-rim"` (a smoky grey-green disc with a
-delicate white outer hairline and the complete flower in its deep matte black centre label),
-SQUISH! is `vinylVariant: "ice-silver-rim"` (an icy chrome-slate disc with diamond-silver
-micro-grooves and a pure-white perimeter hairline), JUST D0 IT is
+foil rim and suspended gold flake micro-dust, 0.6–1.7px flecks on two off-phase tiled fields),
+GREEN FLESH is `vinylVariant: "sage-white-rim"` (a smoky, marbled grey-green disc with pale sage
+veins, a white mist halo inside a delicate white outer hairline and the complete flower in its
+deep matte black centre label),
+SQUISH! is `vinylVariant: "ice-silver-rim"` (an icy chrome-slate disc with a diamond-cut
+specular facet, crystal-clear shimmer micro-grooves at two densities and a pure-white perimeter
+hairline), JUST D0 IT is
 `vinylVariant: "rage-fire-rim"` (a deep matte `#0a0a0a` disc with one delicate fire-red/orange
 perimeter hairline and the complete flower in its matte black centre label), and ADLL is
 `vinylVariant: "graffiti-splatter"` (a deep matte `#0a0a0a` disc dusted with an ultra-fine white
@@ -797,6 +801,23 @@ visitor asked to go back, not to watch the page travel. It applies on desktop an
 (the test taps a tile with a real pointer/mouse and with a real touch, then walks Back and ALL
 BEATS). This is the only browser storage the store uses; it holds no gate state, address or
 signature, and `sessionStorage` dies with the tab.
+
+## The return control is a sticky rail, not a link above the fold
+
+`#beat-navigation` (the `← ALL BEATS` pill) sits in the flow at the top of the beat page and
+then pins itself to the top of the viewport — `position: sticky; top: 0` — so the way back is a
+glance away at any scroll depth. Sticky, not fixed: it is painted in the root stacking context
+with `z-index: 95`, above the storefront's own tiles and marquee but deliberately below the
+preloader veil (400), the package drawer (999999) and the gate modal (1000000), so it can never
+float over a dialog or the first paint. `script.js` marks it `data-beat-back` and its click is
+the same memory path as a tile the visitor came from: `unlockScroll()`, `pushState`,
+`rebuildCatalog()`, then `restoreCatalogScroll()` (a deep link with no saved offset falls back
+to the top of the catalog). Because a beat page auto-scrolls its card to the top of the
+viewport, `.beat-detail` carries `scroll-margin-top: 84px` — without it the pinned rail would
+cover the first line of the title. `brand-design.test.mjs` asserts the rail is hidden on the
+catalog, visible on a beat page, still pinned at `top: 0` after a deep scroll, below the veil,
+a ≥44px pill and a `← ALL BEATS` label, and that it leaves the beat page and restores the
+remembered offset.
 
 ## Verify it works
 

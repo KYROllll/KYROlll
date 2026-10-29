@@ -425,11 +425,17 @@ grid.addEventListener("click", (e) => {
 
 const allBeatsLink = $("all-beats-link");
 if (allBeatsLink) {
+  /* The return control (`#all-beats-link`, the sticky ALL BEATS rail above the
+     beat card) is the second way out of a beat page, and it is the one a visitor
+     can reach at any scroll depth. It restores the saved catalog offset instead
+     of dropping them at the top of the grid; a deep link with no saved offset
+     falls back to the top of the catalog. */
+  allBeatsLink.setAttribute("data-beat-back", "");
   allBeatsLink.addEventListener("click", (e) => {
     e.preventDefault();
     unlockScroll();
     history.pushState(null, "", e.currentTarget.href);
     rebuildCatalog();
-    if (!restoreCatalogScroll()) $("grid").scrollIntoView({ block: "start" });
+    if (!restoreCatalogScroll()) $("grid").scrollIntoView({ block: "start", behavior: "auto" });
   });
 }
