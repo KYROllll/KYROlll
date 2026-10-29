@@ -381,8 +381,8 @@ payment gateway.
 
 - `window.KYROlll_SOCIAL` — the official profile URLs the footers link and the gate
   steps open: `youtube` (`https://www.youtube.com/@KYROlll00`), `instagram`
-  (`https://www.instagram.com/kyroill00`), `tiktok` (`https://www.tiktok.com/@kyroill00`)
-  and `x` (`https://x.com/KYROlllll`).
+  (`https://www.instagram.com/kyrolll00/`), `tiktok` (`https://www.tiktok.com/@kyrolll00`)
+  and `x` (`https://x.com/KYROlll00`).
 - `window.KYROlll_YOUTUBE_CHANNEL` — where the "subscribe" step sends the visitor
   (`?sub_confirmation=1` makes YouTube show its own subscribe prompt). Built from
   `KYROlll_SOCIAL.youtube`, so it is
@@ -815,16 +815,16 @@ signature, and `sessionStorage` dies with the tab.
 
 The footer's `SUPPORT` control is a `<button data-support-open>`, never a `mailto:` link. It
 opens `.support-modal` (built once on `<body>` by `support.js`), a full-screen glass dialog with
-the four structured categories — LICENSE & RIGHTS QUESTION, DOWNLOAD / STEMS ISSUE, COLLAB /
-CUSTOM BEATS, GENERAL INQUIRY — one email field, one subject and one detailed message.
-`support.html` mounts the *same* renderer inline (`[data-support-inline]`) as a dedicated view,
-so there is one validator and one submit path on every page.
+exactly three fields — email, subject and a detailed message. There is deliberately **no
+category picker or dropdown**: the desk stays a clean, one-glance form. `support.html` mounts
+the *same* renderer inline (`[data-support-inline]`) as a dedicated view, so there is one
+validator and one submit path on every page.
 
 The form posts JSON to `KYROlll_NEWSLETTER.endpoint` / `KYROlll_SITE.formspreeEndpoint`
 (`https://formspree.io/f/mvkkkoew`, `DEFAULT_ENDPOINT` as the fallback for a page without the
-catalog) with `Accept: application/json`: form name, category label + id, email, subject,
-message, `submittedAt`, page, referrer, `device`, viewport and language. An empty category, a
-malformed address, a short subject or a short message is refused inline before anything leaves
+catalog) with `Accept: application/json`: form name, email, subject, message, `submittedAt`,
+page, referrer, `device`, viewport and language. A malformed address, a short subject or a
+short message is refused inline (with the first missing field focused) before anything leaves
 the browser; a successful POST replaces the card with
 `MESSAGE SENT SUCCESSFULLY // WE WILL GET BACK TO YOU SOON`. Nothing is drafted, prefilled or
 stored — re-opening the desk always starts empty.

@@ -732,9 +732,9 @@
   function socialSteps(actions, video) {
     const social = window.KYROlll_SOCIAL || {};
     const channel = window.KYROlll_YOUTUBE_CHANNEL || (social.youtube ? social.youtube + "?sub_confirmation=1" : "https://www.youtube.com/");
-    const instagram = social.instagram || "https://www.instagram.com/kyroill00";
-    const tiktok = social.tiktok || "https://www.tiktok.com/@kyroill00";
-    const x = social.x || "https://x.com/KYROlllll";
+    const instagram = social.instagram || "https://www.instagram.com/kyrolll00/";
+    const tiktok = social.tiktok || "https://www.tiktok.com/@kyrolll00";
+    const x = social.x || "https://x.com/KYROlll00";
     const defs = {
       sub: { href: channel, title: "SUBSCRIBE", meta: "TO THE KYROIII YOUTUBE CHANNEL" },
       like: { href: video || channel, title: "LIKE THIS BEAT", meta: "ON YOUTUBE (DIRECT BEAT VIDEO)" },

@@ -21,9 +21,9 @@
   // subscribe.
   window.KYROlll_SOCIAL = {
     youtube: "https://www.youtube.com/@KYROlll00",
-    instagram: "https://www.instagram.com/kyroill00",
-    tiktok: "https://www.tiktok.com/@kyroill00",
-    x: "https://x.com/KYROlllll"
+    instagram: "https://www.instagram.com/kyrolll00/",
+    tiktok: "https://www.tiktok.com/@kyrolll00",
+    x: "https://x.com/KYROlll00"
   };
   window.KYROlll_YOUTUBE_CHANNEL = window.KYROlll_SOCIAL.youtube + "?sub_confirmation=1";
 

@@ -3434,32 +3434,6 @@ html.support-open { overflow: hidden; }
 .support-input.is-valid { border-color: #a1a1a1; }
 .support-textarea { resize: vertical; min-height: 132px; }
 
-.support-categories { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.support-category {
-  padding: 13px 14px;
-  border: 1px solid #3a3a3a;
-  border-radius: 3px;
-  background: #131313;
-  color: var(--gray);
-  font: inherit;
-  font-size: 9px;
-  font-weight: 800;
-  line-height: 1.45;
-  letter-spacing: .12em;
-  text-align: left;
-  text-transform: uppercase;
-  cursor: pointer;
-  touch-action: manipulation;
-  transition: border-color .15s ease, background-color .15s ease, color .15s ease;
-}
-.support-category:hover,
-.support-category:focus-visible { border-color: #7a7a7a; color: var(--white); outline: none; }
-.support-category.is-selected {
-  border-color: var(--white);
-  background: var(--white);
-  color: var(--black);
-}
-
 .support-error {
   margin: 0;
   padding: 10px 12px;
@@ -3523,8 +3497,7 @@ html.support-open { overflow: hidden; }
 
 @media (max-width: 640px) {
   .support-sheet { max-height: 92dvh; padding: 20px 16px 24px; }
-  .support-grid,
-  .support-categories { grid-template-columns: minmax(0, 1fr); }
+  .support-grid { grid-template-columns: minmax(0, 1fr); }
   /* 16px is the smallest size iOS will not zoom the page for on focus. */
   .support-input { font-size: 16px; }
   .support-actions { justify-content: stretch; }

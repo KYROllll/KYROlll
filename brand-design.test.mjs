@@ -442,9 +442,9 @@ try {
   }));
   assert.deepEqual(social.map(item => ({ href: item.href, label: item.label })), [
     { href: 'https://www.youtube.com/@KYROlll00', label: 'KYROIII on YouTube' },
-    { href: 'https://www.instagram.com/kyroill00', label: 'KYROIII on Instagram' },
-    { href: 'https://www.tiktok.com/@kyroill00', label: 'KYROIII on TikTok' },
-    { href: 'https://x.com/KYROlllll', label: 'KYROIII on X' }
+    { href: 'https://www.instagram.com/kyrolll00/', label: 'KYROIII on Instagram' },
+    { href: 'https://www.tiktok.com/@kyrolll00', label: 'KYROIII on TikTok' },
+    { href: 'https://x.com/KYROlll00', label: 'KYROIII on X' }
   ], 'the footer links every official social profile');
   social.forEach(item => {
     assert.equal(item.text, '', `${item.label} renders as an icon, not a text link`);
@@ -1141,7 +1141,7 @@ try {
   assert.equal(wavLikeHref, 'https://www.youtube.com/watch?v=8OhRJQn2YCU', 'the like step opens FLESH\'s exact official video');
   assert.equal(wavLikeHref, await wavPage.evaluate(id => window.KYROlll_HELPERS.videoFor(id), BEAT_ID), 'the gate and videoFor agree on the beat video');
   await noYouTubeButton(wavPage, CARD);
-  assert.equal(await wavPage.locator('[data-gate-action="ig"]').getAttribute('href'), 'https://www.instagram.com/kyroill00', 'the Instagram step opens the official profile');
+  assert.equal(await wavPage.locator('[data-gate-action="ig"]').getAttribute('href'), 'https://www.instagram.com/kyrolll00/', 'the Instagram step opens the official profile');
   assert.equal(await wavPage.locator('[data-gate-action="tt"]').count(), 0, 'the WAV lease carries no TikTok step');
   assert.equal(await wavPage.locator('[data-gate-action="x"]').count(), 0, 'the WAV lease carries no X step');
   assert.equal(await wavPage.locator('[data-gate-submit]').isDisabled(), true);
@@ -1248,9 +1248,9 @@ try {
   assert.equal(proLikeHref, 'https://www.youtube.com/watch?v=8OhRJQn2YCU', 'the like step opens FLESH\'s exact official video');
   assert.equal(proLikeHref, await proPage.evaluate(id => window.KYROlll_HELPERS.videoFor(id), BEAT_ID), 'the gate and videoFor agree on the beat video');
   await noYouTubeButton(proPage, CARD);
-  assert.equal(await proPage.locator('[data-gate-action="ig"]').getAttribute('href'), 'https://www.instagram.com/kyroill00', 'the Instagram step opens the official profile');
-  assert.equal(await proPage.locator('[data-gate-action="tt"]').getAttribute('href'), 'https://www.tiktok.com/@kyroill00', 'the TikTok step opens the official profile');
-  assert.equal(await proPage.locator('[data-gate-action="x"]').getAttribute('href'), 'https://x.com/KYROlllll', 'the X step opens the official profile');
+  assert.equal(await proPage.locator('[data-gate-action="ig"]').getAttribute('href'), 'https://www.instagram.com/kyrolll00/', 'the Instagram step opens the official profile');
+  assert.equal(await proPage.locator('[data-gate-action="tt"]').getAttribute('href'), 'https://www.tiktok.com/@kyrolll00', 'the TikTok step opens the official profile');
+  assert.equal(await proPage.locator('[data-gate-action="x"]').getAttribute('href'), 'https://x.com/KYROlll00', 'the X step opens the official profile');
   assert.equal(await proPage.locator('#gate-comment').count(), 0, 'the comment step is gone');
   assert.equal(await proPage.locator('[data-gate-submit]').isDisabled(), true);
   await openSteps(proPage, 5);
@@ -2673,29 +2673,24 @@ try {
 
   // ------------------------------------------------------------ support desk
   // The footer's SUPPORT control no longer opens a mail app: it opens the
-  // store's own desk. The test walks the real form — a category, an address, a
-  // subject, a message — refuses an incomplete submission without contacting
-  // Formspree, then proves the one POST carries the rich analytics payload and
-  // that the dialog reaches its professional success state.
+  // store's own desk. The desk is three plain fields — an address, a subject,
+  // a message, with no category to pick. The test refuses an incomplete
+  // submission without contacting Formspree, then proves the one POST carries
+  // the rich analytics payload and that the dialog reaches its success state.
   const supportPage = await setupPage({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
   await supportPage.goto(`${url}/`, { waitUntil: 'domcontentloaded' });
   await supportPage.locator('.footer__support').click();
   const desk = supportPage.locator('.support-modal:not([hidden])');
   await desk.waitFor();
   assert.equal(await supportPage.locator('.support-modal .support-sheet').isVisible(), true, 'the built-in desk is an in-page dialog');
-  assert.equal(await supportPage.locator('.support-category').count(), 4, 'the desk offers the four structured categories');
-  assert.deepEqual(await supportPage.locator('.support-category').allInnerTexts(), [
-    'LICENSE & RIGHTS QUESTION',
-    'DOWNLOAD / STEMS ISSUE',
-    'COLLAB / CUSTOM BEATS',
-    'GENERAL INQUIRY',
-  ], 'the categories are the studio’s own routing options');
+  assert.equal(await supportPage.locator('.support-modal select, .support-modal .support-category, .support-modal .support-categories').count(), 0, 'the desk asks for no category');
+  assert.equal(await supportPage.locator('.support-modal #support-email').count(), 1, 'the desk asks for the visitor’s email');
+  assert.equal(await supportPage.locator('.support-modal #support-subject').count(), 1, 'the desk asks for a subject');
+  assert.equal(await supportPage.locator('.support-modal #support-message').count(), 1, 'the desk asks for the message');
   const supportBase = subscribeRequests.length;
   await supportPage.locator('[data-support-submit]').click();
   assert.equal(await supportPage.locator('[data-support-error]').isVisible(), true, 'an empty ticket is refused inline');
-  assert.match(await supportPage.locator('[data-support-error]').innerText(), /PICK A TOPIC/);
-  await supportPage.locator('[data-support-category="download"]').click();
-  assert.equal(await supportPage.locator('[data-support-category="download"]').getAttribute('aria-checked'), 'true', 'the picked category is announced');
+  assert.match(await supportPage.locator('[data-support-error]').innerText(), /EMAIL ADDRESS/, 'the first missing field is the address');
   await supportPage.locator('#support-email').fill('not-an-address');
   await supportPage.locator('#support-subject').fill('STEMS ARCHIVE');
   await supportPage.locator('#support-message').fill('THE TRACKED STEMS ARCHIVE WILL NOT OPEN ON MY MACHINE.');
@@ -2708,8 +2703,7 @@ try {
   const ticket = postJSON(supportBase);
   assert.equal(subscribeRequests[supportBase].url, PROVIDER, 'the desk posts to the store’s Formspree form');
   assert.match(subscribeRequests[supportBase].headers['content-type'] || '', /application\/json/, 'the desk posts a JSON payload');
-  assert.equal(ticket.category, 'DOWNLOAD / STEMS ISSUE', 'the payload carries the picked category');
-  assert.equal(ticket.categoryId, 'download', 'the payload carries the category id');
+  assert.equal(ticket.category, undefined, 'the payload carries no category');
   assert.equal(ticket.email, 'jordan@studio.com', 'the payload carries the visitor’s address');
   assert.equal(ticket.subject, 'STEMS ARCHIVE', 'the payload carries the subject');
   assert.match(ticket.message, /TRACKED STEMS ARCHIVE/, 'the payload carries the full message');
@@ -2731,13 +2725,17 @@ try {
   await supportPage.locator('.footer__support').click();
   await supportPage.locator('.support-modal:not([hidden])').waitFor();
   assert.equal(await supportPage.locator('#support-email').inputValue(), '', 'the desk never prefills an address');
-  assert.equal(await supportPage.locator('.support-category.is-selected').count(), 0, 'the desk never remembers a category');
+  assert.equal(await supportPage.locator('#support-subject').inputValue(), '', 'the desk never remembers a subject');
+  assert.equal(await supportPage.locator('#support-message').inputValue(), '', 'the desk never remembers a message');
   await supportPage.locator('[data-support-close]').click();
   await supportPage.waitForFunction(() => document.getElementById('support-modal')?.hidden === true, null, { timeout: 5000 });
   // support.html mounts the same desk inline as a dedicated view.
   await supportPage.goto(`${url}/support.html`, { waitUntil: 'domcontentloaded' });
   await supportPage.locator('[data-support-inline] .support-form').waitFor();
-  assert.equal(await supportPage.locator('[data-support-inline] .support-category').count(), 4, 'the support page mounts the same four categories');
+  assert.equal(await supportPage.locator('[data-support-inline] #support-email').count(), 1, 'the support page mounts the same email field');
+  assert.equal(await supportPage.locator('[data-support-inline] #support-subject').count(), 1, 'the support page mounts the same subject field');
+  assert.equal(await supportPage.locator('[data-support-inline] #support-message').count(), 1, 'the support page mounts the same message field');
+  assert.equal(await supportPage.locator('[data-support-inline] select, [data-support-inline] .support-category').count(), 0, 'the support page offers no category picker');
   assert.equal(await supportPage.locator('[data-support-inline] a[href^="mailto:"]').count(), 0, 'the support page no longer hands over a mailto link');
   await supportPage.close();
 

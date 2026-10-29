@@ -117,12 +117,12 @@ test("the built-in support desk is wired on every page and posts a rich Formspre
   assert.match(pages[2][1], /data-support-inline/, "support.html mounts the desk inline");
   assert.match(support, /https:\/\/formspree\.io\/f\/mvkkkoew/, "the desk posts to the store's Formspree form");
   assert.match(support, /"Accept": "application\/json", "Content-Type": "application\/json"/, "the desk posts JSON");
-  ["LICENSE & RIGHTS QUESTION", "DOWNLOAD / STEMS ISSUE", "COLLAB / CUSTOM BEATS", "GENERAL INQUIRY"]
-    .forEach(category => assert(support.includes(category), `the desk offers ${category}`));
-  ["category", "email", "subject", "message", "submittedAt", "device", "viewport"]
+  ["email", "subject", "message", "submittedAt", "device", "viewport"]
     .forEach(field => assert.match(support, new RegExp(`\\b${field}:`), `the analytics payload carries ${field}`));
   assert.match(support, /MESSAGE SENT SUCCESSFULLY \/\/ WE WILL GET BACK TO YOU SOON/, "the desk confirms the send professionally");
-  assert.match(support, /aria-checked/, "the category picker announces its selection");
+  assert.doesNotMatch(support, /support-categor|<select/i, "the desk offers no category dropdown");
+  ["support-email", "support-subject", "support-message"]
+    .forEach(field => assert(support.includes(field), `the desk renders the ${field} field`));
 });
 
 test("the footer carries the four official social marks as large SVG badges", () => {
@@ -139,6 +139,9 @@ test("the footer carries the four official social marks as large SVG badges", ()
     assert.match(html, /social-icon--instagram[\s\S]*?kyro-ig-gradient/, `${name}: Instagram keeps its gradient mark`);
     assert.match(html, /social-icon--tiktok[\s\S]*?fill="#25f4ee"/, `${name}: TikTok keeps its cyan offset`);
     assert.match(html, /social-icon--x[\s\S]*?fill="#fff"/, `${name}: X keeps its minimalist logo`);
+    assert.match(html, /social-icon--instagram" href="https:\/\/www\.instagram\.com\/kyrolll00\/"/, `${name}: Instagram opens @kyrolll00`);
+    assert.match(html, /social-icon--tiktok" href="https:\/\/www\.tiktok\.com\/@kyrolll00"/, `${name}: TikTok opens @kyrolll00`);
+    assert.match(html, /social-icon--x" href="https:\/\/x\.com\/KYROlll00"/, `${name}: X opens @KYROlll00`);
   });
 });
 

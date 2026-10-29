@@ -6,10 +6,12 @@
    same form inline, so the desk is reachable as a dedicated view as well as a
    modal — one renderer, one validator, one submit path.
 
-   The message is posted to the store's Formspree form as rich JSON (category,
-   email, subject, message, timestamp, device, page and viewport) with
-   `Accept: application/json`, and the card is then replaced by the success
-   state. Nothing is stored in the browser: no draft, no address, no ticket id.
+   The form is three fields — email, subject, message — with no dropdown or
+   category to choose. The message is posted to the store's Formspree form as
+   rich JSON (email, subject, message, timestamp, device, page and viewport)
+   with `Accept: application/json`, and the card is then replaced by the
+   success state. Nothing is stored in the browser: no draft, no address, no
+   ticket id.
 
    The dialog is a phone citizen like the download gate: its sheet scrolls
    inside itself, it pins the page's scroll offset while open, and it is closed
@@ -18,13 +20,6 @@
 */
 (function () {
   "use strict";
-
-  var CATEGORIES = [
-    { id: "license", label: "LICENSE & RIGHTS QUESTION" },
-    { id: "download", label: "DOWNLOAD / STEMS ISSUE" },
-    { id: "collab", label: "COLLAB / CUSTOM BEATS" },
-    { id: "general", label: "GENERAL INQUIRY" },
-  ];
 
   var DEFAULT_ENDPOINT = "https://formspree.io/f/mvkkkoew";
   var EMAIL = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
@@ -46,26 +41,9 @@
     return DEFAULT_ENDPOINT;
   }
 
-  function escapeHTML(value) {
-    return String(value == null ? "" : value).replace(/[&<>"']/g, function (char) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char];
-    });
-  }
-
-  function categoryButtons() {
-    return CATEGORIES.map(function (category) {
-      return '<button type="button" class="support-category" role="radio" aria-checked="false"'
-        + ' data-support-category="' + category.id + '">' + escapeHTML(category.label) + "</button>";
-    }).join("");
-  }
-
   function formHTML() {
     return ''
       + '<form class="support-form" data-support-form novalidate>'
-      + '  <div class="support-field" role="radiogroup" aria-label="Support category">'
-      + '    <span class="support-label" id="support-category-label">WHAT DO YOU NEED?</span>'
-      + '    <div class="support-categories" aria-labelledby="support-category-label">' + categoryButtons() + "</div>"
-      + "  </div>"
       + '  <div class="support-grid">'
       + '    <div class="support-field">'
       + '      <label class="support-label" for="support-email">YOUR EMAIL</label>'
@@ -105,7 +83,6 @@
   }
 
   function errorFor(data) {
-    if (!data.category) return "PICK A TOPIC SO WE ROUTE IT TO THE RIGHT PLACE.";
     if (!EMAIL.test(data.email)) return "THAT EMAIL ADDRESS DOESN'T LOOK RIGHT — CHECK IT AND TRY AGAIN.";
     if (data.subject.length < MIN_SUBJECT) return "ADD A SHORT SUBJECT — AT LEAST " + MIN_SUBJECT + " CHARACTERS.";
     if (data.message.length < MIN_MESSAGE) return "TELL US A LITTLE MORE — AT LEAST " + MIN_MESSAGE + " CHARACTERS.";
@@ -113,10 +90,7 @@
   }
 
   function readForm(form) {
-    var picked = form.querySelector(".support-category.is-selected");
     return {
-      category: picked ? picked.getAttribute("data-support-category") : "",
-      categoryLabel: picked ? picked.textContent.trim() : "",
       email: (form.querySelector("#support-email").value || "").trim(),
       subject: (form.querySelector("#support-subject").value || "").trim(),
       message: (form.querySelector("#support-message").value || "").trim(),
@@ -142,8 +116,6 @@
   function payloadFor(data) {
     return {
       form: "KYROIII — SUPPORT DESK",
-      category: data.categoryLabel || data.category,
-      categoryId: data.category,
       email: data.email,
       subject: data.subject,
       message: data.message,
@@ -162,7 +134,7 @@
     if (problem) {
       setError(form, problem);
       var target = form.querySelector(
-        data.category ? (EMAIL.test(data.email) ? "#support-subject" : "#support-email") : ".support-category"
+        !EMAIL.test(data.email) ? "#support-email" : (data.subject.length < MIN_SUBJECT ? "#support-subject" : "#support-message")
       );
       if (target && target.focus) target.focus();
       return false;
@@ -191,16 +163,6 @@
   function wireForm(host) {
     var form = host.querySelector("[data-support-form]");
     if (!form) return;
-    var picked = form.querySelectorAll(".support-category");
-    Array.prototype.forEach.call(picked, function (button) {
-      button.addEventListener("click", function () {
-        Array.prototype.forEach.call(picked, function (other) {
-          other.classList.toggle("is-selected", other === button);
-          other.setAttribute("aria-checked", other === button ? "true" : "false");
-        });
-        setError(form, "");
-      });
-    });
     var email = form.querySelector("#support-email");
     if (email) email.addEventListener("input", function () {
       var valid = EMAIL.test(email.value.trim());
@@ -271,7 +233,7 @@
       + '  <div class="support-sheet__head">'
       + '    <span class="support-sheet__kicker">KYROIII SUPPORT</span>'
       + '    <h2 class="support-sheet__title" id="support-title">HOW CAN WE HELP?</h2>'
-      + '    <p class="support-sheet__sub">NO ACCOUNT NEEDED — PICK A TOPIC, TELL US WHAT HAPPENED, AND WE\'LL REPLY BY EMAIL.</p>'
+      + '    <p class="support-sheet__sub">NO ACCOUNT NEEDED — TELL US WHAT YOU NEED, AND WE\'LL REPLY BY EMAIL.</p>'
       + "  </div>"
       + '  <div class="support-sheet__body" data-support-body></div>'
       + "</div>";
@@ -287,7 +249,7 @@
     dialog.hidden = false;
     document.documentElement.classList.add("support-open");
     lock();
-    var first = host.querySelector(".support-category");
+    var first = host.querySelector("#support-email");
     if (first) first.focus();
     document.addEventListener("keydown", onKeydown);
   }
@@ -334,6 +296,6 @@
     open: open,
     close: close,
     endpoint: endpoint,
-    categories: CATEGORIES.map(function (category) { return category.label; }),
+    fields: ["email", "subject", "message"],
   };
 })();
