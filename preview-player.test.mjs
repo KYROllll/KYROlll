@@ -12,7 +12,7 @@ test("the fifth release is scheduled, packaged and pointed at the free-download 
   const catalogContext = vm.createContext({ window });
   vm.runInContext(readFileSync(new URL("./catalog.js", import.meta.url), "utf8"), catalogContext);
   const catalog = window.KYROlll_CATALOG;
-  assert.equal(catalog.length, 5, "the catalog carries five releases");
+  assert.equal(catalog.length, 6, "the catalog carries six releases");
   const beat = window.KYROlll_HELPERS.beatById("just-d0-it");
   assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - JUST D0 IT");
   assert.equal(beat.shortTitle, "JUST D0 IT");
@@ -36,6 +36,47 @@ test("the fifth release is scheduled, packaged and pointed at the free-download 
     "KYROIII - JUST D0 IT (135 BPM - AM).wav",
     "KYROIII - JUST D0 IT - TRACKED STEMS.zip",
   ]);
+});
+
+test("the sixth release ADLL is scheduled, packaged and pointed at the free-download form", () => {
+  const window = {};
+  const catalogContext = vm.createContext({ window });
+  vm.runInContext(readFileSync(new URL("./catalog.js", import.meta.url), "utf8"), catalogContext);
+  const catalog = window.KYROlll_CATALOG;
+  assert.equal(catalog.length, 6, "the catalog carries six releases");
+  const beat = window.KYROlll_HELPERS.beatById("adll");
+  assert.equal(beat.slug, "adll");
+  assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - ADLL");
+  assert.equal(beat.shortTitle, "ADLL");
+  assert.equal(beat.bpm, 124);
+  assert.equal(beat.key, "C#");
+  assert.equal(beat.vinylVariant, "rage-crimson-rim");
+  assert.equal(beat.releaseAt, "2026-10-29T22:00:00+02:00");
+  const releaseAt = Date.parse("2026-10-29T22:00:00+02:00");
+  assert.equal(window.KYROlll_HELPERS.releaseAt(beat), releaseAt);
+  assert.equal(window.KYROlll_HELPERS.isReleased(beat, releaseAt - 1), false);
+  assert.equal(window.KYROlll_HELPERS.isReleased(beat, releaseAt), true);
+  assert.equal(window.KYROlll_SITE.formspreeEndpoint, "https://formspree.io/f/mvkkkoew");
+  assert.equal(window.KYROlll_NEWSLETTER.endpoint, "https://formspree.io/f/mvkkkoew");
+  assert.deepEqual(Array.from(beat.deliverables.exclusive, (item) => item.file), [
+    "assets/previews/adll.mp3",
+    "assets/previews/adll.wav",
+    "assets/previews/adll-stems.zip",
+  ]);
+  assert.deepEqual(Array.from(beat.deliverables.exclusive, (item) => item.name), [
+    "KYROIII - ADLL (124 BPM - C#).mp3",
+    "KYROIII - ADLL (124 BPM - C#).wav",
+    "KYROIII - ADLL - TRACKED STEMS.zip",
+  ]);
+});
+
+test("the catalog remembers the visitor's scroll position for the trip back", () => {
+  const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
+  assert.match(script, /CATALOG_SCROLL_KEY = "kyrolll_catalog_scroll"/);
+  assert.match(script, /sessionStorage\.setItem\(CATALOG_SCROLL_KEY/);
+  assert.match(script, /sessionStorage\.getItem\(CATALOG_SCROLL_KEY/);
+  assert.match(script, /window\.scrollTo\(\{ top, behavior: "instant" \}\)/);
+  assert.match(script, /history\.scrollRestoration = "manual"/);
 });
 
 function setup() {

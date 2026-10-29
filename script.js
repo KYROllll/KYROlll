@@ -18,6 +18,50 @@ function unlockScroll() {
   document.documentElement.style.cssText = '';
 }
 
+/* ------------------------------------------------------- catalog scroll memory
+   The store is a single page: opening a beat rewrites the URL and rebuilds the
+   grid, and going back would otherwise dump the visitor at the top of a long
+   catalog. The offset is remembered in `sessionStorage` (this tab only, gone
+   when the tab closes) the moment a tile is opened, and restored — not smoothed
+   — when the catalog comes back. `history.scrollRestoration = "manual"` keeps
+   the browser's own idea of the entry's scroll from fighting the restore. This
+   is the only thing the storefront writes down; no gate state or address is
+   ever stored. */
+const CATALOG_SCROLL_KEY = "kyrolll_catalog_scroll";
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+
+function readCatalogScroll() {
+  try {
+    const raw = sessionStorage.getItem(CATALOG_SCROLL_KEY);
+    if (raw === null || raw === "") return null;
+    const value = Number(raw);
+    return Number.isFinite(value) && value >= 0 ? value : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function rememberCatalogScroll() {
+  if (new URLSearchParams(location.search).has("beat")) return;
+  try {
+    sessionStorage.setItem(CATALOG_SCROLL_KEY, String(Math.max(0, Math.round(window.scrollY))));
+  } catch (err) {
+    /* Private modes can refuse storage; the store still works without memory. */
+  }
+}
+
+/* Land on the remembered offset immediately (never a smooth scroll — the
+   visitor asked to go back, not to watch the page travel), then reapply on the
+   next frame in case the freshly rebuilt grid settled after the first write. */
+function restoreCatalogScroll() {
+  const top = readCatalogScroll();
+  if (top === null) return false;
+  const apply = () => window.scrollTo({ top, behavior: "instant" });
+  apply();
+  requestAnimationFrame(apply);
+  return true;
+}
+
 const grid = $("grid");
 const previewPlayer = new BeatPreviewPlayer(grid);
 /* The vinyl reveal: the record stays tucked behind the sleeve for this long (the
@@ -35,14 +79,16 @@ function specLine(beat) {
 /* Each beat owns a pressing: FLESH is pearl white, THE FLOW is a deep matte
    black disc with a single fine gold rim, GREEN FLESH is a smoky grey-green disc
    with a delicate white outer hairline, SQUISH! is an icy silver collector disc
-   with a pure-white perimeter rim, and JUST D0 IT is a deep matte black disc
-   with one fiery red/orange hairline. The old "gold" value still resolves to
-   the refined "gold-rim" pressing, so a stale link or cached catalog can never
-   render an unstyled disc. Anything unknown keeps the white standard. */
+   with a pure-white perimeter rim, JUST D0 IT is a deep matte black disc with
+   one fiery red/orange hairline, and ADLL is a deep matte black disc with one
+   fine crimson hairline. The old "gold" value still resolves to the refined
+   "gold-rim" pressing, so a stale link or cached catalog can never render an
+   unstyled disc. Anything unknown keeps the white standard. */
 function vinylVariantFor(beat) {
   if (beat && beat.vinylVariant === "sage-white-rim") return "sage-white-rim";
   if (beat && beat.vinylVariant === "ice-silver-rim") return "ice-silver-rim";
   if (beat && beat.vinylVariant === "rage-fire-rim") return "rage-fire-rim";
+  if (beat && beat.vinylVariant === "rage-crimson-rim") return "rage-crimson-rim";
   if (beat && (beat.vinylVariant === "gold-rim" || beat.vinylVariant === "gold")) return "gold-rim";
   if (beat && beat.vinylVariant === "black") return "black";
   return "white";
@@ -53,6 +99,7 @@ function vinylModifier(variant) {
   if (variant === "sage-white-rim") return " vinyl-record--sage-white-rim";
   if (variant === "ice-silver-rim") return " vinyl-record--ice-silver-rim";
   if (variant === "rage-fire-rim") return " vinyl-record--rage-fire-rim";
+  if (variant === "rage-crimson-rim") return " vinyl-record--rage-crimson-rim";
   return "";
 }
 
@@ -157,6 +204,7 @@ function beatDetailInner(beat) {
   const vinylVariant = vinylVariantFor(beat);
   const outerRim = vinylVariant === "gold-rim" || vinylVariant === "sage-white-rim"
     || vinylVariant === "ice-silver-rim" || vinylVariant === "rage-fire-rim"
+    || vinylVariant === "rage-crimson-rim"
     ? `<span class="vinyl-record__rim" aria-hidden="true"></span>`
     : "";
   const meta = pending
@@ -351,8 +399,14 @@ window.addEventListener("load", () => {
 });
 window.addEventListener("hashchange", handleDeepHash);
 window.addEventListener("popstate", () => {
+  /* Capture the route before rebuilding: a back/forward from a beat detail to
+     the catalog is exactly the trip that should land on the remembered offset. */
+  const wasDetail = document.documentElement.classList.contains("beat-page");
   unlockScroll();
   rebuildCatalog();
+  if (wasDetail && !document.documentElement.classList.contains("beat-page")) {
+    restoreCatalogScroll();
+  }
 });
 handleDeepHash();
 
@@ -362,6 +416,7 @@ grid.addEventListener("click", (e) => {
   const link = e.target.closest(".catalog-tile__link");
   if (link) {
     e.preventDefault();
+    rememberCatalogScroll();
     unlockScroll();
     history.pushState(null, "", link.href);
     rebuildCatalog();
@@ -376,6 +431,6 @@ if (allBeatsLink) {
     unlockScroll();
     history.pushState(null, "", e.currentTarget.href);
     rebuildCatalog();
-    $("grid").scrollIntoView({ block: "start" });
+    if (!restoreCatalogScroll()) $("grid").scrollIntoView({ block: "start" });
   });
 }

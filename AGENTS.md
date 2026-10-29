@@ -16,8 +16,11 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   `downloads.js` — with `download-page.js` for the landing page — is the whole
   "commerce" layer: the "DOWNLOAD FREE" trigger opens a three-package menu, and every
   package then sits behind its gate (an email for the MP3, subscribe + like + Instagram for the
-  WAV, and those plus TikTok and X for the exclusive). **Nothing is ever written down** — no `localStorage`, no
-  `sessionStorage`, no cookie, no unlock set and nothing prefilled. The only memory is a
+  WAV, and those plus TikTok and X for the exclusive). **No gate state is ever written down** — no `localStorage`, no
+  cookie, no unlock set and nothing prefilled. The one thing the storefront remembers is the
+  catalog scroll offset in `sessionStorage` (`kyrolll_catalog_scroll`, tab-only and gone when
+  the tab closes), so the trip back from a beat lands where the visitor left. The only other
+  memory is a
   plain in-page `Map` in `downloads.js` (`grants`): a package passed in *this* page view is
   not asked for twice, and the map dies with the page, so a reload, a new tab or a shared
   link always asks again from scratch. The one thing that can leave the browser is the
@@ -306,12 +309,15 @@ disc with a broad black centre label and the full flower, no spindle hole), THE 
 foil rim), GREEN FLESH is `vinylVariant: "sage-white-rim"` (a smoky grey-green disc with a
 delicate white outer hairline and the complete flower in its deep matte black centre label),
 SQUISH! is `vinylVariant: "ice-silver-rim"` (an icy chrome-slate disc with diamond-silver
-micro-grooves and a pure-white perimeter hairline), and JUST D0 IT is
+micro-grooves and a pure-white perimeter hairline), JUST D0 IT is
 `vinylVariant: "rage-fire-rim"` (a deep matte `#0a0a0a` disc with one delicate fire-red/orange
+perimeter hairline and the complete flower in its matte black centre label), and ADLL is
+`vinylVariant: "rage-crimson-rim"` (a deep matte `#0a0a0a` disc with one fine crimson `#e63946`
 perimeter hairline and the complete flower in its matte black centre label). `script.js` writes
 the variant onto the card (`data-vinyl`) and the record (`.vinyl-record--white` /
 `.vinyl-record--gold-rim` / `.vinyl-record--sage-white-rim` / `.vinyl-record--ice-silver-rim` /
-`.vinyl-record--rage-fire-rim`); the old `"gold"` value resolves to `gold-rim`, and a bare black
+`.vinyl-record--rage-fire-rim` / `.vinyl-record--rage-crimson-rim`); the old `"gold"` value
+resolves to `gold-rim`, and a bare black
 disc remains the base/fallback. The rim is `.vinyl-record__rim`, a conic-gradient masked to a
 ~1.6px outer hairline. It sits above the grooves (z-index 3) but only at the perimeter, while
 the centre label (z-index 1) and the spinning flower (z-index 2) stay clean on top. The record
@@ -738,11 +744,13 @@ the storefront HTML with a `200`, which is exactly what makes a "download" open 
 WAV. None of this exists on a static host (there is no `server.mjs`), so the client-side pieces —
 the prebuilt PDF and the `download` attribute — carry the flow there.
 
-Nothing the visitor leaves is stored anywhere — not server-side and not in the browser. There is
+Nothing the visitor leaves is stored anywhere — not server-side, and in the browser only the
+catalog scroll offset (`kyrolll_catalog_scroll`) is remembered. There is
 no persisted unlock set, no remembered address, no marketing list and no `kyrolll_licensee`:
-those `localStorage` keys are gone, and the brand-design test asserts both `localStorage` and
-`sessionStorage` stay empty across four passes through the gates. The in-page `grants` Map is
-the only memory there is, and it does not survive the page. The only thing that leaves the
+those `localStorage` keys are gone, and the brand-design test asserts `localStorage` stays empty
+across four passes through the gates while `sessionStorage` holds nothing but that one scroll
+key. The in-page `grants` Map is
+the only gate memory there is, and it does not survive the page. The only thing that leaves the
 browser is the address the visitor submits at a gate, which is `fetch`-posted to the configured
 newsletter provider (and only there).
 
@@ -766,9 +774,25 @@ the 16-bit set zips to ~65 MB; the reduction is a plain round-to-nearest, so not
 about the stems changes and the archive stays a normal file any machine can open.
 `just-do-it-stems.zip` follows the same rule with its nine supplied stems (`808.wav`,
 `BASS.wav`, `HI HAT.wav`, `MELODY.wav`, `OPEN.wav`, `PERC 2.wav`, `PERC.wav`, `SFX.wav`,
-`SNARE.wav`), rendered 16-bit/48 kHz and archived flat with `zip -X -j`; it is ~48 MB. Keep
+`SNARE.wav`), rendered 16-bit/48 kHz and archived flat with `zip -X -j`; it is ~48 MB.
+`adll-stems.zip` carries its seven supplied stems (`808.wav`, `HI HAT.wav`, `KICK.wav`,
+`MELODY.wav`, `OPEN.wav`, `SFX.wav`, `SNARE.wav`) the same way, 16-bit/48 kHz and flat; it is
+~65 MB. Keep
 that in mind if a future stem set is rebuilt: `zip` here only speaks `store`/`deflate`, so the
 bit depth is the only lever that actually moves the size.
+
+## The catalog remembers where the visitor was
+
+Opening a beat rewrites the URL (`?beat=`) and rebuilds the grid in place, so a plain Back
+would land at the top of a long catalog. `script.js` now keeps one offset in
+`sessionStorage` under `kyrolll_catalog_scroll`: the tile click saves `window.scrollY` before
+the route changes, `popstate` restores it when a beat detail is left for the catalog, and the
+ALL BEATS control restores it too. `history.scrollRestoration = "manual"` stops the browser's
+own entry-scroll from fighting that write, and the restore is `behavior: "instant"` — the
+visitor asked to go back, not to watch the page travel. It applies on desktop and on a phone
+(the test taps a tile with a real pointer/mouse and with a real touch, then walks Back and ALL
+BEATS). This is the only browser storage the store uses; it holds no gate state, address or
+signature, and `sessionStorage` dies with the tab.
 
 ## Verify it works
 
@@ -825,8 +849,12 @@ Tests that ship with the repo:
   malformed one, and never on a re-opened gate), that the backdrop and Escape never dismiss a
   gate or the sign stage (only CANCEL does), that selecting a package passed on the download page
   re-opens the full gate and still requires the signature (nothing is auto-opened or prefilled,
-  nothing is re-posted until submit, and the record is gone after a reload), and that nothing is
-  written to `localStorage`/`sessionStorage`. It needs
+  nothing is re-posted until submit, and the record is gone after a reload), and that no gate
+  state is written to `localStorage`/`sessionStorage` (only the catalog scroll key may appear).
+  It drives the six-card catalog, checks the ADLL drop's countdown and in-page unlock at 22:00,
+  the crimson-rim pressing, its studio filenames and `KYRO-YYYY-ADLL-NNNNNN` serial, and taps a
+  tile with a real mouse and a real touch to prove Back and ALL BEATS land on the remembered
+  catalog offset. It needs
   Chromium + root `node_modules`,
   which the sandbox does not install. To run it without touching the checkout, copy the repo
   into a `node:22` container and install there:
