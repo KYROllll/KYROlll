@@ -1647,34 +1647,47 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .vinyl-record--rage-fire-rim .vinyl-record__logo-frame { z-index: 2; }
 /* End JUST D0 IT rage-fire-rim palette. */
 
-/* ADLL's graffiti-splatter pressing: a deep matte black disc scattered with
-   organic white paint splashes and fine mist droplets. The paint is painted as
-   layered radial gradients on the disc itself — never extra DOM elements and
-   never an animation — so the exposed vinyl reads as a street-pressed collector
-   disc while the flower keeps its clean, uninterrupted 16s spin. The matte black
-   centre label sits above the paint, so the mark always has a clean stage. */
+/* ADLL's graffiti-splatter pressing: a deep matte black disc dusted with an
+   ultra-fine white aerosol spray — micro-speckles, fine mist droplets and three
+   off-phase grain grids between 1px and 2.5px. The dust is painted as layered
+   radial gradients on the disc itself, never extra DOM elements and never an
+   animation, so the exposed vinyl reads as a street-pressed collector disc while
+   the flower keeps its clean, uninterrupted 16s spin. The matte black centre
+   label sits above the spray, so the mark always has a clean stage. */
 .vinyl-record--graffiti-splatter {
   background:
-    /* main splash, upper-left */
-    radial-gradient(ellipse 11% 7% at 24% 26%, rgba(255, 255, 255, 0.9) 0 34%, rgba(255, 255, 255, 0.52) 57%, rgba(255, 255, 255, 0) 72%),
-    radial-gradient(ellipse 6% 4% at 30% 22%, rgba(255, 255, 255, 0.88) 0 42%, rgba(255, 255, 255, 0.42) 68%, rgba(255, 255, 255, 0) 82%),
-    radial-gradient(ellipse 4% 6% at 19% 31%, rgba(255, 255, 255, 0.84) 0 40%, rgba(255, 255, 255, 0) 76%),
-    radial-gradient(ellipse 3% 2% at 33% 32%, rgba(255, 255, 255, 0.9) 0 52%, rgba(255, 255, 255, 0) 100%),
-    radial-gradient(ellipse 2% 3% at 16% 21%, rgba(255, 255, 255, 0.78) 0 50%, rgba(255, 255, 255, 0) 100%),
-    radial-gradient(ellipse 2.2% 1.6% at 36% 20%, rgba(255, 255, 255, 0.9) 0 58%, rgba(255, 255, 255, 0) 100%),
-    /* secondary splash, right */
-    radial-gradient(ellipse 7% 4.5% at 73% 63%, rgba(255, 255, 255, 0.86) 0 38%, rgba(255, 255, 255, 0.4) 62%, rgba(255, 255, 255, 0) 78%),
-    radial-gradient(ellipse 3% 2% at 78% 58%, rgba(255, 255, 255, 0.9) 0 50%, rgba(255, 255, 255, 0) 100%),
-    radial-gradient(ellipse 1.8% 2.6% at 68% 69%, rgba(255, 255, 255, 0.8) 0 52%, rgba(255, 255, 255, 0) 100%),
-    radial-gradient(ellipse 2.4% 1.5% at 81% 67%, rgba(255, 255, 255, 0.88) 0 54%, rgba(255, 255, 255, 0) 100%),
-    /* lower-left spatter */
-    radial-gradient(ellipse 5% 3% at 41% 81%, rgba(255, 255, 255, 0.84) 0 40%, rgba(255, 255, 255, 0.35) 66%, rgba(255, 255, 255, 0) 82%),
-    radial-gradient(ellipse 2% 2.6% at 35% 77%, rgba(255, 255, 255, 0.9) 0 52%, rgba(255, 255, 255, 0) 100%),
-    radial-gradient(ellipse 1.6% 1.4% at 46% 86%, rgba(255, 255, 255, 0.82) 0 54%, rgba(255, 255, 255, 0) 100%),
-    /* lone artistic splashes between the clusters */
-    radial-gradient(ellipse 2% 1.4% at 58% 29%, rgba(255, 255, 255, 0.6) 0 48%, rgba(255, 255, 255, 0) 100%),
-    radial-gradient(ellipse 1.5% 2% at 63% 44%, rgba(255, 255, 255, 0.55) 0 50%, rgba(255, 255, 255, 0) 100%),
-    radial-gradient(ellipse 2.4% 1.5% at 52% 65%, rgba(255, 255, 255, 0.48) 0 48%, rgba(255, 255, 255, 0) 100%),
+    /* fine aerosol grain: three off-phase tiled micro-dot fields */
+    radial-gradient(circle, rgba(255, 255, 255, 0.3) 0 0.6px, transparent 1px) 2px 3px / 9px 11px,
+    radial-gradient(circle, rgba(255, 255, 255, 0.22) 0 0.8px, transparent 1.3px) 7px 1px / 17px 19px,
+    radial-gradient(circle, rgba(255, 255, 255, 0.16) 0 1px, transparent 1.6px) 3px 9px / 27px 31px,
+    /* scattered 1px–2.5px droplets, deliberately irregular */
+    radial-gradient(circle 1.8px at 21% 18%, rgba(255, 255, 255, 0.72) 0 100%, transparent 100%),
+    radial-gradient(circle 2.2px at 29% 9%, rgba(255, 255, 255, 0.62) 0 100%, transparent 100%),
+    radial-gradient(circle 1px at 37% 25%, rgba(255, 255, 255, 0.55) 0 100%, transparent 100%),
+    radial-gradient(circle 2.5px at 47% 12%, rgba(255, 255, 255, 0.7) 0 100%, transparent 100%),
+    radial-gradient(circle 1.2px at 56% 63%, rgba(255, 255, 255, 0.45) 0 100%, transparent 100%),
+    radial-gradient(circle 2px at 66% 49%, rgba(255, 255, 255, 0.68) 0 100%, transparent 100%),
+    radial-gradient(circle 1.6px at 75% 72%, rgba(255, 255, 255, 0.58) 0 100%, transparent 100%),
+    radial-gradient(circle 2.4px at 84% 16%, rgba(255, 255, 255, 0.66) 0 100%, transparent 100%),
+    radial-gradient(circle 1.3px at 92% 31%, rgba(255, 255, 255, 0.5) 0 100%, transparent 100%),
+    radial-gradient(circle 1.9px at 20% 68%, rgba(255, 255, 255, 0.6) 0 100%, transparent 100%),
+    radial-gradient(circle 2.3px at 31% 83%, rgba(255, 255, 255, 0.64) 0 100%, transparent 100%),
+    radial-gradient(circle 1.1px at 44% 74%, rgba(255, 255, 255, 0.38) 0 100%, transparent 100%),
+    radial-gradient(circle 2.1px at 58% 87%, rgba(255, 255, 255, 0.55) 0 100%, transparent 100%),
+    radial-gradient(circle 1.5px at 69% 91%, rgba(255, 255, 255, 0.44) 0 100%, transparent 100%),
+    radial-gradient(circle 1.7px at 81% 79%, rgba(255, 255, 255, 0.5) 0 100%, transparent 100%),
+    radial-gradient(circle 1.3px at 93% 86%, rgba(255, 255, 255, 0.36) 0 100%, transparent 100%),
+    radial-gradient(circle 2.5px at 13% 53%, rgba(255, 255, 255, 0.7) 0 100%, transparent 100%),
+    radial-gradient(circle 1.2px at 26% 60%, rgba(255, 255, 255, 0.42) 0 100%, transparent 100%),
+    radial-gradient(circle 2px at 39% 45%, rgba(255, 255, 255, 0.58) 0 100%, transparent 100%),
+    radial-gradient(circle 1.4px at 51% 37%, rgba(255, 255, 255, 0.4) 0 100%, transparent 100%),
+    radial-gradient(circle 2.2px at 62% 22%, rgba(255, 255, 255, 0.62) 0 100%, transparent 100%),
+    radial-gradient(circle 1.1px at 73% 39%, rgba(255, 255, 255, 0.34) 0 100%, transparent 100%),
+    radial-gradient(circle 1.8px at 86% 61%, rgba(255, 255, 255, 0.52) 0 100%, transparent 100%),
+    radial-gradient(circle 2.4px at 9% 78%, rgba(255, 255, 255, 0.68) 0 100%, transparent 100%),
+    radial-gradient(circle 1.3px at 17% 88%, rgba(255, 255, 255, 0.4) 0 100%, transparent 100%),
+    radial-gradient(circle 2.1px at 41% 31%, rgba(255, 255, 255, 0.56) 0 100%, transparent 100%),
+    radial-gradient(circle 1px at 59% 54%, rgba(255, 255, 255, 0.32) 0 100%, transparent 100%),
     /* the vinyl itself: deep matte black with fine concentric grooves */
     repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 7px),
     repeating-radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.46) 0 2px, transparent 2px 9px),
@@ -1684,41 +1697,49 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
     0 0 0 1px rgba(255, 255, 255, 0.06),
     inset 0 0 42px rgba(0, 0, 0, 0.72);
 }
-/* Fine mist droplets, scattered at organic intervals across the exposed vinyl
-   (the label rides above this layer). The grooves stay visible underneath. */
+/* Fine mist droplets and micro-speckles across the exposed vinyl (the label
+   rides above this layer). A low-opacity grain field keeps the spray airy, and
+   the grooves still read underneath. */
 .vinyl-record--graffiti-splatter::before {
   inset: 9%;
   background:
-    radial-gradient(circle 1.6px at 8% 22%, rgba(255, 255, 255, 0.9) 0 100%, transparent 100%),
-    radial-gradient(circle 1.1px at 13% 41%, rgba(255, 255, 255, 0.72) 0 100%, transparent 100%),
-    radial-gradient(circle 2.1px at 18% 15%, rgba(255, 255, 255, 0.86) 0 100%, transparent 100%),
-    radial-gradient(circle 1.3px at 24% 34%, rgba(255, 255, 255, 0.64) 0 100%, transparent 100%),
-    radial-gradient(circle 1.8px at 29% 9%, rgba(255, 255, 255, 0.8) 0 100%, transparent 100%),
-    radial-gradient(circle 1.2px at 33% 47%, rgba(255, 255, 255, 0.58) 0 100%, transparent 100%),
-    radial-gradient(circle 2.4px at 37% 25%, rgba(255, 255, 255, 0.9) 0 100%, transparent 100%),
-    radial-gradient(circle 1.4px at 42% 55%, rgba(255, 255, 255, 0.7) 0 100%, transparent 100%),
-    radial-gradient(circle 1.9px at 47% 12%, rgba(255, 255, 255, 0.84) 0 100%, transparent 100%),
-    radial-gradient(circle 1.1px at 51% 38%, rgba(255, 255, 255, 0.56) 0 100%, transparent 100%),
-    radial-gradient(circle 2.2px at 56% 63%, rgba(255, 255, 255, 0.78) 0 100%, transparent 100%),
-    radial-gradient(circle 1.3px at 61% 18%, rgba(255, 255, 255, 0.66) 0 100%, transparent 100%),
-    radial-gradient(circle 1.7px at 66% 49%, rgba(255, 255, 255, 0.88) 0 100%, transparent 100%),
-    radial-gradient(circle 1.2px at 71% 29%, rgba(255, 255, 255, 0.6) 0 100%, transparent 100%),
-    radial-gradient(circle 2.5px at 75% 72%, rgba(255, 255, 255, 0.82) 0 100%, transparent 100%),
-    radial-gradient(circle 1.4px at 79% 44%, rgba(255, 255, 255, 0.68) 0 100%, transparent 100%),
-    radial-gradient(circle 1.8px at 84% 16%, rgba(255, 255, 255, 0.74) 0 100%, transparent 100%),
-    radial-gradient(circle 1.2px at 88% 57%, rgba(255, 255, 255, 0.58) 0 100%, transparent 100%),
-    radial-gradient(circle 2px at 92% 31%, rgba(255, 255, 255, 0.86) 0 100%, transparent 100%),
-    radial-gradient(circle 1.3px at 20% 68%, rgba(255, 255, 255, 0.62) 0 100%, transparent 100%),
-    radial-gradient(circle 1.7px at 31% 83%, rgba(255, 255, 255, 0.76) 0 100%, transparent 100%),
-    radial-gradient(circle 1.1px at 44% 74%, rgba(255, 255, 255, 0.54) 0 100%, transparent 100%),
-    radial-gradient(circle 2.3px at 58% 87%, rgba(255, 255, 255, 0.8) 0 100%, transparent 100%),
-    radial-gradient(circle 1.4px at 69% 91%, rgba(255, 255, 255, 0.64) 0 100%, transparent 100%),
-    radial-gradient(circle 1.9px at 81% 79%, rgba(255, 255, 255, 0.72) 0 100%, transparent 100%),
-    radial-gradient(circle 1.2px at 93% 86%, rgba(255, 255, 255, 0.58) 0 100%, transparent 100%),
+    /* subtle aerosol dust, tiled off-phase */
+    radial-gradient(circle, rgba(255, 255, 255, 0.28) 0 0.7px, transparent 1.1px) 4px 6px / 8px 10px,
+    radial-gradient(circle, rgba(255, 255, 255, 0.18) 0 0.9px, transparent 1.4px) 1px 3px / 15px 17px,
+    /* 1px–2.5px mist droplets at irregular coordinates */
+    radial-gradient(circle 1.6px at 8% 22%, rgba(255, 255, 255, 0.75) 0 100%, transparent 100%),
+    radial-gradient(circle 1.1px at 13% 41%, rgba(255, 255, 255, 0.5) 0 100%, transparent 100%),
+    radial-gradient(circle 2.1px at 18% 15%, rgba(255, 255, 255, 0.68) 0 100%, transparent 100%),
+    radial-gradient(circle 1.3px at 24% 34%, rgba(255, 255, 255, 0.44) 0 100%, transparent 100%),
+    radial-gradient(circle 1.8px at 29% 9%, rgba(255, 255, 255, 0.62) 0 100%, transparent 100%),
+    radial-gradient(circle 1.2px at 33% 47%, rgba(255, 255, 255, 0.38) 0 100%, transparent 100%),
+    radial-gradient(circle 2.4px at 37% 25%, rgba(255, 255, 255, 0.7) 0 100%, transparent 100%),
+    radial-gradient(circle 1.4px at 42% 55%, rgba(255, 255, 255, 0.46) 0 100%, transparent 100%),
+    radial-gradient(circle 1.9px at 47% 12%, rgba(255, 255, 255, 0.64) 0 100%, transparent 100%),
+    radial-gradient(circle 1px at 51% 38%, rgba(255, 255, 255, 0.32) 0 100%, transparent 100%),
+    radial-gradient(circle 2.2px at 56% 63%, rgba(255, 255, 255, 0.58) 0 100%, transparent 100%),
+    radial-gradient(circle 1.3px at 61% 18%, rgba(255, 255, 255, 0.42) 0 100%, transparent 100%),
+    radial-gradient(circle 1.7px at 66% 49%, rgba(255, 255, 255, 0.66) 0 100%, transparent 100%),
+    radial-gradient(circle 1.2px at 71% 29%, rgba(255, 255, 255, 0.36) 0 100%, transparent 100%),
+    radial-gradient(circle 2.5px at 75% 72%, rgba(255, 255, 255, 0.72) 0 100%, transparent 100%),
+    radial-gradient(circle 1.4px at 79% 44%, rgba(255, 255, 255, 0.48) 0 100%, transparent 100%),
+    radial-gradient(circle 1.8px at 84% 16%, rgba(255, 255, 255, 0.6) 0 100%, transparent 100%),
+    radial-gradient(circle 1.2px at 88% 57%, rgba(255, 255, 255, 0.34) 0 100%, transparent 100%),
+    radial-gradient(circle 2px at 92% 31%, rgba(255, 255, 255, 0.68) 0 100%, transparent 100%),
+    radial-gradient(circle 1.3px at 20% 68%, rgba(255, 255, 255, 0.4) 0 100%, transparent 100%),
+    radial-gradient(circle 1.7px at 31% 83%, rgba(255, 255, 255, 0.58) 0 100%, transparent 100%),
+    radial-gradient(circle 1.1px at 44% 74%, rgba(255, 255, 255, 0.3) 0 100%, transparent 100%),
+    radial-gradient(circle 2.3px at 58% 87%, rgba(255, 255, 255, 0.64) 0 100%, transparent 100%),
+    radial-gradient(circle 1.4px at 69% 91%, rgba(255, 255, 255, 0.42) 0 100%, transparent 100%),
+    radial-gradient(circle 1.9px at 81% 79%, rgba(255, 255, 255, 0.56) 0 100%, transparent 100%),
+    radial-gradient(circle 1.2px at 93% 86%, rgba(255, 255, 255, 0.38) 0 100%, transparent 100%),
+    radial-gradient(circle 1px at 15% 52%, rgba(255, 255, 255, 0.3) 0 100%, transparent 100%),
+    radial-gradient(circle 2.5px at 63% 36%, rgba(255, 255, 255, 0.7) 0 100%, transparent 100%),
+    radial-gradient(circle 1.5px at 35% 91%, rgba(255, 255, 255, 0.46) 0 100%, transparent 100%),
     repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, rgba(255, 255, 255, 0.045) 3px 4px, transparent 4px 8px);
   opacity: 1;
 }
-/* The centre label stays a clean matte black plate above the paint. */
+/* The centre label stays a clean matte black plate above the spray. */
 .vinyl-record--graffiti-splatter::after {
   width: 36%;
   height: 36%;

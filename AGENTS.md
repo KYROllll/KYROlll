@@ -312,9 +312,10 @@ SQUISH! is `vinylVariant: "ice-silver-rim"` (an icy chrome-slate disc with diamo
 micro-grooves and a pure-white perimeter hairline), JUST D0 IT is
 `vinylVariant: "rage-fire-rim"` (a deep matte `#0a0a0a` disc with one delicate fire-red/orange
 perimeter hairline and the complete flower in its matte black centre label), and ADLL is
-`vinylVariant: "graffiti-splatter"` (a deep matte `#0a0a0a` disc scattered with organic white
-`rgba(255,255,255,.9)` paint splashes and fine mist droplets as background paint layers, with
-the complete flower in its clean matte black centre label). `script.js` writes
+`vinylVariant: "graffiti-splatter"` (a deep matte `#0a0a0a` disc dusted with an ultra-fine white
+aerosol spray — 1px–2.5px `rgba(255,255,255,.75)` micro-speckles fading to `.3`, tiled off-phase
+`9px 11px` / `8px 10px` grain fields and scattered mist droplets as background paint layers, never
+a large blob — with the complete flower in its clean matte black centre label). `script.js` writes
 the variant onto the card (`data-vinyl`) and the record (`.vinyl-record--white` /
 `.vinyl-record--gold-rim` / `.vinyl-record--sage-white-rim` / `.vinyl-record--ice-silver-rim` /
 `.vinyl-record--rage-fire-rim` / `.vinyl-record--graffiti-splatter`); the old `"gold"` value

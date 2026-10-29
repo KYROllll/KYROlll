@@ -2456,8 +2456,10 @@ try {
     const bodyBg = getComputedStyle(el).backgroundImage;
     return {
       bodyBg,
+      bodySize: getComputedStyle(el).backgroundSize,
       bodySplashes: (bodyBg.match(/radial-gradient/g) || []).length,
       mistBg: mist.backgroundImage,
+      mistSize: mist.backgroundSize,
       mistDroplets: (mist.backgroundImage.match(/radial-gradient/g) || []).length,
       mistOpacity: mist.opacity,
       labelBg: label.backgroundImage,
@@ -2474,10 +2476,19 @@ try {
     };
   });
   assert.match(adllVinyl.bodyBg, /rgb\(10, 10, 10\)|rgb\(6, 6, 6\)/, 'the ADLL disc body is deep matte black');
-  assert.match(adllVinyl.bodyBg, /rgba\(255, 255, 255, 0\.9\)/, 'the ADLL disc carries bright white paint splashes');
-  assert(adllVinyl.bodySplashes >= 15, `the ADLL disc body paints ${adllVinyl.bodySplashes} organic splashes`);
-  assert.match(adllVinyl.mistBg, /rgba\(255, 255, 255, 0\.9\)/, 'the ADLL mist layer carries fine white droplets');
-  assert(adllVinyl.mistDroplets >= 20, `the ADLL mist paints ${adllVinyl.mistDroplets} scattered droplets`);
+  assert.match(adllVinyl.bodyBg, /rgba\(255, 255, 255, 0\.72\)/, 'the ADLL disc carries fine white spray dust');
+  assert.match(adllVinyl.bodyBg, /rgba\(255, 255, 255, 0\.3\)/, 'the aerosol grain fades down to soft white');
+  assert.doesNotMatch(adllVinyl.bodyBg, /ellipse/, 'the ADLL disc paints no oversized elliptical blobs');
+  assert.match(adllVinyl.bodyBg, /2\.5px at/, 'the ADLL disc tops out at 2.5px mist droplets');
+  const adllRadii = [...adllVinyl.bodyBg.matchAll(/radial-gradient\(([\d.]+)px at/g)].map(match => Number(match[1]));
+  assert(adllRadii.length >= 27, `the ADLL disc scatters ${adllRadii.length} explicit droplets`);
+  assert(adllRadii.every(radius => radius <= 2.5), `no oversized paint dot survives on the ADLL disc (largest ${Math.max(...adllRadii)}px)`);
+  assert(adllVinyl.bodySplashes >= 30, `the ADLL disc body paints ${adllVinyl.bodySplashes} micro-speckle layers`);
+  assert.match(adllVinyl.bodySize, /9px 11px/, 'the aerosol grain is a tiled micro-dot field');
+  assert.match(adllVinyl.mistBg, /rgba\(255, 255, 255, 0\.75\)/, 'the ADLL mist layer carries fine white droplets');
+  assert.doesNotMatch(adllVinyl.mistBg, /ellipse/, 'the ADLL mist paints no oversized elliptical blobs');
+  assert(adllVinyl.mistDroplets >= 30, `the ADLL mist paints ${adllVinyl.mistDroplets} scattered micro-droplets`);
+  assert.match(adllVinyl.mistSize, /8px 10px/, 'the mist adds a second off-phase grain field');
   assert.equal(adllVinyl.mistOpacity, '1', 'the white droplets stay at full paint strength');
   assert.doesNotMatch(adllVinyl.bodyBg, /rgb\(230, 57, 70\)|#e63946/i, 'the ADLL disc carries no crimson rim any more');
   assert.match(adllVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(5, 5, 5\)/, 'the ADLL centre label stays matte black');
@@ -2662,13 +2673,20 @@ try {
   assert(graffitiStart >= 0 && graffitiEnd > graffitiStart, 'the graffiti-splatter pressing has its own stylesheet block');
   const graffitiCss = cssText.slice(graffitiStart, graffitiEnd);
   assert.match(graffitiCss, /#0a0a0a/i, 'the graffiti-splatter disc body is deep matte black');
-  assert.match(graffitiCss, /rgba\(255, 255, 255, 0\.9\)/i, 'the graffiti-splatter paint uses the specified bright white');
-  assert((graffitiCss.match(/radial-gradient/g) || []).length >= 20, 'the graffiti paint is built from many organic radial splashes and droplets');
-  assert.match(graffitiCss, /\.vinyl-record--graffiti-splatter::before\s*\{[^}]*rgba\(255, 255, 255, 0\.9\)/, 'the fine mist droplets are painted over the disc');
-  assert.match(graffitiCss, /\.vinyl-record--graffiti-splatter::after\s*\{[^}]*z-index:\s*1/, 'the clean matte label sits above the paint');
+  assert.match(graffitiCss, /rgba\(255, 255, 255, 0\.75\)/i, 'the micro-speckle dust uses the specified bright white');
+  assert.match(graffitiCss, /rgba\(255, 255, 255, 0\.3\)/i, 'the finest grain fades down to the specified soft white');
+  assert.match(graffitiCss, /circle 1px at/, 'the spray carries 1px micro-speckles');
+  assert.match(graffitiCss, /circle 2\.5px at/, 'the spray carries 2.5px mist droplets and nothing larger');
+  assert.match(graffitiCss, /9px 11px/, 'the aerosol grain is a repeating tiled micro-dot field');
+  assert.match(graffitiCss, /8px 10px/, 'a second off-phase grain field breaks up the repeat');
+  assert((graffitiCss.match(/radial-gradient/g) || []).length >= 40, 'the dust is built from dozens of micro-speckle layers and droplets');
+  assert.match(graffitiCss, /\.vinyl-record--graffiti-splatter::before\s*\{[^}]*rgba\(255, 255, 255, 0\.75\)/, 'the fine mist droplets are painted over the disc');
+  assert.match(graffitiCss, /3px 4px, transparent 4px 8px/, 'the vinyl grooves still read underneath the dust');
+  assert.match(graffitiCss, /\.vinyl-record--graffiti-splatter::after\s*\{[^}]*z-index:\s*1/, 'the clean matte label sits above the spray');
   assert.match(graffitiCss, /\.vinyl-record--graffiti-splatter\s+\.vinyl-record__logo-frame\s*\{\s*z-index:\s*2/, 'the spinning flower sits above the label');
   assert.doesNotMatch(graffitiCss, /#e63946|conic-gradient/, 'the graffiti pressing carries no coloured rim');
-  assert.doesNotMatch(graffitiCss, /animation\s*:/, 'the splatter paint is static and never fights the flower spin');
+  assert.doesNotMatch(graffitiCss, /ellipse/, 'the spray uses no oversized elliptical paint blobs');
+  assert.doesNotMatch(graffitiCss, /animation\s*:/, 'the speckle dust is static and never fights the flower spin');
   const auditedCss = cssText.slice(0, taglineStart)
     + cssText.slice(taglineEnd, goldRimStart)
     + cssText.slice(goldRimEnd, sageStart)
