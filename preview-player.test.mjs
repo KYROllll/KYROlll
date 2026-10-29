@@ -115,7 +115,13 @@ test("the built-in support desk is wired on every page and posts a rich Formspre
     assert.match(html, /<script src="support\.js\?v=\d+"><\/script>/, `${name}: the desk script is loaded`);
   });
   assert.match(pages[2][1], /data-support-inline/, "support.html mounts the desk inline");
-  assert.match(support, /https:\/\/formspree\.io\/f\/mvkkkoew/, "the desk posts to the store's Formspree form");
+  assert.match(support, /var SUPPORT_ENDPOINT = "https:\/\/formspree\.io\/f\/mrpplrlg"/, "the desk posts to the KYROIII — SUPPORT TICKETS form");
+  assert.doesNotMatch(support, /mvkkkoew/, "the desk never contacts the free-download form");
+  const catalog = readFileSync(new URL("./catalog.js", import.meta.url), "utf8");
+  const downloads = readFileSync(new URL("./downloads.js", import.meta.url), "utf8");
+  assert.match(catalog, /https:\/\/formspree\.io\/f\/mvkkkoew/, "free downloads stay on the FREE DOWNLOADS form");
+  assert.doesNotMatch(catalog, /mrpplrlg/, "the download config never reaches the support form");
+  assert.doesNotMatch(downloads, /mrpplrlg/, "the download layer never reaches the support form");
   assert.match(support, /"Accept": "application\/json", "Content-Type": "application\/json"/, "the desk posts JSON");
   ["email", "subject", "message", "submittedAt", "device", "viewport"]
     .forEach(field => assert.match(support, new RegExp(`\\b${field}:`), `the analytics payload carries ${field}`));

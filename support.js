@@ -7,9 +7,12 @@
    modal — one renderer, one validator, one submit path.
 
    The form is three fields — email, subject, message — with no dropdown or
-   category to choose. The message is posted to the store's Formspree form as
-   rich JSON (email, subject, message, timestamp, device, page and viewport)
-   with `Accept: application/json`, and the card is then replaced by the
+   category to choose. Every ticket is posted as rich JSON (email, subject,
+   message, timestamp, device, page and viewport) with `Accept:
+   application/json` to the KYROIII — SUPPORT TICKETS Formspree form, and only
+   there. The free-download gates post to their own separate form: this script
+   never reads the newsletter endpoint and never posts a ticket into the
+   download flow. The card is then replaced by the
    success state. Nothing is stored in the browser: no draft, no address, no
    ticket id.
 
@@ -21,24 +24,16 @@
 (function () {
   "use strict";
 
-  var DEFAULT_ENDPOINT = "https://formspree.io/f/mvkkkoew";
+  /* The desk's own form, hard-wired and never resolved from the catalog: the
+     KYROIII — FREE DOWNLOADS form belongs to the download gates and a support
+     ticket must never land in it. */
+  var SUPPORT_ENDPOINT = "https://formspree.io/f/mrpplrlg";
   var EMAIL = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
   var MIN_SUBJECT = 3;
   var MIN_MESSAGE = 12;
 
   function endpoint() {
-    try {
-      if (window.KYROlll_HELPERS && typeof window.KYROlll_HELPERS.newsletterEndpoint === "function") {
-        var resolved = window.KYROlll_HELPERS.newsletterEndpoint();
-        if (resolved) return resolved;
-      }
-      if (window.KYROlll_SITE && window.KYROlll_SITE.formspreeEndpoint) {
-        return window.KYROlll_SITE.formspreeEndpoint;
-      }
-    } catch (err) {
-      /* A page without the catalog still gets a working desk. */
-    }
-    return DEFAULT_ENDPOINT;
+    return SUPPORT_ENDPOINT;
   }
 
   function formHTML() {
@@ -295,7 +290,7 @@
   window.KYROlll_SUPPORT = {
     open: open,
     close: close,
-    endpoint: endpoint,
+    endpoint: SUPPORT_ENDPOINT,
     fields: ["email", "subject", "message"],
   };
 })();

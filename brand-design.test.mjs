@@ -256,7 +256,11 @@ const noLowercase = async (page, label) => {
 };
 const CARD = '#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af';
 const BEAT_ID = '6c56eda2-df4a-45b0-b9b7-68f8efdbb1af';
+// Two isolated forms: the free-download gates record into the FREE DOWNLOADS
+// form, and the support desk into its own SUPPORT TICKETS form. Nothing may
+// cross between them.
 const PROVIDER = 'https://formspree.io/f/mvkkkoew';
+const SUPPORT_PROVIDER = 'https://formspree.io/f/mrpplrlg';
 // The scheduled second release, [FREE 100%] FUTURE TYPE BEAT - THE FLOW.
 const FLOW_ID = '5f9bbcab-e010-4efe-b459-9c9182e1d85b';
 const FLOW_CARD = '#card-5f9bbcab-e010-4efe-b459-9c9182e1d85b';
@@ -2701,7 +2705,10 @@ try {
   await supportPage.locator('[data-support-submit]').click();
   await waitForPostCount(supportBase + 1, 'the desk posts exactly one message');
   const ticket = postJSON(supportBase);
-  assert.equal(subscribeRequests[supportBase].url, PROVIDER, 'the desk posts to the store’s Formspree form');
+  assert.equal(subscribeRequests[supportBase].url, SUPPORT_PROVIDER, 'the desk posts to the KYROIII — SUPPORT TICKETS form');
+  assert.notEqual(subscribeRequests[supportBase].url, PROVIDER, 'the desk never posts into the FREE DOWNLOADS form');
+  assert(subscribeRequests.slice(0, supportBase).every(request => request.url === PROVIDER), 'no earlier free-download post was ever sent to the support form');
+  assert.equal(subscribeRequests.filter(request => request.url === SUPPORT_PROVIDER).length, 1, 'the desk sends exactly one ticket to its own form');
   assert.match(subscribeRequests[supportBase].headers['content-type'] || '', /application\/json/, 'the desk posts a JSON payload');
   assert.equal(ticket.category, undefined, 'the payload carries no category');
   assert.equal(ticket.email, 'jordan@studio.com', 'the payload carries the visitor’s address');
@@ -2969,11 +2976,18 @@ try {
   assert.equal(/\.gate-input[^}]*text-transform: none/.test(cssText), false, 'no casing opt-out is left on the fields');
 
   assert(providerRequests.length > 0, 'the flows really contacted Formspree');
-  assert(providerRequests.every(request => request.url === PROVIDER),
-    'every Formspree request targets the KYROIII — FREE DOWNLOADS form and never a superseded endpoint');
+  assert(providerRequests.every(request => request.url === PROVIDER || request.url === SUPPORT_PROVIDER),
+    'every Formspree request targets one of the two live forms and never a superseded endpoint');
   assert(subscribeRequests.length > 0, 'the flows really posted their analytics');
-  assert(subscribeRequests.every(request => request.url === PROVIDER),
-    'every analytics POST targets the KYROIII — FREE DOWNLOADS form');
+  assert(subscribeRequests.every(request => request.url === PROVIDER || request.url === SUPPORT_PROVIDER),
+    'every analytics POST targets one of the two live forms');
+  const supportTickets = subscribeRequests.filter(request => request.url === SUPPORT_PROVIDER);
+  const freeDownloadPosts = subscribeRequests.filter(request => request.url === PROVIDER);
+  assert.equal(supportTickets.length, 1, 'the support desk posted its one ticket to its own form');
+  assert.match(JSON.parse(supportTickets[0].body).form, /SUPPORT DESK/, 'the ticket form is a support payload');
+  assert(freeDownloadPosts.length >= 5, 'the free-download gates kept posting to the FREE DOWNLOADS form');
+  assert(freeDownloadPosts.every(request => JSON.parse(request.body).form !== 'KYROIII — SUPPORT DESK'),
+    'no support ticket bleeds into the free-download form');
   assert.deepEqual(await supersededFormReferences(), [],
     'no superseded Formspree form id remains anywhere in the repository');
 

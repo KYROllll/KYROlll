@@ -820,10 +820,13 @@ category picker or dropdown**: the desk stays a clean, one-glance form. `support
 the *same* renderer inline (`[data-support-inline]`) as a dedicated view, so there is one
 validator and one submit path on every page.
 
-The form posts JSON to `KYROlll_NEWSLETTER.endpoint` / `KYROlll_SITE.formspreeEndpoint`
-(`https://formspree.io/f/mvkkkoew`, `DEFAULT_ENDPOINT` as the fallback for a page without the
-catalog) with `Accept: application/json`: form name, email, subject, message, `submittedAt`,
-page, referrer, `device`, viewport and language. A malformed address, a short subject or a
+The form posts JSON to its **own** form — `https://formspree.io/f/mrpplrlg` (the
+**KYROIII — SUPPORT TICKETS** form), held in `support.js` as `SUPPORT_ENDPOINT` with no
+resolution against `KYROlll_NEWSLETTER` / `KYROlll_SITE`: a ticket can never reach the
+**KYROIII — FREE DOWNLOADS** form (`https://formspree.io/f/mvkkkoew`) the gates use, and the
+download flow never reaches the ticket form. The payload is sent with
+`Accept: application/json`: form name, email, subject, message, `submittedAt`, page,
+referrer, `device`, viewport and language. A malformed address, a short subject or a
 short message is refused inline (with the first missing field focused) before anything leaves
 the browser; a successful POST replaces the card with
 `MESSAGE SENT SUCCESSFULLY // WE WILL GET BACK TO YOU SOON`. Nothing is drafted, prefilled or
