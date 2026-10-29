@@ -825,8 +825,11 @@ The form posts JSON to its **own** form — `https://formspree.io/f/mrpplrlg` (t
 resolution against `KYROlll_NEWSLETTER` / `KYROlll_SITE`: a ticket can never reach the
 **KYROIII — FREE DOWNLOADS** form (`https://formspree.io/f/mvkkkoew`) the gates use, and the
 download flow never reaches the ticket form. The payload is sent with
-`Accept: application/json`: form name, email, subject, message, `submittedAt`, page,
-referrer, `device`, viewport and language. A malformed address, a short subject or a
+`Accept: application/json` and carries **only** the three core fields — `email`,
+`subject` and `message`. All the system clutter that used to ride along (form
+name, `submittedAt`, page, referrer, `device`, viewport and language) is gone, so
+every ticket reads clean and direct in the Formspree dashboard; the free-download
+flow keeps its full analytics payload on its own form, untouched. A malformed address, a short subject or a
 short message is refused inline (with the first missing field focused) before anything leaves
 the browser; a successful POST replaces the card with
 `MESSAGE SENT SUCCESSFULLY // WE WILL GET BACK TO YOU SOON`. Nothing is drafted, prefilled or

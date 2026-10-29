@@ -7,14 +7,15 @@
    modal — one renderer, one validator, one submit path.
 
    The form is three fields — email, subject, message — with no dropdown or
-   category to choose. Every ticket is posted as rich JSON (email, subject,
-   message, timestamp, device, page and viewport) with `Accept:
-   application/json` to the KYROIII — SUPPORT TICKETS Formspree form, and only
-   there. The free-download gates post to their own separate form: this script
-   never reads the newsletter endpoint and never posts a ticket into the
-   download flow. The card is then replaced by the
-   success state. Nothing is stored in the browser: no draft, no address, no
-   ticket id.
+   category to choose. Every ticket is posted as strict, clean JSON carrying
+   **only** those three fields with `Accept: application/json` to the KYROIII —
+   SUPPORT TICKETS Formspree form, and only there: no timestamp, page, referrer,
+   user agent, viewport or language ever travels with it, so a ticket reads
+   clean and direct in the Formspree dashboard. The free-download gates post to
+   their own separate form and keep their full analytics payload there: this
+   script never reads the newsletter endpoint and never posts a ticket into the
+   download flow. The card is then replaced by the success state. Nothing is
+   stored in the browser: no draft, no address, no ticket id.
 
    The dialog is a phone citizen like the download gate: its sheet scrolls
    inside itself, it pins the page's scroll offset while open, and it is closed
@@ -108,18 +109,16 @@
     }
   }
 
+  /* The whole ticket: the three fields the visitor typed and nothing else.
+     All the system clutter that used to ride along — the form label, the
+     timestamp, the source page, the referrer, the browser string, the viewport
+     and the language — is gone, so the Formspree record is just what the person
+     wrote. The free-download gates keep their full payload on their own form. */
   function payloadFor(data) {
     return {
-      form: "KYROIII — SUPPORT DESK",
       email: data.email,
       subject: data.subject,
       message: data.message,
-      submittedAt: new Date().toISOString(),
-      page: location.pathname + location.search,
-      referrer: document.referrer || "DIRECT",
-      device: navigator.userAgent,
-      viewport: window.innerWidth + "x" + window.innerHeight,
-      language: navigator.language || "",
     };
   }
 

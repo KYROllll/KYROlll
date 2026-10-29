@@ -2680,7 +2680,8 @@ try {
   // store's own desk. The desk is three plain fields — an address, a subject,
   // a message, with no category to pick. The test refuses an incomplete
   // submission without contacting Formspree, then proves the one POST carries
-  // the rich analytics payload and that the dialog reaches its success state.
+  // only the three core fields — no system metadata clutter — and that the
+  // dialog reaches its success state.
   const supportPage = await setupPage({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
   await supportPage.goto(`${url}/`, { waitUntil: 'domcontentloaded' });
   await supportPage.locator('.footer__support').click();
@@ -2714,11 +2715,10 @@ try {
   assert.equal(ticket.email, 'jordan@studio.com', 'the payload carries the visitor’s address');
   assert.equal(ticket.subject, 'STEMS ARCHIVE', 'the payload carries the subject');
   assert.match(ticket.message, /TRACKED STEMS ARCHIVE/, 'the payload carries the full message');
-  assert.match(ticket.submittedAt, /^\d{4}-\d{2}-\d{2}T/, 'the payload carries the timestamp');
-  assert.match(ticket.device, /Chrome|Headless/, 'the payload carries the device');
-  assert.match(ticket.form, /SUPPORT DESK/, 'the payload names the desk form');
-  assert.equal(ticket.page, '/', 'the payload names the source page');
-  assert.match(ticket.viewport, /^\d+x\d+$/, 'the payload carries the viewport');
+  assert.deepEqual(Object.keys(ticket).sort(), ['email', 'message', 'subject'],
+    'the ticket carries only the core fields — nothing else');
+  ['form', 'submittedAt', 'page', 'referrer', 'device', 'viewport', 'language', 'category']
+    .forEach(field => assert.equal(ticket[field], undefined, `the payload carries no ${field}`));
   const successTitle = supportPage.locator('[data-support-success] .support-success__title');
   await successTitle.waitFor();
   assert.equal(await successTitle.innerText(), 'MESSAGE SENT SUCCESSFULLY // WE WILL GET BACK TO YOU SOON', 'the desk reaches its success state');
@@ -2984,10 +2984,13 @@ try {
   const supportTickets = subscribeRequests.filter(request => request.url === SUPPORT_PROVIDER);
   const freeDownloadPosts = subscribeRequests.filter(request => request.url === PROVIDER);
   assert.equal(supportTickets.length, 1, 'the support desk posted its one ticket to its own form');
-  assert.match(JSON.parse(supportTickets[0].body).form, /SUPPORT DESK/, 'the ticket form is a support payload');
+  const ticketBody = JSON.parse(supportTickets[0].body);
+  assert.deepEqual(Object.keys(ticketBody).sort(), ['email', 'message', 'subject'],
+    'the ticket body is the clean support payload — the three core fields and no system metadata');
   assert(freeDownloadPosts.length >= 5, 'the free-download gates kept posting to the FREE DOWNLOADS form');
-  assert(freeDownloadPosts.every(request => JSON.parse(request.body).form !== 'KYROIII — SUPPORT DESK'),
-    'no support ticket bleeds into the free-download form');
+  assert(freeDownloadPosts.every(request => JSON.parse(request.body).licenseSerial !== undefined
+    && JSON.parse(request.body).deviceType !== undefined),
+    'no support ticket bleeds into the free-download form — the download records keep their full tracking payload');
   assert.deepEqual(await supersededFormReferences(), [],
     'no superseded Formspree form id remains anywhere in the repository');
 

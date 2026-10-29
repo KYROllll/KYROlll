@@ -105,7 +105,7 @@ test("every beat keeps its own bespoke pressing, and the beat page keeps a stick
   assert.match(script, /if \(!restoreCatalogScroll\(\)\)/, "the return control restores the saved catalog offset");
 });
 
-test("the built-in support desk is wired on every page and posts a rich Formspree payload", () => {
+test("the built-in support desk is wired on every page and posts only the three core fields", () => {
   const support = readFileSync(new URL("./support.js", import.meta.url), "utf8");
   const pages = ["index.html", "download.html", "support.html"]
     .map(name => [name, readFileSync(new URL(`./${name}`, import.meta.url), "utf8")]);
@@ -123,8 +123,10 @@ test("the built-in support desk is wired on every page and posts a rich Formspre
   assert.doesNotMatch(catalog, /mrpplrlg/, "the download config never reaches the support form");
   assert.doesNotMatch(downloads, /mrpplrlg/, "the download layer never reaches the support form");
   assert.match(support, /"Accept": "application\/json", "Content-Type": "application\/json"/, "the desk posts JSON");
-  ["email", "subject", "message", "submittedAt", "device", "viewport"]
-    .forEach(field => assert.match(support, new RegExp(`\\b${field}:`), `the analytics payload carries ${field}`));
+  ["email", "subject", "message"]
+    .forEach(field => assert.match(support, new RegExp(`\\b${field}:`), `the payload carries ${field}`));
+  ["form", "submittedAt", "page", "referrer", "device", "viewport", "language"]
+    .forEach(field => assert.doesNotMatch(support, new RegExp(`\\b${field}:`), `the payload drops the ${field} metadata`));
   assert.match(support, /MESSAGE SENT SUCCESSFULLY \/\/ WE WILL GET BACK TO YOU SOON/, "the desk confirms the send professionally");
   assert.doesNotMatch(support, /support-categor|<select/i, "the desk offers no category dropdown");
   ["support-email", "support-subject", "support-message"]
