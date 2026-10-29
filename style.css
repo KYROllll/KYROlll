@@ -435,25 +435,53 @@ button {
   border-color: var(--white);
 }
 
-/* The official profiles: a quiet monochrome row above the support button. */
+/* The official profiles: the platforms' own full-colour marks on neutral glass
+   tiles, sized as real tap targets rather than a row of text links. The colour
+   lives entirely in the inline SVG each anchor carries — the tile, its border
+   and the hover glow are equal-channel greys, so the footer keeps the store's
+   monochrome paint while the badges stay recognisably the brands'. The glow is
+   a static `drop-shadow` (it arrives in one frame, like every other hover in
+   the storefront): a tweened shadow on a dark tile is what read as jitter. */
 .footer__social {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 8px 18px;
-  margin-top: 18px;
+  gap: 14px;
+  margin-top: 22px;
 }
-.footer__social a {
-  color: var(--gray);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: .18em;
+.social-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid #3a3a3a;
+  border-radius: 14px;
+  background: #141414;
+  color: var(--white);
   text-decoration: none;
-  transition: color .15s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color .15s ease, background-color .15s ease;
 }
-.footer__social a:hover,
-.footer__social a:focus-visible { color: var(--white); }
+.social-icon svg {
+  display: block;
+  width: 28px;
+  height: 28px;
+  pointer-events: none;
+}
+.social-icon:hover,
+.social-icon:focus-visible {
+  border-color: var(--white);
+  background: #1f1f1f;
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, .55));
+  outline: none;
+}
+@media (max-width: 480px) {
+  .social-icon { width: 48px; height: 48px; border-radius: 12px; }
+  .social-icon svg { width: 26px; height: 26px; }
+}
 
 @media (max-width: 768px) {
   html {
@@ -1388,6 +1416,12 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
      tucked behind the opaque sleeve and rides out a beat later. */
   transform: translateX(var(--vinyl-slide));
   background:
+    /* The pressing finish every disc shares: a smooth unrecorded lead-in band
+       between the raised outer lip and the first groove, and one fixed room
+       light sweeping the surface. Real pressings are opaque, so the body below
+       these two layers is always a solid colour — never a translucent panel. */
+    radial-gradient(circle at 50% 50%, transparent 0 96.2%, rgba(255, 255, 255, 0.08) 96.7% 97.3%, transparent 97.9%),
+    linear-gradient(118deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.03) 20%, rgba(255, 255, 255, 0) 34%, rgba(255, 255, 255, 0) 68%, rgba(255, 255, 255, 0.05) 86%, rgba(255, 255, 255, 0.09) 100%),
     repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 7px),
     radial-gradient(circle at 50% 50%, #1b1b1b 0%, #101010 42%, #050505 72%, #171717 100%);
   border-radius: 50%;
@@ -1404,6 +1438,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    of concentric grooves keep it reading as pressed vinyl. */
 .vinyl-record--white {
   background:
+    /* the shared pressing finish — lead-in band and fixed room light */
+    radial-gradient(circle at 50% 50%, transparent 0 96.2%, rgba(0, 0, 0, 0.14) 96.7% 97.3%, transparent 97.9%),
+    linear-gradient(118deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.2) 22%, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0) 66%, rgba(255, 255, 255, 0.18) 86%, rgba(255, 255, 255, 0.42) 100%),
     /* smoky charcoal marbling under the pearl surface */
     radial-gradient(ellipse 26% 11% at 63% 23%, rgba(38, 38, 38, 0.38) 0%, rgba(38, 38, 38, 0.14) 46%, rgba(38, 38, 38, 0) 74%),
     radial-gradient(ellipse 19% 8% at 29% 57%, rgba(46, 46, 46, 0.3) 0%, rgba(46, 46, 46, 0) 72%),
@@ -1518,6 +1555,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    perimeter, so it never crosses the centre label or the spinning flower. */
 .vinyl-record--gold-rim {
   background:
+    /* the shared pressing finish — lead-in band and fixed room light */
+    radial-gradient(circle at 50% 50%, transparent 0 96.2%, rgba(255, 255, 255, 0.1) 96.7% 97.3%, transparent 97.9%),
+    linear-gradient(118deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.025) 20%, rgba(255, 255, 255, 0) 34%, rgba(255, 255, 255, 0) 68%, rgba(255, 255, 255, 0.045) 86%, rgba(255, 255, 255, 0.08) 100%),
     radial-gradient(circle at 32% 22%, rgba(255, 255, 255, 0.035) 0%, transparent 34%),
     repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 7px),
     radial-gradient(circle at 50% 50%, #0a0a0c 0%, #0a0a0c 58%, #070708 82%, #0a0a0c 100%);
@@ -1584,6 +1624,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    The rim reuses the base masked hairline, so no graphic ever enters the disc. */
 .vinyl-record--sage-white-rim {
   background:
+    /* the shared pressing finish — lead-in band and fixed room light */
+    radial-gradient(circle at 50% 50%, transparent 0 96.2%, rgba(255, 255, 255, 0.14) 96.7% 97.3%, transparent 97.9%),
+    linear-gradient(118deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.04) 22%, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0) 66%, rgba(255, 255, 255, 0.05) 86%, rgba(255, 255, 255, 0.1) 100%),
     /* translucent marbling: pale sage veins drifting over a darker body */
     radial-gradient(ellipse 24% 9% at 64% 21%, rgba(214, 230, 221, 0.24) 0%, rgba(214, 230, 221, 0.08) 48%, rgba(214, 230, 221, 0) 76%),
     radial-gradient(ellipse 17% 7% at 33% 58%, rgba(8, 22, 17, 0.36) 0%, rgba(8, 22, 17, 0) 74%),
@@ -1641,6 +1684,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    stage; the record still holds only the masked rim and the flower. */
 .vinyl-record--ice-silver-rim {
   background:
+    /* the shared pressing finish — lead-in band and fixed room light */
+    radial-gradient(circle at 50% 50%, transparent 0 96.2%, rgba(255, 255, 255, 0.4) 96.7% 97.3%, transparent 97.9%),
+    linear-gradient(118deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.12) 22%, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0) 66%, rgba(255, 255, 255, 0.14) 86%, rgba(255, 255, 255, 0.34) 100%),
     /* diamond-cut facets: two crossing specular bands and a cool counter-sheen */
     linear-gradient(116deg, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, 0.62) 50%, rgba(255, 255, 255, 0) 60%),
     linear-gradient(-118deg, rgba(255, 255, 255, 0) 42%, rgba(255, 255, 255, 0.34) 50%, rgba(255, 255, 255, 0) 58%),
@@ -1702,6 +1748,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    only the masked rim and the flower, with no extra graphic layer. */
 .vinyl-record--rage-fire-rim {
   background:
+    /* the shared pressing finish — lead-in band and fixed room light */
+    radial-gradient(circle at 50% 50%, transparent 0 96.2%, rgba(255, 255, 255, 0.09) 96.7% 97.3%, transparent 97.9%),
+    linear-gradient(118deg, rgba(255, 255, 255, 0.085) 0%, rgba(255, 255, 255, 0.02) 20%, rgba(255, 255, 255, 0) 34%, rgba(255, 255, 255, 0) 68%, rgba(255, 255, 255, 0.04) 86%, rgba(255, 255, 255, 0.075) 100%),
     radial-gradient(circle at 31% 22%, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 34%),
     radial-gradient(circle at 72% 82%, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0) 46%),
     repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 7px),
@@ -1757,6 +1806,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    label sits above the spray, so the mark always has a clean stage. */
 .vinyl-record--graffiti-splatter {
   background:
+    /* the shared pressing finish — lead-in band and fixed room light */
+    radial-gradient(circle at 50% 50%, transparent 0 96.2%, rgba(255, 255, 255, 0.09) 96.7% 97.3%, transparent 97.9%),
+    linear-gradient(118deg, rgba(255, 255, 255, 0.085) 0%, rgba(255, 255, 255, 0.02) 20%, rgba(255, 255, 255, 0) 34%, rgba(255, 255, 255, 0) 68%, rgba(255, 255, 255, 0.04) 86%, rgba(255, 255, 255, 0.075) 100%),
     /* fine aerosol grain: three off-phase tiled micro-dot fields */
     radial-gradient(circle, rgba(255, 255, 255, 0.3) 0 0.6px, transparent 1px) 2px 3px / 9px 11px,
     radial-gradient(circle, rgba(255, 255, 255, 0.22) 0 0.8px, transparent 1.3px) 7px 1px / 17px 19px,
@@ -3309,6 +3361,177 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
 .page-panel__kicker { display: block; font-size: 8px; font-weight: 800; letter-spacing: .32em; color: var(--gray); }
 .page-panel__title { margin-top: 8px; font-size: clamp(22px, 4vw, 36px); font-weight: 800; letter-spacing: -.02em; }
 .page-panel__sub { margin-top: 10px; font-size: 10px; line-height: 1.8; letter-spacing: .06em; color: var(--gray); }
+
+/* ---------- 12. The built-in support desk ---------------------------------- */
+/* The footer's SUPPORT control no longer hands the visitor to a mail app: it
+   opens this dialog inside the store (support.js), and support.html mounts the
+   same form inline. One sheet, one palette: the glassy dark card the download
+   gate wears, equal-channel greys only, measured in dynamic viewport units so
+   the five-field form always scrolls inside itself on a phone. */
+.support-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(12px, 4vh, 48px) 16px calc(clamp(12px, 4vh, 48px) + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+  background: rgba(6, 6, 6, .86);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  backdrop-filter: blur(14px) saturate(120%);
+  overflow: hidden;
+}
+.support-modal[hidden] { display: none; }
+
+/* The page behind an open desk is frozen at its current offset (support.js pins
+   the body), so the visitor comes back to exactly what they were reading. */
+html.support-open { overflow: hidden; }
+
+.support-sheet {
+  width: min(720px, 100%);
+  max-height: 90dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: clamp(20px, 3vw, 34px);
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 6px;
+  background: linear-gradient(158deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .015));
+  box-shadow: 0 40px 110px rgba(0, 0, 0, .8), inset 0 1px 0 rgba(255, 255, 255, .14);
+  scrollbar-width: thin;
+}
+.support-sheet__kicker { display: block; font-size: 8px; font-weight: 800; letter-spacing: .32em; color: var(--gray); }
+.support-sheet__title { margin-top: 8px; font-size: clamp(22px, 3.4vw, 34px); font-weight: 800; line-height: 1.12; letter-spacing: -.02em; }
+.support-sheet__sub { margin-top: 10px; font-size: 10px; line-height: 1.8; letter-spacing: .06em; color: var(--gray); }
+.support-sheet__body { margin-top: 22px; }
+
+/* The inline mount on support.html sits under the page panel's own heading. */
+[data-support-inline] .support-form { margin-top: 4px; }
+
+.support-form { display: flex; flex-direction: column; gap: 16px; }
+.support-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.support-label { font-size: 8px; font-weight: 800; letter-spacing: .24em; color: var(--gray); }
+.support-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+
+.support-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 13px 14px;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  background: #101010;
+  color: var(--white);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.support-input::placeholder { color: #6c6c6c; text-transform: uppercase; }
+.support-input:focus { outline: none; border-color: var(--white); background: #161616; }
+.support-input.is-valid { border-color: #a1a1a1; }
+.support-textarea { resize: vertical; min-height: 132px; }
+
+.support-categories { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.support-category {
+  padding: 13px 14px;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  background: #131313;
+  color: var(--gray);
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.45;
+  letter-spacing: .12em;
+  text-align: left;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color .15s ease, background-color .15s ease, color .15s ease;
+}
+.support-category:hover,
+.support-category:focus-visible { border-color: #7a7a7a; color: var(--white); outline: none; }
+.support-category.is-selected {
+  border-color: var(--white);
+  background: var(--white);
+  color: var(--black);
+}
+
+.support-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 2px solid var(--white);
+  background: rgba(255, 255, 255, .06);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.6;
+  letter-spacing: .08em;
+  color: var(--white);
+}
+
+.support-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+.support-close,
+.support-submit {
+  min-height: 44px;
+  padding: 0 22px;
+  border-radius: 3px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.support-close {
+  border: 1px solid #3a3a3a;
+  background: transparent;
+  color: var(--gray);
+}
+.support-close:hover,
+.support-close:focus-visible { border-color: var(--white); color: var(--white); outline: none; }
+.support-submit {
+  border: 1px solid var(--white);
+  background: var(--white);
+  color: var(--black);
+}
+.support-submit:hover:not(:disabled),
+.support-submit:focus-visible:not(:disabled) { background: #c8c8c8; border-color: #c8c8c8; outline: none; }
+.support-submit:disabled,
+.support-form.is-busy .support-submit { opacity: .55; cursor: default; }
+
+.support-note { margin: 0; font-size: 9px; line-height: 1.7; letter-spacing: .06em; color: var(--gray); }
+
+.support-success { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.support-success__tick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--white);
+  border-radius: 50%;
+  color: var(--white);
+}
+.support-success__tick svg { display: block; width: 22px; height: 22px; }
+.support-success__title { font-size: clamp(14px, 2.2vw, 18px); font-weight: 800; line-height: 1.45; letter-spacing: .02em; }
+.support-success__sub { font-size: 10px; line-height: 1.7; letter-spacing: .06em; color: var(--gray); }
+
+@media (max-width: 640px) {
+  .support-sheet { max-height: 92dvh; padding: 20px 16px 24px; }
+  .support-grid,
+  .support-categories { grid-template-columns: minmax(0, 1fr); }
+  /* 16px is the smallest size iOS will not zoom the page for on focus. */
+  .support-input { font-size: 16px; }
+  .support-actions { justify-content: stretch; }
+  .support-close,
+  .support-submit { flex: 1 1 auto; }
+}
+
 
 /* ---------- Page-load preloader ------------------------------------------- */
 /* While the veil is armed the page behind it is frozen: no scrolling under a

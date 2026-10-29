@@ -204,11 +204,13 @@ const noCardBleed = async (page, label) => {
   return report;
 };
 
-// Every rendered colour except the hero tagline's green / pink glitch palette
-// and the vinyl pressings' intentionally coloured rims must be an equal-channel
-// grey. (The rims sit in gradient background images, which this computed-style
-// sweep does not read; the CSS text audit below exempts only those scoped
-// sections.)
+// Every rendered colour except the hero tagline's green / pink glitch palette,
+// the vinyl pressings' intentionally coloured rims and the footer's official
+// social marks must be an equal-channel grey. (The rims sit in gradient
+// background images, which this computed-style sweep does not read; the social
+// badges are the platforms' own brand colours inside their inline SVGs, and the
+// CSS text audit below exempts only the scoped stylesheet sections — the icon
+// tiles themselves are greys.)
 const noHue = async (page, label) => {
   const report = await page.evaluate(() => {
     const plain = ['color', 'backgroundColor', 'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor', 'outlineColor', 'textDecorationColor', 'caretColor', 'fill', 'stroke', 'columnRuleColor', 'boxShadow', 'textShadow'];
@@ -218,7 +220,7 @@ const noHue = async (page, label) => {
     const bad = [];
     let inspected = 0;
     document.querySelectorAll('*').forEach(el => {
-      if (el.closest('.brand-tagline')) return;
+      if (el.closest('.brand-tagline, .footer__social')) return;
       const cs = getComputedStyle(el);
       inspected += 1;
       plain.forEach(prop => runs(cs[prop]).forEach(rgb => {
@@ -414,15 +416,55 @@ try {
   await noOverflow(desktop);
   await noHue(desktop, 'the storefront');
   await noLowercase(desktop, 'the storefront');
-  assert.deepEqual(await desktop.locator('.footer__social a').evaluateAll(nodes => nodes.map(node => ({
-    text: node.textContent.trim(),
-    href: node.getAttribute('href')
-  }))), [
-    { text: 'YOUTUBE', href: 'https://www.youtube.com/@KYROlll00' },
-    { text: 'INSTAGRAM', href: 'https://www.instagram.com/kyroill00' },
-    { text: 'TIKTOK', href: 'https://www.tiktok.com/@kyroill00' },
-    { text: 'X', href: 'https://x.com/KYROlllll' }
+  // The footer's four profiles are large official brand badges, not text
+  // links: each anchor carries the platform's own inline SVG mark, a label for
+  // assistive tech, and a real tap target. The tiles stay neutral greys; the
+  // colour lives in the artwork (the noHue sweep exempts this subtree).
+  const social = await desktop.locator('.footer__social a').evaluateAll(nodes => nodes.map(node => {
+    const svg = node.querySelector('svg');
+    const rect = node.getBoundingClientRect();
+    const style = getComputedStyle(node);
+    return {
+      className: node.className,
+      text: node.textContent.trim(),
+      href: node.getAttribute('href'),
+      label: node.getAttribute('aria-label'),
+      title: node.getAttribute('title'),
+      rel: node.getAttribute('rel'),
+      svg: !!svg,
+      viewBox: svg && svg.getAttribute('viewBox'),
+      fills: svg ? [...svg.querySelectorAll('[fill]')].map(child => child.getAttribute('fill')) : [],
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+      radius: parseFloat(style.borderTopLeftRadius),
+      touchAction: style.touchAction,
+    };
+  }));
+  assert.deepEqual(social.map(item => ({ href: item.href, label: item.label })), [
+    { href: 'https://www.youtube.com/@KYROlll00', label: 'KYROIII on YouTube' },
+    { href: 'https://www.instagram.com/kyroill00', label: 'KYROIII on Instagram' },
+    { href: 'https://www.tiktok.com/@kyroill00', label: 'KYROIII on TikTok' },
+    { href: 'https://x.com/KYROlllll', label: 'KYROIII on X' }
   ], 'the footer links every official social profile');
+  social.forEach(item => {
+    assert.equal(item.text, '', `${item.label} renders as an icon, not a text link`);
+    assert.equal(item.svg, true, `${item.label} carries its official SVG mark`);
+    assert.equal(item.viewBox, '0 0 24 24', `${item.label} uses the square brand viewBox`);
+    assert.equal(item.rel, 'noopener noreferrer', `${item.label} opens safely in a new tab`);
+    assert(item.width >= 44 && item.height >= 44, `${item.label} is a ${item.width}x${item.height} tap target`);
+    assert(item.radius >= 10, `${item.label} is a rounded badge tile`);
+    assert.equal(item.touchAction, 'manipulation', `${item.label} answers the first tap`);
+  });
+  assert.match(social[0].className, /social-icon--youtube/, 'the YouTube badge carries its own modifier');
+  assert.deepEqual(social[0].fills.sort(), ['#ff0033', '#fff'], 'the YouTube badge is the official red play mark');
+  assert.match(social[1].className, /social-icon--instagram/, 'the Instagram badge carries its own modifier');
+  assert(social[1].fills.includes('url(#kyro-ig-gradient)'), 'the Instagram badge paints its official gradient');
+  assert.match(social[2].className, /social-icon--tiktok/, 'the TikTok badge carries its own modifier');
+  assert(social[2].fills.includes('#25f4ee') && social[2].fills.includes('#fe2c55'), 'the TikTok badge carries its cyan/red offset marks');
+  assert.match(social[3].className, /social-icon--x/, 'the X badge carries its own modifier');
+  assert.deepEqual(social[3].fills, ['#fff'], 'the X badge is the minimalist white logo');
+  assert.equal(await desktop.locator('.footer a[href^="mailto:"]').count(), 0, 'the footer no longer hands anyone to a mail client');
+  assert.equal(await desktop.locator('.footer__support[data-support-open]').count(), 1, 'the footer SUPPORT control opens the built-in desk');
   assert.equal(await desktop.locator('.brand-tagline__text').textContent(), 'THAT MY FAVORITE');
   assert.equal(await desktop.locator('.brand-tagline__heart svg').count(), 1);
   assert.deepEqual(await desktop.locator('.brand-tagline__text').evaluate(el => ({
@@ -667,6 +709,23 @@ try {
   assert.equal(railContract.cursor, 'pointer', 'the return control reads as clickable');
   assert(railContract.linkHeight >= 44, `the return control is a ${railContract.linkHeight}px tap target`);
   assert(railContract.linkWidth >= 120, `the return control is a ${railContract.linkWidth}px wide target`);
+  await railPage.locator('#all-beats-link').click();
+  await railPage.locator('#grid .catalog-tile').first().waitFor();
+  // A cold beat link lands with the rail already pinned at the very top of the
+  // viewport — no hunting, no waiting for the card to settle. The landing is one
+  // explicit instant scroll (`window.scrollTo`), never a smooth travel.
+  await railPage.goto(`${url}/?beat=flesh`, { waitUntil: 'domcontentloaded' });
+  await railPage.locator('.beat-detail').waitFor();
+  const landing = await railPage.evaluate(() => ({
+    railTop: Math.round(document.getElementById('beat-navigation').getBoundingClientRect().top),
+    railVisible: document.getElementById('beat-navigation').getBoundingClientRect().bottom > 0,
+    cardTop: Math.round(document.querySelector('.beat-detail').getBoundingClientRect().top),
+    scrollY: Math.round(window.scrollY),
+  }));
+  assert.equal(landing.railTop, 0, 'the rail is pinned at the absolute top the moment the beat page lands');
+  assert.equal(landing.railVisible, true, 'the rail is in plain sight on landing');
+  assert(landing.cardTop >= 44, `the beat card clears the pinned rail on landing (${landing.cardTop}px)`);
+  assert(landing.scrollY > 0, 'a deep beat link scrolls the card into view instantly');
   await railPage.evaluate(() => window.scrollTo(0, Math.min(700, document.documentElement.scrollHeight - window.innerHeight)));
   await railPage.waitForTimeout(150);
   const pinnedTop = await railPage.evaluate(() => document.getElementById('beat-navigation').getBoundingClientRect().top);
@@ -2612,6 +2671,76 @@ try {
   assert.match(await adllAfter.locator('.marquee-track').innerText(), /6 RELEASES LIVE/, 'the studio count becomes six once ADLL is live');
   await adllAfter.close();
 
+  // ------------------------------------------------------------ support desk
+  // The footer's SUPPORT control no longer opens a mail app: it opens the
+  // store's own desk. The test walks the real form — a category, an address, a
+  // subject, a message — refuses an incomplete submission without contacting
+  // Formspree, then proves the one POST carries the rich analytics payload and
+  // that the dialog reaches its professional success state.
+  const supportPage = await setupPage({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
+  await supportPage.goto(`${url}/`, { waitUntil: 'domcontentloaded' });
+  await supportPage.locator('.footer__support').click();
+  const desk = supportPage.locator('.support-modal:not([hidden])');
+  await desk.waitFor();
+  assert.equal(await supportPage.locator('.support-modal .support-sheet').isVisible(), true, 'the built-in desk is an in-page dialog');
+  assert.equal(await supportPage.locator('.support-category').count(), 4, 'the desk offers the four structured categories');
+  assert.deepEqual(await supportPage.locator('.support-category').allInnerTexts(), [
+    'LICENSE & RIGHTS QUESTION',
+    'DOWNLOAD / STEMS ISSUE',
+    'COLLAB / CUSTOM BEATS',
+    'GENERAL INQUIRY',
+  ], 'the categories are the studio’s own routing options');
+  const supportBase = subscribeRequests.length;
+  await supportPage.locator('[data-support-submit]').click();
+  assert.equal(await supportPage.locator('[data-support-error]').isVisible(), true, 'an empty ticket is refused inline');
+  assert.match(await supportPage.locator('[data-support-error]').innerText(), /PICK A TOPIC/);
+  await supportPage.locator('[data-support-category="download"]').click();
+  assert.equal(await supportPage.locator('[data-support-category="download"]').getAttribute('aria-checked'), 'true', 'the picked category is announced');
+  await supportPage.locator('#support-email').fill('not-an-address');
+  await supportPage.locator('#support-subject').fill('STEMS ARCHIVE');
+  await supportPage.locator('#support-message').fill('THE TRACKED STEMS ARCHIVE WILL NOT OPEN ON MY MACHINE.');
+  await supportPage.locator('[data-support-submit]').click();
+  assert.match(await supportPage.locator('[data-support-error]').innerText(), /EMAIL ADDRESS/, 'a malformed address is refused');
+  assert.equal(subscribeRequests.length, supportBase, 'nothing is posted while the form is incomplete');
+  await supportPage.locator('#support-email').fill('jordan@studio.com');
+  await supportPage.locator('[data-support-submit]').click();
+  await waitForPostCount(supportBase + 1, 'the desk posts exactly one message');
+  const ticket = postJSON(supportBase);
+  assert.equal(subscribeRequests[supportBase].url, PROVIDER, 'the desk posts to the store’s Formspree form');
+  assert.match(subscribeRequests[supportBase].headers['content-type'] || '', /application\/json/, 'the desk posts a JSON payload');
+  assert.equal(ticket.category, 'DOWNLOAD / STEMS ISSUE', 'the payload carries the picked category');
+  assert.equal(ticket.categoryId, 'download', 'the payload carries the category id');
+  assert.equal(ticket.email, 'jordan@studio.com', 'the payload carries the visitor’s address');
+  assert.equal(ticket.subject, 'STEMS ARCHIVE', 'the payload carries the subject');
+  assert.match(ticket.message, /TRACKED STEMS ARCHIVE/, 'the payload carries the full message');
+  assert.match(ticket.submittedAt, /^\d{4}-\d{2}-\d{2}T/, 'the payload carries the timestamp');
+  assert.match(ticket.device, /Chrome|Headless/, 'the payload carries the device');
+  assert.match(ticket.form, /SUPPORT DESK/, 'the payload names the desk form');
+  assert.equal(ticket.page, '/', 'the payload names the source page');
+  assert.match(ticket.viewport, /^\d+x\d+$/, 'the payload carries the viewport');
+  const successTitle = supportPage.locator('[data-support-success] .support-success__title');
+  await successTitle.waitFor();
+  assert.equal(await successTitle.innerText(), 'MESSAGE SENT SUCCESSFULLY // WE WILL GET BACK TO YOU SOON', 'the desk reaches its success state');
+  // The dialog has one exit: a stray backdrop tap cannot wipe a written message.
+  await supportPage.mouse.click(5, 5);
+  assert.equal(await supportPage.locator('.support-modal').isHidden(), false, 'the backdrop never dismisses the desk');
+  await supportPage.locator('[data-support-done]').click();
+  await supportPage.waitForFunction(() => document.getElementById('support-modal')?.hidden === true, null, { timeout: 5000 });
+  assert.equal(await supportPage.evaluate(() => document.body.style.position), '', 'closing the desk restores the page scroll');
+  // Re-opening starts from a clean, empty form — nothing is stored.
+  await supportPage.locator('.footer__support').click();
+  await supportPage.locator('.support-modal:not([hidden])').waitFor();
+  assert.equal(await supportPage.locator('#support-email').inputValue(), '', 'the desk never prefills an address');
+  assert.equal(await supportPage.locator('.support-category.is-selected').count(), 0, 'the desk never remembers a category');
+  await supportPage.locator('[data-support-close]').click();
+  await supportPage.waitForFunction(() => document.getElementById('support-modal')?.hidden === true, null, { timeout: 5000 });
+  // support.html mounts the same desk inline as a dedicated view.
+  await supportPage.goto(`${url}/support.html`, { waitUntil: 'domcontentloaded' });
+  await supportPage.locator('[data-support-inline] .support-form').waitFor();
+  assert.equal(await supportPage.locator('[data-support-inline] .support-category').count(), 4, 'the support page mounts the same four categories');
+  assert.equal(await supportPage.locator('[data-support-inline] a[href^="mailto:"]').count(), 0, 'the support page no longer hands over a mailto link');
+  await supportPage.close();
+
   // Keep the rest of the stylesheet monochrome while expressly checking the
   // isolated green / pink hero accents, THE FLOW's gold-rim palette, GREEN FLESH's
   // sage-white-rim palette, SQUISH!'s ice-silver-rim palette, JUST D0 IT's
@@ -2787,6 +2916,37 @@ try {
   assert.doesNotMatch(graffitiCss, /#e63946|conic-gradient/, 'the graffiti pressing carries no coloured rim');
   assert.doesNotMatch(graffitiCss, /ellipse/, 'the spray uses no oversized elliptical paint blobs');
   assert.doesNotMatch(graffitiCss, /animation\s*:/, 'the speckle dust is static and never fights the flower spin');
+  // Physical pressing finish: every one of the six discs carries the same two
+  // layers a real pressing has — a smooth unrecorded lead-in band between the
+  // raised outer lip and the first groove, and one fixed room light sweeping the
+  // surface — so the catalog reads as pressings from one plant rather than six
+  // illustrations. Both layers are equal-channel white, so the monochrome audit
+  // still covers them.
+  const finishBlocks = {
+    base: cssText.slice(cssText.indexOf('.vinyl-record {'), cssText.indexOf('.vinyl-record--white {')),
+    white: whiteCss,
+    'gold-rim': goldRimCss,
+    sage: sageCss,
+    ice: iceCss,
+    fire: fireCss,
+    graffiti: graffitiCss,
+  };
+  Object.entries(finishBlocks).forEach(([name, block]) => {
+    assert.match(block, /radial-gradient\(circle at 50% 50%, transparent 0 96\.2%/, `${name}: the disc keeps an unrecorded lead-in band`);
+    assert.match(block, /linear-gradient\(118deg/, `${name}: the disc takes one fixed room-light sheen`);
+  });
+  // Every body colour is opaque: an alpha on the disc's own fill would let the
+  // page through it, which no pressed record does.
+  Object.entries({ white: whiteCss, sage: sageCss, ice: iceCss, fire: fireCss, graffiti: graffitiCss, 'gold-rim': goldRimCss })
+    .forEach(([name, block]) => assert.match(block, /radial-gradient\(circle at 50% 50%, #(?:ffffff|3a4b44|cfd4da|0a0a0a|0a0a0c) /, `${name}: the pressing body is a solid opaque colour`));
+  assert.match(cssText, /\.social-icon \{[^}]*width:\s*52px/, 'the footer social badges are large icon tiles');
+  assert.match(cssText, /\.social-icon \{[^}]*border-radius:\s*14px/, 'the badges are rounded tiles');
+  assert.match(cssText, /\.social-icon:hover,\s*\n\.social-icon:focus-visible \{[^}]*filter:\s*drop-shadow/, 'the badges take a static cyberpunk glow on hover');
+  assert.doesNotMatch(cssText, /\.social-icon[^{}]*\{[^}]*box-shadow[^}]*transition/, 'the badge glow never tweens a shadow');
+  assert.match(cssText, /\.support-modal \{[^}]*position:\s*fixed/, 'the support desk is a full-screen in-page dialog');
+  assert.match(cssText, /\.support-modal \{[^}]*z-index:\s*1000000/, 'the desk paints above the package drawer');
+  assert.match(cssText, /\.support-sheet \{[^}]*max-height:\s*90dvh/, 'the desk card is measured in dynamic viewport units');
+  assert.match(cssText, /\.support-sheet \{[^}]*overflow-y:\s*auto/, 'the desk card scrolls inside itself');
   const auditedCss = cssText.slice(0, taglineStart)
     + cssText.slice(taglineEnd, goldRimStart)
     + cssText.slice(goldRimEnd, sageStart)

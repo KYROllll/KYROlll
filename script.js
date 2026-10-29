@@ -239,9 +239,20 @@ function beatDetailInner(beat) {
 
 const byNewest = (a, b) => CATALOG.indexOf(b) - CATALOG.indexOf(a);
 
+/* Land on the beat card with the return rail already pinned in plain sight.
+   `scrollIntoView` was the wrong tool here: it defers to the browser's own
+   scroll machinery (and to `scroll-behavior`), so on a cold load the card could
+   settle first and the rail only arrive a frame or two later, or the rail's own
+   height could end up under the browser chrome. The landing is now one explicit
+   instant `window.scrollTo` aimed at the card's document offset minus the rail
+   so the rail and the first line of the title are both on screen immediately. */
 function scrollToBeatDetail() {
   const card = grid.querySelector(".beat-detail");
-  if (card) card.scrollIntoView({ block: "start", behavior: "auto" });
+  if (!card) return;
+  const nav = $("beat-navigation");
+  const navHeight = nav && !nav.hidden ? nav.getBoundingClientRect().height : 0;
+  const top = card.getBoundingClientRect().top + window.scrollY - navHeight;
+  window.scrollTo({ top: Math.max(0, top), behavior: "instant" });
 }
 
 // Content above the card (lazy artwork, fonts) can still be settling right

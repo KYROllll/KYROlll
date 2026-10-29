@@ -49,7 +49,11 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   `body > canvas` (the falling brush X), `.footer__logo`, `.brand-wordmark__mark`,
   `.vinyl-record__logo` and both watermark images paint in the colour they were drawn in — the
   warm brown of the brush marks included — so no `grayscale()`/`saturate()` belongs in any of
-  their chains. THE FLOW's collector pressing is the coloured vinyl: its deep matte `#0a0a0c`
+  their chains. The footer's social badges are the one colour exception outside CSS: each anchor carries the
+platform's own inline SVG mark (YouTube red, Instagram's gradient, TikTok's cyan/red offsets,
+X's white logo), so the colour lives in markup the stylesheet never paints. The tile, its
+border and its static hover glow are equal-channel greys, and the computed-style hue audit
+exempts only that `.footer__social` subtree. THE FLOW's collector pressing is the coloured vinyl: its deep matte `#0a0a0c`
   body and single ultra-fine gold foil rim (`#d4af37` / `#e5c158`) are the vinyl's own
   intentional CSS colour block, scoped between the `THE FLOW gold-rim palette` markers. There
   is no splash, blob or extra graphic on the disc — just the black body, the perimeter rim and
@@ -324,7 +328,12 @@ the variant onto the card (`data-vinyl`) and the record (`.vinyl-record--white` 
 `.vinyl-record--gold-rim` / `.vinyl-record--sage-white-rim` / `.vinyl-record--ice-silver-rim` /
 `.vinyl-record--rage-fire-rim` / `.vinyl-record--graffiti-splatter`); the old `"gold"` value
 resolves to `gold-rim`, and a bare black
-disc remains the base/fallback. The rim is `.vinyl-record__rim`, a conic-gradient masked to a
+disc remains the base/fallback. Every pressing — the base black disc included — also shares the physical
+finish a real record has: an opaque body colour (never a translucent panel), a smooth unrecorded
+lead-in band between the raised outer lip and the first groove, and one fixed 118° room-light
+sheen across the surface. Both shared layers are equal-channel white, so they stay inside the
+monochrome audit; keep them if a pressing is retuned, because they are what makes six variants
+read as six pressings from one plant instead of six illustrations. The rim is `.vinyl-record__rim`, a conic-gradient masked to a
 ~1.6px outer hairline. It sits above the grooves (z-index 3) but only at the perimeter, while
 the centre label (z-index 1) and the spinning flower (z-index 2) stay clean on top. A rim
 pressing's DOM holds only that rim and the flower; ADLL's paint is part of the disc's own
@@ -802,11 +811,38 @@ visitor asked to go back, not to watch the page travel. It applies on desktop an
 BEATS). This is the only browser storage the store uses; it holds no gate state, address or
 signature, and `sessionStorage` dies with the tab.
 
+## The support desk is built into the store
+
+The footer's `SUPPORT` control is a `<button data-support-open>`, never a `mailto:` link. It
+opens `.support-modal` (built once on `<body>` by `support.js`), a full-screen glass dialog with
+the four structured categories — LICENSE & RIGHTS QUESTION, DOWNLOAD / STEMS ISSUE, COLLAB /
+CUSTOM BEATS, GENERAL INQUIRY — one email field, one subject and one detailed message.
+`support.html` mounts the *same* renderer inline (`[data-support-inline]`) as a dedicated view,
+so there is one validator and one submit path on every page.
+
+The form posts JSON to `KYROlll_NEWSLETTER.endpoint` / `KYROlll_SITE.formspreeEndpoint`
+(`https://formspree.io/f/mvkkkoew`, `DEFAULT_ENDPOINT` as the fallback for a page without the
+catalog) with `Accept: application/json`: form name, category label + id, email, subject,
+message, `submittedAt`, page, referrer, `device`, viewport and language. An empty category, a
+malformed address, a short subject or a short message is refused inline before anything leaves
+the browser; a successful POST replaces the card with
+`MESSAGE SENT SUCCESSFULLY // WE WILL GET BACK TO YOU SOON`. Nothing is drafted, prefilled or
+stored — re-opening the desk always starts empty.
+
+It is a phone citizen like the gate: the sheet is capped at `90dvh` and scrolls inside itself,
+`support.js` pins the page offset while it is open and restores it on close, inputs are 16px on a
+phone, and the backdrop carries no dismiss attribute — a stray tap cannot wipe a half-written
+message. CLOSE (or Escape) is the exit. The dialog sits at `z-index: 1000000`, above the package
+drawer.
+
 ## The return control is a sticky rail, not a link above the fold
 
 `#beat-navigation` (the `← ALL BEATS` pill) sits in the flow at the top of the beat page and
 then pins itself to the top of the viewport — `position: sticky; top: 0` — so the way back is a
-glance away at any scroll depth. Sticky, not fixed: it is painted in the root stacking context
+glance away at any scroll depth. Landing on a beat is one explicit instant `window.scrollTo`
+(the card's document offset minus the rail's measured height), not `scrollIntoView`: the rail
+and the first line of the title are both on screen in the first settled frame, and no browser
+smooth-scroll setting can animate the arrival. Sticky, not fixed: it is painted in the root stacking context
 with `z-index: 95`, above the storefront's own tiles and marquee but deliberately below the
 preloader veil (400), the package drawer (999999) and the gate modal (1000000), so it can never
 float over a dialog or the first paint. `script.js` marks it `data-beat-back` and its click is

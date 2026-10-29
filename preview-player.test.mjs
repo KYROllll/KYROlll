@@ -105,6 +105,61 @@ test("every beat keeps its own bespoke pressing, and the beat page keeps a stick
   assert.match(script, /if \(!restoreCatalogScroll\(\)\)/, "the return control restores the saved catalog offset");
 });
 
+test("the built-in support desk is wired on every page and posts a rich Formspree payload", () => {
+  const support = readFileSync(new URL("./support.js", import.meta.url), "utf8");
+  const pages = ["index.html", "download.html", "support.html"]
+    .map(name => [name, readFileSync(new URL(`./${name}`, import.meta.url), "utf8")]);
+  pages.forEach(([name, html]) => {
+    assert.match(html, /class="footer__support"[^>]*data-support-open/, `${name}: SUPPORT opens the in-page desk`);
+    assert.doesNotMatch(html, /href="mailto:/, `${name}: the footer never hands over a mail app`);
+    assert.match(html, /<script src="support\.js\?v=\d+"><\/script>/, `${name}: the desk script is loaded`);
+  });
+  assert.match(pages[2][1], /data-support-inline/, "support.html mounts the desk inline");
+  assert.match(support, /https:\/\/formspree\.io\/f\/mvkkkoew/, "the desk posts to the store's Formspree form");
+  assert.match(support, /"Accept": "application\/json", "Content-Type": "application\/json"/, "the desk posts JSON");
+  ["LICENSE & RIGHTS QUESTION", "DOWNLOAD / STEMS ISSUE", "COLLAB / CUSTOM BEATS", "GENERAL INQUIRY"]
+    .forEach(category => assert(support.includes(category), `the desk offers ${category}`));
+  ["category", "email", "subject", "message", "submittedAt", "device", "viewport"]
+    .forEach(field => assert.match(support, new RegExp(`\\b${field}:`), `the analytics payload carries ${field}`));
+  assert.match(support, /MESSAGE SENT SUCCESSFULLY \/\/ WE WILL GET BACK TO YOU SOON/, "the desk confirms the send professionally");
+  assert.match(support, /aria-checked/, "the category picker announces its selection");
+});
+
+test("the footer carries the four official social marks as large SVG badges", () => {
+  ["index.html", "download.html", "support.html"].forEach((name) => {
+    const html = readFileSync(new URL(`./${name}`, import.meta.url), "utf8");
+    const anchors = html.match(/<a class="social-icon social-icon--[a-z]+"[\s\S]*?<\/a>/g) || [];
+    assert.equal(anchors.length, 4, `${name}: four official profiles are linked`);
+    ["youtube", "instagram", "tiktok", "x"].forEach((network) => {
+      assert(anchors.some(anchor => anchor.includes(`social-icon--${network}`)), `${name}: the ${network} badge is present`);
+      assert(anchors.some(anchor => anchor.includes(`social-icon--${network}`) && anchor.includes('aria-label="KYROIII on ')), `${name}: the ${network} badge is labelled`);
+    });
+    anchors.forEach(anchor => assert.match(anchor, /<svg viewBox="0 0 24 24"/, `${name}: every badge is a real SVG mark`));
+    assert.match(html, /social-icon--youtube[\s\S]*?fill="#ff0033"/, `${name}: YouTube keeps its red play badge`);
+    assert.match(html, /social-icon--instagram[\s\S]*?kyro-ig-gradient/, `${name}: Instagram keeps its gradient mark`);
+    assert.match(html, /social-icon--tiktok[\s\S]*?fill="#25f4ee"/, `${name}: TikTok keeps its cyan offset`);
+    assert.match(html, /social-icon--x[\s\S]*?fill="#fff"/, `${name}: X keeps its minimalist logo`);
+  });
+});
+
+test("all six pressings share a solid body, a lead-in band and one room light", () => {
+  const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
+  const leadIn = (css.match(/transparent 0 96\.2%/g) || []).length;
+  const sheen = (css.match(/linear-gradient\(118deg/g) || []).length;
+  assert.equal(leadIn, 7, "the base disc and all six pressings carry the unrecorded lead-in band");
+  assert.equal(sheen, 7, "the base disc and all six pressings take the same fixed room-light sheen");
+});
+
+test("a beat link lands with the return rail already pinned at the top", () => {
+  const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
+  assert.match(script, /window\.scrollTo\(\{ top: Math\.max\(0, top\), behavior: "instant" \}\)/, "the beat page landing is an instant window.scrollTo");
+  assert.match(script, /const navHeight = nav && !nav\.hidden \? nav\.getBoundingClientRect\(\)\.height : 0/, "the landing offsets by the pinned rail");
+  assert.doesNotMatch(script, /card\.scrollIntoView/, "the landing no longer defers to scrollIntoView");
+  const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
+  assert.match(css, /\.beat-navigation \{[^}]*position:\s*sticky/, "the rail is sticky");
+  assert.match(css, /\.beat-navigation \{[^}]*top:\s*0/, "the rail pins to the very top");
+});
+
 function setup() {
   const listeners = new Map();
   const root = {
