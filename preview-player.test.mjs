@@ -50,7 +50,7 @@ test("the sixth release ADLL is scheduled, packaged and pointed at the free-down
   assert.equal(beat.shortTitle, "ADLL");
   assert.equal(beat.bpm, 124);
   assert.equal(beat.key, "C#");
-  assert.equal(beat.vinylVariant, "rage-crimson-rim");
+  assert.equal(beat.vinylVariant, "graffiti-splatter");
   assert.equal(beat.releaseAt, "2026-10-29T22:00:00+02:00");
   const releaseAt = Date.parse("2026-10-29T22:00:00+02:00");
   assert.equal(window.KYROlll_HELPERS.releaseAt(beat), releaseAt);

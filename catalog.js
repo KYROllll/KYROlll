@@ -299,11 +299,12 @@
       /* The beat's own video is not published yet; the official channel keeps
          the "like this beat" gate step live until it is. */
       youtube: "https://www.youtube.com/@KYROlll00",
-      /* The sixth pressing: a deep matte black disc in #0a0a0a with one fine
-         crimson-red perimeter hairline (#e63946), a matte black centre label and
-         the complete spinning flower. The crimson rim is the only colour on an
-         otherwise monochrome record, matching the tattoo-dark cover mood. */
-      vinylVariant: "rage-crimson-rim",
+      /* The sixth pressing: a deep matte black disc in #0a0a0a with organic
+         white graffiti paint splashes and fine mist droplets across the exposed
+         vinyl, a matte black centre label and the complete spinning flower. The
+         paint is painted as background layers, never as extra DOM elements, so
+         it cannot interfere with the flower's rotation. */
+      vinylVariant: "graffiti-splatter",
       /* The sixth official release is scheduled for 22:00 Israel time on
          29 October 2026. Until then the tile is a timezone-proof countdown, and
          the beat page keeps its player and download drawer locked. */

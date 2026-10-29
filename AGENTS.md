@@ -312,18 +312,21 @@ SQUISH! is `vinylVariant: "ice-silver-rim"` (an icy chrome-slate disc with diamo
 micro-grooves and a pure-white perimeter hairline), JUST D0 IT is
 `vinylVariant: "rage-fire-rim"` (a deep matte `#0a0a0a` disc with one delicate fire-red/orange
 perimeter hairline and the complete flower in its matte black centre label), and ADLL is
-`vinylVariant: "rage-crimson-rim"` (a deep matte `#0a0a0a` disc with one fine crimson `#e63946`
-perimeter hairline and the complete flower in its matte black centre label). `script.js` writes
+`vinylVariant: "graffiti-splatter"` (a deep matte `#0a0a0a` disc scattered with organic white
+`rgba(255,255,255,.9)` paint splashes and fine mist droplets as background paint layers, with
+the complete flower in its clean matte black centre label). `script.js` writes
 the variant onto the card (`data-vinyl`) and the record (`.vinyl-record--white` /
 `.vinyl-record--gold-rim` / `.vinyl-record--sage-white-rim` / `.vinyl-record--ice-silver-rim` /
-`.vinyl-record--rage-fire-rim` / `.vinyl-record--rage-crimson-rim`); the old `"gold"` value
+`.vinyl-record--rage-fire-rim` / `.vinyl-record--graffiti-splatter`); the old `"gold"` value
 resolves to `gold-rim`, and a bare black
 disc remains the base/fallback. The rim is `.vinyl-record__rim`, a conic-gradient masked to a
 ~1.6px outer hairline. It sits above the grooves (z-index 3) but only at the perimeter, while
-the centre label (z-index 1) and the spinning flower (z-index 2) stay clean on top. The record
-DOM holds only that rim and the flower — there is no splash, blob or other graphic layer. Each
-coloured pressing is isolated between its own palette markers and excluded from the
-equal-channel audit. The pre-rendered FLESH card in `index.html` mirrors the white markup so the
+the centre label (z-index 1) and the spinning flower (z-index 2) stay clean on top. A rim
+pressing's DOM holds only that rim and the flower; ADLL's paint is part of the disc's own
+background layers and adds no DOM element at all — there is no splash, blob or other graphic
+layer on any record. Each coloured pressing is isolated between its own palette markers and
+excluded from the equal-channel audit; the graffiti pressing is white-on-black, so it stays
+inside that audit. The pre-rendered FLESH card in `index.html` mirrors the white markup so the
 first paint is already white; the record's vertical containment, the large cover width, the
 fully-exposed logo and the zero horizontal overflow are asserted at 375, 390, 768 and 1440 px,
 and the
@@ -852,7 +855,8 @@ Tests that ship with the repo:
   nothing is re-posted until submit, and the record is gone after a reload), and that no gate
   state is written to `localStorage`/`sessionStorage` (only the catalog scroll key may appear).
   It drives the six-card catalog, checks the ADLL drop's countdown and in-page unlock at 22:00,
-  the crimson-rim pressing, its studio filenames and `KYRO-YYYY-ADLL-NNNNNN` serial, and taps a
+  the white graffiti-splatter pressing, its studio filenames and `KYRO-YYYY-ADLL-NNNNNN` serial,
+  and taps a
   tile with a real mouse and a real touch to prove Back and ALL BEATS land on the remembered
   catalog offset. It needs
   Chromium + root `node_modules`,

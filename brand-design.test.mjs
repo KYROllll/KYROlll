@@ -273,7 +273,7 @@ const JUST_DO_IT_ID = 'just-d0-it';
 const JUST_DO_IT_CARD = '#card-just-d0-it';
 const JUST_DO_IT_RELEASE = Date.parse('2026-10-27T23:00:00+02:00');
 // The sixth release, [FREE 100%] YEAT TYPE BEAT - ADLL, is scheduled for 22:00
-// Israel time on 29 October 2026 and wears the crimson-rim pressing.
+// Israel time on 29 October 2026 and wears the white-splatter pressing.
 const ADLL_ID = 'adll';
 const ADLL_CARD = '#card-adll';
 const ADLL_RELEASE = Date.parse('2026-10-29T22:00:00+02:00');
@@ -571,7 +571,7 @@ try {
   assert.equal(vinylVariants['green-flesh'], 'sage-white-rim', 'catalog data gives GREEN FLESH its sage-white pressing');
   assert.equal(vinylVariants.squish, 'ice-silver-rim', 'catalog data gives SQUISH! its ice-silver pressing');
   assert.equal(vinylVariants['just-d0-it'], 'rage-fire-rim', 'catalog data gives JUST D0 IT its fire-rim pressing');
-  assert.equal(vinylVariants.adll, 'rage-crimson-rim', 'catalog data gives ADLL its crimson-rim pressing');
+  assert.equal(vinylVariants.adll, 'graffiti-splatter', 'catalog data gives ADLL its graffiti-splatter pressing');
   await shot(direct, 'beat-detail');
   await direct.close();
 
@@ -2379,14 +2379,14 @@ try {
   // ------------------------------------------ sixth release: ADLL (22:00)
   // The newest drop is scheduled for 22:00 Israel time on 29 October 2026. It
   // follows the same countdown contract and adds the deep matte black
-  // rage-crimson-rim pressing. The studio count stays at five until its clock
+  // graffiti-splatter pressing. The studio count stays at five until its clock
   // lands, then becomes six.
   const adllPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await adllPre.goto(`${url}/?now=${ADLL_RELEASE - 3600000}`);
   await adllPre.locator(`[data-countdown="${ADLL_ID}"]`).waitFor();
   assert.equal(await adllPre.locator('#grid .catalog-tile').count(), 6, 'the sixth release is in the six-card catalog');
   assert.equal(await adllPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-adll', 'ADLL leads the catalog as the newest drop');
-  assert.equal(await adllPre.locator(ADLL_CARD).getAttribute('data-vinyl'), 'rage-crimson-rim', 'the ADLL catalog card carries its own pressing');
+  assert.equal(await adllPre.locator(ADLL_CARD).getAttribute('data-vinyl'), 'graffiti-splatter', 'the ADLL catalog card carries its own pressing');
   assert.match(await adllPre.locator(ADLL_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - ADLL/i);
   assert.match(await adllPre.locator(`${ADLL_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'ADLL carries its countdown pill');
   assert.doesNotMatch(await adllPre.locator(`${ADLL_CARD} .drop-countdown__label`).innerText(), /\d/, 'the ADLL label carries no clock hour');
@@ -2435,35 +2435,37 @@ try {
   assert.equal(await adllLive.locator(`${ADLL_CARD} .download-trigger--locked`).count(), 0, 'the ADLL LOCKED control is gone at release');
   await noYouTubeButton(adllLive, ADLL_CARD);
   assert.equal(await adllLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), ADLL_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the ADLL link with the clock');
-  // The sixth pressing is the deep matte black rage-crimson disc: a fine
-  // crimson perimeter hairline, the matte black centre label and the complete
-  // spinning flower.
-  assert.equal(await adllLive.locator(`${ADLL_CARD}.beat-detail`).getAttribute('data-vinyl'), 'rage-crimson-rim', 'ADLL renders the rage-crimson-rim pressing');
-  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'rage-crimson-rim', 'the ADLL record itself carries the variant');
-  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--rage-crimson-rim`).count(), 1, 'ADLL carries the rage-crimson-rim modifier');
+  // The sixth pressing is the deep matte black graffiti-splatter disc: organic
+  // white paint splashes and fine mist droplets across the exposed vinyl, the
+  // clean matte black centre label and the complete spinning flower.
+  assert.equal(await adllLive.locator(`${ADLL_CARD}.beat-detail`).getAttribute('data-vinyl'), 'graffiti-splatter', 'ADLL renders the graffiti-splatter pressing');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'graffiti-splatter', 'the ADLL record itself carries the variant');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--graffiti-splatter`).count(), 1, 'ADLL carries the graffiti-splatter modifier');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--white`).count(), 0, 'ADLL does not share the pearl-white disc');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--gold-rim`).count(), 0, 'ADLL does not share THE FLOW gold rim');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--sage-white-rim`).count(), 0, 'ADLL does not share the GREEN FLESH sage disc');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--ice-silver-rim`).count(), 0, 'ADLL does not share the SQUISH! ice-silver disc');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--rage-fire-rim`).count(), 0, 'ADLL does not share the JUST D0 IT fire disc');
   const adllVinyl = await adllLive.locator(`${ADLL_CARD} .vinyl-record`).evaluate(el => {
-    const rim = el.querySelector('.vinyl-record__rim');
-    const rimStyle = rim ? getComputedStyle(rim) : null;
     const label = getComputedStyle(el, '::after');
+    const mist = getComputedStyle(el, '::before');
     const logo = el.querySelector('.vinyl-record__logo');
     const logoFrame = el.querySelector('.vinyl-record__logo-frame');
     const recordRect = el.getBoundingClientRect();
     const sleeveRect = document.querySelector('.beat-detail__artwork').getBoundingClientRect();
+    const bodyBg = getComputedStyle(el).backgroundImage;
     return {
-      bodyBg: getComputedStyle(el).backgroundImage,
+      bodyBg,
+      bodySplashes: (bodyBg.match(/radial-gradient/g) || []).length,
+      mistBg: mist.backgroundImage,
+      mistDroplets: (mist.backgroundImage.match(/radial-gradient/g) || []).length,
+      mistOpacity: mist.opacity,
       labelBg: label.backgroundImage,
       labelZ: label.zIndex,
-      rimBg: rimStyle ? rimStyle.backgroundImage : null,
-      rimMask: rimStyle ? (rimStyle.maskImage || rimStyle.webkitMaskImage) : null,
-      rimZ: rimStyle ? rimStyle.zIndex : null,
       logoZ: logoFrame ? getComputedStyle(logoFrame).zIndex : null,
+      rimCount: el.querySelectorAll('.vinyl-record__rim').length,
       children: [...el.children].map(child => child.className),
-      splashCount: el.querySelectorAll('.vinyl-record__gold, [class*="splash"], [class*="blob"], [class*="splatter"]').length,
+      splashDomCount: el.querySelectorAll('.vinyl-record__gold, [class*="splash"], [class*="blob"], [class*="splatter"]').length,
       logo: !!logo,
       logoAnimation: logo ? getComputedStyle(logo).animationName : null,
       logoDuration: logo ? getComputedStyle(logo).animationDuration : null,
@@ -2472,16 +2474,17 @@ try {
     };
   });
   assert.match(adllVinyl.bodyBg, /rgb\(10, 10, 10\)|rgb\(6, 6, 6\)/, 'the ADLL disc body is deep matte black');
-  assert.doesNotMatch(adllVinyl.bodyBg, /\.svg|splatter|blob/, 'the ADLL disc body carries no artwork layer');
+  assert.match(adllVinyl.bodyBg, /rgba\(255, 255, 255, 0\.9\)/, 'the ADLL disc carries bright white paint splashes');
+  assert(adllVinyl.bodySplashes >= 15, `the ADLL disc body paints ${adllVinyl.bodySplashes} organic splashes`);
+  assert.match(adllVinyl.mistBg, /rgba\(255, 255, 255, 0\.9\)/, 'the ADLL mist layer carries fine white droplets');
+  assert(adllVinyl.mistDroplets >= 20, `the ADLL mist paints ${adllVinyl.mistDroplets} scattered droplets`);
+  assert.equal(adllVinyl.mistOpacity, '1', 'the white droplets stay at full paint strength');
+  assert.doesNotMatch(adllVinyl.bodyBg, /rgb\(230, 57, 70\)|#e63946/i, 'the ADLL disc carries no crimson rim any more');
   assert.match(adllVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(5, 5, 5\)/, 'the ADLL centre label stays matte black');
-  assert.match(adllVinyl.rimBg, /conic-gradient/, 'the ADLL outer rim is a crisp crimson hairline');
-  assert.match(adllVinyl.rimBg, /rgb\(230, 57, 70\)/, 'the ADLL rim uses the specified crimson red');
-  assert.match(adllVinyl.rimBg, /rgb\(255, 107, 117\)/, 'the ADLL rim carries its lighter crimson tone');
-  assert.match(adllVinyl.rimMask, /radial-gradient/, 'the ADLL rim is masked down to a fine perimeter hairline');
-  assert.deepEqual(adllVinyl.children, ['vinyl-record__rim', 'vinyl-record__logo-frame'], 'the ADLL record holds only the clean rim and the flower');
-  assert.equal(adllVinyl.splashCount, 0, 'zero splash, blob or splatter elements remain on ADLL');
-  assert.equal(adllVinyl.rimZ, '3', 'the ADLL rim paints above the disc');
-  assert.equal(adllVinyl.labelZ, '1', 'the ADLL centre label sits above the disc');
+  assert.equal(adllVinyl.rimCount, 0, 'the graffiti pressing renders no perimeter rim element');
+  assert.deepEqual(adllVinyl.children, ['vinyl-record__logo-frame'], 'the ADLL record holds only the flower; the paint lives in its background');
+  assert.equal(adllVinyl.splashDomCount, 0, 'the splatter paint adds no DOM graphic layer');
+  assert.equal(adllVinyl.labelZ, '1', 'the ADLL centre label sits above the paint');
   assert.equal(adllVinyl.logoZ, '2', 'the spinning flower sits above the ADLL label');
   assert.equal(adllVinyl.logo, true, 'the complete flower survives on the ADLL pressing');
   assert.equal(adllVinyl.logoAnimation, 'vinylCenterSpin', 'the ADLL flower keeps its slow spin');
@@ -2527,7 +2530,7 @@ try {
   // Keep the rest of the stylesheet monochrome while expressly checking the
   // isolated green / pink hero accents, THE FLOW's gold-rim palette, GREEN FLESH's
   // sage-white-rim palette, SQUISH!'s ice-silver-rim palette, JUST D0 IT's
-  // rage-fire-rim palette, ADLL's rage-crimson-rim palette and the ALL-CAPS
+  // rage-fire-rim palette, ADLL's graffiti-splatter paint and the ALL-CAPS
   // rules.
   const cssText = await readFile(new URL('./style.css', import.meta.url), 'utf8');
   const scriptText = await readFile(new URL('./script.js', import.meta.url), 'utf8');
@@ -2651,28 +2654,27 @@ try {
   assert.match(fireCss, /mask:\s*radial-gradient/, 'the fire rim is masked to a hairline ring');
   assert.match(fireCss, /\.vinyl-record--rage-fire-rim\s+\.vinyl-record__logo-frame\s*\{\s*z-index:\s*2/, 'the spinning flower sits above the fire-rim centre label');
   assert.doesNotMatch(fireCss, /splash|blob|splatter|\.vinyl-record__rage/, 'the rage-fire-rim palette has no splash, blob or random graphic');
-  // ADLL's rage-crimson-rim pressing is the sixth deliberate palette exception:
-  // the deep matte black body and crimson-red perimeter hairline are the vinyl's
-  // specified colours, isolated so the rest of the storefront stays neutral.
-  const crimsonStart = cssText.indexOf('/* ADLL rage-crimson-rim palette');
-  const crimsonEnd = cssText.indexOf('/* End ADLL rage-crimson-rim palette. */', crimsonStart);
-  assert(crimsonStart >= 0 && crimsonEnd > crimsonStart, 'the rage-crimson-rim palette is isolated in its own stylesheet section');
-  const crimsonCss = cssText.slice(crimsonStart, crimsonEnd);
-  assert.match(crimsonCss, /#0a0a0a/i, 'the rage-crimson-rim disc body is deep matte black');
-  assert.match(crimsonCss, /#e63946/i, 'the rage-crimson rim uses the specified crimson red');
-  assert.match(crimsonCss, /#ff6b75/i, 'the rage-crimson rim carries its lighter crimson tone');
-  assert.match(crimsonCss, /#7d1520/i, 'the rage-crimson rim carries its deep crimson edge');
-  assert.equal((crimsonCss.match(/conic-gradient/g) || []).length, 1, 'the rage-crimson-rim palette paints exactly one delicate ring');
-  assert.match(crimsonCss, /mask:\s*radial-gradient/, 'the crimson rim is masked to a hairline ring');
-  assert.match(crimsonCss, /\.vinyl-record--rage-crimson-rim\s+\.vinyl-record__logo-frame\s*\{\s*z-index:\s*2/, 'the spinning flower sits above the crimson-rim centre label');
-  assert.doesNotMatch(crimsonCss, /splash|blob|splatter|\.vinyl-record__rage/, 'the rage-crimson-rim palette has no splash, blob or random graphic');
+  // ADLL's graffiti-splatter pressing is monochrome by design: white paint on a
+  // #0a0a0a disc. Its paint is background layers, not DOM elements or motion,
+  // so it stays inside the equal-channel audit and never disturbs the flower.
+  const graffitiStart = cssText.indexOf("/* ADLL's graffiti-splatter pressing");
+  const graffitiEnd = cssText.indexOf('.vinyl-record__logo {', graffitiStart);
+  assert(graffitiStart >= 0 && graffitiEnd > graffitiStart, 'the graffiti-splatter pressing has its own stylesheet block');
+  const graffitiCss = cssText.slice(graffitiStart, graffitiEnd);
+  assert.match(graffitiCss, /#0a0a0a/i, 'the graffiti-splatter disc body is deep matte black');
+  assert.match(graffitiCss, /rgba\(255, 255, 255, 0\.9\)/i, 'the graffiti-splatter paint uses the specified bright white');
+  assert((graffitiCss.match(/radial-gradient/g) || []).length >= 20, 'the graffiti paint is built from many organic radial splashes and droplets');
+  assert.match(graffitiCss, /\.vinyl-record--graffiti-splatter::before\s*\{[^}]*rgba\(255, 255, 255, 0\.9\)/, 'the fine mist droplets are painted over the disc');
+  assert.match(graffitiCss, /\.vinyl-record--graffiti-splatter::after\s*\{[^}]*z-index:\s*1/, 'the clean matte label sits above the paint');
+  assert.match(graffitiCss, /\.vinyl-record--graffiti-splatter\s+\.vinyl-record__logo-frame\s*\{\s*z-index:\s*2/, 'the spinning flower sits above the label');
+  assert.doesNotMatch(graffitiCss, /#e63946|conic-gradient/, 'the graffiti pressing carries no coloured rim');
+  assert.doesNotMatch(graffitiCss, /animation\s*:/, 'the splatter paint is static and never fights the flower spin');
   const auditedCss = cssText.slice(0, taglineStart)
     + cssText.slice(taglineEnd, goldRimStart)
     + cssText.slice(goldRimEnd, sageStart)
     + cssText.slice(sageEnd, iceStart)
     + cssText.slice(iceEnd, fireStart)
-    + cssText.slice(fireEnd, crimsonStart)
-    + cssText.slice(crimsonEnd);
+    + cssText.slice(fireEnd);
   const literal = value => (value.includes(',')
     ? value.split(',').slice(0, 3).map(part => Number(part.trim()))
     : (value.length <= 4 ? value.slice(0, 3).split('').map(c => parseInt(c + c, 16)) : [0, 2, 4].map(i => parseInt(value.slice(i, i + 2), 16))));

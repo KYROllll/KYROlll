@@ -1647,16 +1647,35 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .vinyl-record--rage-fire-rim .vinyl-record__logo-frame { z-index: 2; }
 /* End JUST D0 IT rage-fire-rim palette. */
 
-/* ADLL rage-crimson-rim palette — the sixth pressing's deliberate colour exception. */
-/* ADLL's collector pressing: a deep matte black body in #0a0a0a with fine
-   concentric micro-grooves, a soft neutral sheen and one fine crimson-red
-   hairline around the perimeter. The matte black centre label keeps the
-   complete spinning flower in its usual clean stage; the record still holds
-   only the masked rim and the flower, with no extra graphic layer. */
-.vinyl-record--rage-crimson-rim {
+/* ADLL's graffiti-splatter pressing: a deep matte black disc scattered with
+   organic white paint splashes and fine mist droplets. The paint is painted as
+   layered radial gradients on the disc itself — never extra DOM elements and
+   never an animation — so the exposed vinyl reads as a street-pressed collector
+   disc while the flower keeps its clean, uninterrupted 16s spin. The matte black
+   centre label sits above the paint, so the mark always has a clean stage. */
+.vinyl-record--graffiti-splatter {
   background:
-    radial-gradient(circle at 31% 22%, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 34%),
-    radial-gradient(circle at 72% 82%, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0) 46%),
+    /* main splash, upper-left */
+    radial-gradient(ellipse 11% 7% at 24% 26%, rgba(255, 255, 255, 0.9) 0 34%, rgba(255, 255, 255, 0.52) 57%, rgba(255, 255, 255, 0) 72%),
+    radial-gradient(ellipse 6% 4% at 30% 22%, rgba(255, 255, 255, 0.88) 0 42%, rgba(255, 255, 255, 0.42) 68%, rgba(255, 255, 255, 0) 82%),
+    radial-gradient(ellipse 4% 6% at 19% 31%, rgba(255, 255, 255, 0.84) 0 40%, rgba(255, 255, 255, 0) 76%),
+    radial-gradient(ellipse 3% 2% at 33% 32%, rgba(255, 255, 255, 0.9) 0 52%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(ellipse 2% 3% at 16% 21%, rgba(255, 255, 255, 0.78) 0 50%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(ellipse 2.2% 1.6% at 36% 20%, rgba(255, 255, 255, 0.9) 0 58%, rgba(255, 255, 255, 0) 100%),
+    /* secondary splash, right */
+    radial-gradient(ellipse 7% 4.5% at 73% 63%, rgba(255, 255, 255, 0.86) 0 38%, rgba(255, 255, 255, 0.4) 62%, rgba(255, 255, 255, 0) 78%),
+    radial-gradient(ellipse 3% 2% at 78% 58%, rgba(255, 255, 255, 0.9) 0 50%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(ellipse 1.8% 2.6% at 68% 69%, rgba(255, 255, 255, 0.8) 0 52%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(ellipse 2.4% 1.5% at 81% 67%, rgba(255, 255, 255, 0.88) 0 54%, rgba(255, 255, 255, 0) 100%),
+    /* lower-left spatter */
+    radial-gradient(ellipse 5% 3% at 41% 81%, rgba(255, 255, 255, 0.84) 0 40%, rgba(255, 255, 255, 0.35) 66%, rgba(255, 255, 255, 0) 82%),
+    radial-gradient(ellipse 2% 2.6% at 35% 77%, rgba(255, 255, 255, 0.9) 0 52%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(ellipse 1.6% 1.4% at 46% 86%, rgba(255, 255, 255, 0.82) 0 54%, rgba(255, 255, 255, 0) 100%),
+    /* lone artistic splashes between the clusters */
+    radial-gradient(ellipse 2% 1.4% at 58% 29%, rgba(255, 255, 255, 0.6) 0 48%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(ellipse 1.5% 2% at 63% 44%, rgba(255, 255, 255, 0.55) 0 50%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(ellipse 2.4% 1.5% at 52% 65%, rgba(255, 255, 255, 0.48) 0 48%, rgba(255, 255, 255, 0) 100%),
+    /* the vinyl itself: deep matte black with fine concentric grooves */
     repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 7px),
     repeating-radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.46) 0 2px, transparent 2px 9px),
     radial-gradient(circle at 50% 50%, #0a0a0a 0%, #0a0a0a 58%, #060606 82%, #0a0a0a 100%);
@@ -1665,13 +1684,42 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
     0 0 0 1px rgba(255, 255, 255, 0.06),
     inset 0 0 42px rgba(0, 0, 0, 0.72);
 }
-.vinyl-record--rage-crimson-rim::before {
-  inset: 7%;
+/* Fine mist droplets, scattered at organic intervals across the exposed vinyl
+   (the label rides above this layer). The grooves stay visible underneath. */
+.vinyl-record--graffiti-splatter::before {
+  inset: 9%;
   background:
+    radial-gradient(circle 1.6px at 8% 22%, rgba(255, 255, 255, 0.9) 0 100%, transparent 100%),
+    radial-gradient(circle 1.1px at 13% 41%, rgba(255, 255, 255, 0.72) 0 100%, transparent 100%),
+    radial-gradient(circle 2.1px at 18% 15%, rgba(255, 255, 255, 0.86) 0 100%, transparent 100%),
+    radial-gradient(circle 1.3px at 24% 34%, rgba(255, 255, 255, 0.64) 0 100%, transparent 100%),
+    radial-gradient(circle 1.8px at 29% 9%, rgba(255, 255, 255, 0.8) 0 100%, transparent 100%),
+    radial-gradient(circle 1.2px at 33% 47%, rgba(255, 255, 255, 0.58) 0 100%, transparent 100%),
+    radial-gradient(circle 2.4px at 37% 25%, rgba(255, 255, 255, 0.9) 0 100%, transparent 100%),
+    radial-gradient(circle 1.4px at 42% 55%, rgba(255, 255, 255, 0.7) 0 100%, transparent 100%),
+    radial-gradient(circle 1.9px at 47% 12%, rgba(255, 255, 255, 0.84) 0 100%, transparent 100%),
+    radial-gradient(circle 1.1px at 51% 38%, rgba(255, 255, 255, 0.56) 0 100%, transparent 100%),
+    radial-gradient(circle 2.2px at 56% 63%, rgba(255, 255, 255, 0.78) 0 100%, transparent 100%),
+    radial-gradient(circle 1.3px at 61% 18%, rgba(255, 255, 255, 0.66) 0 100%, transparent 100%),
+    radial-gradient(circle 1.7px at 66% 49%, rgba(255, 255, 255, 0.88) 0 100%, transparent 100%),
+    radial-gradient(circle 1.2px at 71% 29%, rgba(255, 255, 255, 0.6) 0 100%, transparent 100%),
+    radial-gradient(circle 2.5px at 75% 72%, rgba(255, 255, 255, 0.82) 0 100%, transparent 100%),
+    radial-gradient(circle 1.4px at 79% 44%, rgba(255, 255, 255, 0.68) 0 100%, transparent 100%),
+    radial-gradient(circle 1.8px at 84% 16%, rgba(255, 255, 255, 0.74) 0 100%, transparent 100%),
+    radial-gradient(circle 1.2px at 88% 57%, rgba(255, 255, 255, 0.58) 0 100%, transparent 100%),
+    radial-gradient(circle 2px at 92% 31%, rgba(255, 255, 255, 0.86) 0 100%, transparent 100%),
+    radial-gradient(circle 1.3px at 20% 68%, rgba(255, 255, 255, 0.62) 0 100%, transparent 100%),
+    radial-gradient(circle 1.7px at 31% 83%, rgba(255, 255, 255, 0.76) 0 100%, transparent 100%),
+    radial-gradient(circle 1.1px at 44% 74%, rgba(255, 255, 255, 0.54) 0 100%, transparent 100%),
+    radial-gradient(circle 2.3px at 58% 87%, rgba(255, 255, 255, 0.8) 0 100%, transparent 100%),
+    radial-gradient(circle 1.4px at 69% 91%, rgba(255, 255, 255, 0.64) 0 100%, transparent 100%),
+    radial-gradient(circle 1.9px at 81% 79%, rgba(255, 255, 255, 0.72) 0 100%, transparent 100%),
+    radial-gradient(circle 1.2px at 93% 86%, rgba(255, 255, 255, 0.58) 0 100%, transparent 100%),
     repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, rgba(255, 255, 255, 0.045) 3px 4px, transparent 4px 8px);
-  opacity: 0.66;
+  opacity: 1;
 }
-.vinyl-record--rage-crimson-rim::after {
+/* The centre label stays a clean matte black plate above the paint. */
+.vinyl-record--graffiti-splatter::after {
   width: 36%;
   height: 36%;
   background: radial-gradient(circle at 50% 38%, #151515 0%, #0a0a0a 70%, #050505 100%);
@@ -1681,25 +1729,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
     0 0 0 1px rgba(255, 255, 255, 0.08);
   z-index: 1;
 }
-.vinyl-record--rage-crimson-rim .vinyl-record__rim {
-  background: conic-gradient(from 215deg,
-    #7d1520 0deg,
-    #e63946 28deg,
-    #ff6b75 48deg,
-    #ef4a58 72deg,
-    #a51f2c 112deg,
-    #f05260 148deg,
-    #7d1520 190deg,
-    #e63946 228deg,
-    #ff8a92 262deg,
-    #ef4a58 300deg,
-    #7d1520 360deg);
-  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - 2.4px), #000 calc(100% - 1.6px) 100%);
-  mask: radial-gradient(circle closest-side, transparent calc(100% - 2.4px), #000 calc(100% - 1.6px) 100%);
-  opacity: 0.98;
-}
-.vinyl-record--rage-crimson-rim .vinyl-record__logo-frame { z-index: 2; }
-/* End ADLL rage-crimson-rim palette. */
+.vinyl-record--graffiti-splatter .vinyl-record__logo-frame { z-index: 2; }
 
 .vinyl-record__logo {
   display: block;
