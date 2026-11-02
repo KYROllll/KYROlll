@@ -384,6 +384,15 @@
     showToast(label + " — UNLOCKS AT DROP TIME");
     return true;
   }
+  /* There is exactly one exclusive license per beat. Once it is signed for, the
+     beat is claimed: every lease, the package drawer and a cold download link
+     are closed, even if a caller invokes the API directly. */
+  function holdExclusiveClaim(beat) {
+    const h = helpers();
+    if (!(beat && h && h.isExclusiveLocked && h.isExclusiveLocked(beat.id))) return false;
+    showToast("EXCLUSIVE RIGHTS CLAIMED — THIS BEAT IS SECURED");
+    return true;
+  }
 
   /* `start` opens the gate on every selection — there is no grant shortcut, so
      the mandatory REVIEW & SIGNATURE stage can never be skipped. */
@@ -392,6 +401,7 @@
     const beat = catalog && catalog.beatById(beatId);
     const pack = catalog && catalog.packageById(packageId);
     if (!beat || !pack) { showToast("BEAT OR PACKAGE NOT FOUND"); return; }
+    if (holdExclusiveClaim(beat)) return;
     if (holdScheduledDrop(beat)) return;
     if (pack.gate === "instant") { goToDownload(beat, pack, "", ""); return; }
     openGate(beat, pack, (b, p, email, serial) => { goToDownload(b, p, email, serial); });
@@ -434,6 +444,7 @@
     const catalog = helpers();
     const beat = catalog && catalog.beatById(beatId);
     if (!beat) { showToast("BEAT NOT FOUND"); return; }
+    if (holdExclusiveClaim(beat)) return;
     if (holdScheduledDrop(beat)) return;
     const host = menuHost(trigger);
     const tile = trigger.closest ? trigger.closest(".catalog-tile") : null;
@@ -1206,6 +1217,14 @@
   function finalizeGate(beat, pack, onUnlocked, email, serial) {
     rememberGrant(beat.id, pack.id, email);
     const sm = showSuccessModal();
+    /* The exclusive license is the one that takes the beat off the market. The
+       claim is recorded only after the success surface is up, so the grid's
+       in-place repaint cannot tear that hand-off out from under the visitor;
+       the storefront reads the claimed entry on its next render. */
+    if (pack.id === "exclusive") {
+      const h = helpers();
+      if (h && h.lockExclusive) h.lockExclusive(beat.id);
+    }
     setTimeout(() => {
       if (sm && sm.parentNode) sm.remove();
       unlockPage();

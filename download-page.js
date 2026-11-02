@@ -70,6 +70,16 @@
     return !!(h && h.isReleased && beat && !h.isReleased(beat));
   };
 
+  /* A beat whose exclusive rights have been claimed is off the market. A cold
+     link sees the secured archive instead of a file list; the one exception is
+     the flow that has just signed for that exclusive license itself, which still
+     hands its buyer the files. Nothing about the claim is stored — it lives on
+     the live catalog entry, exactly like every other record in the store. */
+  const exclusiveLocked = () => {
+    const h = helpers();
+    return !!(h && h.isExclusiveLocked && beat && h.isExclusiveLocked(beat.id));
+  };
+
   /* The address submitted at that gate — the fallback LICENSEE signature. The
      signature itself lives in `downloads.js` (this page only feeds it), and
      `licenseeName()` is what both the stamp line and the PDF read. */
@@ -366,10 +376,38 @@
     dropTimer = setInterval(tickDrop, 1000);
   }
 
+  /* The secured archive: a claimed beat keeps its title and specs but has no
+     player, no files and no license on the public page. */
+  function showExclusiveLocked() {
+    clearDropWatch();
+    const copy = window.KYROlll_EXCLUSIVE_LOCK || {
+      label: "[EXCLUSIVE RIGHTS CLAIMED // SECURED]",
+      note: "THIS BEAT HAS BEEN SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE."
+    };
+    document.title = "EXCLUSIVE RIGHTS CLAIMED — " + beat.title + " — KYROIII";
+    kickerEl.textContent = "EXCLUSIVE RIGHTS";
+    titleEl.textContent = beat.title;
+    subEl.textContent = copy.note;
+    if (metaEl) metaEl.innerHTML = [beat.bpm + " BPM", String(beat.key).toUpperCase(), "ARCHIVED"]
+      .map((chip) => '<span class="dl-meta__chip">' + escapeHTML(chip) + "</span>").join("");
+    filesPanel.hidden = true;
+    licensePanel.hidden = true;
+    listEl.innerHTML = '<div class="exclusive-lock exclusive-lock--page" role="status">' +
+        '<span class="exclusive-lock__scan" aria-hidden="true"></span>' +
+        '<span class="exclusive-badge" data-exclusive-lock>' +
+          '<span class="exclusive-badge__tick" aria-hidden="true"></span>' +
+          '<span class="exclusive-badge__text">' + escapeHTML(copy.label) + "</span>" +
+        "</span>" +
+        '<p class="exclusive-lock__note">' + escapeHTML(copy.note) + "</p>" +
+      "</div>" +
+      '<div class="download-list__empty"><a class="kyrolll-btn" href="index.html#catalog">BACK TO THE STORE</a></div>';
+  }
+
   function boot() {
     try {
       ensureFreeFormspreeEndpoint();
       if (!beat || !pack) { showError(); return; }
+      if (exclusiveLocked() && !(granted && pack.id === "exclusive")) { showExclusiveLocked(); return; }
       if (releasePending() && !granted) { showLocked(); return; }
       /* The signature captured in the gate's sign step arrives in this flow's
          URL (`?sign=` / `?sig=`) and is adopted before anything is rendered, so

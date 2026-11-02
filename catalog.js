@@ -283,6 +283,46 @@
           { file: "assets/previews/just-do-it-stems.zip", name: "KYROIII - JUST D0 IT - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
       }
+    },
+    {
+      /* The sixth official release, and the newest card in the store: the
+         catalog is authored oldest-first and `script.js` sorts the newest to the
+         front of the grid. */
+      id: "adll",
+      slug: "adll",
+      title: "[FREE 100%] YEAT TYPE BEAT - A.D.L",
+      shortTitle: "A.D.L",
+      img: "assets/adll.png",
+      bpm: 124,
+      key: "C#",
+      preview: "assets/previews/adll.mp3",
+      /* The beat's own video is not published yet; the official channel keeps
+         the "like this beat" gate step live until it is. */
+      youtube: "https://www.youtube.com/@KYROlll00",
+      /* The sixth pressing: a deep matte black disc in #0a0a0a with an
+         ultra-fine realistic white aerosol graffiti spray across the exposed
+         vinyl, a matte black centre label and the complete spinning flower. The
+         paint is painted as background layers, never as extra DOM elements, so
+         it cannot interfere with the flower's rotation. */
+      vinylVariant: "graffiti-splatter",
+      /* The sixth official release is scheduled for 19:00 Israel time today,
+         2 November 2026. Until then the tile is a timezone-proof countdown, and
+         the beat page keeps its player and download drawer locked. */
+      releaseAt: "2026-11-02T19:00:00+02:00",
+      deliverables: {
+        mp3: [
+          { file: "assets/previews/adll.mp3", name: "KYROIII - A.D.L (124 BPM - C#).mp3", label: "TAGGED MP3" }
+        ],
+        wav: [
+          { file: "assets/previews/adll.mp3", name: "KYROIII - A.D.L (124 BPM - C#).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/adll.wav", name: "KYROIII - A.D.L (124 BPM - C#).wav", label: "HIGH-QUALITY WAV" }
+        ],
+        exclusive: [
+          { file: "assets/previews/adll.mp3", name: "KYROIII - A.D.L (124 BPM - C#).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/adll.wav", name: "KYROIII - A.D.L (124 BPM - C#).wav", label: "HIGH-QUALITY WAV" },
+          { file: "assets/previews/adll-stems.zip", name: "KYROIII - A.D.L - TRACKED STEMS.zip", label: "TRACKED STEMS" }
+        ]
+      }
     }
   ];
 
@@ -339,6 +379,41 @@
     return beat.releaseLabel || "DROPPING SOON";
   }
 
+  /* ------------------------------------------------------- exclusive rights
+     A beat has exactly one exclusive license to give. The moment that package
+     is signed for, the beat is claimed: it leaves the free market, its public
+     preview and every lease are retired, and the catalog paints the secured
+     status instead of a button. A catalog entry may also ship already claimed
+     (`exclusiveLocked: true`) when the rights were sold outside the store.
+
+     Like every other piece of storefront state this is a record, not storage:
+     the claim is written onto the live catalog entry and announced on the
+     window (`kyrolll:exclusive-locked`), so the grid re-renders in place, and
+     it is gone with the page. Nothing is written to localStorage, sessionStorage
+     or a cookie — a reload starts from the catalog as published. */
+  const EXCLUSIVE_LOCK_LABEL = "[EXCLUSIVE RIGHTS CLAIMED // SECURED]";
+  const EXCLUSIVE_LOCK_NOTE = "THIS BEAT HAS BEEN SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE.";
+  function isExclusiveLocked(beatId) {
+    const beat = window.KYROlll_HELPERS.beatById(beatId);
+    return !!(beat && beat.exclusiveLocked);
+  }
+  function lockExclusive(beatId) {
+    const beat = window.KYROlll_HELPERS.beatById(beatId);
+    if (!beat || beat.exclusiveLocked) return false;
+    beat.exclusiveLocked = true;
+    beat.exclusiveLockedAt = new Date(timeNow()).toISOString();
+    if (typeof window.dispatchEvent === "function" && typeof window.CustomEvent === "function") {
+      window.dispatchEvent(new window.CustomEvent("kyrolll:exclusive-locked", {
+        detail: { beatId: beat.id, slug: beat.slug }
+      }));
+    }
+    return true;
+  }
+  window.KYROlll_EXCLUSIVE_LOCK = {
+    label: EXCLUSIVE_LOCK_LABEL,
+    note: EXCLUSIVE_LOCK_NOTE
+  };
+
   window.KYROlll_HELPERS = {
     escapeHTML(value) {
       return String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({
@@ -393,6 +468,11 @@
     isReleased: isReleased,
     msUntilRelease: msUntilRelease,
     formatCountdown: formatCountdown,
-    releaseLabel: releaseLabel
+    releaseLabel: releaseLabel,
+    // The exclusive-rights register: `isExclusiveLocked` answers whether the
+    // beat has been claimed, and `lockExclusive` marks it (and announces the
+    // change) the moment its exclusive package is signed for.
+    isExclusiveLocked(beatId) { return isExclusiveLocked(beatId); },
+    lockExclusive(beatId) { return lockExclusive(beatId); }
   };
 })();

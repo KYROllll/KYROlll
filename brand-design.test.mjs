@@ -278,10 +278,15 @@ const SQUISH_RELEASE = Date.parse('2026-10-25T23:00:00+02:00');
 const JUST_DO_IT_ID = 'just-d0-it';
 const JUST_DO_IT_CARD = '#card-just-d0-it';
 const JUST_DO_IT_RELEASE = Date.parse('2026-10-27T23:00:00+02:00');
-// The store runs five beats. ALL_LIVE_NOW is a pinned instant just after the
-// fifth and final release landed: every card is a live tile there, whatever the
-// machine clock says, so the catalog-wide checks stand on firm ground.
-const ALL_LIVE_NOW = JUST_DO_IT_RELEASE + 3600000;
+// The sixth release, [FREE 100%] YEAT TYPE BEAT - A.D.L, drops today at 19:00
+// Israel time and wears the white-splatter pressing.
+const ADLL_ID = 'adll';
+const ADLL_CARD = '#card-adll';
+const ADLL_RELEASE = Date.parse('2026-11-02T19:00:00+02:00');
+// The store runs six beats. ALL_LIVE_NOW is a pinned instant just after the
+// newest release landed: every card is a live tile there, whatever the machine
+// clock says, so the catalog-wide checks stand on firm ground.
+const ALL_LIVE_NOW = ADLL_RELEASE + 3600000;
 
 // Nothing about a gate may be remembered: the storefront writes no gate state
 // at all (no unlock set, no remembered address). The one thing it does write is
@@ -474,18 +479,18 @@ try {
     green: getComputedStyle(el, '::before').color,
     pink: getComputedStyle(el, '::after').color,
   })), { green: 'rgb(57, 255, 139)', pink: 'rgb(255, 62, 165)' });
-  assert.equal(await desktop.locator('#grid .catalog-tile').count(), 5);
-  assert.equal(await desktop.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-just-d0-it', 'the newest release leads the grid');
-  assert.equal(await desktop.locator('[id="card-adll"]').count(), 0, 'no tile carries the removed beat');
-  assert.equal(await desktop.evaluate(() => window.KYROlll_HELPERS.beatById('adll')), null, 'the removed beat is gone from the live catalog');
+  assert.equal(await desktop.locator('#grid .catalog-tile').count(), 6);
+  assert.equal(await desktop.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-adll', 'the newest release leads the grid');
+  assert.equal(await desktop.evaluate(() => window.KYROlll_HELPERS.beatById('adll').title), '[FREE 100%] YEAT TYPE BEAT - A.D.L', 'ADLL is live in the catalog');
   assert.equal(await desktop.locator('.catalog-tile__art img').first().evaluate(el => getComputedStyle(el).filter), 'none', 'catalog cover art keeps its original colour');
   assert.match(await desktop.locator(CARD).innerText(), /\[FREE 100%\] DON TOLIVER TYPE BEAT - FLESH/i);
   assert.match(await desktop.locator(GREEN_FLESH_CARD).innerText(), /\[FREE 100%\] LIL BABY TYPE BEAT - GREEN FLESH/i);
   assert.match(await desktop.locator(SQUISH_CARD).innerText(), /\[FREE 100%\] LIL GOTIT TYPE BEAT - SQUISH!/i);
   assert.match(await desktop.locator(JUST_DO_IT_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - JUST D0 IT/i);
-  assert.match(await desktop.locator('.marquee-track').innerText(), /YEAT TYPE BEAT - JUST D0 IT/i, 'the ticker announces the newest drop');
-  assert.doesNotMatch(await desktop.locator('.marquee-track').innerText(), /ADLL/i, 'the ticker carries no line for the removed beat');
-  assert.match(await desktop.locator('.marquee-track').innerText(), /5 RELEASES LIVE/, 'the studio count is the five live releases');
+  assert.match(await desktop.locator(ADLL_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - A\.D\.L/i);
+  assert.match(await desktop.locator('.marquee-track').innerText(), /YEAT TYPE BEAT - A\.D\.L/i, 'the ticker announces the newest drop');
+  assert.match(await desktop.locator('.marquee-track').innerText(), /YEAT TYPE BEAT - JUST D0 IT/i, 'the ticker announces the fifth drop');
+  assert.match(await desktop.locator('.marquee-track').innerText(), /6 RELEASES LIVE/, 'the studio count is the six live releases');
   assert.match(await desktop.locator('.marquee-track').innerText(), /LIL GOTIT TYPE BEAT - SQUISH!/i, 'the ticker announces the fourth drop');
   assert.match(await desktop.locator('.marquee-track').innerText(), /LIL BABY TYPE BEAT - GREEN FLESH/i, 'the ticker announces the renamed third drop');
   await shot(desktop, 'desktop');
@@ -620,7 +625,7 @@ try {
   assert.equal(vinylVariants['green-flesh'], 'sage-white-rim', 'catalog data gives GREEN FLESH its sage-white pressing');
   assert.equal(vinylVariants.squish, 'ice-silver-rim', 'catalog data gives SQUISH! its ice-silver pressing');
   assert.equal(vinylVariants['just-d0-it'], 'rage-fire-rim', 'catalog data gives JUST D0 IT its fire-rim pressing');
-  assert.equal('adll' in vinylVariants, false, 'the removed beat holds no pressing in the catalog');
+  assert.equal(vinylVariants.adll, 'graffiti-splatter', 'catalog data gives ADLL its graffiti-splatter pressing');
   await shot(direct, 'beat-detail');
   await direct.close();
 
@@ -1297,6 +1302,10 @@ try {
   await proPage.locator('[data-sign-mode="type"]').click();
   assert.equal(await proPage.locator('[data-sign-submit]').isDisabled(), false, 'TYPE shares the enabled state');
   await proPage.locator('[data-sign-submit]').click();
+  // The exclusive signature is what claims the beat: the live catalog entry is
+  // marked while the success surface is still up, before the flow moves on.
+  await proPage.waitForFunction((id) => window.KYROlll_HELPERS.isExclusiveLocked(id), BEAT_ID, { timeout: 5000 });
+  assert.equal(await proPage.evaluate((id) => window.KYROlll_HELPERS.isExclusiveLocked(id), BEAT_ID), true, 'SIGN & UNLOCK claims the exclusive beat');
   await proPage.waitForURL(/package=exclusive/);
   assert.match(await proPage.locator('#download-sub').innerText(), /COMPLETE ALL SOCIAL STEPS AND ENTER YOUR EMAIL TO UNLOCK/i, 'the download page records the Pro gate requirements');
   assert.match(await proPage.locator('#download-meta').innerText(), /ALL 5 SOCIAL STEPS/i, 'the download page carries the Pro package badge');
@@ -1412,9 +1421,9 @@ try {
   assert.match(await coldPage.locator('#download-list').innerText(), /UNLOCK THIS PACKAGE/i);
   assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), false, 'a cold entry starts with no grant');
 
-  // A passed gate is recorded for this view, but the record NEVER skips a later
-  // selection: selecting the package again re-opens the full gate, starts the
-  // signature stage empty and locked, and posts nothing until the visitor submits.
+  // A passed gate is recorded for this view, and this one is the exclusive
+  // license: signing it claims the beat, so a later selection is refused rather
+  // than gated again — the exclusive rights are already gone.
   await openSteps(coldPage, 5);
   await coldPage.locator('#gate-email').fill('cold-entrant@example.com');
   await coldPage.locator('[data-gate-submit]').click();
@@ -1436,16 +1445,14 @@ try {
   assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), true, 'the pass is recorded for this view');
   await noGateMemory(coldPage, 'after a gate passed on the download page itself');
   const postsBeforeMemory = subscribeRequests.length;
+  // That signature was the exclusive license, so the beat is now claimed for
+  // good: selecting it again opens no gate at all, and nothing is posted.
+  assert.equal(await coldPage.evaluate(id => window.KYROlll_HELPERS.isExclusiveLocked(id), BEAT_ID), true, 'the exclusive signature claims the beat');
   await coldPage.evaluate(id => { window.KYROlll_DOWNLOADS.start(id, 'exclusive'); }, BEAT_ID);
-  await coldPage.locator('.gate-modal').waitFor();
-  assert.equal(await coldPage.locator('#gate-email').inputValue(), '', 'a remembered grant still asks for the address');
-  assert.equal(await coldPage.locator('[data-gate-submit]').isDisabled(), true, 'a remembered grant cannot skip the gate');
-  assert.equal(await coldPage.locator('.gate-modal__card--sign').count(), 0, 'a remembered grant never auto-opens the sign step');
-  assert.equal(await coldPage.locator('#sign-name').count(), 0, 'a remembered grant never prefills a signature');
-  assert.equal(await coldPage.locator('.gate-step.is-done').count(), 0, 'the steps start unopened again');
-  assert.equal(subscribeRequests.length, postsBeforeMemory, 're-opening a gate posts nothing');
-  await coldPage.locator('.gate-modal__card [data-gate-cancel]').click();
-  await coldPage.locator('.gate-modal').waitFor({ state: 'detached' });
+  await coldPage.waitForTimeout(120);
+  assert.equal(await coldPage.locator('.gate-modal').count(), 0, 'a claimed beat never re-opens a gate');
+  assert.equal(await coldPage.locator('.download-menu').count(), 0, 'a claimed beat never re-opens the drawer');
+  assert.equal(subscribeRequests.length, postsBeforeMemory, 're-opening a claimed beat posts nothing');
   assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), true, 'the pass stays recorded for this view');
   await coldPage.reload();
   await coldPage.waitForFunction(() => !!window.KYROlll_DOWNLOADS);
@@ -1772,7 +1779,7 @@ try {
   await noOverflow(preDrop);
   await noHue(preDrop, 'the storefront before the drop');
   await noLowercase(preDrop, 'the storefront before the drop');
-  assert.equal(await preDrop.locator('#grid .catalog-tile').count(), 5, 'all five releases sit in the catalog');
+  assert.equal(await preDrop.locator('#grid .catalog-tile').count(), 6, 'all six releases sit in the catalog');
   assert.match(await preDrop.locator(`${FLOW_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'the scheduled drop carries its countdown pill');
   assert.doesNotMatch(await preDrop.locator(`${FLOW_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
   assert.match(await preDrop.locator(`${FLOW_CARD} [data-countdown="${FLOW_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'the pill shows a live HH:MM:SS clock');
@@ -1958,7 +1965,10 @@ try {
     { timeout: 5000 },
   );
   await titlePhone.waitForTimeout(850);
-  const countdownFrames = await titleFrames('countdown tick');
+  /* A wide sample window (150 frames ≈ 2.5 s at 60 fps, and still ≥ 1 s on a
+     120 Hz panel) so the window can never close before the next one-second
+     tick: the assertion is that the digits change while the boxes do not. */
+  const countdownFrames = await titleFrames('countdown tick', 150);
   assert(new Set(countdownFrames.map(sample => sample.countdown)).size >= 2, 'the countdown sample spans at least one real tick');
   assert.equal(new Set(countdownFrames.map(sample => sample.timerWidth)).size, 1, 'the countdown readout width never changes');
   assert.equal(new Set(countdownFrames.map(sample => sample.pillWidth)).size, 1, 'the countdown pill width never changes');
@@ -2057,7 +2067,7 @@ try {
   const greenPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await greenPre.goto(`${url}/?now=${GREEN_FLESH_RELEASE - 3600000}`);
   await greenPre.locator(`[data-countdown="${GREEN_FLESH_ID}"]`).waitFor();
-  assert.equal(await greenPre.locator('#grid .catalog-tile').count(), 5, 'the third release is in the five-card catalog');
+  assert.equal(await greenPre.locator('#grid .catalog-tile').count(), 6, 'the third release is in the six-card catalog');
   assert.equal(await greenPre.locator(GREEN_FLESH_CARD).getAttribute('data-vinyl'), 'sage-white-rim', 'the GREEN FLESH catalog card carries its own pressing');
   assert.match(await greenPre.locator(`${GREEN_FLESH_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'GREEN FLESH carries its countdown pill');
   assert.doesNotMatch(await greenPre.locator(`${GREEN_FLESH_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
@@ -2213,10 +2223,10 @@ try {
   const squishPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await squishPre.goto(`${url}/?now=${SQUISH_RELEASE - 3600000}`);
   await squishPre.locator(`[data-countdown="${SQUISH_ID}"]`).waitFor();
-  assert.equal(await squishPre.locator('#grid .catalog-tile').count(), 5, 'the fourth release is in the five-card catalog');
-  assert.equal(await squishPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-just-d0-it', 'JUST D0 IT leads the catalog as the newest scheduled drop');
-  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-squish', 'SQUISH! follows the newest scheduled drop');
-  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(2).getAttribute('id'), 'card-a4acc928-410a-4200-8463-13bd9258058d', 'GREEN FLESH follows SQUISH!');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').count(), 6, 'the fourth release is in the six-card catalog');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-adll', 'ADLL leads the catalog as the newest scheduled drop');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-just-d0-it', 'JUST D0 IT follows the newest scheduled drop');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(2).getAttribute('id'), 'card-squish', 'SQUISH! follows JUST D0 IT');
   assert.equal(await squishPre.locator(SQUISH_CARD).getAttribute('data-vinyl'), 'ice-silver-rim', 'the SQUISH! catalog card carries its own pressing');
   assert.match(await squishPre.locator(SQUISH_CARD).innerText(), /\[FREE 100%\] LIL GOTIT TYPE BEAT - SQUISH!/i);
   assert.match(await squishPre.locator(`${SQUISH_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'SQUISH! carries its countdown pill');
@@ -2360,8 +2370,9 @@ try {
   const justDoItPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await justDoItPre.goto(`${url}/?now=${JUST_DO_IT_RELEASE - 3600000}`);
   await justDoItPre.locator(`[data-countdown="${JUST_DO_IT_ID}"]`).waitFor();
-  assert.equal(await justDoItPre.locator('#grid .catalog-tile').count(), 5, 'the fifth release is in the five-card catalog');
-  assert.equal(await justDoItPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-just-d0-it', 'JUST D0 IT leads the catalog as the newest drop');
+  assert.equal(await justDoItPre.locator('#grid .catalog-tile').count(), 6, 'the fifth release is in the six-card catalog');
+  assert.equal(await justDoItPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-adll', 'ADLL leads the catalog as the newest drop');
+  assert.equal(await justDoItPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-just-d0-it', 'JUST D0 IT follows the newest drop');
   assert.equal(await justDoItPre.locator(JUST_DO_IT_CARD).getAttribute('data-vinyl'), 'rage-fire-rim', 'the JUST D0 IT catalog card carries its own pressing');
   assert.match(await justDoItPre.locator(JUST_DO_IT_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - JUST D0 IT/i);
   assert.match(await justDoItPre.locator(`${JUST_DO_IT_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'JUST D0 IT carries its countdown pill');
@@ -2512,6 +2523,197 @@ try {
   await justDoItAfter.locator(`${JUST_DO_IT_CARD} .download-trigger`).waitFor();
   assert.match(await justDoItAfter.locator('.marquee-track').innerText(), /5 RELEASES LIVE/, 'the studio count becomes five once JUST D0 IT is live');
   await justDoItAfter.close();
+
+  // ----------------------------------------------- sixth release: A.D.L (19:00)
+  // The newest drop is scheduled for 19:00 Israel time today, 2 November 2026.
+  // It follows the same countdown contract and wears the deep matte black
+  // graffiti-splatter pressing. The studio count stays at five until its clock
+  // lands, then becomes six.
+  const adllPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+  await adllPre.goto(`${url}/?now=${ADLL_RELEASE - 3600000}`);
+  await adllPre.locator(`[data-countdown="${ADLL_ID}"]`).waitFor();
+  assert.equal(await adllPre.locator('#grid .catalog-tile').count(), 6, 'the sixth release is in the six-card catalog');
+  assert.equal(await adllPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-adll', 'ADLL leads the catalog as the newest drop');
+  assert.equal(await adllPre.locator(ADLL_CARD).getAttribute('data-vinyl'), 'graffiti-splatter', 'the ADLL catalog card carries its own pressing');
+  assert.match(await adllPre.locator(ADLL_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - A\.D\.L/i);
+  assert.match(await adllPre.locator(`${ADLL_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'ADLL carries its countdown pill');
+  assert.doesNotMatch(await adllPre.locator(`${ADLL_CARD} .drop-countdown__label`).innerText(), /\d/, 'the ADLL label carries no clock hour');
+  assert.match(await adllPre.locator(`${ADLL_CARD} [data-countdown="${ADLL_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'ADLL shows a live HH:MM:SS clock');
+  assert.equal(await adllPre.locator(`${ADLL_CARD} .download-trigger`).count(), 0, 'the ADLL tile renders no download button before its drop');
+  assert.equal(await adllPre.locator(`${ADLL_CARD} .download-trigger--locked`).count(), 0, 'the ADLL tile renders no secondary LOCKED control');
+  assert.equal(await adllPre.locator(`${ADLL_CARD} .drop-locked`).count(), 0, 'the ADLL tile renders no locked player pane');
+  assert(await adllPre.evaluate((id) => {
+    const slot = document.getElementById('card-' + id).querySelector('.catalog-tile__actions');
+    return !!slot && slot.querySelectorAll('button').length === 0 && !!slot.querySelector('.drop-countdown');
+  }, ADLL_ID), 'the countdown pill is the whole ADLL action slot, with no button beside it');
+  assert.match(await adllPre.locator('.marquee-track').innerText(), /5 RELEASES LIVE/, 'the studio count excludes the not-yet-live sixth release');
+  await adllPre.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), ADLL_ID);
+  await adllPre.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), ADLL_ID);
+  assert.equal(await adllPre.locator('.gate-modal').count(), 0, 'the scheduled ADLL drop opens no gate');
+  assert.equal(await adllPre.locator('.download-menu').count(), 0, 'the scheduled ADLL drop opens no drawer');
+  assert.equal(await adllPre.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), ADLL_ID), 'https://www.youtube.com/@KYROlll00?sub_confirmation=1', 'the helper withholds the ADLL video URL until release');
+  await noCardBleed(adllPre, 'ADLL desktop catalog');
+  await adllPre.close();
+
+  const adllLive = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'no-preference' });
+  await adllLive.goto(`${url}/?beat=adll&now=${ADLL_RELEASE - 12000}`, { waitUntil: 'domcontentloaded' });
+  await adllLive.locator(`[data-countdown="${ADLL_ID}"]`).waitFor();
+  assert.equal(await adllLive.locator(`${ADLL_CARD}.beat-detail`).count(), 1, 'the ADLL beat page renders');
+  assert.match(await adllLive.locator(ADLL_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - A\.D\.L/i);
+  const adllTitle = await assertCleanTitle(adllLive, ADLL_CARD, 'ADLL title');
+  assert.match(adllTitle.text, /\[FREE 100%\] YEAT TYPE BEAT - A\.D\.L/i);
+  assert.match(await adllLive.locator(ADLL_CARD).innerText(), /124 BPM \/\/ C#/i);
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .beat-preview`).count(), 0, 'ADLL has no player before its drop');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .drop-locked`).count(), 1, 'ADLL shows the locked player stand-in');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .card__actions .download-trigger--locked`).count(), 1, 'ADLL shows the dedicated LOCKED control');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .download-trigger[disabled]`).count(), 1, 'the ADLL LOCKED control is inert');
+  await noYouTubeButton(adllLive, ADLL_CARD);
+  const adllUrlBeforeDrop = adllLive.url();
+  await adllLive.waitForFunction((id) => {
+    const card = document.getElementById('card-' + id);
+    return !!(card && card.querySelector('.beat-preview__toggle')
+      && card.querySelector('.download-trigger[data-download-trigger]')
+      && !card.querySelector('.drop-countdown')
+      && !card.querySelector('.download-trigger--locked'));
+  }, ADLL_ID, { timeout: 30000 });
+  assert.equal(adllLive.url(), adllUrlBeforeDrop, 'ADLL unlocks in page, with no reload');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .beat-preview`).count(), 1, 'the ADLL player appears the second the clock lands');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .download-trigger`).count(), 1, 'the ADLL download button is live at release');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .drop-countdown`).count(), 0, 'the ADLL countdown is gone at release');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .download-trigger--locked`).count(), 0, 'the ADLL LOCKED control is gone at release');
+  await noYouTubeButton(adllLive, ADLL_CARD);
+  assert.equal(await adllLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), ADLL_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the ADLL link with the clock');
+  // The sixth pressing is the deep matte black graffiti-splatter disc: an
+  // ultra-fine white aerosol spray across the exposed vinyl, the clean matte
+  // black centre label and the complete spinning flower.
+  assert.equal(await adllLive.locator(`${ADLL_CARD}.beat-detail`).getAttribute('data-vinyl'), 'graffiti-splatter', 'ADLL renders the graffiti-splatter pressing');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'graffiti-splatter', 'the ADLL record itself carries the variant');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--graffiti-splatter`).count(), 1, 'ADLL carries the graffiti-splatter modifier');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--white`).count(), 0, 'ADLL does not share the pearl-white disc');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--gold-rim`).count(), 0, 'ADLL does not share THE FLOW gold rim');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--sage-white-rim`).count(), 0, 'ADLL does not share the GREEN FLESH sage disc');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--ice-silver-rim`).count(), 0, 'ADLL does not share the SQUISH! ice-silver disc');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--rage-fire-rim`).count(), 0, 'ADLL does not share the JUST D0 IT fire disc');
+  const adllVinyl = await adllLive.locator(`${ADLL_CARD} .vinyl-record`).evaluate(el => {
+    const label = getComputedStyle(el, '::after');
+    const mist = getComputedStyle(el, '::before');
+    const logo = el.querySelector('.vinyl-record__logo');
+    const logoFrame = el.querySelector('.vinyl-record__logo-frame');
+    const recordRect = el.getBoundingClientRect();
+    const sleeveRect = document.querySelector('.beat-detail__artwork').getBoundingClientRect();
+    const bodyBg = getComputedStyle(el).backgroundImage;
+    return {
+      bodyBg,
+      bodySize: getComputedStyle(el).backgroundSize,
+      bodySplashes: (bodyBg.match(/radial-gradient/g) || []).length,
+      mistBg: mist.backgroundImage,
+      mistSize: mist.backgroundSize,
+      mistDroplets: (mist.backgroundImage.match(/radial-gradient/g) || []).length,
+      mistOpacity: mist.opacity,
+      labelBg: label.backgroundImage,
+      labelZ: label.zIndex,
+      logoZ: logoFrame ? getComputedStyle(logoFrame).zIndex : null,
+      rimCount: el.querySelectorAll('.vinyl-record__rim').length,
+      children: [...el.children].map(child => child.className),
+      splashDomCount: el.querySelectorAll('.vinyl-record__gold, [class*="splash"], [class*="blob"], [class*="splatter"]').length,
+      logo: !!logo,
+      logoAnimation: logo ? getComputedStyle(logo).animationName : null,
+      logoDuration: logo ? getComputedStyle(logo).animationDuration : null,
+      diameterRatio: recordRect.width / sleeveRect.width,
+      coverFilter: getComputedStyle(document.querySelector('.beat-detail__artwork img')).filter,
+    };
+  });
+  assert.match(adllVinyl.bodyBg, /rgb\(10, 10, 10\)|rgb\(6, 6, 6\)/, 'the ADLL disc body is deep matte black');
+  assert.match(adllVinyl.bodyBg, /rgba\(255, 255, 255, 0\.72\)/, 'the ADLL disc carries fine white spray dust');
+  assert.match(adllVinyl.bodyBg, /rgba\(255, 255, 255, 0\.3\)/, 'the aerosol grain fades down to soft white');
+  assert.doesNotMatch(adllVinyl.bodyBg, /ellipse/, 'the ADLL disc paints no oversized elliptical blobs');
+  assert.match(adllVinyl.bodyBg, /2\.5px at/, 'the ADLL disc tops out at 2.5px mist droplets');
+  const adllRadii = [...adllVinyl.bodyBg.matchAll(/radial-gradient\(([\d.]+)px at/g)].map(match => Number(match[1]));
+  assert(adllRadii.length >= 27, `the ADLL disc scatters ${adllRadii.length} explicit droplets`);
+  assert(adllRadii.every(radius => radius <= 2.5), `no oversized paint dot survives on the ADLL disc (largest ${Math.max(...adllRadii)}px)`);
+  assert(adllVinyl.bodySplashes >= 30, `the ADLL disc body paints ${adllVinyl.bodySplashes} micro-speckle layers`);
+  assert.match(adllVinyl.bodySize, /9px 11px/, 'the aerosol grain is a tiled micro-dot field');
+  assert.match(adllVinyl.mistBg, /rgba\(255, 255, 255, 0\.75\)/, 'the ADLL mist layer carries fine white droplets');
+  assert.doesNotMatch(adllVinyl.mistBg, /ellipse/, 'the ADLL mist paints no oversized elliptical blobs');
+  assert(adllVinyl.mistDroplets >= 30, `the ADLL mist paints ${adllVinyl.mistDroplets} scattered micro-droplets`);
+  assert.match(adllVinyl.mistSize, /8px 10px/, 'the mist adds a second off-phase grain field');
+  assert.equal(adllVinyl.mistOpacity, '1', 'the white droplets stay at full paint strength');
+  assert.doesNotMatch(adllVinyl.bodyBg, /rgb\(230, 57, 70\)|#e63946/i, 'the ADLL disc carries no crimson rim any more');
+  assert.match(adllVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(5, 5, 5\)/, 'the ADLL centre label stays matte black');
+  assert.equal(adllVinyl.rimCount, 0, 'the graffiti pressing renders no perimeter rim element');
+  assert.deepEqual(adllVinyl.children, ['vinyl-record__logo-frame'], 'the ADLL record holds only the flower; the paint lives in its background');
+  assert.equal(adllVinyl.splashDomCount, 0, 'the splatter paint adds no DOM graphic layer');
+  assert.equal(adllVinyl.labelZ, '1', 'the ADLL centre label sits above the paint');
+  assert.equal(adllVinyl.logoZ, '2', 'the spinning flower sits above the ADLL label');
+  assert.equal(adllVinyl.logo, true, 'the complete flower survives on the ADLL pressing');
+  assert.equal(adllVinyl.logoAnimation, 'vinylCenterSpin', 'the ADLL flower keeps its slow spin');
+  assert.equal(adllVinyl.logoDuration, '16s', 'the ADLL flower keeps the 16s linear loop');
+  assert(Math.abs(adllVinyl.diameterRatio - 0.92) < 0.01, 'the ADLL record keeps its 92% inset diameter');
+  assert.equal(adllVinyl.coverFilter, 'none', 'the ADLL cover art keeps its original colour');
+  assert.deepEqual(await adllLive.evaluate((id) => window.KYROlll_DOWNLOADS.deliverablesFor(id, 'exclusive').map(item => item.name), ADLL_ID), [
+    'KYROIII - A.D.L (124 BPM - C#).mp3',
+    'KYROIII - A.D.L (124 BPM - C#).wav',
+    'KYROIII - A.D.L - TRACKED STEMS.zip',
+  ], 'ADLL hands over the studio MP3, WAV and tracked stems names');
+
+  // Exclusive rights: the moment the one exclusive license is claimed the beat
+  // is archived. Every lease and the player give way to the secured badge, the
+  // professional disclaimer, and an inert state even when the API is called
+  // directly. The claim is a record on the live catalog entry — the test then
+  // walks to the catalog without reloading, so the locked tile paints too.
+  assert.equal(await adllLive.evaluate((id) => window.KYROlll_HELPERS.lockExclusive(id), ADLL_ID), true, 'the exclusive tier claims ADLL');
+  await adllLive.locator(`${ADLL_CARD} .exclusive-badge`).waitFor();
+  assert.equal((await adllLive.locator(`${ADLL_CARD} .exclusive-badge__text`).innerText()).trim(), '[EXCLUSIVE RIGHTS CLAIMED // SECURED]', 'the beat page carries the secured status');
+  assert.match(await adllLive.locator(`${ADLL_CARD} .exclusive-lock__note`).innerText(), /SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE/, 'the beat page carries the producer disclaimer');
+  assert.match(await adllLive.locator(`${ADLL_CARD} .card__specs`).innerText(), /EXCLUSIVE RIGHTS SECURED/, 'the specs announce the archived state');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .download-trigger`).count(), 0, 'a claimed beat offers no lease button');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .beat-preview`).count(), 0, 'a claimed beat has no public player');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--graffiti-splatter`).count(), 1, 'the claimed beat keeps its graffiti pressing');
+  await adllLive.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), ADLL_ID);
+  await adllLive.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), ADLL_ID);
+  assert.equal(await adllLive.locator('.gate-modal').count(), 0, 'a claimed beat opens no gate');
+  assert.equal(await adllLive.locator('.download-menu').count(), 0, 'a claimed beat opens no drawer');
+  assert.equal(await adllLive.evaluate((id) => window.KYROlll_HELPERS.isExclusiveLocked(id), ADLL_ID), true, 'the claim is recorded on the live entry');
+  await adllLive.evaluate(() => {
+    history.pushState(null, '', 'index.html');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await adllLive.locator(`${ADLL_CARD}.catalog-tile .exclusive-badge`).waitFor();
+  assert.equal((await adllLive.locator(`${ADLL_CARD} .exclusive-badge__text`).innerText()).trim(), '[EXCLUSIVE RIGHTS CLAIMED // SECURED]', 'the claimed catalog tile carries the secured status');
+  assert.match(await adllLive.locator(`${ADLL_CARD} .exclusive-badge`).getAttribute('class'), /exclusive-badge--compact/, 'the tile wears the compact secured plate');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .download-trigger`).count(), 0, 'the claimed tile offers no lease button');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .drop-countdown`).count(), 0, 'a claim retires the countdown');
+  await noHue(adllLive, 'the secured ADLL catalog tile');
+  await shot(adllLive, 'adll-exclusive-locked');
+  await adllLive.close();
+
+  const adllDownload = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce', acceptDownloads: true });
+  await adllDownload.goto(`${url}/download.html?beat=${ADLL_ID}&package=exclusive&t=adll&sign=Adll%20Buyer&now=${ADLL_RELEASE + 1000}`, { waitUntil: 'domcontentloaded' });
+  await adllDownload.locator('#license-serial').waitFor();
+  assert.match(await adllDownload.locator('#download-title').innerText(), /YEAT TYPE BEAT - A\.D\.L/i);
+  assert.match(await adllDownload.locator('#license-serial').innerText(), /^KYRO-\d{4}-ADLL-\d{6}$/, 'the ADLL serial carries its slug');
+  assert.deepEqual(await adllDownload.locator('.download-item__name').evaluateAll(nodes => nodes.map(node => node.textContent)), [
+    'KYROIII - A.D.L (124 BPM - C#).mp3',
+    'KYROIII - A.D.L (124 BPM - C#).wav',
+    'KYROIII - A.D.L - TRACKED STEMS.zip',
+  ], 'the ADLL download page lists the studio files');
+  const [adllPdf] = await Promise.all([
+    adllDownload.waitForEvent('download'),
+    adllDownload.locator('[data-license-pdf]').click(),
+  ]);
+  assert.match(adllPdf.suggestedFilename(), /^KYROIII - LICENSE - A\.D\.L \(KYRO-\d{4}-ADLL-\d{6}\)\.pdf$/, 'the ADLL license saves under the studio name');
+  const adllPdfText = (await readFile(await adllPdf.path())).toString('latin1');
+  const adllPdfRuns = pdfRuns(adllPdfText).join(' ');
+  assert.match(adllPdfRuns, /\[FREE 100%\] YEAT TYPE/, 'the ADLL license carries its title opening');
+  assert.match(adllPdfRuns, /A\.D\.L/, 'the ADLL license carries its title tail');
+  assert(adllPdfText.includes('PAGE 1 OF 1'), 'the ADLL license fits one page');
+  await adllDownload.close();
+
+  const adllAfter = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+  await adllAfter.goto(`${url}/?now=${ADLL_RELEASE + 1000}`, { waitUntil: 'domcontentloaded' });
+  await adllAfter.locator(`${ADLL_CARD} .download-trigger`).waitFor();
+  assert.match(await adllAfter.locator('.marquee-track').innerText(), /6 RELEASES LIVE/, 'the studio count becomes six once ADLL is live');
+  await adllAfter.close();
 
   // ------------------------------------------------------------ support desk
   // The footer's SUPPORT control no longer opens a mail app: it opens the

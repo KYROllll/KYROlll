@@ -7,12 +7,22 @@ const context = vm.createContext({});
 vm.runInContext(readFileSync(new URL("./preview-player.js", import.meta.url), "utf8"), context);
 const BeatPreviewPlayer = vm.runInContext("BeatPreviewPlayer", context);
 
+const catalogContextFor = () => {
+  const events = [];
+  const window = {
+    CustomEvent: class {
+      constructor(type, init) { this.type = type; this.detail = init && init.detail; }
+    },
+    dispatchEvent(event) { events.push(event); return true; },
+  };
+  vm.runInContext(readFileSync(new URL("./catalog.js", import.meta.url), "utf8"), vm.createContext({ window }));
+  return { window, events };
+};
+
 test("the fifth release is scheduled, packaged and pointed at the free-download form", () => {
-  const window = {};
-  const catalogContext = vm.createContext({ window });
-  vm.runInContext(readFileSync(new URL("./catalog.js", import.meta.url), "utf8"), catalogContext);
+  const { window } = catalogContextFor();
   const catalog = window.KYROlll_CATALOG;
-  assert.equal(catalog.length, 5, "the catalog carries five releases");
+  assert.equal(catalog.length, 6, "the catalog carries six releases");
   const beat = window.KYROlll_HELPERS.beatById("just-d0-it");
   assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - JUST D0 IT");
   assert.equal(beat.shortTitle, "JUST D0 IT");
@@ -38,23 +48,70 @@ test("the fifth release is scheduled, packaged and pointed at the free-download 
   ]);
 });
 
-test("the removed ADLL beat is gone from the catalog, the ticker and every page", () => {
-  const window = {};
-  const catalogContext = vm.createContext({ window });
-  vm.runInContext(readFileSync(new URL("./catalog.js", import.meta.url), "utf8"), catalogContext);
+test("the re-ingested ADLL beat is scheduled for today at 19:00 with its graffiti-splatter pressing", () => {
+  const { window } = catalogContextFor();
   const catalog = window.KYROlll_CATALOG;
-  assert.equal(catalog.length, 5, "the catalog carries five releases");
-  assert.deepEqual(Array.from(catalog, (beat) => beat.slug), ["flesh", "the-flow", "green-flesh", "squish", "just-d0-it"],
-    "the five kept beats are intact, in order, and nothing else is left in the store");
-  assert.equal(window.KYROlll_HELPERS.beatById("adll"), null, "the removed beat resolves to nothing");
-  assert.equal(catalog.some((beat) => /adll/i.test(JSON.stringify(beat))), false,
-    "no deliverable, asset path or metadata points at the removed beat");
+  assert.equal(catalog.length, 6, "the catalog carries six releases");
+  assert.deepEqual(Array.from(catalog, (beat) => beat.slug),
+    ["flesh", "the-flow", "green-flesh", "squish", "just-d0-it", "adll"],
+    "the six beats are intact, in order, with ADLL as the newest entry");
+  const beat = window.KYROlll_HELPERS.beatById("adll");
+  assert(beat, "ADLL resolves from its id and slug");
+  assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - A.D.L");
+  assert.equal(beat.shortTitle, "A.D.L");
+  assert.equal(beat.img, "assets/adll.png");
+  assert.equal(beat.bpm, 124);
+  assert.equal(beat.key, "C#");
+  assert.equal(beat.preview, "assets/previews/adll.mp3");
+  assert.equal(beat.vinylVariant, "graffiti-splatter");
+  assert.equal(beat.releaseAt, "2026-11-02T19:00:00+02:00", "ADLL drops today at 19:00 Israel time");
+  const releaseAt = Date.parse("2026-11-02T19:00:00+02:00");
+  assert.equal(window.KYROlll_HELPERS.releaseAt(beat), releaseAt);
+  assert.equal(window.KYROlll_HELPERS.isReleased(beat, releaseAt - 1), false, "the beat stays scheduled until 19:00");
+  assert.equal(window.KYROlll_HELPERS.isReleased(beat, releaseAt), true, "the beat unlocks on the clock");
+  assert.equal(beat.exclusiveLocked, undefined, "ADLL ships free, not pre-claimed");
+  assert.deepEqual(Array.from(beat.deliverables.exclusive, (item) => item.file), [
+    "assets/previews/adll.mp3",
+    "assets/previews/adll.wav",
+    "assets/previews/adll-stems.zip",
+  ]);
+  assert.deepEqual(Array.from(beat.deliverables.exclusive, (item) => item.name), [
+    "KYROIII - A.D.L (124 BPM - C#).mp3",
+    "KYROIII - A.D.L (124 BPM - C#).wav",
+    "KYROIII - A.D.L - TRACKED STEMS.zip",
+  ]);
   const marquee = readFileSync(new URL("./marquee-items.js", import.meta.url), "utf8");
-  assert.doesNotMatch(marquee, /adll/i, "the ticker carries no headline for the removed beat");
-  ["index.html", "download.html", "support.html", "script.js", "style.css"].forEach((name) => {
-    const source = readFileSync(new URL(`./${name}`, import.meta.url), "utf8");
-    assert.doesNotMatch(source, /adll/i, `${name} no longer references the removed beat`);
-  });
+  assert.match(marquee, /YEAT TYPE BEAT - A\.D\.L/, "the ticker announces the ADLL drop");
+  ["assets/previews/adll.mp3", "assets/previews/adll.wav", "assets/previews/adll-stems.zip", "assets/adll.png"]
+    .forEach((asset) => assert(readFileSync(new URL(`./${asset}`, import.meta.url)).length > 0, `${asset} is ingested`));
+});
+
+test("the exclusive license claims the beat and retires its public leases", () => {
+  const { window, events } = catalogContextFor();
+  const helpers = window.KYROlll_HELPERS;
+  assert.equal(window.KYROlll_EXCLUSIVE_LOCK.label, "[EXCLUSIVE RIGHTS CLAIMED // SECURED]");
+  assert.match(window.KYROlll_EXCLUSIVE_LOCK.note, /SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE/);
+  assert.equal(helpers.isExclusiveLocked("adll"), false, "a published beat starts unclaimed");
+  assert.equal(helpers.lockExclusive("adll"), true, "the exclusive tier claims the beat");
+  assert.equal(helpers.isExclusiveLocked("adll"), true);
+  assert.equal(window.KYROlll_HELPERS.beatById("adll").exclusiveLocked, true, "the live catalog entry records the claim");
+  assert.match(window.KYROlll_HELPERS.beatById("adll").exclusiveLockedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(helpers.lockExclusive("adll"), false, "the exclusive license is issued only once");
+  assert.equal(events.length, 1, "the claim is announced once");
+  assert.equal(events[0].type, "kyrolll:exclusive-locked");
+  assert.equal(events[0].detail.slug, "adll");
+  const downloads = readFileSync(new URL("./downloads.js", import.meta.url), "utf8");
+  assert.match(downloads, /pack\.id === "exclusive"[\s\S]*?lockExclusive\(beat\.id\)/, "SIGN & UNLOCK claims an exclusive beat");
+  assert.match(downloads, /holdExclusiveClaim\(beat\)/, "the download layer refuses a claimed beat");
+  const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
+  assert.match(script, /data-exclusive-lock/, "the storefront renders the secured badge");
+  assert.match(script, /EXCLUSIVE RIGHTS SECURED/, "the beat page names the secured state");
+  assert.match(script, /kyrolll:exclusive-locked/, "the grid repaints when a claim lands");
+  const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
+  assert.match(css, /\.exclusive-badge \{[\s\S]*?clip-path: polygon/, "the secured badge wears the cut-corner plate");
+  assert.match(css, /\.exclusive-badge::before[\s\S]*?exclusiveScan/, "the badge carries one slow light pass");
+  const page = readFileSync(new URL("./download-page.js", import.meta.url), "utf8");
+  assert.match(page, /showExclusiveLocked/, "a cold link to a claimed beat shows the secured archive");
 });
 
 test("the catalog remembers the visitor's scroll position for the trip back", () => {
@@ -77,12 +134,15 @@ test("every beat keeps its own bespoke pressing, and the beat page keeps a stick
     "green-flesh": "sage-white-rim",
     squish: "ice-silver-rim",
     "just-d0-it": "rage-fire-rim",
+    adll: "graffiti-splatter",
   }, "each release keeps its own collector pressing");
   const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
   assert.match(css, /\.vinyl-record--white \{[\s\S]*?rgba\(38, 38, 38, 0\.38\)/, "FLESH is a charcoal-marbled pearl disc");
   assert.match(css, /\.vinyl-record--gold-rim::before \{[\s\S]*?rgba\(212, 175, 55, 0\.55\)/, "THE FLOW suspends gold flake dust");
   assert.match(css, /\.vinyl-record--sage-white-rim \{[\s\S]*?rgba\(214, 230, 221, 0\.24\)/, "GREEN FLESH is a marbled sage disc");
   assert.match(css, /\.vinyl-record--ice-silver-rim \{[\s\S]*?linear-gradient\(116deg/, "SQUISH! is a diamond-cut silver disc");
+  assert.match(css, /\.vinyl-record--graffiti-splatter \{[\s\S]*?rgba\(255, 255, 255, 0\.72\)/, "ADLL is a deep matte black disc dusted with white aerosol");
+  assert.match(css, /\.vinyl-record__logo \{[\s\S]*?animation: vinylCenterSpin 16s linear infinite/, "the pressing logo keeps its 16s linear spin");
   assert.match(css, /\.beat-navigation \{[^}]*position:\s*sticky/, "the ALL BEATS rail is sticky");
   const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
   assert.match(html, /id="all-beats-link"[^>]*aria-label="Back to all beats"/, "the beat page carries a labelled ALL BEATS control");

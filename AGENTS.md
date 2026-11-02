@@ -319,8 +319,8 @@ SQUISH! is `vinylVariant: "ice-silver-rim"` (an icy chrome-slate disc with a dia
 specular facet, crystal-clear shimmer micro-grooves at two densities and a pure-white perimeter
 hairline), JUST D0 IT is
 `vinylVariant: "rage-fire-rim"` (a deep matte `#0a0a0a` disc with one delicate fire-red/orange
-perimeter hairline and the complete flower in its matte black centre label), and the store also
-keeps a reserved pressing, `vinylVariant: "graffiti-splatter"` (a deep matte `#0a0a0a` disc
+perimeter hairline and the complete flower in its matte black centre label), A.D.L is
+`vinylVariant: "graffiti-splatter"` (a deep matte `#0a0a0a` disc
 dusted with an ultra-fine white
 aerosol spray — 1px–2.5px `rgba(255,255,255,.75)` micro-speckles fading to `.3`, tiled off-phase
 `9px 11px` / `8px 10px` grain fields and scattered mist droplets as background paint layers, never
@@ -434,6 +434,22 @@ payment gateway.
   real time, so a countdown genuinely counts down. A cold `download.html` link to a drop
   that has not landed shows the same countdown and unlocks itself; a flow that just passed
   a gate carries the grant token and goes straight through.
+- A beat has exactly **one** exclusive license to give, so the exclusive tier is also a
+  retirement switch. When an `exclusive` package is signed for, `downloads.js` calls
+  `KYROlll_HELPERS.lockExclusive(beat.id)` in `finalizeGate`: the claim is written onto the live
+  catalog entry (`exclusiveLocked` + `exclusiveLockedAt`), announced as the
+  `kyrolll:exclusive-locked` CustomEvent, and `script.js` repaints the tile/beat page from it.
+  A claimed beat offers no lease menu and no public player — the action slot and the page carry
+  the `[EXCLUSIVE RIGHTS CLAIMED // SECURED]` plate and the
+  `THIS BEAT HAS BEEN SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE.`
+  disclaimer, its specs read `// EXCLUSIVE RIGHTS SECURED`, and `start`/`openMenu` refuse it
+  with a toast even when called directly; a cold `download.html` link to a claimed beat shows
+  the same secured archive view instead of the files or a gate. `isExclusiveLocked(beatId)`
+  answers the register and `KYROlll_EXCLUSIVE_LOCK` holds the label/note copy. Like every other
+  piece of storefront state it is a **record, not storage** — the claim lives on the in-memory
+  entry and dies with the page, so a reload starts from the catalog as published. An entry may
+  also ship already claimed (`exclusiveLocked: true`) for rights sold outside the store; none
+  does today, A.D.L included.
 - `window.KYROlll_SITE` — `{ formspreeEndpoint, paidFormspreeEndpoint }`. `formspreeEndpoint`
   is the authoritative **KYROIII — FREE DOWNLOADS** form (`https://formspree.io/f/mvkkkoew`)
   for every `[FREE 100%]` beat, while `paidFormspreeEndpoint` is an intentionally empty slot for
@@ -916,8 +932,12 @@ Tests that ship with the repo:
   re-opens the full gate and still requires the signature (nothing is auto-opened or prefilled,
   nothing is re-posted until submit, and the record is gone after a reload), and that no gate
   state is written to `localStorage`/`sessionStorage` (only the catalog scroll key may appear).
-  It drives the five-card catalog, walks each scheduled drop's countdown and in-page unlock,
-  and taps a
+  It drives the six-card catalog, walks each scheduled drop's countdown and in-page unlock
+  (A.D.L is the newest — 19:00 Israel time, 2 November 2026 — and wears the
+  `graffiti-splatter` pressing), then claims ADLL's exclusive tier and proves the beat
+  retires in place: the secured plate, the disclaimer, no player, no menu, no cold-link
+  hand-off, and the same state on the catalog tile after a history walk without a reload. It
+  taps a
   tile with a real mouse and a real touch to prove Back and ALL BEATS land on the remembered
   catalog offset. It needs
   Chromium + root `node_modules`,
@@ -946,7 +966,12 @@ selection: a visitor who passes a package and selects it again in the same view 
 again, with the signature stage empty and locked, while a reload, a new tab or another browser is
 asked from scratch. The
 email is the one thing that can leave the browser: with `KYROlll_NEWSLETTER` configured, the gate
-posts the address to that provider (the opt-in box is a required part of every gate).
+posts the address to that provider (the opt-in box is a required part of every gate). The
+exclusive claim is the one piece of state the store paints from memory — it retires a beat's
+leases and player in the live page, and it is deliberately not persisted, so the
+`ARCHIVED FROM PUBLIC RELEASE` view is a courtesy to the visitor who just bought the rights,
+not an enforcement layer: the files stay public and a reload serves the beat as published
+(which is why a sold-out beat should ship with `exclusiveLocked: true` in `catalog.js`).
 
 `index.html` pre-renders the active release's beat card so a direct beat link
 (`?beat=…`) paints without a flash; `script.js` replaces the grid contents right after

@@ -120,6 +120,36 @@ function releaseLabel(beat) {
   const h = window.KYROlll_HELPERS;
   return (h && h.releaseLabel && h.releaseLabel(beat)) || "DROPPING SOON";
 }
+/* Exclusive rights are gone the moment that license is signed for: the beat is
+   claimed for good and the storefront retires its public player, its countdown
+   and every lease behind one secured status. The copy lives in catalog.js so the
+   data and the markup can never drift. */
+function exclusiveLocked(beat) {
+  const h = window.KYROlll_HELPERS;
+  return !!(beat && h && h.isExclusiveLocked && h.isExclusiveLocked(beat.id));
+}
+function exclusiveLockCopy() {
+  return window.KYROlll_EXCLUSIVE_LOCK || {
+    label: "[EXCLUSIVE RIGHTS CLAIMED // SECURED]",
+    note: "THIS BEAT HAS BEEN SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE."
+  };
+}
+function exclusiveBadgeHTML(compact) {
+  const copy = exclusiveLockCopy();
+  return `<span class="exclusive-badge${compact ? " exclusive-badge--compact" : ""}" data-exclusive-lock role="status">
+          <span class="exclusive-badge__tick" aria-hidden="true"></span>
+          <span class="exclusive-badge__text">${attr(copy.label)}</span>
+        </span>`;
+}
+/* The claimed beat's own page keeps its artwork and specs but loses the player:
+   there is no public master once the exclusive rights are secured. */
+function exclusiveLockedHTML() {
+  return `<div class="exclusive-lock" data-state="exclusive-locked" role="status">
+        <span class="exclusive-lock__scan" aria-hidden="true"></span>
+        <p class="exclusive-lock__kicker">ARCHIVED // PRIVATE MASTER</p>
+        <p class="exclusive-lock__note">${attr(exclusiveLockCopy().note)}</p>
+      </div>`;
+}
 /* The countdown pill: one universal label plus a timer that ticks in place.
    The label never carries a clock hour — the live HH:MM:SS beside it is the only
    time shown, so a visitor in any timezone reads the same thing. On the catalog
@@ -188,6 +218,12 @@ function downloadActionsHTML(beat, compact) {
    shows the pill with the inert LOCKED control beneath it; the moment the clock
    lands the slot becomes the live trigger. */
 function actionsSlotHTML(beat, compact) {
+  if (exclusiveLocked(beat)) {
+    const badge = exclusiveBadgeHTML(!!compact);
+    return compact
+      ? `<div class="catalog-tile__actions">${badge}</div>`
+      : `<div class="download-actions download-actions--secured">${badge}</div>`;
+  }
   if (releasePending(beat)) {
     const pill = countdownBadgeHTML(beat, !compact);
     return compact
@@ -199,15 +235,18 @@ function actionsSlotHTML(beat, compact) {
 }
 
 function beatDetailInner(beat) {
-  const pending = releasePending(beat);
+  const locked = exclusiveLocked(beat);
+  const pending = !locked && releasePending(beat);
   const vinylVariant = vinylVariantFor(beat);
   const outerRim = vinylVariant === "gold-rim" || vinylVariant === "sage-white-rim"
     || vinylVariant === "ice-silver-rim" || vinylVariant === "rage-fire-rim"
     ? `<span class="vinyl-record__rim" aria-hidden="true"></span>`
     : "";
-  const meta = pending
-    ? `<div class="card__specs">${specLine(beat)} // SCHEDULED DROP</div>`
-    : `<div class="card__specs">${specLine(beat)} // TAGGED AUDIO</div>`;
+  const meta = locked
+    ? `<div class="card__specs">${specLine(beat)} // EXCLUSIVE RIGHTS SECURED</div>`
+    : pending
+      ? `<div class="card__specs">${specLine(beat)} // SCHEDULED DROP</div>`
+      : `<div class="card__specs">${specLine(beat)} // TAGGED AUDIO</div>`;
   return `
     <section class="beat-detail__content beat-detail__info" aria-label="Beat details and free downloads">
       <div class="card__meta beat-detail__head">
@@ -218,7 +257,7 @@ function beatDetailInner(beat) {
         </div>
         ${meta}
       </div>
-      ${pending ? dropLockedHTML() : previewHTML(beat)}
+      ${locked ? exclusiveLockedHTML() : pending ? dropLockedHTML() : previewHTML(beat)}
       <div class="card__actions">
         ${actionsSlotHTML(beat, false)}
       </div>
@@ -309,8 +348,9 @@ function buildGrid() {
       card.className = "beat-detail";
       card.innerHTML = beatDetailInner(beat);
     } else {
-      const pending = releasePending(beat);
-      card.className = "catalog-tile" + (pending ? " catalog-tile--pending" : "");
+      const locked = exclusiveLocked(beat);
+      const pending = !locked && releasePending(beat);
+      card.className = "catalog-tile" + (locked ? " catalog-tile--exclusive-locked" : pending ? " catalog-tile--pending" : "");
       card.innerHTML = `<a class="catalog-tile__link" href="index.html?beat=${encodeURIComponent(beat.id)}" aria-label="View ${attr(beat.title)}">
         <span class="catalog-tile__art"><img src="${attr(beat.img)}" alt="" loading="lazy" decoding="async"></span>
         <span class="catalog-tile__title">${beat.title}</span>
@@ -394,6 +434,16 @@ function rebuildCatalog() {
   }
   buildGrid();
 }
+
+/* A claim just sealed in the store is painted the moment it is recorded. While
+   the success dialog is up (the claim is the last beat of every exclusive gate)
+   the store is left alone: the flow is already leaving for the download page,
+   and tearing the grid down under the dialog would only disturb that hand-off.
+   The next render reads the claimed catalog entry. */
+window.addEventListener("kyrolll:exclusive-locked", () => {
+  if (document.documentElement.classList.contains("gate-open")) return;
+  rebuildCatalog();
+});
 
 window.addEventListener("DOMContentLoaded", () => {
   try {
