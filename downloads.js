@@ -1,7 +1,7 @@
 /* KYROIII — the free-download layer.
  *
- * Unifies the "DOWNLOAD FREE" package menu, the lightweight gates (YouTube +
- * email) and the actual browser downloads. No cart, no checkout, no backend.
+ * Unifies the "DOWNLOAD FREE" package menu, the two-step gate (email + license
+ * agreement) and the actual browser downloads. No cart, no checkout, no backend.
  *
  * SESSION RECORD — nothing is ever written down:
  * - no `localStorage`, no `sessionStorage`, no cookie and no unlock set;
@@ -16,27 +16,22 @@
  * does nothing, so a stray tap or key can never close a gate mid-step or wipe a
  * signature in progress.
  *
- * STRICT GATING — each package asks for exactly what its own listing promises:
- * - MP3 LEASE (gate: email): EMAIL + MANDATORY OPT-IN → REVIEW & SIGN → FILES + PDF.
- * - STANDARD WAV LEASE (gate: youtube): SUBSCRIBE to the channel → EMAIL + OPT-IN →
- *   REVIEW & SIGN.
- * - EXCLUSIVE / PRO PACKAGE (gate: exclusive): SUBSCRIBE + LIKE this beat's own
- *   video → EMAIL + OPT-IN → REVIEW & SIGN (STEMS + MP3 + WAV + PDF).
+ * STRICT GATING — every package uses the same friction-free two-step gate, and
+ * no package asks for a social like, follow or subscribe:
+ *   step 1  EMAIL + MANDATORY OPT-IN → submit
+ *   step 2  REVIEW & SIGN: read the license terms, type a full name and sign
+ *           → SIGN & UNLOCK → FILES + PDF.
  *
- * Two rules make those steps real rather than a click-through. A YouTube step
- * only counts after a genuine gesture AND a minimum hold (`STEP_HOLD_MS`), so
- * opening it and bouncing straight back cannot mark it done; and the REVIEW &
- * SIGN stage that closes every gate only unlocks once the terms have actually
- * been read to the end AND the visitor has both typed a FULL NAME (first and
- * last) and drawn a genuine signature on the pad. TYPE and DRAW are one shared
- * readiness state — the full name is never a substitute for the drawing and the
- * drawing is never a substitute for the name — so switching tabs can neither
- * skip the name nor bypass the pad. A single word, a blank line and a token dot
- * are all refused (`isFullName` / `drawingValid`), so there is no bypass to the
- * files. The typed full name always travels with the flow alongside the drawn
- * strokes, and both are what the PDF license stamps in its LICENSEE block (see
- * `license-pdf.js`); the customer signs on a clean field, never over the brand's
- * flower.
+ * The REVIEW & SIGN stage only unlocks once the terms have actually been read to
+ * the end AND the visitor has both typed a FULL NAME (first and last) and drawn
+ * a genuine signature on the pad. TYPE and DRAW are one shared readiness state —
+ * the full name is never a substitute for the drawing and the drawing is never a
+ * substitute for the name — so switching tabs can neither skip the name nor
+ * bypass the pad. A single word, a blank line and a token dot are all refused
+ * (`isFullName` / `drawingValid`), so there is no bypass to the files. The typed
+ * full name always travels with the flow alongside the drawn strokes, and both
+ * are what the PDF license stamps in its LICENSEE block (see `license-pdf.js`);
+ * the customer signs on a clean field, never over the brand's flower.
  *
  * Files are handed over under their professional studio names —
  * `KYROIII - <BEAT> (<BPM> BPM - <KEY>).<ext>` — built from the beat's own
@@ -71,14 +66,9 @@
     return String(configured || site.formspreeEndpoint || FREE_FORMSPREE_ENDPOINT);
   }
 
-  /* The one human-readable record of what a package's gate asked for. A gate
-     only reaches SIGN & UNLOCK once every step is done, so the package's own
-     tier is an accurate record of the completed steps. */
-  const SOCIAL_STEP_SUMMARY = {
-    email: "NONE (EMAIL GATE)",
-    youtube: "YOUTUBE SUBSCRIBE + BEAT LIKE + INSTAGRAM",
-    exclusive: "YOUTUBE SUBSCRIBE + BEAT LIKE + INSTAGRAM + TIKTOK + X"
-  };
+  /* The one human-readable record of what the gate asked for. Every package
+     uses the same two steps, so every free-download record says the same thing. */
+  const GATE_STEP_SUMMARY = "EMAIL + LICENSE AGREEMENT";
 
   /* ------------------------------------------------------ low-level download */
   /* A same-origin file gets `dl`/`name` appended so the server can answer with
@@ -225,7 +215,7 @@
       packageName: String(pack.name || ""),
       includedFiles: packageFileSummary(beat, pack),
       licenseSerial: String(serial || ""),
-      socialStepsCompleted: SOCIAL_STEP_SUMMARY[pack.gate] || SOCIAL_STEP_SUMMARY.email,
+      gateStepsCompleted: GATE_STEP_SUMMARY,
       newsletterOptIn: optin ? "YES" : "NO",
       signatureMethod: "DRAW + TYPE SYNCHRONIZED",
       signatureStrokes: String(Math.max(0, Number(strokeCount) || 0)),
@@ -640,7 +630,6 @@
     if (!gate) return;
     const node = gate;
     gate = null;
-    clearStepTimers();
     node.classList.remove("is-visible");
     unlockPage();
     setTimeout(() => node.remove(), 260);
@@ -715,12 +704,9 @@
     if (field) field.classList.toggle("is-valid", !!ok);
   }
 
-  /* Email gate body — the gate every package passes through. `opts.hint: false`
-     suppresses its own hint line, because a gate that already shows numbered
-     steps carries a richer hint of its own (and two #gate-hint nodes in one
-     dialog would be a duplicate id). `opts.copy: false` does the same for the
-     copy line: a social gate already prints the package blurb above its steps,
-     so the email form does not repeat it (which keeps five steps compact). */
+  /* Email gate body — the first and only step of every package's gate. The
+     address plus the mandatory opt-in are all it asks for; submitting hands
+     the same card to the REVIEW & SIGN stage. */
   function emailGateBody(pack, opts) {
     const label = (opts && opts.submit) || "UNLOCK DOWNLOAD";
     const copy = (opts && opts.copy === false) ? "" :
@@ -733,131 +719,6 @@
         '<button type="button" class="kyrolll-btn" data-gate-submit disabled>' + escapeHTML(label) + '</button>' +
       '</div>' +
       ((opts && opts.hint === false) ? '' : '<p class="gate-modal__hint" id="gate-hint">ENTER EMAIL, TICK THE BOX AND SUBMIT</p>');
-  }
-
-  /* The social step rows, in the order the packages ask for them. `sub` and
-     `like` are YouTube; `ig`, `tt` and `x` are the official profiles the
-     footers link to. The `like` destination is resolved per beat (`videoFor`),
-     so it is the exact same video URL as the YouTube icon beside the title.
-     Each row carries the tick that draws itself once it has been opened. */
-  function socialSteps(actions, video) {
-    const social = window.KYROlll_SOCIAL || {};
-    const channel = window.KYROlll_YOUTUBE_CHANNEL || (social.youtube ? social.youtube + "?sub_confirmation=1" : "https://www.youtube.com/");
-    const instagram = social.instagram || "https://www.instagram.com/kyrolll00/";
-    const tiktok = social.tiktok || "https://www.tiktok.com/@kyrolll00";
-    const x = social.x || "https://x.com/KYROlll00";
-    const defs = {
-      sub: { href: channel, title: "SUBSCRIBE", meta: "TO THE KYROIII YOUTUBE CHANNEL" },
-      like: { href: video || channel, title: "LIKE THIS BEAT", meta: "ON YOUTUBE (DIRECT BEAT VIDEO)" },
-      ig: { href: instagram, title: "FOLLOW ON INSTAGRAM", meta: "@KYROILL00" },
-      tt: { href: tiktok, title: "FOLLOW ON TIKTOK", meta: "@KYROILL00" },
-      x: { href: x, title: "FOLLOW ON X", meta: "@KYROIIIII" }
-    };
-    return actions.map((action, n) => {
-      const def = defs[action];
-      if (!def) return "";
-      return '<a class="gate-step" href="' + escapeHTML(def.href) + '" target="_blank" rel="noopener noreferrer" ' +
-          'data-gate-step="' + n + '" data-gate-action="' + action + '">' +
-        '<span class="gate-step__num"><span>' + (n + 1) + '</span><span class="gate-step__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +
-        '<span class="gate-step__body"><span class="gate-step__title">' + def.title + '</span><span class="gate-step__meta">' + def.meta + '</span></span>' +
-        '<span class="gate-step__go">OPEN ↗</span>' +
-      '</a>';
-    }).join("");
-  }
-
-  /* ------------------------------------------------- STRICT STEP VERIFICATION
-     A social step is not a click-through. It counts only after
-     1) a genuine gesture — a trusted click, not a scripted one, and
-     2) a real visit: the row holds in a VERIFYING state for `STEP_HOLD_MS` and
-        cannot be marked done before that, so opening the tab and bouncing
-        straight back (the quick-bounce bypass) leaves the gate shut.
-     If the page actually lost focus to the opened tab during the hold — the
-     strongest evidence of a real visit — the hold is allowed to finish early
-     (never before `STEP_QUICK_MS`). A blocked popup still completes on the
-     full hold, so a real visitor is never trapped.
-     Re-clicking a step while it verifies does nothing at all: no second tab and
-     no shortened hold. */
-  const STEP_HOLD_MS = 3500;
-  const STEP_QUICK_MS = 1200;
-  const stepTimers = new Set();
-  let lastLeftAt = 0;
-  let leftWatch = false;
-  function watchDeparture() {
-    if (leftWatch) return;
-    leftWatch = true;
-    const mark = () => { lastLeftAt = Date.now(); };
-    document.addEventListener("visibilitychange", () => { if (document.hidden) mark(); });
-    window.addEventListener("blur", mark);
-  }
-  function clearStepTimers() {
-    stepTimers.forEach((timer) => clearTimeout(timer));
-    stepTimers.clear();
-  }
-  function wireGateSteps(modal, done, refresh) {
-    function verify(step, index) {
-      const start = Date.now();
-      const go = step.querySelector(".gate-step__go");
-      step.dataset.verifying = "on";
-      step.classList.add("is-verifying");
-      step.setAttribute("aria-busy", "true");
-      if (go) go.textContent = "VERIFYING";
-      watchDeparture();
-      const update = () => {
-        const elapsed = Date.now() - start;
-        const need = lastLeftAt >= start ? STEP_QUICK_MS : STEP_HOLD_MS;
-        if (elapsed < need) {
-          if (go) go.textContent = "VERIFYING " + Math.max(1, Math.ceil((need - elapsed) / 1000));
-          const next = setTimeout(update, 200);
-          stepTimers.delete(timer);
-          timer = next;
-          stepTimers.add(timer);
-          return;
-        }
-        clearTimeout(timer);
-        stepTimers.delete(timer);
-        step.dataset.verifying = "";
-        step.classList.remove("is-verifying");
-        step.removeAttribute("aria-busy");
-        done[index] = true;
-        step.classList.add("is-done");
-        if (go) go.textContent = "OPENED";
-        refresh();
-      };
-      let timer = setTimeout(update, 200);
-      stepTimers.add(timer);
-    }
-    Array.prototype.slice.call(modal.querySelectorAll("[data-gate-step]")).forEach((step) => {
-      step.addEventListener("click", (event) => {
-        const index = Number(step.getAttribute("data-gate-step"));
-        if (!Number.isFinite(index) || index < 0 || index >= done.length) return;
-        if (done[index] || step.dataset.verifying === "on") { event.preventDefault(); return; }
-        if (event && event.isTrusted === false) { event.preventDefault(); return; }
-        verify(step, index);
-      });
-    });
-  }
-
-  /* Standard WAV lease: subscribe, like this beat's own video and follow on
-     Instagram — three mandatory social steps — then the email. The like step
-     reads `videoFor(beat.id)`, the same URL the YouTube icon beside the title
-     opens. */
-  function youtubeGateBody(pack, beat) {
-    const video = helpers() ? helpers().videoFor(beat.id) : (window.KYROlll_YOUTUBE_CHANNEL || "");
-    return '<p class="gate-modal__copy">' + escapeHTML(pack.blurb) + '</p>' +
-      '<div class="gate-steps" data-count="3">' + socialSteps(["sub", "like", "ig"], video) + '</div>' +
-      emailGateBody(pack, { hint: false, copy: false }) +
-      '<p class="gate-modal__hint" id="gate-hint">OPEN ALL 3 STEPS, THEN THE EMAIL</p>';
-  }
-
-  /* Exclusive / Pro package: all five social steps — subscribe, like this
-     beat's own video, then Instagram, TikTok and X — followed by the email.
-     There is no comment step. */
-  function exclusiveGateBody(pack, beat) {
-    const video = helpers() ? helpers().videoFor(beat.id) : (window.KYROlll_YOUTUBE_CHANNEL || "");
-    return '<p class="gate-modal__copy">' + escapeHTML(pack.blurb) + '</p>' +
-      '<div class="gate-steps" data-count="5">' + socialSteps(["sub", "like", "ig", "tt", "x"], video) + '</div>' +
-      emailGateBody(pack, { hint: false, copy: false, submit: "UNLOCK EXCLUSIVE" }) +
-      '<p class="gate-modal__hint" id="gate-hint">OPEN ALL 5 STEPS, THEN THE EMAIL</p>';
   }
 
   function showSuccessModal() {
@@ -1265,10 +1126,6 @@
       showGateError(errEl, "TICK THE BOX TO UNLOCK YOUR DOWNLOAD");
       return;
     }
-    if (!state.stepsOk) {
-      showGateError(errEl, "COMPLETE THE STEPS ABOVE TO UNLOCK");
-      return;
-    }
     hideGateError(errEl);
     if (submit) submit.disabled = true;
     const hint = modal.querySelector("#gate-hint");
@@ -1286,19 +1143,11 @@
     const modal = document.createElement("div");
     modal.className = "gate-modal";
     
-    // Build gate body based on gate type
-    let body;
-    if (pack.gate === "youtube") {
-      body = youtubeGateBody(pack, beat);
-    } else if (pack.gate === "exclusive") {
-      body = exclusiveGateBody(pack, beat);
-    } else {
-      // email gate — the first stop for the MP3 lease
-      body = emailGateBody(pack, {});
-    }
-    const cardClass = pack.gate === "exclusive" ? "gate-modal__card--social gate-modal__card--five" :
-      pack.gate === "youtube" ? "gate-modal__card--social" : "";
-    modal.innerHTML = gateShell(pack, beat, null, body, cardClass);
+    /* Every package opens the same two-step gate: the email form now, then the
+       REVIEW & SIGN stage. There is no social step, no like and no follow to
+       verify, so the dialog is one clean sheet. */
+    const body = emailGateBody(pack, {});
+    modal.innerHTML = gateShell(pack, beat, null, body, "");
     document.body.appendChild(modal);
     /* Freeze the backdrop: nothing but CANCEL can dismiss this dialog. */
     lockGateSurface(modal);
@@ -1314,39 +1163,25 @@
     const form = modal.querySelector("[data-gate-form]");
     if (form) form.addEventListener("submit", (ev) => ev.preventDefault());
 
-    /* STRICT, PACKAGE-SPECIFIC — one wiring for every gate, because only two
-       things ever differ: how many social steps the package promises and the
-       two hint lines. Every gate needs the address AND the mandatory opt-in;
-       the steps sit in front of that:
-         MP3 LEASE         → email + opt-in (no social step at all)
-         STANDARD WAV LEASE→ subscribe + like this beat + Instagram, then email
-         EXCLUSIVE / PRO   → subscribe + like this beat + Instagram + TikTok + X,
-                             then email. There is no comment step in any of them.
-       `wireGateSteps` only ever fills a slot after a genuine, held visit, so
-       no step can be clicked through. */
+    /* The whole gate, for every package: the address AND the mandatory opt-in,
+       then the license. Nothing else stands in front of the files — no social
+       step, no like, no follow, no subscribe. */
     const STEP_COPY = {
-      email: { idle: "ENTER EMAIL, TICK THE BOX AND SUBMIT", ready: "ALL SET — UNLOCK YOUR DOWNLOAD" },
-      youtube: { idle: "OPEN ALL 3 STEPS, THEN THE EMAIL", ready: "ALL SET — REVIEW & SIGN" },
-      exclusive: { idle: "OPEN ALL 5 STEPS, THEN THE EMAIL", ready: "ALL SET — REVIEW & SIGN" }
+      idle: "ENTER EMAIL, TICK THE BOX AND SUBMIT",
+      ready: "ALL SET — REVIEW & SIGN"
     };
-    const copy = STEP_COPY[pack.gate] || STEP_COPY.email;
-    const steps = pack.gate === "youtube" ? [false, false, false] :
-      pack.gate === "exclusive" ? [false, false, false, false, false] : [];
-    const stepsOk = () => steps.every(Boolean);
     const readState = () => ({
       email: String(input && input.value || "").trim(),
-      optin: !!(optin && optin.checked),
-      stepsOk: stepsOk()
+      optin: !!(optin && optin.checked)
     });
     function refresh() {
       const emailOk = EMAIL_RE.test(String(input && input.value || "").trim());
-      const ready = stepsOk() && emailOk && !!(optin && optin.checked);
+      const ready = emailOk && !!(optin && optin.checked);
       submit.disabled = !ready;
       setFieldValid(modal, emailOk);
       hideGateError(errEl);
-      if (hint) hint.textContent = ready ? copy.ready : copy.idle;
+      if (hint) hint.textContent = ready ? STEP_COPY.ready : STEP_COPY.idle;
     }
-    if (steps.length) wireGateSteps(modal, steps, refresh);
     input && input.addEventListener("input", refresh);
     optin && optin.addEventListener("change", refresh);
     input && input.addEventListener("keydown", (ev) => {
@@ -1357,10 +1192,9 @@
     submit.addEventListener("click", () => submitGate(beat, pack, modal, onUnlocked, readState));
     refresh();
 
-    /* The MP3 lease is the one gate that opens straight on the field, so the
-       caret goes into it. The address is never prefilled: a fresh gate is
-       always a fresh gate. */
-    if (pack.gate === "email" && input) {
+    /* Every gate opens straight on the field, so the caret goes into it. The
+       address is never prefilled: a fresh gate is always a fresh gate. */
+    if (input) {
       setTimeout(() => { try { input.focus(); input.select(); } catch (err) { /* ignore */ } }, 40);
     }
 

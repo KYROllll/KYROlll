@@ -15,8 +15,8 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   `catalog.js` holds the shared data (beats plus the three free packages) and
   `downloads.js` — with `download-page.js` for the landing page — is the whole
   "commerce" layer: the "DOWNLOAD FREE" trigger opens a three-package menu, and every
-  package then sits behind its gate (an email for the MP3, subscribe + like + Instagram for the
-  WAV, and those plus TikTok and X for the exclusive). **No gate state is ever written down** — no `localStorage`, no
+  package then sits behind the same two-step gate — an email address, then acceptance of the
+  license — with no social like, follow or subscribe step. **No gate state is ever written down** — no `localStorage`, no
   cookie, no unlock set and nothing prefilled. The one thing the storefront remembers is the
   catalog scroll offset in `sessionStorage` (`kyrolll_catalog_scroll`, tab-only and gone when
   the tab closes), so the trip back from a beat lands where the visitor left. The only other
@@ -66,7 +66,7 @@ exempts only that `.footer__social` subtree. THE FLOW's collector pressing is th
   all other storefront styling stays neutral.
 - **The dialog is a phone citizen.** `.gate-modal` is measured in *dynamic* viewport units
   (`height: 100vh; height: 100dvh`) and the card is capped at `max-height: 90dvh` and scrolls
-  inside itself, so even the five-step exclusive gate (steps + email + buttons) stays whole and
+  inside itself, so the gate (email form or the full REVIEW & SIGN stage) stays whole and
   the unlock button can never hide behind mobile browser chrome; `downloads.js` also pins the page's scroll offset on
   the body while a gate is open (a plain `overflow: hidden` makes iOS jump to the top) and
   restores it on close. Inputs render at 16px on phones, so iOS does not zoom the page on
@@ -380,29 +380,27 @@ payment gateway.
 
 `catalog.js` is plain data with no DOM access, loaded first:
 
-- `window.KYROlll_SOCIAL` — the official profile URLs the footers link and the gate
-  steps open: `youtube` (`https://www.youtube.com/@KYROlll00`), `instagram`
+- `window.KYROlll_SOCIAL` — the official profile URLs the footers link:
+  `youtube` (`https://www.youtube.com/@KYROlll00`), `instagram`
   (`https://www.instagram.com/kyrolll00/`), `tiktok` (`https://www.tiktok.com/@kyrolll00`)
-  and `x` (`https://x.com/KYROlll00`).
-- `window.KYROlll_YOUTUBE_CHANNEL` — where the "subscribe" step sends the visitor
-  (`?sub_confirmation=1` makes YouTube show its own subscribe prompt). Built from
+  and `x` (`https://x.com/KYROlll00`). No gate asks the visitor to open them.
+- `window.KYROlll_YOUTUBE_CHANNEL` — the official channel with `?sub_confirmation=1`
+  appended, kept for any link that wants to offer a subscribe prompt. Built from
   `KYROlll_SOCIAL.youtube`, so it is
   `https://www.youtube.com/@KYROlll00?sub_confirmation=1`.
-- `window.KYROlll_PACKAGES` — exactly three options per beat:
-  `mp3` (`"MP3 LEASE"`, `gate: "email"`), `wav` (`"STANDARD WAV LEASE"`,
-  `gate: "youtube"`) and `exclusive` (`"EXCLUSIVE / PRO PACKAGE"`, `gate: "exclusive"`).
-  `gate` is the whole behaviour: `email` asks for an address, `youtube` adds subscribe +
-  like this beat's own video + Instagram before that address, `exclusive` is those three
-  plus TikTok and X with its own copy and submit label (there is **no** comment step), and
-  `instant` (kept for a package that should skip the gate, unused today) goes straight to
-  the download page. Every gate requires the address **and** the opt-in checkbox, and every
+- `window.KYROlll_PACKAGES` — exactly three options per beat, all with the same
+  `gate: "email"`: `mp3` (`"MP3 LEASE"`), `wav` (`"STANDARD WAV LEASE"`) and `exclusive`
+  (`"EXCLUSIVE / PRO PACKAGE"`). `gate` is the whole behaviour: `email` asks for an address
+  and then the license signature, and `instant` (kept for a package that should skip the
+  gate, unused today) goes straight to the download page. There is no social step and no
+  comment step anywhere. Every gate requires the address **and** the opt-in checkbox, and every
   gate then closes with the same REVIEW & SIGN stage (below). `includes` is the
   plain-language list of what the package hands over (MP3 → tagged MP3 + license; WAV →
   tagged MP3 + high-quality WAV + license; exclusive → tagged MP3 + WAV + tracked stems +
   full rights + email opt-in) and is printed verbatim in the generated license.
 - `window.KYROlll_CATALOG` — one entry per beat: `id` (the uuid, also the `?beat=` value),
   `slug` (kept only so old `?beat=flesh` links resolve), `title`, `img`, `bpm`, `key`,
-  `preview`, `youtube` (the beat's own video, used by the "like" step) and `deliverables`
+  `preview`, `youtube` (the beat's own video, exposed by `videoFor`) and `deliverables`
   — a map of package id → an array of `{ file, name, label }`, where `file` is a
   **same-origin** path, `name` is what the browser saves it as and `label` is shown on the
   download page. `downloads.js` re-derives that `name` from the beat's own metadata on the
@@ -423,8 +421,8 @@ payment gateway.
   `data-download-trigger`, so the drawer cannot be reached) and no player.
   There is no YouTube icon beside the title in either state — the beat-detail head is
   the title and its specs only, and the old locked `<span>` / live anchor pair is gone.
-  `videoFor()` still withholds the beat's own video from the gate's "like this beat"
-  step until `isReleased()`, and the gate step itself unlocks with the clock.
+  `videoFor()` still withholds the beat's own video until `isReleased()`; no gate step
+  reads it any more.
   `start`/`openMenu` refuse a locked drop with a toast even if called directly.
   The second the clock lands, `script.js` (`refreshReleaseWatch`: a 1 s display interval
   plus a precise timeout) rebuilds the grid in place, so the full player and the drawer
@@ -471,8 +469,8 @@ payment gateway.
 and re-requires REVIEW & SIGN, and a reload starts empty. The only outbound request is the
 single authoritative analytics POST at SIGN & UNLOCK (`postAnalytics`: `fetch(endpoint)` with
 `Accept: application/json` and a JSON body), carrying the email, verified full name, beat and
-package context, the exact license serial, the completed social steps, the opt-in and the
-device/source page. It is deliberately not sent at the email step, so a Formspree record can
+package context, the exact license serial, the completed gate steps (`EMAIL + LICENSE
+AGREEMENT`), the opt-in and the device/source page. It is deliberately not sent at the email step, so a Formspree record can
 never arrive half-empty:
 
 - The `[data-download-trigger]` button (delegated once on `document`, so a re-rendered
@@ -555,40 +553,23 @@ never arrive half-empty:
   the rendered line boxes, the card containment and the specs clearance at 390, 1024 and 1440 px.
   The YouTube icon that used to sit beside it — a locked `<span>` before a drop, a live anchor
   after — is gone in both states: `.beat-detail__head` is the title and `.card__specs` only, and
-  `style.css` carries no `.card__youtube-link` rule. The gate's "like this beat" step still opens
-  `videoFor(beat.id)`, so the beat video remains one tap away inside the WAV/exclusive flows.
+  `style.css` carries no `.card__youtube-link` rule. No gate step links the video any more:
+  the gate is the email form and the license only.
 - `start(beatId, packageId)` resolves the beat + package, then opens that package's gate and
   continues on success (`gate: "instant"` short-circuits straight to the download page). There is
   **no grant shortcut**: even a package this view already passed opens the gate from scratch and
   requires REVIEW & SIGN again, so the mandatory signature step can never be skipped.
 - `openGate(beat, pack, onUnlocked)` renders `.gate-modal` (backdrop + card) into `<body>`
-  and adds `html.gate-open`. Each package asks for exactly what its listing promises:
-  `gate: "email"` (MP3 lease) is the address only, `gate: "youtube"` (Standard WAV lease)
-  shows **three** numbered steps — subscribe, like this beat's own video, follow on
-  Instagram — and `gate: "exclusive"` (Pro package) shows **five**: those three plus TikTok
-  and X (`socialSteps(actions, video)`, one `.gate-step` row per step, each with a
-  `data-gate-action` of `sub` / `like` / `ig` / `tt` / `x`); each row opens in a new tab,
-  and each completed step morphs its number into a tick that draws itself
-  (`.gate-step__tick`, monochrome). The `like` href is `videoFor(beat.id)` — the
-  same helper whose URL the old title icon used to open, and the only place the beat
-  video is linked from the page now. All three gates are wired by **one**
-  block: only the step count (`[]` / `[false, false, false]` /
-  `[false, false, false, false, false]`) and the two hint lines (`STEP_COPY`) differ, so
-  the three copies of the same input/change/keydown/submit listeners are gone and a fourth
-  package would only add a row to that table. **A step is not a click-through.**
-  `wireGateSteps` marks one done only when (a) the click was genuine — a scripted click
-  (`isTrusted === false`) is refused outright — and (b) the row has held in its VERIFYING
-  state for `STEP_HOLD_MS` (3.5 s), which is what stops the quick-bounce bypass of opening
-  the tab and submitting immediately. The hold is shortened to `STEP_QUICK_MS` (1.2 s) only
-  when the page really lost focus to the opened tab during it; a blocked popup still
-  completes on the full hold, so a real visitor is never trapped. Re-clicking a step while
-  it verifies does nothing: no second tab and no shortened hold. Every gate renders the same real
+  and adds `html.gate-open`. Every package renders the *same* gate: the email form
+  (`emailGateBody`) and then the REVIEW & SIGN stage. There is no `.gate-step`, no
+  `data-gate-action`, no social link, no like, follow, subscribe or comment step, and no
+  step counters to verify — the flow is strictly email + license agreement. Every gate renders the same real
   `<form data-gate-form>` (with `action` pointed at
   the provider, so the flow degrades without scripting) holding one email field
   (`#gate-email`), the mandatory opt-in checkbox (`#gate-optin`, ticked and `required`), an
   inline error (`#gate-error`) and the CANCEL (`[data-gate-cancel]`) + submit
   (`[data-gate-submit]`) row. The field always starts **empty** and the submit only enables
-  once the address is well formed, the box is ticked and every step is done, so a plain click
+  once the address is well formed and the box is ticked, so a plain click
   cannot skip anything; Enter on the field runs the same `submitGate`, which is also where a
   malformed address is refused with `#gate-error`. **Only CANCEL closes the dialog** — the
   backdrop is inert (no `data-gate-cancel`, no outside-click listener) and Escape does nothing,
@@ -895,13 +876,10 @@ Tests that ship with the repo:
 - `preview-player.test.mjs` is `node:test` based and needs no browser:
   `node --test preview-player.test.mjs`
 - `brand-design.test.mjs` is Playwright-based and checks the storefront layout, the
-  tagged audio preview, the "DOWNLOAD FREE" package menu and all three gated paths
-  (the MP3 email gate, the three-step WAV gate — subscribe + the beat's own video + Instagram
-  — and the five-step exclusive gate, which adds TikTok and X; it asserts the comment step is
-  gone). A social step is watched through its hold: it is not done the moment it is clicked,
-  it reports VERIFYING, and only then draws its tick. The test asserts each step's exact
-  destination, including that the `like` href is the beat's own YouTube URL, the same one the
-  icon beside the title opens, and that the MP3 gate carries no social step at all. Every gate must then reach
+  tagged audio preview, the "DOWNLOAD FREE" package menu and all three gated paths,
+  each of which is the same clean two-step gate. The test asserts that no gate renders a
+  `.gate-step` or a `[data-gate-action]`, that no social link is opened from any gate, and
+  that the email and the license agreement are the only requirements. Every gate must then reach
   the REVIEW & SIGN stage, where the test proves the order is enforced — SIGN & UNLOCK is locked
   with a full name alone or a drawing alone until the terms pane is scrolled to the end *and*
   both halves exist, a single-word name (`Madonna`) stays locked and is *still* refused after
@@ -952,19 +930,16 @@ Tests that ship with the repo:
 
 ## Deliberate behaviour worth knowing
 
-Downloads are plain same-origin files. All three packages sit behind a gate (an email for the
-MP3, plus subscribe + like-the-beat + Instagram for the WAV, and those plus TikTok and X for
-the exclusive — there is no comment step), which are lead-capture courtesies rather than
+Downloads are plain same-origin files. All three packages sit behind the same two-step gate —
+an email address and then the license agreement — with no social like, follow or subscribe
+step, which is a lead-capture courtesy rather than
 enforcement — the files themselves are public and nothing on
 the server blocks them, and the grant token is just a URL parameter. The strict half of
-"genuine interaction" is what a static page can actually enforce: a trusted
-click and a real dwell on each step (`STEP_HOLD_MS`), plus a **full name AND a drawn signature**
-captured in the sign step — both are required on **both** TYPE and DRAW tabs, so neither a
-typed name alone nor a bare drawing can stand in for the other (a single word, a blank field, an
-unsigned pad and a token dot are all refused before the unlock button will move, and the submit
-handler refuses them again if the attribute is stripped). A departure to the opened tab only ever *shortens* that hold — it is recorded, never
-required — because a blocked popup would otherwise strand a real visitor, and because a
-headless browser reports no blur at all (measured, so no check can depend on it).
+"genuine interaction" is what a static page can actually enforce: the **full name AND a drawn
+signature** captured in the sign step — both are required on **both** TYPE and DRAW tabs, so
+neither a typed name alone nor a bare drawing can stand in for the other (a single word, a blank
+field, an unsigned pad and a token dot are all refused before the unlock button will move, and
+the submit handler refuses them again if the attribute is stripped).
 The dialog has one exit — its CANCEL button. The backdrop and Escape are inert, so a stray tap
 or key cannot wipe a gate or a signature in progress. The in-page `grants` record never skips a
 selection: a visitor who passes a package and selects it again in the same view is asked in full

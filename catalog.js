@@ -5,12 +5,12 @@
  * helpers, with no DOM access, so it is safe to include before anything else.
  *
  * Every beat is 100% free. There is no cart, no checkout and no payment
- * gateway: every package is unlocked behind a lightweight social gate (an
- * email for the MP3, subscribe + like + Instagram for the WAV, and all five
- * social steps for the exclusive — see `downloads.js`). Every gate then closes
- * with a REVIEW & SIGN stage, and the signature captured there is stamped into
- * the PDF license. Nothing is written down, so a fresh visit asks again; only
- * the current page view remembers a package it already unlocked. */
+ * gateway: every package is unlocked behind the same friction-free gate — an
+ * email address plus acceptance of the license terms — with no social like,
+ * follow or subscribe step of any kind (see `downloads.js`). Every gate then
+ * closes with a REVIEW & SIGN stage, and the signature captured there is
+ * stamped into the PDF license. Nothing is written down, so a fresh visit asks
+ * again; only the current page view remembers a package it already unlocked. */
 (function () {
   "use strict";
 
@@ -50,45 +50,44 @@
     paidEndpoint: SITE.paidFormspreeEndpoint
   };
 
-  // The three free ways a beat leaves the store. `gate` is the whole behaviour:
-  //   "email"    → Email input + mandatory opt-in → submit → REVIEW & SIGN → files + PDF.
-  //   "youtube"  → Subscribe + like this beat + follow on Instagram (three
-  //     verified steps), then the same email form → REVIEW & SIGN → files + PDF.
-  //   "exclusive"→ Subscribe + like this beat + follow on Instagram, TikTok and
-  //     X (five verified steps), then the same email form (mandatory opt-in) →
-  //     REVIEW & SIGN → Stems+MP3+WAV+PDF.
-  // `includes` is the plain-language list of what the package hands over; it is
-  // printed in the generated license (see `downloads.js`).
+  // The three free ways a beat leaves the store. Every one of them uses the
+  // same two-step gate, with no social requirement anywhere:
+  //   step 1 — email + mandatory opt-in → submit
+  //   step 2 — read the license terms, type a full name and sign → SIGN & UNLOCK
+  // `gate` is kept as a package field for callers, but the only value in use is
+  // "email"; "instant" remains available for a package that should skip the
+  // gate entirely. `includes` is the plain-language list of what the package
+  // hands over; it is printed in the generated license (see `downloads.js`).
   window.KYROlll_PACKAGES = [
     {
       id: "mp3",
       name: "MP3 LEASE",
-      tag: "EMAIL GATE",
+      tag: "EMAIL + LICENSE",
       gate: "email",
       /* `grant` is the licensing half of the package, read by the generated PDF:
          `non-exclusive` keeps the beat in the market for other artists, while
          `exclusive` retires it (see the claim register below). The language is
          shared by every beat, so no catalog entry can carry its own terms. */
       grant: "non-exclusive",
-      blurb: "ENTER YOUR EMAIL TO UNLOCK THE DOWNLOAD INSTANTLY.",
+      blurb: "ENTER YOUR EMAIL, ACCEPT THE LICENSE AND UNLOCK THE DOWNLOAD INSTANTLY.",
       includes: ["TAGGED MP3 AUDIO FILE", "FREE NON-EXCLUSIVE LICENSE"]
     },
     {
       id: "wav",
       name: "STANDARD WAV LEASE",
-      tag: "SUBSCRIBE + LIKE + IG",
-      gate: "youtube",
+      tag: "EMAIL + LICENSE",
+      gate: "email",
       grant: "non-exclusive",
-      blurb: "TAGGED MP3 + HIGH-QUALITY WAV + LICENSE. SUBSCRIBE, LIKE THE BEAT, FOLLOW ON INSTAGRAM, AND ENTER YOUR EMAIL TO UNLOCK.",
+      blurb: "TAGGED MP3 + HIGH-QUALITY WAV + LICENSE. ENTER YOUR EMAIL, ACCEPT THE LICENSE AND UNLOCK.",
       includes: ["TAGGED MP3 AUDIO FILE", "HIGH-QUALITY WAV", "FREE NON-EXCLUSIVE LICENSE"]
     },
     {
       id: "exclusive",
       name: "EXCLUSIVE / PRO PACKAGE",
-      tag: "ALL 5 SOCIAL STEPS",
-      gate: "exclusive",
+      tag: "EMAIL + LICENSE",
+      gate: "email",
       grant: "exclusive",
-      blurb: "FULL STEMS + MP3 + WAV + EXCLUSIVE LICENSE. COMPLETE ALL SOCIAL STEPS AND ENTER YOUR EMAIL TO UNLOCK.",
+      blurb: "FULL STEMS + MP3 + WAV + EXCLUSIVE LICENSE. ENTER YOUR EMAIL, ACCEPT THE LICENSE AND UNLOCK.",
       includes: [
         "TAGGED MP3 AUDIO FILE",
         "HIGH-QUALITY WAV",
@@ -102,8 +101,8 @@
   // `id` is the beat's stable id (the uuid for the original releases, the short
   // store handle for newer catalog entries) and `slug` is the human handle kept
   // for links (`?beat=flesh`); the helpers resolve either. `youtube` is the
-  // beat's own video: the WAV/exclusive "like this beat" gate step reads this
-  // exact URL through `videoFor`.
+  // beat's own video, exposed through `videoFor` for any caller that wants to
+  // point at it; no gate step asks for a like or a follow.
   //
   // `deliverables` maps a package to the files the download page hands over:
   // each entry is `{ file, name, label }`, a same-origin `file`, the `name` the
@@ -447,8 +446,8 @@
       const list = beat && beat.deliverables && beat.deliverables[packageId];
       return Array.isArray(list) ? list : [];
     },
-    // The beat's own video, or the channel as a last resort, so the "like"
-    // step always has somewhere real to point. A scheduled drop's own video is
+    // The beat's own video, or the channel as a last resort, for any caller
+    // that wants to point at it. A scheduled drop's own video is
     // withheld from every caller until its clock lands: the beat page renders a
     // locked, non-clickable icon and the gate cannot open anyway, but the helper
     // never hands out the unreleased URL ahead of time either.

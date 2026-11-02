@@ -210,7 +210,7 @@ function lockedButtonHTML(beat) {
 function downloadActionsHTML(beat, compact) {
   if (compact) return `<div class="catalog-tile__actions">${downloadTriggerHTML(beat, true)}</div>`;
   return `<div class="download-actions">${downloadTriggerHTML(beat, false)}</div>
-        <p class="download-hint">EVERY BEAT IS FREE · MP3, WAV &amp; STEMS · LEAVE AN EMAIL TO UNLOCK</p>`;
+        <p class="download-hint">EVERY BEAT IS FREE · EMAIL + LICENSE · INSTANT DOWNLOAD</p>`;
 }
 
 /* The action slot, where the "DOWNLOAD FREE" button normally sits. While a drop

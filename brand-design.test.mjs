@@ -2,7 +2,7 @@
 // Covers the storefront layout, the tagged audio preview, the "DOWNLOAD FREE"
 // drawer (welded to its trigger, with the ambient glow) and all three
 // package-specific unlock paths (email-only MP3, subscribe + like + Instagram
-// WAV, and all five social steps for Pro), ending on the download page and its
+// WAV and Pro), ending on the download page and its
 // PDF license.
 import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
@@ -392,21 +392,16 @@ const drawnPaths = text => [...text.matchAll(/m ((?:[\d.]+ [\d.]+ l )+)/g)]
   .map(m => m[1].trim().split(/ l /))
   .filter(path => path.length >= 2);
 
-// A social step is not a click-through: it only counts once its hold has run, so
-// the bypass (click, bounce, submit) is refused. Each package carries exactly the
-// steps its listing promises: the Standard WAV lease three (subscribe + like this
-// beat's video + Instagram), the Pro package all five (those plus TikTok and X).
-async function openSteps(page, count) {
-  assert.equal(await page.locator('.gate-step').count(), count, `the gate carries ${count} step(s)`);
-  // Watch the first step from the very click: it must report VERIFYING and must
-  // not be done in that same frame. The rest are then opened in turn; their
-  // holds run in parallel and the gate only unlocks when all of them have run.
-  await page.locator('[data-gate-step="0"]').click();
-  assert.equal(await page.locator('[data-gate-step="0"]').evaluate(el => el.classList.contains('is-done')), false, 'a step is not done the moment it is clicked');
-  assert.equal(await page.locator('[data-gate-step="0"]').evaluate(el => el.classList.contains('is-verifying')), true, 'the held step reports it is verifying');
-  assert.match(await page.locator('[data-gate-step="0"] .gate-step__go').innerText(), /VERIFYING/);
-  for (let i = 1; i < count; i += 1) await page.locator(`[data-gate-step="${i}"]`).click();
-  await page.waitForFunction(n => document.querySelectorAll('.gate-step.is-done').length === n, count, { timeout: 20000 });
+// Every package reaches the same friction-free two-step gate — the email form,
+// then REVIEW & SIGN — and none of them renders a social step, a like, a follow
+// or a subscribe. There is nothing to hold, count or click through.
+async function expectCleanGate(page) {
+  assert.equal(await page.locator('.gate-step').count(), 0, 'the gate carries no social step');
+  assert.equal(await page.locator('[data-gate-action]').count(), 0, 'the gate carries no like/follow action');
+  assert.equal(await page.locator('.gate-modal a[href*="youtube.com"], .gate-modal a[href*="instagram.com"], .gate-modal a[href*="tiktok.com"], .gate-modal a[href*="x.com"]').count(), 0,
+    'the gate opens no social profile');
+  assert.equal(await page.locator('#gate-email').count(), 1, 'the gate asks for the email');
+  assert.equal(await page.locator('#gate-optin').count(), 1, 'the gate asks for the mandatory opt-in');
 }
 
 try {
@@ -999,7 +994,8 @@ try {
   assert.equal(mp3Post.packageName, 'MP3 LEASE', 'the record carries the full package label');
   assert.equal(mp3Post.includedFiles, 'MP3 + PDF LICENSE', 'the record lists the unlocked files');
   assert.match(mp3Post.licenseSerial, /^KYRO-\d{4}-FLESH-\d{6}$/, 'the record carries the exact license serial');
-  assert.equal(mp3Post.socialStepsCompleted, 'NONE (EMAIL GATE)', 'the MP3 gate records that it has no social step');
+  assert.equal(mp3Post.gateStepsCompleted, 'EMAIL + LICENSE AGREEMENT', 'the MP3 gate records its email + license steps');
+  assert.equal(mp3Post.socialStepsCompleted, undefined, 'the MP3 record carries no social-step field');
   assert.equal(mp3Post.newsletterOptIn, 'YES', 'the record confirms the mandatory opt-in');
   assert.equal(mp3Post.signatureMethod, 'DRAW + TYPE SYNCHRONIZED', 'the record confirms the signature method');
   assert.equal(mp3Post.deviceType, 'DESKTOP', 'the record carries the device class');
@@ -1135,37 +1131,19 @@ try {
   await shot(mp3Page, 'download-mp3');
   await mp3Page.close();
 
-  // Package 2 — Standard WAV Lease: subscribe, like this beat's own video and
-  // follow on Instagram — three mandatory social steps — then the email. The
-  // unlock enables only once every step really ran, and the page then lists the
-  // MP3 + WAV.
+  // Package 2 — Standard WAV Lease: the same clean email + license gate, with
+  // no social step in front of it. The page then lists the MP3 + WAV.
   const wavPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce', acceptDownloads: true });
   await pickPackage(wavPage, 'wav');
   await wavPage.locator('.gate-modal').waitFor();
   const wavPack = await wavPage.evaluate(() => window.KYROlll_PACKAGES.find(item => item.id === 'wav'));
-  assert.equal(wavPack.tag, 'SUBSCRIBE + LIKE + IG', 'the WAV package badge names its three steps');
-  assert.equal(wavPack.blurb, 'TAGGED MP3 + HIGH-QUALITY WAV + LICENSE. SUBSCRIBE, LIKE THE BEAT, FOLLOW ON INSTAGRAM, AND ENTER YOUR EMAIL TO UNLOCK.', 'the WAV package describes its three steps');
-  assert.match(await wavPage.locator('.gate-modal__copy').first().innerText(), /SUBSCRIBE, LIKE THE BEAT, FOLLOW ON INSTAGRAM, AND ENTER YOUR EMAIL TO UNLOCK/, 'the WAV gate states all three requirements');
-  assert.equal(await wavPage.locator('.gate-step').count(), 3, 'the WAV lease asks for subscribe, like and Instagram');
-  assert.deepEqual(await wavPage.locator('.gate-step').evaluateAll(nodes => nodes.map(node => node.dataset.gateAction)), ['sub', 'like', 'ig'], 'the WAV gate carries exactly the three promised steps');
-  assert.match(await wavPage.locator('[data-gate-action="sub"]').innerText(), /SUBSCRIBE/);
-  assert.match(await wavPage.locator('[data-gate-action="sub"]').innerText(), /TO THE KYROIII YOUTUBE CHANNEL/);
-  assert.match(await wavPage.locator('[data-gate-action="like"]').innerText(), /LIKE THIS BEAT/);
-  assert.match(await wavPage.locator('[data-gate-action="like"]').innerText(), /ON YOUTUBE \(DIRECT BEAT VIDEO\)/);
-  assert.match(await wavPage.locator('[data-gate-action="ig"]').innerText(), /FOLLOW ON INSTAGRAM/);
-  assert.match(await wavPage.locator('[data-gate-action="ig"]').innerText(), /@KYROILL00/);
-  assert.equal(await wavPage.locator('[data-gate-action="sub"]').getAttribute('href'), 'https://www.youtube.com/@KYROlll00?sub_confirmation=1', 'the subscribe step opens the official channel with its confirmation prompt');
-  const wavLikeHref = await wavPage.locator('[data-gate-action="like"]').getAttribute('href');
-  assert.equal(wavLikeHref, 'https://www.youtube.com/watch?v=8OhRJQn2YCU', 'the like step opens FLESH\'s exact official video');
-  assert.equal(wavLikeHref, await wavPage.evaluate(id => window.KYROlll_HELPERS.videoFor(id), BEAT_ID), 'the gate and videoFor agree on the beat video');
+  assert.equal(wavPack.tag, 'EMAIL + LICENSE', 'the WAV package badge names the email + license gate');
+  assert.equal(wavPack.gate, 'email', 'the WAV package uses the shared email gate');
+  assert.equal(wavPack.blurb, 'TAGGED MP3 + HIGH-QUALITY WAV + LICENSE. ENTER YOUR EMAIL, ACCEPT THE LICENSE AND UNLOCK.', 'the WAV package describes the clean gate');
+  assert.match(await wavPage.locator('.gate-modal__copy').first().innerText(), /ENTER YOUR EMAIL TO UNLOCK THE STANDARD WAV LEASE/, 'the WAV gate asks only for the email before the license');
+  await expectCleanGate(wavPage);
   await noYouTubeButton(wavPage, CARD);
-  assert.equal(await wavPage.locator('[data-gate-action="ig"]').getAttribute('href'), 'https://www.instagram.com/kyrolll00/', 'the Instagram step opens the official profile');
-  assert.equal(await wavPage.locator('[data-gate-action="tt"]').count(), 0, 'the WAV lease carries no TikTok step');
-  assert.equal(await wavPage.locator('[data-gate-action="x"]').count(), 0, 'the WAV lease carries no X step');
   assert.equal(await wavPage.locator('[data-gate-submit]').isDisabled(), true);
-  // The steps have to be genuinely opened — and held — before they count.
-  await openSteps(wavPage, 3);
-  assert.equal(await wavPage.locator('[data-gate-submit]').isDisabled(), true, 'the step alone never unlocks — the email is still required');
   await wavPage.locator('#gate-email').fill('wav-buyer@example.com');
   assert.equal(await wavPage.locator('[data-gate-submit]').isDisabled(), false);
   await wavPage.locator('[data-gate-submit]').click();
@@ -1180,13 +1158,14 @@ try {
   assert.equal(wavPost.packageTier, 'wav', 'the WAV record carries its tier');
   assert.equal(wavPost.packageName, 'STANDARD WAV LEASE', 'the WAV record carries its label');
   assert.equal(wavPost.includedFiles, 'MP3 + WAV + PDF LICENSE', 'the WAV record lists its files');
-  assert.equal(wavPost.socialStepsCompleted, 'YOUTUBE SUBSCRIBE + BEAT LIKE + INSTAGRAM', 'the WAV record names the three completed social steps');
+  assert.equal(wavPost.gateStepsCompleted, 'EMAIL + LICENSE AGREEMENT', 'the WAV record names the two completed gate steps');
+  assert.equal(wavPost.socialStepsCompleted, undefined, 'the WAV record carries no social-step field');
   assert.equal(wavPost.deviceType, 'DESKTOP', 'the WAV record carries the device class');
   assert.equal(wavPost.sourcePage, 'index.html', 'the WAV record carries the source page');
   assert.equal(wavPost.newsletterOptIn, 'YES', 'the WAV record confirms the opt-in');
   assert.match(subscribeRequests[1].headers['content-type'], /^application\/json/i, 'the WAV analytics post is JSON');
-  assert.match(await wavPage.locator('#download-sub').innerText(), /SUBSCRIBE, LIKE THE BEAT, FOLLOW ON INSTAGRAM, AND ENTER YOUR EMAIL TO UNLOCK/i, 'the download page records the WAV gate requirements');
-  assert.match(await wavPage.locator('#download-meta').innerText(), /SUBSCRIBE \+ LIKE \+ IG/i, 'the download page carries the package badge');
+  assert.match(await wavPage.locator('#download-sub').innerText(), /EVERY FILE BELOW IS YOURS, FREE\. CREDIT \(PROD\. BY KYROIII\)/i, 'the download page states the free grant');
+  assert.match(await wavPage.locator('#download-meta').innerText(), /EMAIL \+ LICENSE/i, 'the download page carries the package badge');
   assert.match(await wavPage.locator('#download-list').innerText(), /HIGH-QUALITY WAV/i);
   assert.equal(await wavPage.locator('.download-item').count(), 2); // tagged MP3 + high-quality WAV
   // Every hand-over carries the beat's tempo and key, audio or archive alike.
@@ -1218,11 +1197,10 @@ try {
   await shot(wavPage, 'download-wav');
   await wavPage.close();
 
-  // Package 3 — Exclusive / Pro: all five social steps (subscribe, like this
-  // beat, Instagram, TikTok and X — there is still no comment step), then the
-  // email gate. A malformed address is refused (and the opt-in is on by
-  // default); a valid one unlocks the stems package and is posted to the
-  // configured newsletter provider.
+  // Package 3 — Exclusive / Pro: the same clean email + license gate as every
+  // other tier, with no social step at all. A malformed address is refused (and
+  // the opt-in is on by default); a valid one unlocks the stems package and is
+  // posted to the configured newsletter provider.
   const proPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce', acceptDownloads: true });
   await proPage.goto(`${url}/?beat=flesh`);
   const endpoint = await proPage.evaluate(() => window.KYROlll_NEWSLETTER && window.KYROlll_NEWSLETTER.endpoint);
@@ -1243,41 +1221,20 @@ try {
   await proPage.locator('.download-tier[data-package="exclusive"]').click();
   await proPage.locator('.gate-modal').waitFor();
   const proPack = await proPage.evaluate(() => window.KYROlll_PACKAGES.find(item => item.id === 'exclusive'));
-  assert.equal(proPack.tag, 'ALL 5 SOCIAL STEPS', 'the Pro package badge names its five steps');
-  assert.equal(proPack.blurb, 'FULL STEMS + MP3 + WAV + EXCLUSIVE LICENSE. COMPLETE ALL SOCIAL STEPS AND ENTER YOUR EMAIL TO UNLOCK.', 'the Pro package describes every social step and names its exclusive license');
-  assert.match(await proPage.locator('.gate-modal__copy').first().innerText(), /COMPLETE ALL SOCIAL STEPS AND ENTER YOUR EMAIL TO UNLOCK/, 'the Pro gate states that every social step is required');
+  assert.equal(proPack.tag, 'EMAIL + LICENSE', 'the Pro package badge names the email + license gate');
+  assert.equal(proPack.gate, 'email', 'the Pro package uses the shared email gate');
+  assert.equal(proPack.blurb, 'FULL STEMS + MP3 + WAV + EXCLUSIVE LICENSE. ENTER YOUR EMAIL, ACCEPT THE LICENSE AND UNLOCK.', 'the Pro package describes the clean gate and names its exclusive license');
+  assert.match(await proPage.locator('.gate-modal__copy').first().innerText(), /ENTER YOUR EMAIL TO UNLOCK THE EXCLUSIVE \/ PRO PACKAGE/, 'the Pro gate asks only for the email before the license');
   assert.equal(await proPage.locator('#gate-optin').isChecked(), true);
   // The email gate is a real <form> pointing at that provider endpoint.
   assert.equal(await proPage.locator('[data-gate-form]').getAttribute('action'), endpoint);
   assert.equal(await proPage.locator('[data-gate-form]').getAttribute('method'), 'post');
-  // Subscribe, like this beat's own video, then Instagram, TikTok and X — all
-  // five mandatory steps, and still no comment step.
-  assert.equal(await proPage.locator('.gate-step').count(), 5, 'the Pro gate carries all five social steps');
-  assert.deepEqual(await proPage.locator('.gate-step').evaluateAll(nodes => nodes.map(node => node.dataset.gateAction)), ['sub', 'like', 'ig', 'tt', 'x'], 'the Pro gate carries the five promised steps in order');
-  assert.match(await proPage.locator('[data-gate-action="sub"]').innerText(), /SUBSCRIBE/);
-  assert.match(await proPage.locator('[data-gate-action="sub"]').innerText(), /TO THE KYROIII YOUTUBE CHANNEL/);
-  assert.match(await proPage.locator('[data-gate-action="like"]').innerText(), /LIKE THIS BEAT/);
-  assert.match(await proPage.locator('[data-gate-action="like"]').innerText(), /ON YOUTUBE \(DIRECT BEAT VIDEO\)/);
-  assert.match(await proPage.locator('[data-gate-action="ig"]').innerText(), /FOLLOW ON INSTAGRAM/);
-  assert.match(await proPage.locator('[data-gate-action="ig"]').innerText(), /@KYROILL00/);
-  assert.match(await proPage.locator('[data-gate-action="tt"]').innerText(), /FOLLOW ON TIKTOK/);
-  assert.match(await proPage.locator('[data-gate-action="tt"]').innerText(), /@KYROILL00/);
-  assert.match(await proPage.locator('[data-gate-action="x"]').innerText(), /FOLLOW ON X/);
-  assert.match(await proPage.locator('[data-gate-action="x"]').innerText(), /@KYROIIIII/);
-  assert.equal(await proPage.locator('[data-gate-action="sub"]').getAttribute('href'), 'https://www.youtube.com/@KYROlll00?sub_confirmation=1', 'the subscribe step opens the official channel with its confirmation prompt');
-  const proLikeHref = await proPage.locator('[data-gate-action="like"]').getAttribute('href');
-  assert.equal(proLikeHref, 'https://www.youtube.com/watch?v=8OhRJQn2YCU', 'the like step opens FLESH\'s exact official video');
-  assert.equal(proLikeHref, await proPage.evaluate(id => window.KYROlll_HELPERS.videoFor(id), BEAT_ID), 'the gate and videoFor agree on the beat video');
+  // The Pro tier is the same clean gate: email + license, and not one social
+  // step, like, follow or subscribe. There is no comment step either.
+  await expectCleanGate(proPage);
   await noYouTubeButton(proPage, CARD);
-  assert.equal(await proPage.locator('[data-gate-action="ig"]').getAttribute('href'), 'https://www.instagram.com/kyrolll00/', 'the Instagram step opens the official profile');
-  assert.equal(await proPage.locator('[data-gate-action="tt"]').getAttribute('href'), 'https://www.tiktok.com/@kyrolll00', 'the TikTok step opens the official profile');
-  assert.equal(await proPage.locator('[data-gate-action="x"]').getAttribute('href'), 'https://x.com/KYROlll00', 'the X step opens the official profile');
   assert.equal(await proPage.locator('#gate-comment').count(), 0, 'the comment step is gone');
   assert.equal(await proPage.locator('[data-gate-submit]').isDisabled(), true);
-  await openSteps(proPage, 5);
-  // Each completed step draws its own tick and still cannot unlock alone.
-  assert.equal(await proPage.locator('.gate-step.is-done .gate-step__tick').count(), 5, 'all five steps show their tick');
-  assert.equal(await proPage.locator('[data-gate-submit]').isDisabled(), true, 'the steps alone never unlock');
   await proPage.locator('#gate-email').fill('not-an-email');
   await proPage.locator('#gate-email').press('Enter');
   assert.equal(await proPage.locator('#gate-error').isVisible(), true);
@@ -1319,8 +1276,8 @@ try {
   await proPage.waitForFunction((id) => window.KYROlll_HELPERS.isExclusiveLocked(id), BEAT_ID, { timeout: 5000 });
   assert.equal(await proPage.evaluate((id) => window.KYROlll_HELPERS.isExclusiveLocked(id), BEAT_ID), true, 'SIGN & UNLOCK claims the exclusive beat');
   await proPage.waitForURL(/package=exclusive/);
-  assert.match(await proPage.locator('#download-sub').innerText(), /COMPLETE ALL SOCIAL STEPS AND ENTER YOUR EMAIL TO UNLOCK/i, 'the download page records the Pro gate requirements');
-  assert.match(await proPage.locator('#download-meta').innerText(), /ALL 5 SOCIAL STEPS/i, 'the download page carries the Pro package badge');
+  assert.match(await proPage.locator('#download-sub').innerText(), /EVERY FILE BELOW IS YOURS, FREE\. CREDIT \(PROD\. BY KYROIII\)/i, 'the download page states the free grant');
+  assert.match(await proPage.locator('#download-meta').innerText(), /EMAIL \+ LICENSE/i, 'the download page carries the Pro package badge');
   assert.match(proPage.url(), /sig=/, 'the drawing is handed forward, packed into the flow URL');
   assert.match(proPage.url(), /sign=MATAN(%20|\+)MAMADOV/, 'the full name rides forward alongside the drawing');
   assert(await proPage.locator('.license-cert__mark path').count() >= 2, 'the download page replays the drawn signature');
@@ -1351,7 +1308,8 @@ try {
   assert.equal(proPost.packageTier, 'exclusive', 'the Pro record carries its tier');
   assert.equal(proPost.packageName, 'EXCLUSIVE / PRO PACKAGE', 'the Pro record carries its label');
   assert.equal(proPost.includedFiles, 'MP3 + WAV + TRACKED STEMS + PDF LICENSE', 'the Pro record lists every unlocked file');
-  assert.equal(proPost.socialStepsCompleted, 'YOUTUBE SUBSCRIBE + BEAT LIKE + INSTAGRAM + TIKTOK + X', 'the Pro record names all five social steps');
+  assert.equal(proPost.gateStepsCompleted, 'EMAIL + LICENSE AGREEMENT', 'the Pro record names the two completed gate steps');
+  assert.equal(proPost.socialStepsCompleted, undefined, 'the Pro record carries no social-step field');
   assert.equal(proPost.deviceType, 'DESKTOP', 'the Pro record carries the device class');
   assert.equal(proPost.sourcePage, 'index.html', 'the Pro record carries the source page');
   assert.equal(proPost.newsletterOptIn, 'YES', 'the Pro record confirms the opt-in');
@@ -1447,7 +1405,7 @@ try {
   // A passed gate is recorded for this view, and this one is the exclusive
   // license: signing it claims the beat, so a later selection is refused rather
   // than gated again — the exclusive rights are already gone.
-  await openSteps(coldPage, 5);
+  assert.equal(await coldPage.locator('.gate-step').count(), 0, 'a cold link opens the same social-free gate');
   await coldPage.locator('#gate-email').fill('cold-entrant@example.com');
   await coldPage.locator('[data-gate-submit]').click();
   await signLicense(coldPage, 'Cold Entrant');
@@ -1460,7 +1418,7 @@ try {
   assert.equal(coldPost.email, 'cold-entrant@example.com', 'the cold record carries its email');
   assert.equal(coldPost.fullName, 'Cold Entrant', 'the cold record carries its full name');
   assert.equal(coldPost.packageTier, 'exclusive', 'the cold record carries its tier');
-  assert.equal(coldPost.socialStepsCompleted, 'YOUTUBE SUBSCRIBE + BEAT LIKE + INSTAGRAM + TIKTOK + X', 'the cold record names all social steps');
+  assert.equal(coldPost.gateStepsCompleted, 'EMAIL + LICENSE AGREEMENT', 'the cold record names the two completed gate steps');
   assert.equal(coldPost.deviceType, 'DESKTOP', 'the cold record carries the device class');
   assert.equal(coldPost.sourcePage, 'download.html', 'the record knows it was signed on the download page');
   const coldSerial = await coldPage.locator('#license-serial').innerText();
@@ -1485,8 +1443,9 @@ try {
   // A phone is where the store is used most — and where a dialog that measures
   // itself in `100vh` hides its own unlock button behind the browser chrome. The
   // whole flow is walked at 390×844 with touch on: the menu and the card inside
-  // the visible viewport, the steps answering on the first tap, the pad owning
-  // the gesture, and the unlock button reachable by scrolling the dialog itself.
+  // the visible viewport, the field and controls answering on the first tap, the
+  // pad owning the gesture, and the unlock button reachable by scrolling the
+  // dialog itself.
   const phone = await setupPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
   await phone.goto(`${url}/?beat=flesh`);
   await noOverflow(phone);
@@ -1509,9 +1468,9 @@ try {
     return box.left >= -1 && box.right <= innerWidth + 1 && box.bottom <= innerHeight + 1;
   }), 'the gate card fits the phone viewport');
   assert(await phone.evaluate(() => document.documentElement.classList.contains('gate-open')), 'the page behind the dialog is locked');
-  assert.equal(await phone.locator('.gate-step').first().evaluate(el => getComputedStyle(el).touchAction), 'manipulation', 'a step answers on the first tap');
+  await expectCleanGate(phone);
+  assert.equal(await phone.locator('.gate-optin').evaluate(el => getComputedStyle(el).touchAction), 'manipulation', 'the controls answer on the first tap');
   assert(parseFloat(await phone.locator('#gate-email').evaluate(el => getComputedStyle(el).fontSize)) >= 16, 'the field is large enough that iOS does not zoom the page');
-  await openSteps(phone, 5);
   await phone.locator('#gate-email').fill('phone-buyer@example.com');
   await phone.locator('[data-gate-submit]').click();
   await signStage(phone).waitFor();
@@ -1536,7 +1495,7 @@ try {
   assert.equal(phonePost.fullName, 'Ada Lovelace', 'the phone record carries the full name');
   assert.equal(phonePost.email, 'phone-buyer@example.com', 'the phone record carries the email');
   assert.equal(phonePost.packageTier, 'exclusive', 'the phone record carries the tier');
-  assert.equal(phonePost.socialStepsCompleted, 'YOUTUBE SUBSCRIBE + BEAT LIKE + INSTAGRAM + TIKTOK + X', 'the phone record names all social steps');
+  assert.equal(phonePost.gateStepsCompleted, 'EMAIL + LICENSE AGREEMENT', 'the phone record names the two gate steps');
   assert.equal(phonePost.deviceType, 'MOBILE', 'a 390px touch viewport is recorded as MOBILE');
   assert.equal(phonePost.sourcePage, 'index.html', 'the phone record carries the source page');
   await noOverflow(phone);
@@ -3123,7 +3082,7 @@ try {
     'no superseded Formspree form id remains anywhere in the repository');
 
   assert.deepEqual(errors, []);
-  console.log('Passed storefront layout, tagged audio preview, and the free-download drawer + all three package-specific gates (email + opt-in only for the MP3 lease, subscribe + like the beat + Instagram for the WAV lease, and those plus TikTok and X for the Pro package, the REVIEW & SIGN stage with read-to-the-end terms, a typed full name AND a drawn signature required together in BOTH TYPE and DRAW with a single word or a drawing alone refused even with the disabled attribute stripped, and a re-sign single word refused on the download page — an upright never-flipped signature mark, no flower watermark on the signature sheet / the certificate (the flower now lives in the PDF\'s LICENSOR approval stamp) and a pure-white drawn signature ink, a backdrop that never dismisses the gate or the signature stage, a border-free floating flower and white/silver monochrome PDF borders, a direct studio-named PDF download with its serial, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts, and the whole flow walked at 390x844 with touch).');
+  console.log('Passed storefront layout, tagged audio preview, and the free-download drawer + all three packages behind one clean two-step gate (email + opt-in only, with no social step, like, follow or subscribe anywhere), the REVIEW & SIGN stage with read-to-the-end terms, a typed full name AND a drawn signature required together in BOTH TYPE and DRAW with a single word or a drawing alone refused even with the disabled attribute stripped, and a re-sign single word refused on the download page — an upright never-flipped signature mark, no flower watermark on the signature sheet / the certificate (the flower now lives in the PDF\'s LICENSOR approval stamp) and a pure-white drawn signature ink, a backdrop that never dismisses the gate or the signature stage, a border-free floating flower and white/silver monochrome PDF borders, a direct studio-named PDF download with its serial, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts, and the whole flow walked at 390x844 with touch).');
 } finally {
   await browser?.close();
   server.close();

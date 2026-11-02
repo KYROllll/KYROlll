@@ -194,11 +194,9 @@
     document.title = pack.name + " — " + beat.title + " — KYROIII";
     kickerEl.textContent = pack.name;
     titleEl.textContent = beat.title;
-    /* The social packages keep their gate requirements on the page as a record
-       of what was asked; the MP3 lease's own blurb is a gate instruction, so it
-       is not repeated after the unlock. */
-    const gateNote = pack.gate === "email" ? "" : pack.blurb + " ";
-    subEl.textContent = gateNote + "EVERY FILE BELOW IS YOURS, FREE. CREDIT (PROD. BY KYROIII) AND YOU ARE CLEAR TO RELEASE ON SPOTIFY, APPLE MUSIC AND YOUTUBE.";
+    /* Every package's blurb is a gate instruction (email + license), so it is
+       not repeated after the unlock; the page states the grant instead. */
+    subEl.textContent = "EVERY FILE BELOW IS YOURS, FREE. CREDIT (PROD. BY KYROIII) AND YOU ARE CLEAR TO RELEASE ON SPOTIFY, APPLE MUSIC AND YOUTUBE.";
     renderMeta(items);
 
     filesPanel.hidden = false;

@@ -124,7 +124,8 @@ test("every beat is audited for one uniform license, package set and secured loc
   assert.deepEqual(Array.from(packages, (pack) => pack.id), ["mp3", "wav", "exclusive"]);
   assert.deepEqual(Array.from(packages, (pack) => pack.grant), ["non-exclusive", "non-exclusive", "exclusive"],
     "MP3 and WAV are non-exclusive leases; only the exclusive tier grants exclusive rights");
-  assert.deepEqual(Array.from(packages, (pack) => pack.gate), ["email", "youtube", "exclusive"]);
+  assert.deepEqual(Array.from(packages, (pack) => pack.gate), ["email", "email", "email"],
+    "every package uses the same email + license gate; no social step exists");
   assert(packages.every((pack) => pack.name && pack.blurb && pack.includes.length > 0), "every package carries its own copy and includes");
   assert.match(packages[0].includes.join(" "), /NON-EXCLUSIVE LICENSE/);
   assert.match(packages[1].includes.join(" "), /NON-EXCLUSIVE LICENSE/);
