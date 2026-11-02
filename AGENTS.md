@@ -662,11 +662,14 @@ never arrive half-empty:
   what makes a phone save the file instead of previewing it (and `?dl` is required so the inline
   beat preview keeps streaming the same `.wav`/`.mp3` normally). There is no text license any
   more: `downloads.js` hands over files and gates only, and the license is a PDF issued by
-  `license-pdf.js` (see below). Every package shares
-  the same terms: **100% free for non-profit AND commercial/profit use** (release on Spotify,
-  Apple Music, YouTube, monetise it), with a single rule — credit `(Prod. by KYROIII)` in the
-  song title or description. The package's `includes` are listed under "WHAT THIS PACKAGE
-  INCLUDES". The gate, trigger, menu, download-list and download-page styles live in
+  `license-pdf.js` (see below). Every package is **100% free for non-profit AND commercial/profit
+  use** (release on Spotify, Apple Music, YouTube, stream it, monetise it), with the same single
+  rule — credit `(Prod. by KYROIII)` in the song title or description — and the same stated
+  limits: do not resell the beat itself as a beat or license. The **grant** is package-level and
+  shared by every beat (`pack.grant`): `mp3` and `wav` are `non-exclusive` (other artists may
+  license the same beat), while `exclusive` is `exclusive` — full rights, the beat retired from
+  the store, and no further license issued. The package's `includes` are listed under "WHAT THIS
+  PACKAGE INCLUDES". The gate, trigger, menu, download-list and download-page styles live in
   `style.css` under "10. Free downloads, package menu, gates & download page".
 
 `license-pdf.js` is the whole license: a dependency-free PDF writer (`window.KYROlll_LICENSE_PDF`
@@ -720,13 +723,15 @@ Three rules hold that document together and are easy to break by accident:
 - **It fits one page.** `FOOT_Y` (where the flow stops above the footer rule) and the
   `ensure(...)` reservations are the page-count knobs. The footer needs a rule, a row of control
   text and a row for the barcode + link, and the exclusive package is the tightest fit of the
-  three (its signature block lands with ~26 pt to spare). **The centered masthead is paid for
+  three — it is the one that sets `SIG_LEAD` (30 pt), the clearance that keeps the LICENSOR
+  approval stamp above its rule while still landing the signature block above `FOOT_Y`.
+  **The centered masthead is paid for
   above the clauses, not below them**: it spends ~70 pt more than the old corner layout, and
   that is reclaimed by the single metadata row (whose `gridRow` lays all four columns on shared
   baselines — walk the columns sequentially and every value after the first drifts down the
   page) and by dropping the old 4.0 SUPPORT section into the footer. Nothing may be pushed up
-  without reclaiming the same space: bigger flower, looser leading or a fourth clause puts the
-  exclusive license onto a second page.
+  without reclaiming the same space: bigger flower, looser leading, a longer grant clause or a
+  fourth clause puts the exclusive license onto a second page.
 
 Letter-spacing uses the text-space `Tc` operator, so each run stays one string and the PDF
 remains searchable and copyable. Base-14 Helvetica with real AFM metrics (`measure`,

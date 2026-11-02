@@ -65,28 +65,35 @@
       name: "MP3 LEASE",
       tag: "EMAIL GATE",
       gate: "email",
+      /* `grant` is the licensing half of the package, read by the generated PDF:
+         `non-exclusive` keeps the beat in the market for other artists, while
+         `exclusive` retires it (see the claim register below). The language is
+         shared by every beat, so no catalog entry can carry its own terms. */
+      grant: "non-exclusive",
       blurb: "ENTER YOUR EMAIL TO UNLOCK THE DOWNLOAD INSTANTLY.",
-      includes: ["TAGGED MP3 AUDIO FILE", "FREE LICENSE"]
+      includes: ["TAGGED MP3 AUDIO FILE", "FREE NON-EXCLUSIVE LICENSE"]
     },
     {
       id: "wav",
       name: "STANDARD WAV LEASE",
       tag: "SUBSCRIBE + LIKE + IG",
       gate: "youtube",
+      grant: "non-exclusive",
       blurb: "TAGGED MP3 + HIGH-QUALITY WAV + LICENSE. SUBSCRIBE, LIKE THE BEAT, FOLLOW ON INSTAGRAM, AND ENTER YOUR EMAIL TO UNLOCK.",
-      includes: ["TAGGED MP3 AUDIO FILE", "HIGH-QUALITY WAV", "FREE LICENSE"]
+      includes: ["TAGGED MP3 AUDIO FILE", "HIGH-QUALITY WAV", "FREE NON-EXCLUSIVE LICENSE"]
     },
     {
       id: "exclusive",
       name: "EXCLUSIVE / PRO PACKAGE",
       tag: "ALL 5 SOCIAL STEPS",
       gate: "exclusive",
-      blurb: "FULL STEMS + MP3 + WAV + LICENSE. COMPLETE ALL SOCIAL STEPS AND ENTER YOUR EMAIL TO UNLOCK.",
+      grant: "exclusive",
+      blurb: "FULL STEMS + MP3 + WAV + EXCLUSIVE LICENSE. COMPLETE ALL SOCIAL STEPS AND ENTER YOUR EMAIL TO UNLOCK.",
       includes: [
         "TAGGED MP3 AUDIO FILE",
         "HIGH-QUALITY WAV",
         "TRACKED STEMS",
-        "FULL RIGHTS / LICENSE",
+        "FULL EXCLUSIVE RIGHTS / LICENSE",
         "EMAIL OPT-IN FOR FUTURE DROPS"
       ]
     }

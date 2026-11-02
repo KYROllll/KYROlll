@@ -1054,6 +1054,15 @@ try {
   assert(pdfText.includes('PROD. BY KYROIII')); // the one credit rule
   assert(pdfText.includes('COMMERCIAL')); // commercial / profit use is granted
   assert(pdfText.includes('NON-PROFIT'));
+  // The grant is package-level: the MP3 lease is explicitly NON-EXCLUSIVE, names
+  // streaming/monetisation, and states its one limit; the exclusive branch must
+  // never bleed into a lease certificate.
+  assert(pdfText.includes('THIS LICENSE IS NON-EXCLUSIVE'));
+  assert(pdfText.includes('OTHER ARTISTS MAY LICENSE THE SAME BEAT'));
+  assert(pdfText.includes('STREAM IT'));
+  assert(pdfText.includes('LIMITS: KEEP THE CREDIT, NEVER RESELL THE BEAT AS A BEAT OR LICENSE'));
+  assert.equal(pdfText.includes('THIS LICENSE IS EXCLUSIVE'), false, 'the MP3 lease never claims exclusive rights');
+  assert.equal(pdfText.includes('THE BEAT IS RETIRED'), false, 'the MP3 lease never retires the beat');
   assert(pdfText.includes('CERTIFICATE OF FREE LICENSE'));
   assert(pdfText.includes('TAGGED MP3 AUDIO FILE')); // this package's includes
   assert(pdfText.includes('Im1 Do'), 'the flower mark is embedded in the header');
@@ -1202,6 +1211,9 @@ try {
   assert(wavText.includes(wavSerial), 'the WAV license carries its own serial');
   assert(wavText.includes('WAV BUYER'), 'the WAV license carries its own signature');
   assert(wavText.includes('WAV-BUYER@EXAMPLE.COM'), 'the WAV license records the address this issuance went to');
+  assert(wavText.includes('THIS LICENSE IS NON-EXCLUSIVE'), 'the WAV lease is non-exclusive like the MP3 lease');
+  assert(wavText.includes('NON-EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE'), 'the WAV masthead names its non-exclusive grant');
+  assert.equal(wavText.includes('THE BEAT IS RETIRED'), false, 'the WAV lease never retires the beat');
   assert.deepEqual(pdfRuns(wavText).filter(run => /[a-z]/.test(run)), [], 'the WAV license is uppercase too');
   await shot(wavPage, 'download-wav');
   await wavPage.close();
@@ -1232,7 +1244,7 @@ try {
   await proPage.locator('.gate-modal').waitFor();
   const proPack = await proPage.evaluate(() => window.KYROlll_PACKAGES.find(item => item.id === 'exclusive'));
   assert.equal(proPack.tag, 'ALL 5 SOCIAL STEPS', 'the Pro package badge names its five steps');
-  assert.equal(proPack.blurb, 'FULL STEMS + MP3 + WAV + LICENSE. COMPLETE ALL SOCIAL STEPS AND ENTER YOUR EMAIL TO UNLOCK.', 'the Pro package describes every social step');
+  assert.equal(proPack.blurb, 'FULL STEMS + MP3 + WAV + EXCLUSIVE LICENSE. COMPLETE ALL SOCIAL STEPS AND ENTER YOUR EMAIL TO UNLOCK.', 'the Pro package describes every social step and names its exclusive license');
   assert.match(await proPage.locator('.gate-modal__copy').first().innerText(), /COMPLETE ALL SOCIAL STEPS AND ENTER YOUR EMAIL TO UNLOCK/, 'the Pro gate states that every social step is required');
   assert.equal(await proPage.locator('#gate-optin').isChecked(), true);
   // The email gate is a real <form> pointing at that provider endpoint.
@@ -1369,6 +1381,17 @@ try {
   // alongside the drawing is printed in the LICENSEE metadata micro-line.
   assert.match(proText, /SIGNED \d{4}-\d{2}-\d{2} - MATAN MAMADOV - PRODUCER@EXAMPLE\.COM/, 'the drawn license records the full name that signed it');
   assert(proText.includes('PAGE 1 OF 1'), 'the exclusive package still fits one page');
+  // The exclusive grant is printed, not implied: the masthead, clause 1.0 and
+  // the includes list all say exclusive, while the shared credit rule and the
+  // free commercial grant stay identical to every lease.
+  assert(proText.includes('EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE'), 'the exclusive masthead names its grant');
+  assert.equal(proText.includes('NON-EXCLUSIVE - WORLDWIDE'), false, 'the exclusive certificate never reads as a lease');
+  assert(proText.includes('THIS LICENSE IS EXCLUSIVE'), 'clause 1.0 grants exclusive rights');
+  assert(proText.includes('THE BEAT IS RETIRED AND NEVER LICENSED AGAIN'), 'the exclusive grant retires the beat');
+  assert(proText.includes('THIS BEAT IS 100% FREE - FOR NON-PROFIT AND COMMERCIAL / PROFIT USE'), 'the exclusive license stays 100% free and commercial');
+  assert(pdfRuns(proText).includes('(PROD. BY KYROIII)'), 'the exclusive license still carries the mandatory credit');
+  assert(proText.includes('FULL EXCLUSIVE RIGHTS / LICENSE'), 'the includes spell out the exclusive grant');
+  assert(proText.includes('LIMITS: KEEP THE CREDIT, NEVER RESELL THE BEAT AS A BEAT OR LICENSE'), 'the exclusive grant states its limit');
   // The hand-drawn signature reaches the PDF as real vector strokes, inside the
   // LICENSEE column, and the document stays monochrome and uppercase.
   const ink = drawnPaths(proText);
@@ -2707,6 +2730,10 @@ try {
   assert.match(adllPdfRuns, /\[FREE 100%\] YEAT TYPE/, 'the ADLL license carries its title opening');
   assert.match(adllPdfRuns, /A\.D\.L/, 'the ADLL license carries its title tail');
   assert(adllPdfText.includes('PAGE 1 OF 1'), 'the ADLL license fits one page');
+  assert(adllPdfText.includes('THIS LICENSE IS EXCLUSIVE'), 'the ADLL exclusive audit grant is printed');
+  assert(adllPdfText.includes('EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE'), 'the ADLL exclusive masthead is uniform with every beat');
+  assert(pdfRuns(adllPdfText).includes('(PROD. BY KYROIII)'), 'the ADLL license carries the mandatory credit');
+  assert.deepEqual(pdfRuns(adllPdfText).filter(run => /[a-z]/.test(run)), [], 'the ADLL license is uppercase too');
   await adllDownload.close();
 
   const adllAfter = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
@@ -2714,6 +2741,67 @@ try {
   await adllAfter.locator(`${ADLL_CARD} .download-trigger`).waitFor();
   assert.match(await adllAfter.locator('.marquee-track').innerText(), /6 RELEASES LIVE/, 'the studio count becomes six once ADLL is live');
   await adllAfter.close();
+
+  // The secured state is not an ADLL-only skin: every active beat paints the
+  // same plate on its catalog tile and its beat page, and none of them keeps a
+  // lease, a countdown or a public player once claimed. The claims are the
+  // in-page record only, so this one page view can claim all six.
+  const lockAll = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
+  await lockAll.goto(`${url}/?now=${ALL_LIVE_NOW}`, { waitUntil: 'domcontentloaded' });
+  await lockAll.locator('#grid .catalog-tile').first().waitFor();
+  const securedIds = ['flesh', 'the-flow', 'green-flesh', 'squish', 'just-d0-it', 'adll'];
+  for (const id of securedIds) {
+    assert.equal(await lockAll.evaluate((beatId) => window.KYROlll_HELPERS.lockExclusive(beatId), id), true,
+      `${id}: the exclusive tier claims the beat`);
+  }
+  await lockAll.locator('#grid .catalog-tile .exclusive-badge').first().waitFor();
+  const securedTiles = await lockAll.evaluate(() => [...document.querySelectorAll('#grid .catalog-tile')].map(tile => {
+    const badge = tile.querySelector('.exclusive-badge');
+    return {
+      id: tile.id,
+      badge: ((tile.querySelector('.exclusive-badge__text') || {}).textContent || '').trim(),
+      compact: !!badge && badge.classList.contains('exclusive-badge--compact'),
+      triggers: tile.querySelectorAll('.download-trigger').length,
+      countdown: tile.querySelectorAll('.drop-countdown').length,
+      modifier: tile.classList.contains('catalog-tile--exclusive-locked'),
+    };
+  }));
+  assert.equal(securedTiles.length, 6, 'all six beats are painted after their claims');
+  securedTiles.forEach(tile => {
+    assert.equal(tile.badge, '[EXCLUSIVE RIGHTS CLAIMED // SECURED]', `${tile.id}: every tile carries the same secured copy`);
+    assert.equal(tile.compact, true, `${tile.id}: every tile wears the compact plate`);
+    assert.equal(tile.triggers, 0, `${tile.id}: a claimed tile offers no lease trigger`);
+    assert.equal(tile.countdown, 0, `${tile.id}: a claim retires any countdown`);
+    assert.equal(tile.modifier, true, `${tile.id}: the tile carries the secured modifier`);
+  });
+  await noCardBleed(lockAll, 'the fully secured catalog');
+  await noHue(lockAll, 'the fully secured catalog');
+  // A second beat's detail view is audited too: same plate, same disclaimer,
+  // same retired specs, no player and no lease.
+  await lockAll.evaluate(() => {
+    history.pushState(null, '', 'index.html?beat=the-flow');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  const flowDetail = '#grid .beat-detail';
+  await lockAll.locator(`${flowDetail} .exclusive-badge`).waitFor();
+  assert.equal((await lockAll.locator(`${flowDetail} .exclusive-badge__text`).innerText()).trim(),
+    '[EXCLUSIVE RIGHTS CLAIMED // SECURED]', 'a second beat page carries the same secured plate');
+  assert.match(await lockAll.locator(`${flowDetail} .exclusive-lock__note`).innerText(),
+    /SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE/, 'a second beat page carries the same disclaimer');
+  assert.match(await lockAll.locator(`${flowDetail} .card__specs`).innerText(),
+    /EXCLUSIVE RIGHTS SECURED/, 'a second beat page announces the archived state');
+  assert.equal(await lockAll.locator(`${flowDetail} .beat-preview`).count(), 0, 'a second claimed beat has no public player');
+  assert.equal(await lockAll.locator(`${flowDetail} .download-trigger`).count(), 0, 'a second claimed beat offers no lease');
+  assert.equal(await lockAll.locator(`${flowDetail} .download-actions--secured`).count(), 1, 'the secured action slot is the whole control');
+  // Leaving the beat page and returning to the catalog keeps every claim: the
+  // record lives on the catalog entries, not on the route.
+  await lockAll.evaluate(() => {
+    history.pushState(null, '', 'index.html');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await lockAll.locator('#grid .catalog-tile .exclusive-badge').first().waitFor();
+  assert.equal(await lockAll.locator('#grid .catalog-tile .exclusive-badge').count(), 6, 'the catalog keeps every claim after the round trip');
+  await lockAll.close();
 
   // ------------------------------------------------------------ support desk
   // The footer's SUPPORT control no longer opens a mail app: it opens the

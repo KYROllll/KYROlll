@@ -42,11 +42,19 @@
  * One layout rule holds the whole document together: it must stay on a single
  * page. `FOOT_Y` is the hard floor the flow may not cross, and `ensure(...)`
  * reserves space for every block that must not be split. The exclusive
- * (stems) package is the tightest fit of the three — it ends ~10 pt above the
- * floor — so any new block, bigger flower or looser leading has to be paid for
- * by reclaiming the same space above it. `SIG_LEAD` is the gap that opens the
- * band the LICENSOR approval stamp stands in; it is what buys the plate its room
- * without touching the clauses above.
+ * (stems) package is the tightest fit of the three, so it sets `SIG_LEAD`
+ * (30 pt) — the clearance that opens the band the LICENSOR approval stamp
+ * stands in while still landing the signature block above the floor. Any new
+ * block, bigger flower or looser leading has to be paid for by reclaiming the
+ * same space above it.
+ *
+ * The grant is package-level and identical for every beat: `mp3`/`wav` issue a
+ * NON-EXCLUSIVE, worldwide, perpetual, royalty-free certificate, while the
+ * `exclusive` tier issues an EXCLUSIVE one — same 100% free commercial grant,
+ * same mandatory `(Prod. by KYROIII)` credit, but the beat is retired and never
+ * licensed again. The masthead subtitle and clause 1.0 switch on `data.exclusive`;
+ * both branches are kept to the same wrapped height so the exclusive certificate
+ * still fits the one page.
  */
 (function () {
   "use strict";
@@ -58,7 +66,7 @@
   const STORE_URL = "HTTPS://KYROILL.STORE";
   const SEAL_FLOWER = 28;          // points — the 3D flower inside the stamp's left compartment
   const SEAL_PLATE_H = 46;         // height of the LICENSOR approval stamp plate
-  const SIG_LEAD = 38;             // clearance above the signature band (the stamp's room)
+  const SIG_LEAD = 30;             // clearance above the signature band (the stamp's room)
 
   /* ------------------------------------------------------ font metrics */
   /* Adobe AFM advance widths for Helvetica / Helvetica-Bold, ASCII 32..126,
@@ -501,7 +509,9 @@
     putCenter(MID, MARK_TOP - MARK - 40, "FREE MUSIC LICENSE PROGRAM", "F1", 7.5, MUTED, 1.9);
     rule(MARK_TOP - MARK - 54, FRAME, 0.9);
     putCenter(MID, MARK_TOP - MARK - 79, "CERTIFICATE OF FREE LICENSE", "F2", 19, WHITE, 0.9);
-    putCenter(MID, MARK_TOP - MARK - 95, "NON-EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE", "F1", 7.5, MUTED, 1.5);
+    putCenter(MID, MARK_TOP - MARK - 95, data.exclusive
+      ? "EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE"
+      : "NON-EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE", "F1", 7.5, MUTED, 1.5);
 
     /* Serial block — the hero of the document. */
     const boxTop = MARK_TOP - MARK - 109;
@@ -524,8 +534,13 @@
 
     heading("1.0    GRANT OF RIGHTS");
     paragraph("This beat is 100% free - for NON-PROFIT and COMMERCIAL / PROFIT use. Release it on Spotify, " +
-      "Apple Music, YouTube, anywhere. Upload it, monetise it, keep what you make. No royalties, no hidden " +
-      "fees, no catch. This license is non-exclusive, worldwide, perpetual and fully paid-up.");
+      "Apple Music, YouTube, anywhere. Upload it, stream it, monetise it, keep what you make. No royalties, " +
+      "no hidden fees, no catch. " + (data.exclusive
+        ? "This license is EXCLUSIVE, worldwide, perpetual and fully paid-up: the beat is retired and " +
+          "never licensed again."
+        : "This license is non-exclusive, worldwide, perpetual and fully paid-up: other artists may " +
+          "license the same beat.") +
+      " Limits: keep the credit, never resell the beat as a beat or license.");
 
     heading("2.0    THE ONLY RULE");
     paragraph("Give proper credit in the song title or description, exactly as:");
@@ -759,6 +774,13 @@
     return buildPdf({
       title: beat.title,
       packageName: pack.name,
+      /* The grant is package-level, never per-beat: `mp3`/`wav` are non-exclusive
+         leases, while the `exclusive` tier is the one that retires the beat. The
+         explicit `pack.grant` wins, with the legacy id/gate as the fallback so an
+         older package object still issues the right certificate. */
+      exclusive: pack.grant
+        ? pack.grant === "exclusive"
+        : (pack.id === "exclusive" || pack.gate === "exclusive"),
       bpm: String(beat.bpm),
       key: String(beat.key),
       issued: new Date().toISOString().slice(0, 10),

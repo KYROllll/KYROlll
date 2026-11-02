@@ -114,6 +114,67 @@ test("the exclusive license claims the beat and retires its public leases", () =
   assert.match(page, /showExclusiveLocked/, "a cold link to a claimed beat shows the secured archive");
 });
 
+test("every beat is audited for one uniform license, package set and secured lock state", () => {
+  const { window } = catalogContextFor();
+  const catalog = window.KYROlll_CATALOG;
+  const helpers = window.KYROlll_HELPERS;
+  const packages = window.KYROlll_PACKAGES;
+
+  // The store's package set is the licensing contract: it may not vary by beat.
+  assert.deepEqual(Array.from(packages, (pack) => pack.id), ["mp3", "wav", "exclusive"]);
+  assert.deepEqual(Array.from(packages, (pack) => pack.grant), ["non-exclusive", "non-exclusive", "exclusive"],
+    "MP3 and WAV are non-exclusive leases; only the exclusive tier grants exclusive rights");
+  assert.deepEqual(Array.from(packages, (pack) => pack.gate), ["email", "youtube", "exclusive"]);
+  assert(packages.every((pack) => pack.name && pack.blurb && pack.includes.length > 0), "every package carries its own copy and includes");
+  assert.match(packages[0].includes.join(" "), /NON-EXCLUSIVE LICENSE/);
+  assert.match(packages[1].includes.join(" "), /NON-EXCLUSIVE LICENSE/);
+  assert.match(packages[2].includes.join(" "), /FULL EXCLUSIVE RIGHTS \/ LICENSE/);
+
+  const ids = new Set();
+  const slugs = new Set();
+  catalog.forEach((beat) => {
+    assert.match(beat.title, /^\[FREE 100%\] /, `${beat.slug}: every release is free`);
+    assert(beat.id && beat.slug && beat.img && beat.preview, `${beat.slug}: a beat carries its identity and media`);
+    assert(beat.bpm > 0 && beat.key, `${beat.slug}: a beat carries tempo and key`);
+    assert(!ids.has(beat.id) && !slugs.has(beat.slug), `${beat.slug}: ids and slugs are unique`);
+    ids.add(beat.id);
+    slugs.add(beat.slug);
+    assert.equal(beat.exclusiveLocked, undefined, `${beat.slug}: no beat ships pre-claimed`);
+    ["mp3", "wav", "exclusive"].forEach((packageId) => {
+      const files = helpers.deliverablesFor(beat.id, packageId);
+      assert(files.length > 0, `${beat.slug}: ${packageId} hands over at least one file`);
+      files.forEach((item) => {
+        assert.match(item.file, /^assets\//, `${beat.slug}: ${packageId} hands over a same-origin file`);
+        assert(readFileSync(new URL(`./${item.file}`, import.meta.url)).length > 0, `${beat.slug}: ${item.file} is present`);
+      });
+    });
+    assert.match(helpers.deliverablesFor(beat.id, "exclusive").map((item) => item.file).join(" "), /stems\.zip$/,
+      `${beat.slug}: the exclusive tier hands over its tracked stems`);
+  });
+
+  // The certificate's terms are shared: one credit rule, one free commercial
+  // grant, and two clearly-labelled grant branches (non-exclusive vs exclusive).
+  const pdf = readFileSync(new URL("./license-pdf.js", import.meta.url), "utf8");
+  assert.match(pdf, /const CREDIT = "\(Prod\. by KYROIII\)";/, "the mandatory credit is one constant");
+  assert.match(pdf, /This beat is 100% free - for NON-PROFIT and COMMERCIAL \/ PROFIT use/, "every license carries the free commercial grant");
+  assert.match(pdf, /Upload it, stream it, monetise it/, "streaming and monetisation are granted explicitly");
+  assert.match(pdf, /Limits: keep the credit, never resell the beat as a beat or license\./, "the grant names its limit");
+  assert.match(pdf, /This license is non-exclusive, worldwide, perpetual and fully paid-up: other artists may/, "the lease is non-exclusive");
+  assert.match(pdf, /This license is EXCLUSIVE, worldwide, perpetual and fully paid-up: the beat is retired and/, "the exclusive tier grants exclusive rights and retires the beat");
+  assert.match(pdf, /data\.exclusive\s*\n?\s*\? "EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE"/, "the masthead names the exclusive grant");
+  assert.match(pdf, /: "NON-EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE"/, "the masthead names the non-exclusive grant");
+  assert.match(pdf, /exclusive: pack\.grant/, "the certificate reads the package's grant, so no beat can carry its own terms");
+
+  // The secured state is painted from one place on both surfaces.
+  const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
+  assert.match(script, /function exclusiveBadgeHTML\(compact\)[\s\S]*?exclusive-badge--compact/, "the compact tile badge is one renderer");
+  assert.match(script, /if \(exclusiveLocked\(beat\)\) \{[\s\S]*?exclusiveBadgeHTML/, "the action slot paints the secured plate for every locked beat");
+  assert.match(script, /const locked = exclusiveLocked\(beat\);[\s\S]*?locked \? exclusiveLockedHTML\(\)/, "the beat page replaces the player with the secured notice");
+  assert.match(script, /catalog-tile--exclusive-locked/, "the catalog tile carries its own secured modifier");
+  assert.match(script, /exclusive-lock__note/, "the secured notice carries the archive disclaimer");
+  assert.match(script, /KYROlll_EXCLUSIVE_LOCK/, "the storefront reads the shared lock copy");
+});
+
 test("the catalog remembers the visitor's scroll position for the trip back", () => {
   const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
   assert.match(script, /CATALOG_SCROLL_KEY = "kyrolll_catalog_scroll"/);
