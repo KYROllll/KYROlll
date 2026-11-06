@@ -1,5 +1,5 @@
 /* KYROIII — shared catalog and free download packages.
- *
+
  * Loaded by every page so the store, the download menu and the download page
  * all agree on the same beats, packages and files. It is plain data plus tiny
  * helpers, with no DOM access, so it is safe to include before anything else.
@@ -11,6 +11,7 @@
  * closes with a REVIEW & SIGN stage, and the signature captured there is
  * stamped into the PDF license. Nothing is written down, so a fresh visit asks
  * again; only the current page view remembers a package it already unlocked. */
+
 (function () {
   "use strict";
 
@@ -103,7 +104,6 @@
   // for links (`?beat=flesh`); the helpers resolve either. `youtube` is the
   // beat's own video, exposed through `videoFor` for any caller that wants to
   // point at it; no gate step asks for a like or a follow.
-  //
   // `deliverables` maps a package to the files the download page hands over:
   // each entry is `{ file, name, label }`, a same-origin `file`, the `name` the
   // browser saves it as and the `label` shown on the download page. The `name`
@@ -113,6 +113,9 @@
   // extension is lowercase, so the file the visitor keeps is still a normal
   // `.mp3`/`.wav`. The license is not listed here — the download page always
   // generates one.
+
+  // New release: GUNNA TYPE BEAT - VVS Motion. Stored oldest-first; the grid
+  // sorts newest to front, so it lands at the lead of the catalog.
   window.KYROlll_CATALOG = [
     {
       id: "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af",
@@ -123,9 +126,6 @@
       key: "Am",
       preview: "assets/previews/BEAT 1 TAG.wav",
       youtube: "https://www.youtube.com/watch?v=8OhRJQn2YCU",
-      /* Each beat gets its own pressing. FLESH is the pearl-white disc with a
-         broad black centre label and the spinning flower. `script.js` reads
-         this into the card's `data-vinyl` and the record's modifier class. */
       vinylVariant: "white",
       deliverables: {
         mp3: [
@@ -151,15 +151,7 @@
       key: "C#m",
       preview: "assets/previews/the-flow.mp3",
       youtube: "https://www.youtube.com/watch?v=aHMCkzw9Wuo",
-      /* THE FLOW's collector pressing: a deep matte black disc with a single
-         ultra-fine metallic gold foil rim. */
       vinylVariant: "gold-rim",
-      /* A scheduled drop: this beat stays closed until the store's clock reaches
-         `releaseAt` — a countdown pill on the catalog tile (where the button
-         sits), and on its own page no player plus an inert LOCKED control — the
-         moment script.js swaps the card for the playable one in page. The label
-         carries no clock hour: the pill's live HH:MM:SS is the only time shown,
-         so every timezone reads the same thing. */
       releaseAt: "2026-10-19T23:00:00+03:00",
       deliverables: {
         mp3: [
@@ -179,24 +171,14 @@
     {
       id: "a4acc928-410a-4200-8463-13bd9258058d",
       slug: "green-flesh",
-      /* The old STEAM links still land on the renamed beat while the supplied
-         artwork and audio keep their original asset paths. */
       aliases: ["steam"],
       title: "[FREE 100%] LIL BABY TYPE BEAT - GREEN FLESH",
       img: "assets/steam.png",
       bpm: 138,
       key: "B",
       preview: "assets/previews/steam.mp3",
-      /* The beat's own video is not published yet; the official channel keeps the
-         "like this beat" gate step live until it is. */
       youtube: "https://www.youtube.com/@KYROlll00",
-      /* The third pressing: an atmospheric smoky grey-green collector disc with
-         a delicate white outer hairline and the complete spinning flower in its
-         deep matte black centre label. */
       vinylVariant: "sage-white-rim",
-      /* The third official release drops tonight at 23:00 Israel time. Until
-         then the tile is a timezone-proof countdown, and the beat page keeps its
-         player and download drawer locked. */
       releaseAt: "2026-10-22T23:00:00+03:00",
       deliverables: {
         mp3: [
@@ -214,9 +196,6 @@
       }
     },
     {
-      /* The fourth official release, and the newest card in the store: the
-         catalog is authored oldest-first and `script.js` sorts the newest to the
-         front of the grid. */
       id: "squish",
       slug: "squish",
       title: "[FREE 100%] LIL GOTIT TYPE BEAT - SQUISH!",
@@ -225,16 +204,8 @@
       bpm: 124,
       key: "FM",
       preview: "assets/previews/squish.mp3",
-      /* The beat's own video is not published yet; the official channel keeps
-         the "like this beat" gate step live until it is. */
       youtube: "https://www.youtube.com/@KYROlll00",
-      /* The fourth pressing: an icy silver / chrome-slate collector disc with
-         fine diamond-silver micro-grooves and a crisp pure-white perimeter
-         hairline, around the complete spinning flower. */
       vinylVariant: "ice-silver-rim",
-      /* The fourth official release drops tonight at 23:00 Israel time. Until
-         then the tile is a timezone-proof countdown, and the beat page keeps its
-         player and download drawer locked. */
       releaseAt: "2026-10-25T23:00:00+02:00",
       deliverables: {
         mp3: [
@@ -252,9 +223,6 @@
       }
     },
     {
-      /* The fifth official release, and the newest card in the store: the
-         catalog is authored oldest-first and `script.js` sorts the newest to the
-         front of the grid. */
       id: "just-d0-it",
       slug: "just-d0-it",
       title: "[FREE 100%] YEAT TYPE BEAT - JUST D0 IT",
@@ -263,17 +231,8 @@
       bpm: 135,
       key: "Am",
       preview: "assets/previews/just-do-it.mp3",
-      /* The beat's own video is not published yet; the official channel keeps
-         the "like this beat" gate step live until it is. */
       youtube: "https://www.youtube.com/@KYROlll00",
-      /* The fifth pressing: a deep matte black disc with one delicate
-         fire-red/orange perimeter hairline, a matte black centre label and the
-         complete spinning flower. The blazing rim is the cover's only colour
-         cue on an otherwise monochrome record. */
       vinylVariant: "rage-fire-rim",
-      /* The fifth official release is scheduled for 23:00 Israel time on
-         27 October 2026. Until then the tile is a timezone-proof countdown, and
-         the beat page keeps its player and download drawer locked. */
       releaseAt: "2026-10-27T23:00:00+02:00",
       deliverables: {
         mp3: [
@@ -291,9 +250,6 @@
       }
     },
     {
-      /* The sixth official release, and the newest card in the store: the
-         catalog is authored oldest-first and `script.js` sorts the newest to the
-         front of the grid. */
       id: "adll",
       slug: "adll",
       title: "[FREE 100%] YEAT TYPE BEAT - A.D.L",
@@ -302,18 +258,8 @@
       bpm: 124,
       key: "C#",
       preview: "assets/previews/adll.mp3",
-      /* The beat's own video is not published yet; the official channel keeps
-         the "like this beat" gate step live until it is. */
       youtube: "https://www.youtube.com/@KYROlll00",
-      /* The sixth pressing: a deep matte black disc in #0a0a0a with an
-         ultra-fine realistic white aerosol graffiti spray across the exposed
-         vinyl, a matte black centre label and the complete spinning flower. The
-         paint is painted as background layers, never as extra DOM elements, so
-         it cannot interfere with the flower's rotation. */
       vinylVariant: "graffiti-splatter",
-      /* The sixth official release is scheduled for 19:00 Israel time today,
-         2 November 2026. Until then the tile is a timezone-proof countdown, and
-         the beat page keeps its player and download drawer locked. */
       releaseAt: "2026-11-02T19:00:00+02:00",
       deliverables: {
         mp3: [
@@ -329,20 +275,48 @@
           { file: "assets/previews/adll-stems.zip", name: "KYROIII - A.D.L - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
       }
+    },
+    // GUNNA TYPE BEAT - VVS Motion.
+    {
+      id: "72f9b3e3-7d3a-490e-b8b5-5b1e9d8e3668",
+      slug: "gunna-type",
+      title: "[FREE 100%] GUNNA TYPE BEAT - VVS MOTION",
+      img: "assets/beat-cover.png",
+      bpm: 146,
+      key: "Fm",
+      preview: "assets/previews/gunna-type.mp3",
+      youtube: "https://www.youtube.com/@KYROlll00",
+      vinylVariant: "white",
+      // Schedule the drop for today at 19:00 (Israel time).
+      releaseAt: "2026-11-06T19:00:00+02:00",
+      deliverables: {
+        mp3: [
+          { file: "assets/previews/gunna-type.mp3", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).mp3", label: "TAGGED MP3" }
+        ],
+        wav: [
+          { file: "assets/previews/gunna-type.mp3", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/gunna-type.wav", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).wav", label: "HIGH-QUALITY WAV" }
+        ],
+        exclusive: [
+          { file: "assets/previews/gunna-type.mp3", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/gunna-type.wav", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).wav", label: "HIGH-QUALITY WAV" },
+          { file: "assets/previews/gunna-type-stems.zip", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
+        ]
+      }
     }
   ];
 
-  /* ---------------------------------------------------------- release clock
-     A beat may carry `releaseAt` (an ISO timestamp with its own offset). Until
-     that instant it is a *scheduled drop*: the store paints it with a live
-     countdown pill (no clock hour — just the ticking HH:MM:SS, so the label is
-     timezone-proof) and, on its own page, an inert LOCKED control; it flips to
-     the full player the second the clock reaches zero — in page, no reload.
-     The clock accepts an override so a test (or a preview link) can stand at any
-     moment without waiting: set `window.KYROlll_NOW` to an ISO string or an epoch
-     before this file loads, or append `?now=<iso|epoch>` to the URL. The override
-     is read once, as a fixed instant, and then advances with real time — so a
-     countdown genuinely counts down instead of freezing. */
+  // ---------------------------------------------------------- release clock
+  // A beat may carry `releaseAt` (an ISO timestamp with its own offset). Until
+  // that instant it is a *scheduled drop*: the store paints it with a live
+  // countdown pill (no clock hour — just the ticking HH:MM:SS, so the label is
+  // timezone-proof) and, on its own page, an inert LOCKED control; it flips to
+  // the full player the second the clock reaches zero — in page, no reload.
+  // The clock accepts an override so a test (or a preview link) can stand at any
+  // moment without waiting: set `window.KYROlll_NOW` to an ISO string or an epoch
+  // before this file loads, or append `?now=<iso|epoch>` to the URL. The override
+  // is read once, as a fixed instant, and then advances with real time — so a
+  // countdown genuinely counts down instead of freezing.
   function parseWhen(value) {
     if (value == null || value === "") return null;
     const text = String(value).trim();
@@ -361,7 +335,7 @@
   })();
   function timeNow() { return Date.now() + CLOCK_OFFSET; }
   function releaseAtMs(beat) { return parseWhen(beat && beat.releaseAt); }
-  /* True when the beat has no schedule or its instant has passed. */
+  // True when the beat has no schedule or its instant has passed.
   function isReleased(beat, when) {
     const at = releaseAtMs(beat);
     if (at == null) return true;
@@ -374,29 +348,27 @@
     const now = Number.isFinite(when) ? Number(when) : timeNow();
     return Math.max(0, at - now);
   }
-  /* HH:MM:SS, the countdown the badge ticks every second. */
+  // HH:MM:SS, the countdown the badge ticks every second.
   function formatCountdown(ms) {
     const total = Math.max(0, Math.floor(Number(ms) / 1000));
     const pad = (n) => ("0" + n).slice(-2);
-    return pad(Math.floor(total / 3600)) + ":" + pad(Math.floor((total % 3600) / 60)) + ":" + pad(total % 60);
+    return pad(Math.floor(total / 3600)) + ":" + pad(Math.floor((total % 3600) / 60)) + ":" + pad(total % 3600);
   }
   function releaseLabel(beat) {
     if (!beat || releaseAtMs(beat) == null) return "";
     return beat.releaseLabel || "DROPPING SOON";
   }
 
-  /* ------------------------------------------------------- exclusive rights
-     A beat has exactly one exclusive license to give. The moment that package
-     is signed for, the beat is claimed: it leaves the free market, its public
-     preview and every lease are retired, and the catalog paints the secured
-     status instead of a button. A catalog entry may also ship already claimed
-     (`exclusiveLocked: true`) when the rights were sold outside the store.
-
-     Like every other piece of storefront state this is a record, not storage:
-     the claim is written onto the live catalog entry and announced on the
-     window (`kyrolll:exclusive-locked`), so the grid re-renders in place, and
-     it is gone with the page. Nothing is written to localStorage, sessionStorage
-     or a cookie — a reload starts from the catalog as published. */
+  // ------------------------------------------------------- exclusive rights
+  // A beat has exactly one exclusive license to give. The moment that package
+  // is signed for, the beat is claimed: it leaves the free market, its public
+  // preview and every lease are retired, and the catalog paints the secured
+  // status instead of a button.
+  // Like every other piece of storefront state this is a record, not storage:
+  // the claim is written onto the live catalog entry and announced on the
+  // window (`kyrolll:exclusive-locked`), so the grid re-renders in place, and
+  // it is gone with the page. Nothing is written to localStorage, sessionStorage
+  // or a cookie — a reload starts from the catalog as published.
   const EXCLUSIVE_LOCK_LABEL = "[EXCLUSIVE RIGHTS CLAIMED // SECURED]";
   const EXCLUSIVE_LOCK_NOTE = "THIS BEAT HAS BEEN SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE.";
   function isExclusiveLocked(beatId) {
