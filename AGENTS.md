@@ -959,3 +959,28 @@ parse. Home is the default state: the head only adds `beat-page` when the URL ca
 `?beat=`, and `html:not(.beat-page) #grid > .beat-detail` keeps that pre-rendered card
 hidden on the home route — so entering the store never flashes a beat page before the
 homepage hero.
+
+## `kyroiii-plugin/` is a separate product surface
+
+`kyroiii-plugin/` holds a self-contained JUCE 8 AU/VST3/Standalone mastering meter and
+diagnostic console. It is not part of the static storefront, shares no runtime code with
+it, and its maintainer contract lives in `kyroiii-plugin/AGENTS.md` — read that file
+before changing anything under the folder. In particular:
+
+- **The storefront's monochrome/equal-channel rules do not apply inside
+  `kyroiii-plugin/`.** That workspace deliberately uses its own matte-black / brushed-gold
+  / warm-brown palette (`kyroiii-plugin/src/ui/KyroTheme.h`,
+  `kyroiii-plugin/preview/style.css`). Keep every gold literal inside that folder; never
+  edit the root `style.css`, the storefront scripts or a store asset to satisfy the
+  plug-in design, and never move a plug-in accent into the store.
+- **The plug-in has its own gate:** `cd kyroiii-plugin && bash scripts/verify.sh` checks
+  the workspace layout, shell syntax, CMake preset JSON, brand tokens, documentation
+  links and the dependency-free DSP tests. `bash kyroiii-plugin/scripts/build-macos.sh`
+  is the full AU/VST3/Standalone build and needs CMake 3.22+ plus a macOS SDK
+  (full Xcode is recommended for signing and Logic Pro registration); it is not
+  part of the storefront's Playwright or Node test commands.
+- **`kyroiii-plugin/preview/` is a design reference only.** The shipping surface is the
+  C++ JUCE UI in `kyroiii-plugin/src/ui/`; the HTML preview must not be wired into the
+  store's pages or served by `server.mjs` as product UI.
+- **`kyroiii-plugin/VERSION`** is the workspace version. Keep it, `CMakeLists.txt`, the
+  README status block and the preview footer in step when the version moves.
