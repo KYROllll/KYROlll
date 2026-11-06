@@ -102,6 +102,22 @@ function vinylModifier(variant) {
   return "";
 }
 
+/* The complete official flower is the default centre label. A beat may opt into
+   a *cover label* instead (`vinylLabel: "cover"` in catalog.js): its own cover
+   art — `beat.img` — is then painted inside the label and spins with the platter,
+   so the newest drop's record carries that drop's artwork rather than a generic
+   mark. The path is always read from the catalog, never hard-coded here, so a
+   future pressing only has to point at its cover. */
+const VINYL_DEFAULT_LABEL = "assets/kyrolll-flower.svg";
+function vinylLabelArt(beat) {
+  if (!beat || beat.vinylLabel !== "cover") return VINYL_DEFAULT_LABEL;
+  const art = String(beat.img || "").trim();
+  return art || VINYL_DEFAULT_LABEL;
+}
+function hasCoverLabel(beat) {
+  return vinylLabelArt(beat) !== VINYL_DEFAULT_LABEL;
+}
+
 /* The scheduled-release clock lives in catalog.js: a beat with a future
    `releaseAt` is a *scheduled drop*. Until it lands the store paints the tile
    with a live countdown pill where the button sits, and the beat page with no
@@ -171,11 +187,16 @@ function dropLockedHTML() {
       </div>`;
 }
 
+/* `preload="metadata"` (not "none") so the duration and the seek bar are ready
+   before the first tap: the preview server answers media with byte ranges, so
+   the browser reads only the header, and a tap starts playback instead of a
+   cold fetch. A 404 or an unsupported codec still lands on the player's own
+   retry/error state, which is why the path lives in `catalog.js`. */
 function previewHTML(beat) {
   if (!beat.preview) return '<p class="beat-preview__unavailable">PREVIEW COMING SOON</p>';
   const title = attr(beat.title);
   return `<div class="beat-preview" data-title="${title}" data-state="idle">
-    <audio class="beat-preview__audio" src="${attr(beat.preview)}" preload="none"></audio>
+    <audio class="beat-preview__audio" src="${attr(beat.preview)}" preload="metadata"></audio>
     <button type="button" class="beat-preview__toggle" aria-label="Play preview: ${title}" aria-pressed="false">
       <svg class="beat-preview__play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
       <svg class="beat-preview__pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
@@ -238,6 +259,8 @@ function beatDetailInner(beat) {
   const locked = exclusiveLocked(beat);
   const pending = !locked && releasePending(beat);
   const vinylVariant = vinylVariantFor(beat);
+  const coverLabel = hasCoverLabel(beat);
+  const labelArt = vinylLabelArt(beat);
   const outerRim = vinylVariant === "gold-rim" || vinylVariant === "sage-white-rim"
     || vinylVariant === "ice-silver-rim" || vinylVariant === "rage-fire-rim"
     ? `<span class="vinyl-record__rim" aria-hidden="true"></span>`
@@ -263,10 +286,10 @@ function beatDetailInner(beat) {
       </div>
     </section>
     <div class="beat-detail__artwork-wrap">
-      <div class="vinyl-record${vinylModifier(vinylVariant)}${beat.img === 'assets/beat-cover.png' ? ' vinyl-record--cover' : ''}" data-vinyl="${vinylVariant}" aria-hidden="true">
+      <div class="vinyl-record${vinylModifier(vinylVariant)}${coverLabel ? " vinyl-record--cover" : ""}" data-vinyl="${vinylVariant}" aria-hidden="true">
         ${outerRim}
         <span class="vinyl-record__logo-frame" aria-hidden="true">
-          <img class="vinyl-record__logo" src="assets/kyrolll-flower.svg" alt="" width="300" height="300" loading="lazy">
+          <img class="vinyl-record__logo${coverLabel ? " vinyl-record__logo--cover" : ""}" src="${attr(labelArt)}" alt="" width="300" height="300"${coverLabel ? ' fetchpriority="high"' : ' loading="lazy"'}>
         </span>
       </div>
       <figure class="beat-detail__artwork">

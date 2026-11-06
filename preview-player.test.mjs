@@ -22,7 +22,7 @@ const catalogContextFor = () => {
 test("the fifth release is scheduled, packaged and pointed at the free-download form", () => {
   const { window } = catalogContextFor();
   const catalog = window.KYROlll_CATALOG;
-  assert.equal(catalog.length, 6, "the catalog carries six releases");
+  assert.equal(catalog.length, 7, "the catalog carries seven releases");
   const beat = window.KYROlll_HELPERS.beatById("just-d0-it");
   assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - JUST D0 IT");
   assert.equal(beat.shortTitle, "JUST D0 IT");
@@ -51,10 +51,10 @@ test("the fifth release is scheduled, packaged and pointed at the free-download 
 test("the re-ingested ADLL beat is scheduled for today at 19:00 with its graffiti-splatter pressing", () => {
   const { window } = catalogContextFor();
   const catalog = window.KYROlll_CATALOG;
-  assert.equal(catalog.length, 6, "the catalog carries six releases");
+  assert.equal(catalog.length, 7, "the catalog carries seven releases");
   assert.deepEqual(Array.from(catalog, (beat) => beat.slug),
-    ["flesh", "the-flow", "green-flesh", "squish", "just-d0-it", "adll"],
-    "the six beats are intact, in order, with ADLL as the newest entry");
+    ["flesh", "the-flow", "green-flesh", "squish", "just-d0-it", "adll", "gunna-type"],
+    "the seven beats are intact, in order, with the GUNNA drop as the newest entry");
   const beat = window.KYROlll_HELPERS.beatById("adll");
   assert(beat, "ADLL resolves from its id and slug");
   assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - A.D.L");
@@ -84,6 +84,49 @@ test("the re-ingested ADLL beat is scheduled for today at 19:00 with its graffit
   assert.match(marquee, /YEAT TYPE BEAT - A\.D\.L/, "the ticker announces the ADLL drop");
   ["assets/previews/adll.mp3", "assets/previews/adll.wav", "assets/previews/adll-stems.zip", "assets/adll.png"]
     .forEach((asset) => assert(readFileSync(new URL(`./${asset}`, import.meta.url)).length > 0, `${asset} is ingested`));
+});
+
+test("the GUNNA drop is scheduled for 22:00 today and its record paints the cover label", () => {
+  const { window } = catalogContextFor();
+  const helpers = window.KYROlll_HELPERS;
+  const beat = helpers.beatById("gunna-type");
+  assert(beat, "the GUNNA drop resolves from its id and slug");
+  assert.equal(beat.title, "[FREE 100%] GUNNA TYPE BEAT - VVS MOTION");
+  assert.equal(beat.img, "assets/beat-cover.png");
+  assert.equal(beat.bpm, 146);
+  assert.equal(beat.key, "Fm");
+  assert.equal(beat.preview, "assets/previews/gunna-type.mp3");
+  assert.equal(beat.vinylVariant, "white", "the drop is pressed on the pearl-white disc");
+  assert.equal(beat.vinylLabel, "cover", "the centre label opts into the beat's own cover art");
+  assert.equal(beat.releaseAt, "2026-11-06T22:00:00+02:00", "the drop lands today at exactly 22:00 Israel time");
+  const releaseAt = Date.parse("2026-11-06T22:00:00+02:00");
+  assert.equal(helpers.releaseAt(beat), releaseAt);
+  assert.equal(helpers.isReleased(beat, releaseAt - 1), false, "the beat stays scheduled until 22:00");
+  assert.equal(helpers.isReleased(beat, releaseAt), true, "the beat unlocks on the clock");
+  assert.equal(helpers.formatCountdown(59 * 60 * 1000 + 36 * 1000), "00:59:36", "the countdown reads a real HH:MM:SS");
+  assert.equal(helpers.formatCountdown(3661 * 1000), "01:01:01", "the countdown rolls over hours, minutes and seconds separately");
+  assert.deepEqual(Array.from(beat.deliverables.exclusive, (item) => item.file), [
+    "assets/previews/gunna-type.mp3",
+    "assets/previews/gunna-type.wav",
+    "assets/previews/gunna-type-stems.zip",
+  ]);
+  assert.deepEqual(Array.from(beat.deliverables.exclusive, (item) => item.name), [
+    "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).mp3",
+    "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).wav",
+    "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM) - TRACKED STEMS.zip",
+  ]);
+  ["assets/beat-cover.png", "assets/previews/gunna-type.mp3", "assets/previews/gunna-type.wav", "assets/previews/gunna-type-stems.zip"]
+    .forEach((asset) => assert(readFileSync(new URL(`./${asset}`, import.meta.url)).length > 0, `${asset} is ingested`));
+
+  // The cover label is data-driven: script.js reads the path off the beat and
+  // flips the record to its cover modifier; style.css paints the art on the
+  // label's own circle. No beat path is hard-coded in the stylesheet.
+  const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
+  assert.match(script, /beat\.vinylLabel !== "cover"/, "the label art is chosen from catalog data");
+  assert.match(script, /vinyl-record--cover/, "the record opts into the cover modifier");
+  const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
+  assert.match(css, /\.vinyl-record--cover \.vinyl-record__logo \{[\s\S]*?border-radius: 50%/, "the cover art is cropped to the label's circle");
+  assert.doesNotMatch(css, /url\(assets\/beat-cover\.png\)/, "the stylesheet hard-codes no beat artwork path");
 });
 
 test("the exclusive license claims the beat and retires its public leases", () => {
@@ -197,6 +240,7 @@ test("every beat keeps its own bespoke pressing, and the beat page keeps a stick
     squish: "ice-silver-rim",
     "just-d0-it": "rage-fire-rim",
     adll: "graffiti-splatter",
+    "gunna-type": "white",
   }, "each release keeps its own collector pressing");
   const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
   assert.match(css, /\.vinyl-record--white \{[\s\S]*?rgba\(38, 38, 38, 0\.38\)/, "FLESH is a charcoal-marbled pearl disc");

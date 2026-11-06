@@ -287,8 +287,12 @@
       preview: "assets/previews/gunna-type.mp3",
       youtube: "https://www.youtube.com/@KYROlll00",
       vinylVariant: "white",
-      // Schedule the drop for today at exactly 20:00 (Israel time).
-      releaseAt: "2026-11-06T20:00:00+02:00",
+      // The record's centre label paints this beat's own cover art
+      // (`img`) instead of the generic flower — see `vinylLabelArt` in
+      // script.js and the `.vinyl-record--cover` block in style.css.
+      vinylLabel: "cover",
+      // Schedule the drop for today at exactly 22:00 (Israel time).
+      releaseAt: "2026-11-06T22:00:00+02:00",
       deliverables: {
         mp3: [
           { file: "assets/previews/gunna-type.mp3", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).mp3", label: "TAGGED MP3" }
@@ -352,7 +356,7 @@
   function formatCountdown(ms) {
     const total = Math.max(0, Math.floor(Number(ms) / 1000));
     const pad = (n) => ("0" + n).slice(-2);
-    return pad(Math.floor(total / 3600)) + ":" + pad(Math.floor((total % 3600) / 60)) + ":" + pad(total % 3600);
+    return pad(Math.floor(total / 3600)) + ":" + pad(Math.floor((total % 3600) / 60)) + ":" + pad(total % 60);
   }
   function releaseLabel(beat) {
     if (!beat || releaseAtMs(beat) == null) return "";

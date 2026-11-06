@@ -80,14 +80,19 @@ const server = http.createServer((req, res) => {
   // exists — no point reading a 38 MB WAV to answer it.
   if (isHead) {
     fs.stat(filePath, (err) => {
-      if (!err) { res.writeHead(200, { "Content-Type": contentType, ...cacheHeaders }); res.end(); return; }
+      if (!err) { res.writeHead(200, { "Content-Type": contentType, "Accept-Ranges": "bytes", ...cacheHeaders }); res.end(); return; }
       if (err.code === "ENOENT" && allowIndexFallback) { res.writeHead(200, { "Content-Type": "text/html", "Cache-Control": "no-cache" }); res.end(); return; }
       sendText(err.code === "ENOENT" ? 404 : 500, "404 Not Found");
     });
     return;
   }
 
-  fs.readFile(filePath, (err, content) => {
+  // Byte ranges are what make the preview player work on Safari / iOS: those
+  // browsers refuse to play (and cannot seek) a media file that only answers
+  // `200` to a range request. A single range is answered with `206` and a slice
+  // streamed from disk; anything malformed gets the standard `416`, so the
+  // player's own retry/error state is the only thing a visitor can see.
+  fs.stat(filePath, (err, stat) => {
     if (err) {
       if (err.code === "ENOENT" && allowIndexFallback) {
         fs.readFile(path.join(__dirname, "index.html"), (err2, content2) => {
@@ -102,13 +107,54 @@ const server = http.createServer((req, res) => {
       }
       return;
     }
+    if (!stat.isFile()) { sendText(404, "404 Not Found"); return; }
 
-    const headers = { "Content-Type": contentType, ...cacheHeaders };
+    const headers = { "Content-Type": contentType, "Accept-Ranges": "bytes", ...cacheHeaders };
     if ((url.searchParams.has("dl") || url.searchParams.has("name")) && ATTACHMENT_EXT.has(ext)) {
       headers["Content-Disposition"] = 'attachment; filename="' + attachmentName(url.searchParams, path.basename(filePath)) + '"';
     }
+
+    const rawRange = req.headers.range;
+    const range = rawRange ? /^bytes=(\d*)-(\d*)$/.exec(String(rawRange).trim()) : null;
+    if (rawRange && !range) {
+      res.writeHead(416, { "Accept-Ranges": "bytes", "Content-Range": `bytes */${stat.size}` });
+      res.end();
+      return;
+    }
+    if (range) {
+      const size = stat.size;
+      let start;
+      let end;
+      if (range[1] === "") {
+        // `bytes=-N`: the last N bytes of the file.
+        const suffix = Number(range[2]);
+        start = Math.max(0, size - suffix);
+        end = size - 1;
+      } else {
+        start = Number(range[1]);
+        end = range[2] === "" ? size - 1 : Math.min(Number(range[2]), size - 1);
+      }
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= size) {
+        res.writeHead(416, { "Accept-Ranges": "bytes", "Content-Range": `bytes */${size}` });
+        res.end();
+        return;
+      }
+      headers["Content-Range"] = `bytes ${start}-${end}/${size}`;
+      headers["Content-Length"] = end - start + 1;
+      res.writeHead(206, headers);
+      if (isHead) { res.end(); return; }
+      const stream = fs.createReadStream(filePath, { start, end });
+      stream.on("error", () => res.destroy());
+      stream.pipe(res);
+      return;
+    }
+
+    headers["Content-Length"] = stat.size;
     res.writeHead(200, headers);
-    res.end(isHead ? undefined : content);
+    if (isHead) { res.end(); return; }
+    const stream = fs.createReadStream(filePath);
+    stream.on("error", () => res.destroy());
+    stream.pipe(res);
   });
 });
 

@@ -283,10 +283,16 @@ const JUST_DO_IT_RELEASE = Date.parse('2026-10-27T23:00:00+02:00');
 const ADLL_ID = 'adll';
 const ADLL_CARD = '#card-adll';
 const ADLL_RELEASE = Date.parse('2026-11-02T19:00:00+02:00');
-// The store runs six beats. ALL_LIVE_NOW is a pinned instant just after the
+// The seventh release, [FREE 100%] GUNNA TYPE BEAT - VVS MOTION, drops today at
+// 22:00 Israel time and is the first record whose centre label paints the beat's
+// own cover art instead of the official flower.
+const GUNNA_ID = '72f9b3e3-7d3a-490e-b8b5-5b1e9d8e3668';
+const GUNNA_CARD = '#card-' + GUNNA_ID;
+const GUNNA_RELEASE = Date.parse('2026-11-06T22:00:00+02:00');
+// The store runs seven beats. ALL_LIVE_NOW is a pinned instant just after the
 // newest release landed: every card is a live tile there, whatever the machine
 // clock says, so the catalog-wide checks stand on firm ground.
-const ALL_LIVE_NOW = ADLL_RELEASE + 3600000;
+const ALL_LIVE_NOW = GUNNA_RELEASE + 3600000;
 
 // Nothing about a gate may be remembered: the storefront writes no gate state
 // at all (no unlock set, no remembered address). The one thing it does write is
@@ -474,8 +480,8 @@ try {
     green: getComputedStyle(el, '::before').color,
     pink: getComputedStyle(el, '::after').color,
   })), { green: 'rgb(57, 255, 139)', pink: 'rgb(255, 62, 165)' });
-  assert.equal(await desktop.locator('#grid .catalog-tile').count(), 6);
-  assert.equal(await desktop.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-adll', 'the newest release leads the grid');
+  assert.equal(await desktop.locator('#grid .catalog-tile').count(), 7);
+  assert.equal(await desktop.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-' + GUNNA_ID, 'the newest release leads the grid');
   assert.equal(await desktop.evaluate(() => window.KYROlll_HELPERS.beatById('adll').title), '[FREE 100%] YEAT TYPE BEAT - A.D.L', 'ADLL is live in the catalog');
   assert.equal(await desktop.locator('.catalog-tile__art img').first().evaluate(el => getComputedStyle(el).filter), 'none', 'catalog cover art keeps its original colour');
   assert.match(await desktop.locator(CARD).innerText(), /\[FREE 100%\] DON TOLIVER TYPE BEAT - FLESH/i);
@@ -485,7 +491,7 @@ try {
   assert.match(await desktop.locator(ADLL_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - A\.D\.L/i);
   assert.match(await desktop.locator('.marquee-track').innerText(), /YEAT TYPE BEAT - A\.D\.L/i, 'the ticker announces the newest drop');
   assert.match(await desktop.locator('.marquee-track').innerText(), /YEAT TYPE BEAT - JUST D0 IT/i, 'the ticker announces the fifth drop');
-  assert.match(await desktop.locator('.marquee-track').innerText(), /6 RELEASES LIVE/, 'the studio count is the six live releases');
+  assert.match(await desktop.locator('.marquee-track').innerText(), /7 RELEASES LIVE/, 'the studio count is the seven live releases');
   assert.match(await desktop.locator('.marquee-track').innerText(), /LIL GOTIT TYPE BEAT - SQUISH!/i, 'the ticker announces the fourth drop');
   assert.match(await desktop.locator('.marquee-track').innerText(), /LIL BABY TYPE BEAT - GREEN FLESH/i, 'the ticker announces the renamed third drop');
   await shot(desktop, 'desktop');
@@ -1761,7 +1767,7 @@ try {
   await noOverflow(preDrop);
   await noHue(preDrop, 'the storefront before the drop');
   await noLowercase(preDrop, 'the storefront before the drop');
-  assert.equal(await preDrop.locator('#grid .catalog-tile').count(), 6, 'all six releases sit in the catalog');
+  assert.equal(await preDrop.locator('#grid .catalog-tile').count(), 7, 'all seven releases sit in the catalog');
   assert.match(await preDrop.locator(`${FLOW_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'the scheduled drop carries its countdown pill');
   assert.doesNotMatch(await preDrop.locator(`${FLOW_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
   assert.match(await preDrop.locator(`${FLOW_CARD} [data-countdown="${FLOW_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'the pill shows a live HH:MM:SS clock');
@@ -2049,7 +2055,7 @@ try {
   const greenPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await greenPre.goto(`${url}/?now=${GREEN_FLESH_RELEASE - 3600000}`);
   await greenPre.locator(`[data-countdown="${GREEN_FLESH_ID}"]`).waitFor();
-  assert.equal(await greenPre.locator('#grid .catalog-tile').count(), 6, 'the third release is in the six-card catalog');
+  assert.equal(await greenPre.locator('#grid .catalog-tile').count(), 7, 'the third release is in the seven-card catalog');
   assert.equal(await greenPre.locator(GREEN_FLESH_CARD).getAttribute('data-vinyl'), 'sage-white-rim', 'the GREEN FLESH catalog card carries its own pressing');
   assert.match(await greenPre.locator(`${GREEN_FLESH_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'GREEN FLESH carries its countdown pill');
   assert.doesNotMatch(await greenPre.locator(`${GREEN_FLESH_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
@@ -2205,10 +2211,11 @@ try {
   const squishPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await squishPre.goto(`${url}/?now=${SQUISH_RELEASE - 3600000}`);
   await squishPre.locator(`[data-countdown="${SQUISH_ID}"]`).waitFor();
-  assert.equal(await squishPre.locator('#grid .catalog-tile').count(), 6, 'the fourth release is in the six-card catalog');
-  assert.equal(await squishPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-adll', 'ADLL leads the catalog as the newest scheduled drop');
-  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-just-d0-it', 'JUST D0 IT follows the newest scheduled drop');
-  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(2).getAttribute('id'), 'card-squish', 'SQUISH! follows JUST D0 IT');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').count(), 7, 'the fourth release is in the seven-card catalog');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-' + GUNNA_ID, 'the GUNNA drop leads the catalog as the newest scheduled drop');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-adll', 'ADLL follows the newest drop');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(2).getAttribute('id'), 'card-just-d0-it', 'JUST D0 IT follows ADLL');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(3).getAttribute('id'), 'card-squish', 'SQUISH! follows JUST D0 IT');
   assert.equal(await squishPre.locator(SQUISH_CARD).getAttribute('data-vinyl'), 'ice-silver-rim', 'the SQUISH! catalog card carries its own pressing');
   assert.match(await squishPre.locator(SQUISH_CARD).innerText(), /\[FREE 100%\] LIL GOTIT TYPE BEAT - SQUISH!/i);
   assert.match(await squishPre.locator(`${SQUISH_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'SQUISH! carries its countdown pill');
@@ -2352,9 +2359,10 @@ try {
   const justDoItPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await justDoItPre.goto(`${url}/?now=${JUST_DO_IT_RELEASE - 3600000}`);
   await justDoItPre.locator(`[data-countdown="${JUST_DO_IT_ID}"]`).waitFor();
-  assert.equal(await justDoItPre.locator('#grid .catalog-tile').count(), 6, 'the fifth release is in the six-card catalog');
-  assert.equal(await justDoItPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-adll', 'ADLL leads the catalog as the newest drop');
-  assert.equal(await justDoItPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-just-d0-it', 'JUST D0 IT follows the newest drop');
+  assert.equal(await justDoItPre.locator('#grid .catalog-tile').count(), 7, 'the fifth release is in the seven-card catalog');
+  assert.equal(await justDoItPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-' + GUNNA_ID, 'the GUNNA drop leads the catalog as the newest drop');
+  assert.equal(await justDoItPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-adll', 'ADLL follows the newest drop');
+  assert.equal(await justDoItPre.locator('#grid .catalog-tile').nth(2).getAttribute('id'), 'card-just-d0-it', 'JUST D0 IT follows ADLL');
   assert.equal(await justDoItPre.locator(JUST_DO_IT_CARD).getAttribute('data-vinyl'), 'rage-fire-rim', 'the JUST D0 IT catalog card carries its own pressing');
   assert.match(await justDoItPre.locator(JUST_DO_IT_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - JUST D0 IT/i);
   assert.match(await justDoItPre.locator(`${JUST_DO_IT_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'JUST D0 IT carries its countdown pill');
@@ -2514,8 +2522,9 @@ try {
   const adllPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await adllPre.goto(`${url}/?now=${ADLL_RELEASE - 3600000}`);
   await adllPre.locator(`[data-countdown="${ADLL_ID}"]`).waitFor();
-  assert.equal(await adllPre.locator('#grid .catalog-tile').count(), 6, 'the sixth release is in the six-card catalog');
-  assert.equal(await adllPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-adll', 'ADLL leads the catalog as the newest drop');
+  assert.equal(await adllPre.locator('#grid .catalog-tile').count(), 7, 'the sixth release is in the seven-card catalog');
+  assert.equal(await adllPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-' + GUNNA_ID, 'the GUNNA drop leads the catalog as the newest drop');
+  assert.equal(await adllPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-adll', 'ADLL follows the newest drop');
   assert.equal(await adllPre.locator(ADLL_CARD).getAttribute('data-vinyl'), 'graffiti-splatter', 'the ADLL catalog card carries its own pressing');
   assert.match(await adllPre.locator(ADLL_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - A\.D\.L/i);
   assert.match(await adllPre.locator(`${ADLL_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'ADLL carries its countdown pill');
@@ -2701,14 +2710,75 @@ try {
   assert.match(await adllAfter.locator('.marquee-track').innerText(), /6 RELEASES LIVE/, 'the studio count becomes six once ADLL is live');
   await adllAfter.close();
 
+  // ------------------------------------------- seventh release: GUNNA (22:00)
+  // The newest drop's record is the first whose centre label paints the beat's
+  // own cover art (`vinylLabel: "cover"` in catalog.js). The art is the record's
+  // own spinning label image — no extra layer, no hard-coded path — cropped to
+  // the label circle and keeping its supplied colour.
+  const gunnaLive = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'no-preference' });
+  await gunnaLive.goto(`${url}/?beat=${GUNNA_ID}&now=${ALL_LIVE_NOW}`, { waitUntil: 'domcontentloaded' });
+  await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record`).waitFor();
+  await gunnaLive.locator(`${GUNNA_CARD}.vinyl-open`).waitFor();
+  await gunnaLive.waitForTimeout(1200);
+  assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'white', 'the GUNNA record rides the pearl-white pressing');
+  assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record--cover`).count(), 1, 'the GUNNA record opts into the cover label');
+  assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record__logo--cover`).count(), 1, 'the label image carries the cover modifier');
+  const gunnaVinyl = await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record`).evaluate(el => {
+    const logo = el.querySelector('.vinyl-record__logo');
+    const logoStyle = logo ? getComputedStyle(logo) : null;
+    const frame = el.querySelector('.vinyl-record__logo-frame');
+    const label = getComputedStyle(el, '::after');
+    const recordRect = el.getBoundingClientRect();
+    const frameRect = frame.getBoundingClientRect();
+    const sleeveRect = document.querySelector('.beat-detail__artwork').getBoundingClientRect();
+    const stageRect = document.querySelector('.beat-detail__artwork-wrap').getBoundingClientRect();
+    return {
+      children: [...el.children].map(child => child.className),
+      labelWidth: label.width,
+      labelRatio: parseFloat(label.width) / recordRect.width,
+      labelBg: label.backgroundImage,
+      labelRadius: label.borderTopLeftRadius,
+      src: logo ? logo.getAttribute('src') : null,
+      naturalWidth: logo ? logo.naturalWidth : 0,
+      naturalHeight: logo ? logo.naturalHeight : 0,
+      radius: logoStyle ? logoStyle.borderTopLeftRadius : null,
+      objectFit: logoStyle ? logoStyle.objectFit : null,
+      filter: logoStyle ? logoStyle.filter : null,
+      opacity: logoStyle ? logoStyle.opacity : null,
+      animation: logoStyle ? logoStyle.animationName : null,
+      duration: logoStyle ? logoStyle.animationDuration : null,
+      frameCentre: (frameRect.left + frameRect.right) / 2,
+      recordCentre: (recordRect.left + recordRect.right) / 2,
+      insideStage: recordRect.left >= stageRect.left - 1 && recordRect.right <= stageRect.right + 1,
+      diameterRatio: recordRect.width / sleeveRect.width,
+    };
+  });
+  assert.deepEqual(gunnaVinyl.children, ['vinyl-record__logo-frame'], 'the cover-label record holds only the spinning label, no extra art layer');
+  assert.match(gunnaVinyl.src, /assets\/beat-cover\.png$/, 'the label art is the beat\'s own cover, read from catalog data');
+  assert.equal(gunnaVinyl.naturalWidth, 1024, 'the cover art loads at its supplied resolution');
+  assert.equal(gunnaVinyl.naturalHeight, 1024, 'the cover art stays square');
+  assert.equal(gunnaVinyl.radius, '50%', 'the square cover is cropped to the label circle');
+  assert.equal(gunnaVinyl.objectFit, 'cover', 'the cover fills the label without distortion');
+  assert.equal(gunnaVinyl.filter, 'none', 'the cover art keeps its supplied colour');
+  assert.equal(gunnaVinyl.opacity, '1', 'the cover art is fully painted');
+  assert.equal(gunnaVinyl.animation, 'vinylCenterSpin', 'the cover art spins with the platter');
+  assert.equal(gunnaVinyl.duration, '16s', 'the cover art keeps the 16s linear loop');
+  assert.equal(gunnaVinyl.labelRadius, '50%', 'the label behind the art stays a circle');
+  assert.match(gunnaVinyl.labelBg, /radial-gradient/, 'the label keeps the pressing\'s own silver-rimmed fill');
+  assert(Math.abs(gunnaVinyl.labelRatio - 0.47) < 0.01, 'the cover label grows to 47% of the platter');
+  assert(Math.abs(gunnaVinyl.frameCentre - gunnaVinyl.recordCentre) < 2, 'the cover art is centred on the platter');
+  assert.equal(gunnaVinyl.insideStage, true, 'the record never breaches the artwork stage');
+  assert(Math.abs(gunnaVinyl.diameterRatio - 0.92) < 0.01, 'the record keeps its 92% inset diameter');
+  await gunnaLive.close();
+
   // The secured state is not an ADLL-only skin: every active beat paints the
   // same plate on its catalog tile and its beat page, and none of them keeps a
   // lease, a countdown or a public player once claimed. The claims are the
-  // in-page record only, so this one page view can claim all six.
+  // in-page record only, so this one page view can claim all seven.
   const lockAll = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await lockAll.goto(`${url}/?now=${ALL_LIVE_NOW}`, { waitUntil: 'domcontentloaded' });
   await lockAll.locator('#grid .catalog-tile').first().waitFor();
-  const securedIds = ['flesh', 'the-flow', 'green-flesh', 'squish', 'just-d0-it', 'adll'];
+  const securedIds = ['flesh', 'the-flow', 'green-flesh', 'squish', 'just-d0-it', 'adll', GUNNA_ID];
   for (const id of securedIds) {
     assert.equal(await lockAll.evaluate((beatId) => window.KYROlll_HELPERS.lockExclusive(beatId), id), true,
       `${id}: the exclusive tier claims the beat`);
@@ -2725,7 +2795,7 @@ try {
       modifier: tile.classList.contains('catalog-tile--exclusive-locked'),
     };
   }));
-  assert.equal(securedTiles.length, 6, 'all six beats are painted after their claims');
+  assert.equal(securedTiles.length, 7, 'all seven beats are painted after their claims');
   securedTiles.forEach(tile => {
     assert.equal(tile.badge, '[EXCLUSIVE RIGHTS CLAIMED // SECURED]', `${tile.id}: every tile carries the same secured copy`);
     assert.equal(tile.compact, true, `${tile.id}: every tile wears the compact plate`);
@@ -2759,7 +2829,7 @@ try {
     window.dispatchEvent(new PopStateEvent('popstate'));
   });
   await lockAll.locator('#grid .catalog-tile .exclusive-badge').first().waitFor();
-  assert.equal(await lockAll.locator('#grid .catalog-tile .exclusive-badge').count(), 6, 'the catalog keeps every claim after the round trip');
+  assert.equal(await lockAll.locator('#grid .catalog-tile .exclusive-badge').count(), 7, 'the catalog keeps every claim after the round trip');
   await lockAll.close();
 
   // ------------------------------------------------------------ support desk
@@ -3008,10 +3078,25 @@ try {
   assert.doesNotMatch(graffitiCss, /#e63946|conic-gradient/, 'the graffiti pressing carries no coloured rim');
   assert.doesNotMatch(graffitiCss, /ellipse/, 'the spray uses no oversized elliptical paint blobs');
   assert.doesNotMatch(graffitiCss, /animation\s*:/, 'the speckle dust is static and never fights the flower spin');
-  // Physical pressing finish: every one of the six discs carries the same two
+  // A cover-label record (`vinylLabel: "cover"`) replaces the flower with the
+  // beat's own artwork: the label grows, the art is centred on the platter and
+  // cropped to the label's circle, keeps its supplied colour and spins on the
+  // same 16s platter clock. The path is always read from catalog data.
+  const coverStart = cssText.indexOf('/* A cover-label record');
+  const coverEnd = cssText.indexOf('/* THE FLOW gold-rim palette', coverStart);
+  assert(coverStart >= 0 && coverEnd > coverStart, 'the cover-label pressing has its own stylesheet block');
+  const coverCss = cssText.slice(coverStart, coverEnd);
+  assert.match(coverCss, /\.vinyl-record--cover::after\s*\{[^}]*width:\s*47%/, 'the cover label grows to hold the artwork');
+  assert.match(coverCss, /\.vinyl-record--cover\s+\.vinyl-record__logo-frame\s*\{[^}]*left:\s*50%/, 'the cover art is centred on the platter, not the exposed crescent');
+  assert.match(coverCss, /\.vinyl-record--cover\s+\.vinyl-record__logo\s*\{[\s\S]*?border-radius:\s*50%/, 'the square cover is cropped to the label circle');
+  assert.match(coverCss, /\.vinyl-record--cover\s+\.vinyl-record__logo\s*\{[\s\S]*?object-fit:\s*cover/, 'the cover fills the label without distortion');
+  assert.match(coverCss, /\.vinyl-record--cover\s+\.vinyl-record__logo\s*\{[\s\S]*?filter:\s*none/, 'the cover art keeps its supplied colour');
+  assert.match(cssText, /\.vinyl-record__logo\s*\{[\s\S]*?animation:\s*vinylCenterSpin\s+16s\s+linear\s+infinite/, 'the cover art rides the shared 16s platter clock');
+  assert.doesNotMatch(coverCss, /url\(/, 'no cover path is hard-coded in the stylesheet');
+  // Physical pressing finish: every pressing carries the same two
   // layers a real pressing has — a smooth unrecorded lead-in band between the
   // raised outer lip and the first groove, and one fixed room light sweeping the
-  // surface — so the catalog reads as pressings from one plant rather than six
+  // surface — so the catalog reads as pressings from one plant rather than
   // illustrations. Both layers are equal-channel white, so the monochrome audit
   // still covers them.
   const finishBlocks = {

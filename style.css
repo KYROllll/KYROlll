@@ -1511,20 +1511,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   opacity: 0.9;
 }
 
-/* For any beat whose cover is set as the vinyl center label, the label paints
- * the beat's own cover art instead of the generic black flower. Leave the flower
- * in the CLASSIC, GOLD-RIM, SAGE-WHITE, ICE-SILVER, RAGE-FIRE and GRAFFITI stain
- * pressings alone; this only flips the white standard label to the cover. */
-.vinyl-record--white.vinyl-record--cover .vinyl-record__logo-frame {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  width: 65.2%;
-  height: 65.2%;
-}
-
-.vinyl-record--white.vinyl-record--cover::after {
-  background: url(assets/beat-cover.png); background-size: cover; background-position: center; background-repeat: no-repeat; width: 58%;
+.vinyl-record--white::after {
+  width: 58%;
   height: 58%;
   background:
     radial-gradient(circle at 50% 50%, transparent 0 84%, rgba(255, 255, 255, 0.16) 84.5% 86%, transparent 86.5%),
@@ -1559,6 +1547,45 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   left: 65.2%;
   width: 22%;
   height: 22%;
+}
+
+/* A cover-label record (`vinylLabel: "cover"` in catalog.js) keeps its picture
+   label centred on the platter (not at the exposed crescent), and the label
+   itself grows so the art has a real stage. The silver hairline is the same one
+   every pressing wears, so the cover still reads as a KYROIII pressing rather
+   than a pasted-on thumbnail. */
+.vinyl-record--cover::after {
+  width: 47%;
+  height: 47%;
+  background: radial-gradient(circle at 50% 38%, #242424, #0b0b0b 72%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow:
+    inset 0 0 22px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.vinyl-record--cover .vinyl-record__logo-frame {
+  left: 50%;
+  width: 39%;
+  height: 39%;
+}
+
+/* The cover art is a square image on a round label, so it is cropped to the
+   label's circle and framed by one crisp hairline. It keeps its supplied colour
+   (cover art is exempt from the monochrome rule) and spins on the same 16s
+   platter clock as the flower. */
+.vinyl-record--cover .vinyl-record__logo {
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 1;
+  filter: none;
+  box-sizing: border-box;
+  background: #0b0b0b;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.65),
+    0 0 14px rgba(255, 255, 255, 0.12);
 }
 
 /* THE FLOW gold-rim palette — the vinyl's deliberate colour exception. */

@@ -301,6 +301,18 @@ room. FLESH's pearl pressing has a 58% black label, and the complete official fl
 exposed crescent — so the sleeve never crops any part of the mark. THE FLOW's black/gold
 pressing keeps the classic 36% label and the logo centred on it. The logo image alone spins
 continuously (`vinylCenterSpin`, 16s linear); the outer record box never rotates.
+
+**A beat can opt into a cover label.** `catalog.js` marks it `vinylLabel: "cover"` and
+`script.js` then reads the art straight off the beat (`beat.img`) — never a path hard-coded
+in the stylesheet — paints it on the record's own centre label and adds
+`.vinyl-record--cover` (plus `.vinyl-record__logo--cover` on the image). The label grows to
+47% of the record, the square cover is cropped to the label's circle (`border-radius: 50%` +
+`object-fit: cover`) inside one crisp hairline, and it spins on the same 16s platter clock —
+so the newest drop's record carries that drop's artwork. Cover art keeps its supplied colour
+(the covers are the one thing exempt from the monochrome rule), so the cover label's `filter`
+is `none`. Every other pressing keeps the flower label untouched, and the record's DOM still
+holds only the rim (when it has one) and the logo frame — the art is the logo image, not an
+extra layer.
 Both the reveal and its transition live inside `@media (prefers-reduced-motion:
 no-preference)`: under reduced motion the base `.vinyl-record` rule leaves the record at
 rest immediately, and adding `vinyl-open` is a no-op. `.beat-detail__artwork-wrap` keeps
