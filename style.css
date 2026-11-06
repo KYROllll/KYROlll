@@ -1959,9 +1959,57 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   pointer-events: none;
 }
 
+/* WebGL flower canvas inside vinyl record centre labels. The canvas is mounted
+   by brand-logo.js and renders the same 3D flower as the hero, but on its own
+   constant-speed 16s linear spin clock. It sits behind the SVG fallback so the
+   still image is visible until the WebGL flower paints its first frame. */
+.vinyl-record__logo-frame .logo-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+  will-change: transform;
+}
+.vinyl-record__logo-frame .logo-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity .4s ease;
+}
+.vinyl-record__logo-frame .logo-stage.is-ready canvas {
+  opacity: 1;
+}
+.vinyl-record__logo-frame .logo-stage.is-ready + .vinyl-record__logo {
+  opacity: 0;
+}
+
 @keyframes vinylCenterSpin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* The WebGL flower canvas may fail to initialise (no WebGL, context lost, etc.)
+   in which case the SVG fallback stays visible. The `.logo-stage` without `.is-ready`
+   keeps its canvas hidden so only the static SVG shows. */
+.vinyl-record__logo-frame .logo-stage:not(.is-ready) canvas {
+  opacity: 0;
+}
+.vinyl-record__logo-frame .logo-stage:not(.is-ready) + .vinyl-record__logo {
+  opacity: 1;
+}
+
+/* Under reduced motion the vinyl record still reveals but the centre flower does
+   not spin — it shows the resting pose only, matching the hero's own behaviour. */
+@media (prefers-reduced-motion: reduce) {
+  .vinyl-record__logo-frame .logo-stage canvas {
+    animation: none !important;
+  }
+  .vinyl-record__logo {
+    animation: none !important;
+  }
 }
 
 /* The record rides out from behind the sleeve — see the base rule and the

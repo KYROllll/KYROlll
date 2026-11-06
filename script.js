@@ -284,11 +284,11 @@ function beatDetailInner(beat) {
       <div class="card__actions">
         ${actionsSlotHTML(beat, false)}
       </div>
-    </section>
-    <div class="beat-detail__artwork-wrap">
+    </section>      <div class="beat-detail__artwork-wrap">
       <div class="vinyl-record${vinylModifier(vinylVariant)}${coverLabel ? " vinyl-record--cover" : ""}" data-vinyl="${vinylVariant}" aria-hidden="true">
         ${outerRim}
         <span class="vinyl-record__logo-frame" aria-hidden="true">
+          <canvas class="logo-stage vinyl-flower-stage" data-vinyl-flower="true" aria-hidden="true"></canvas>
           <img class="vinyl-record__logo${coverLabel ? " vinyl-record__logo--cover" : ""}" src="${attr(labelArt)}" alt="" width="300" height="300"${coverLabel ? ' fetchpriority="high"' : ' loading="lazy"'}>
         </span>
       </div>

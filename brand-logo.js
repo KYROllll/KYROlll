@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
-// Every `.logo-stage` on the page mounts its own flower: the hero and the
-// page-load preloader. Prior versions only ever styled and mounted the first
-// stage, so a second stage (the preloader) silently got nothing.
+// Every `.logo-stage` on the page mounts its own flower: the hero, the
+// page-load preloader, and the vinyl record centre labels. Prior versions only
+// ever styled and mounted the first stage, so later stages (the preloader, the
+// vinyl centres) silently got nothing.
 const hosts = Array.from(document.querySelectorAll('.logo-stage'));
 const motion = matchMedia('(prefers-reduced-motion: reduce)');
 const pause = document.querySelector('.motion-toggle');
@@ -13,6 +14,12 @@ const stillRenderers = new Set();
 // overlay leaves the screen (see the `kyrolll:preloader-done` listener below).
 const instances = new Map();
 const flowerControllers = new Set();
+
+// Vinyl record centre flowers spin on a separate, constant-speed clock: a clean
+// 16s linear rotation with no easing ramp, matching the record's own feel. They
+// share the same scene builder as the hero flower but turn on their own timeline.
+const VINYL_SPIN_S = 16; // seconds per full revolution
+const vinylFlowers = new Map(); // stage -> { flower, lastAngle }
 function setFlowerProgress(progress) {
   const p = Math.max(0, Math.min(1, progress));
   flowerControllers.forEach((controller) => { try { controller.setProgress(p); } catch (error) { /* ignore */ } });
@@ -102,8 +109,17 @@ function flowerLoop(now) {
   if (!paused && !document.hidden) {
     if (rotationStart && now >= rotationStart) elapsed += dt;
     rotatingFlowers.forEach((flower) => { if (flower.visible) paintFlower(flower, elapsed); });
+    // Vinyl centre flowers spin on their own constant-speed clock: a clean 16s
+    // linear rotation with no easing ramp, so the disc's own motion reads as
+    // steady and elegant rather than easing in from a standstill.
+    for (const [stage, entry] of vinylFlowers) {
+      if (!stage.isConnected || !entry.flower.visible) continue;
+      const angle = ((now / 1000) / VINYL_SPIN_S) * Math.PI * 2;
+      entry.flower.object.quaternion.copy(entry.flower.restingPose).setFromAxisAngle(Y_AXIS, angle);
+      entry.flower.renderer.render(entry.flower.scene, entry.flower.camera);
+    }
   }
-  if (rotatingFlowers.size) requestAnimationFrame(flowerLoop);
+  if (rotatingFlowers.size || vinylFlowers.size) requestAnimationFrame(flowerLoop);
   else looping = false;
 }
 
@@ -309,17 +325,26 @@ async function init(host) {
   };
   controller.setProgress(1);
   flowerControllers.add(controller);
-  // Join the shared loop. The preloader's flower turns exactly like the hero's —
-  // same axes, same periods, same clock — so the veil lifts onto the hero flower
-  // already at the angle the veil was showing, and neither flower can ever jitter
-  // against the other. The preloader's is released when the veil goes.
-  rotatingFlowers.add(flower);
-  startFlowerLoop();
-  instances.set(host, { renderer, controller, flower });
-  // Only now does this stage count as painted. The shared rotation clock starts
-  // once the last flower on the page has reached this point, so every canvas
-  // hands off from the resting pose its still image was showing.
-  stagePainted();
+  // Vinyl centre flowers spin on their own constant-speed clock (see `flowerLoop`).
+  if (host.dataset.vinylFlower === 'true') {
+    // Skip the shared rotation loop for vinyl flowers — they have their own timer.
+    vinylFlowers.set(host, { flower, lastAngle: 0 });
+    startFlowerLoop();
+    instances.set(host, { renderer, controller, flower });
+    stagePainted();
+  } else {
+    // Join the shared loop. The preloader's flower turns exactly like the hero's —
+    // same axes, same periods, same clock — so the veil lifts onto the hero flower
+    // already at the angle the veil was showing, and neither flower can ever jitter
+    // against the other. The preloader's is released when the veil goes.
+    rotatingFlowers.add(flower);
+    startFlowerLoop();
+    instances.set(host, { renderer, controller, flower });
+    // Only now does this stage count as painted. The shared rotation clock starts
+    // once the last flower on the page has reached this point, so every canvas
+    // hands off from the resting pose its still image was showing.
+    stagePainted();
+  }
   // The flower is already whole (every petal visible since the first paint): there
   // is no build-in to run, so no page can reveal the flower assembling itself.
 }
@@ -356,4 +381,40 @@ if (hosts.length) {
 } else {
   // No stages on the page (e.g. a stripped-down view): still keep the brand
   // pause state working, but there is nothing to draw.
+}
+
+// Vinyl records are built dynamically by script.js when a beat is opened, so
+// their flower stages are not present at initial load. Watch for new `.vinyl-flower-stage`
+// elements and mount a flower on each one as it appears.
+const vinylStageSelector = '.vinyl-flower-stage';
+let vinylMutationObserver = null;
+function mountVinylFlowerIfMissing(stage) {
+  if (!stage || stage.dataset.vinylFlowerInitialized) return;
+  if (!stage.classList.contains('logo-stage')) return;
+  stage.dataset.vinylFlowerInitialized = 'true';
+  init(stage).catch((error) => {
+    console.warn('Vinyl flower mount failed:', error.message);
+    stage.dataset.flower = 'failed';
+    stagePainted();
+  });
+}
+function scanForVinylStages() {
+  document.querySelectorAll(vinylStageSelector).forEach(mountVinylFlowerIfMissing);
+}
+// Run once after a short delay to catch any stages that were added before this
+// script finished loading, then watch for new ones.
+setTimeout(scanForVinylStages, 100);
+if (typeof MutationObserver !== 'undefined') {
+  vinylMutationObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        if (node.matches && node.matches(vinylStageSelector)) {
+          mountVinylFlowerIfMissing(node);
+        }
+        node.querySelectorAll && node.querySelectorAll(vinylStageSelector).forEach(mountVinylFlowerIfMissing);
+      }
+    }
+  });
+  vinylMutationObserver.observe(document.body, { childList: true, subtree: true });
 }
