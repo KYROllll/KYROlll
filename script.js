@@ -263,7 +263,7 @@ function beatDetailInner(beat) {
       </div>
     </section>
     <div class="beat-detail__artwork-wrap">
-      <div class="vinyl-record${vinylModifier(vinylVariant)}" data-vinyl="${vinylVariant}" aria-hidden="true">
+      <div class="vinyl-record${vinylModifier(vinylVariant)}${beat.img === 'assets/beat-cover.png' ? ' vinyl-record--cover' : ''}" data-vinyl="${vinylVariant}" aria-hidden="true">
         ${outerRim}
         <span class="vinyl-record__logo-frame" aria-hidden="true">
           <img class="vinyl-record__logo" src="assets/kyrolll-flower.svg" alt="" width="300" height="300" loading="lazy">
