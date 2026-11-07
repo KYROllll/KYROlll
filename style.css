@@ -2113,7 +2113,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .motion-paused .logo-stage,
 .motion-paused .scroll-cue__arrow,
 .motion-paused .vinyl-record__logo,
-.motion-paused .brand-hero::before {
+.motion-paused .brand-hero::before,
+.motion-paused .flower-spinner__flower,
+.motion-paused .beat-preview[data-state="loading"] .beat-preview__toggle::after {
   animation-play-state: paused !important;
 }
 
@@ -3671,6 +3673,100 @@ html.preloader-armed { overflow-y: hidden; }
 }
 @media (prefers-reduced-motion: reduce) {
   .preloader { transition-duration: .01s; }
+}
+
+/* ---------- Branded flower loading indicator ------------------------------ */
+/* Every beat cover and every beat's audio preview reports "loading" with the
+   official flower turning in three dimensions — the same captured render the
+   hero hands off from, so a wait reads as the brand instead of a grey blank.
+   `.flower-spinner` is inserted by flower-spinner.js only while an image is
+   actually fetching; a settled card carries no indicator and no animation. */
+.catalog-tile__art,
+.beat-detail__artwork { position: relative; }
+
+.flower-media { transition: opacity .36s ease; }
+.is-loading > .flower-media { opacity: 0; }
+
+.flower-spinner {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  transition: opacity .34s ease;
+}
+.flower-spinner.is-done { opacity: 0; }
+.flower-spinner::before {
+  content: "";
+  position: absolute;
+  width: 44%;
+  max-width: 190px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, .06), transparent 68%);
+  pointer-events: none;
+}
+.flower-spinner__flower {
+  position: relative;
+  width: clamp(46px, 28%, 104px);
+  aspect-ratio: 1;
+  background: url("assets/kyrolll-flower-rest.png?v=4") center / contain no-repeat;
+  filter: drop-shadow(0 0 16px rgba(255, 255, 255, .28));
+  transform-style: preserve-3d;
+  backface-visibility: visible;
+  will-change: transform;
+  animation: flowerSpinnerTurn 3s linear infinite;
+}
+/* A full Y-axis flip renders the still render edge-on twice a turn — a white
+   sliver, which reads as a glitch rather than a flower. The turn is therefore a
+   continuous in-plane rotation carrying a gentle rocking Y tilt: the flower stays
+   whole at every frame, the perspective keeps it reading as a solid object, and
+   the motion is the same turntable the vinyl labels ride. */
+@keyframes flowerSpinnerTurn {
+  from { transform: perspective(620px) rotateX(14deg) rotateY(-16deg) rotateZ(0deg); }
+  50% { transform: perspective(620px) rotateX(14deg) rotateY(16deg) rotateZ(180deg); }
+  to { transform: perspective(620px) rotateX(14deg) rotateY(-16deg) rotateZ(360deg); }
+}
+
+/* The audio preview's own control wears the same indicator while a tap is
+   waiting on the file: the play/pause glyph steps aside and the flower turns in
+   the button, so the feed of the action is branded too. The button stays dark
+   under the pointer for the length of the wait, so the pearl flower never
+   washes out on the inverted hover fill. */
+.beat-preview__toggle { position: relative; }
+.beat-preview__toggle svg { transition: opacity .18s ease; }
+.beat-preview__toggle::after {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: url("assets/kyrolll-flower-rest.png?v=4") center / contain no-repeat;
+  filter: drop-shadow(0 0 7px rgba(255, 255, 255, .34));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  transition: opacity .18s ease;
+}
+.beat-preview[data-state="loading"] .beat-preview__toggle {
+  background: #0d0d0d;
+  color: var(--white);
+  border-color: #666;
+}
+.beat-preview[data-state="loading"] .beat-preview__toggle svg { opacity: 0; }
+.beat-preview[data-state="loading"] .beat-preview__toggle::after {
+  opacity: 1;
+  visibility: visible;
+  animation: flowerSpinnerTurn 3s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flower-spinner__flower,
+  .beat-preview[data-state="loading"] .beat-preview__toggle::after {
+    animation: none;
+  }
 }
 
 /* ---------- Live marquee accent ------------------------------------------- */

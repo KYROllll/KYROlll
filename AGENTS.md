@@ -204,6 +204,36 @@ then POST `toDataURL('image/png')` somewhere it can be saved. From the preview b
 receiver on host port 9099 is only reachable through the proxy: take `location.origin`
 and swap its `3000-` prefix for `9099-`. Delete the throwaway page afterwards.
 
+## Every media wait wears the flower
+
+`flower-spinner.js` turns the storefront's blank loading states into the brand. A cover
+(`.catalog-tile__art`, `.beat-detail__artwork`) that is still fetching gets a
+`.flower-spinner` — the captured resting render, `assets/kyrolll-flower-rest.png`, over a
+soft white bloom — and the cover itself is held at `opacity: 0` until it is decoded. The
+audio player answers the same wait through CSS alone: `.beat-preview[data-state="loading"]`
+hides the play glyph and paints the same render inside `.beat-preview__toggle::after`.
+
+The helper is deliberately not a second WebGL scene: a cover can be held for
+milliseconds, and building a renderer per image would cost far more than the wait it
+covers. It also never fetches or stores anything — `load`/`error` are captured at the
+document (they do not bubble, and capture also catches images a later grid render
+inserts), `script.js` hands each freshly built grid to `watch()`, and a settled container
+drops the node entirely, so a card at rest carries no idle animation. An image the
+browser already holds (a cache hit, or one that finished before the script ran) never
+shows a spinner at all; an image that fails clears the wait and leaves the broken cover
+visible. The `brand-design.test.mjs` audit is unaffected because the indicator is only
+painted while a fetch is genuinely pending.
+
+The turn is `flowerSpinnerTurn` (3s linear): a continuous in-plane rotation carrying a
+gentle rocking Y tilt. A full Y-axis flip was tried and reverted — the still render goes
+edge-on twice a turn and collapses to a white sliver, which reads as a glitch. Keep the
+flower whole at every frame. The
+page's `motion-toggle` pauses it (`animation-play-state`), and
+`prefers-reduced-motion: reduce` drops the animation to `none` so the flower simply
+holds its resting pose. `flower-spinner.test.mjs` holds a cover and an audio file
+mid-fetch to assert the indicator, its clock, its background image, the reduced-motion
+freeze and the clean hand-off.
+
 ## The falling-X canvas is clamped by CSS, not re-measured in JS
 
 `background-x.js` sizes its canvas from the page's measured height, so its value can be

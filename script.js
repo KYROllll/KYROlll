@@ -386,6 +386,9 @@ function buildGrid() {
     }
     grid.appendChild(card);
   });
+  // A freshly rendered card's artwork starts fetching right now: hand the new
+  // images to the flower indicator so the wait is branded instead of blank.
+  if (window.KYROlll_FLOWER_SPINNER) window.KYROlll_FLOWER_SPINNER.watch(grid);
   if (detail) {
     // The card fades in first; a beat later the record slides out from behind
     // the sleeve. The class only ever *adds* the exposed state — the tucked
