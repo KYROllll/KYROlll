@@ -124,7 +124,7 @@
       img: "assets/flesh.png",
       bpm: 130,
       key: "Am",
-      preview: "assets/previews/BEAT 1 TAG.wav",
+      preview: "assets/previews/flesh.mp3",
       youtube: "https://www.youtube.com/watch?v=8OhRJQn2YCU",
       deliverables: {
         mp3: [

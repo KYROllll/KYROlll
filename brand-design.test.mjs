@@ -653,7 +653,7 @@ try {
   assert.match(await direct.title(), /FLESH/);
   assert.equal(await direct.locator('#grid .beat-detail').count(), 1);
   assert.match(await direct.locator(CARD).innerText(), /130 BPM \/\/ AM/i);
-  assert.equal(await direct.locator(`${CARD} audio`).getAttribute('src'), 'assets/previews/BEAT 1 TAG.wav');
+  assert.equal(await direct.locator(`${CARD} audio`).getAttribute('src'), 'assets/previews/flesh.mp3');
   assert.equal(await direct.locator(`${CARD} .download-trigger`).count(), 1);
   const stableSelectors = [
     '.beat-detail',

@@ -82,7 +82,12 @@ test("the re-ingested ADLL beat is scheduled for today at 19:00 with its graffit
   ]);
   const marquee = readFileSync(new URL("./marquee-items.js", import.meta.url), "utf8");
   assert.match(marquee, /YEAT TYPE BEAT - A\.D\.L/, "the ticker announces the ADLL drop");
-  ["assets/previews/adll.mp3", "assets/previews/adll.wav", "assets/previews/adll-stems.zip", "assets/adll.png"]
+  [
+    "assets/previews/adll.mp3",
+    "assets/previews/adll.wav",
+    "assets/previews/adll-stems.zip",
+    "assets/adll.png",
+  ]
     .forEach((asset) => assert(readFileSync(new URL(`./${asset}`, import.meta.url)).length > 0, `${asset} is ingested`));
 });
 
@@ -115,7 +120,12 @@ test("the GUNNA drop is scheduled for 22:00 today and every record keeps the flo
     "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).wav",
     "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM) - TRACKED STEMS.zip",
   ]);
-  ["assets/beat-cover.png", "assets/previews/gunna-type.mp3", "assets/previews/gunna-type.wav", "assets/previews/gunna-type-stems.zip"]
+  [
+    "assets/beat-cover.png",
+    "assets/previews/gunna-type.mp3",
+    "assets/previews/gunna-type.wav",
+    "assets/previews/gunna-type-stems.zip",
+  ]
     .forEach((asset) => assert(readFileSync(new URL(`./${asset}`, import.meta.url)).length > 0, `${asset} is ingested`));
 
   // Every centre label is the signature KYROIII flower: the 3D WebGL stage is
@@ -190,7 +200,8 @@ test("every beat is audited for one uniform license, package set and secured loc
       assert(files.length > 0, `${beat.slug}: ${packageId} hands over at least one file`);
       files.forEach((item) => {
         assert.match(item.file, /^assets\//, `${beat.slug}: ${packageId} hands over a same-origin file`);
-        assert(readFileSync(new URL(`./${item.file}`, import.meta.url)).length > 0, `${beat.slug}: ${item.file} is present`);
+        const fpath = new URL(`./${item.file}`, import.meta.url).pathname;
+        assert(readFileSync(fpath).length > 0, `${beat.slug}: ${item.file} is present`);
       });
     });
     assert.match(helpers.deliverablesFor(beat.id, "exclusive").map((item) => item.file).join(" "), /stems\.zip$/,
