@@ -126,7 +126,6 @@
       key: "Am",
       preview: "assets/previews/BEAT 1 TAG.wav",
       youtube: "https://www.youtube.com/watch?v=8OhRJQn2YCU",
-      vinylVariant: "white",
       deliverables: {
         mp3: [
           { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (130 BPM - AM).mp3", label: "TAGGED MP3" }
@@ -151,7 +150,6 @@
       key: "C#m",
       preview: "assets/previews/the-flow.mp3",
       youtube: "https://www.youtube.com/watch?v=aHMCkzw9Wuo",
-      vinylVariant: "gold-rim",
       releaseAt: "2026-10-19T23:00:00+03:00",
       deliverables: {
         mp3: [
@@ -178,7 +176,6 @@
       key: "B",
       preview: "assets/previews/steam.mp3",
       youtube: "https://www.youtube.com/@KYROlll00",
-      vinylVariant: "sage-white-rim",
       releaseAt: "2026-10-22T23:00:00+03:00",
       deliverables: {
         mp3: [
@@ -205,7 +202,6 @@
       key: "FM",
       preview: "assets/previews/squish.mp3",
       youtube: "https://www.youtube.com/@KYROlll00",
-      vinylVariant: "ice-silver-rim",
       releaseAt: "2026-10-25T23:00:00+02:00",
       deliverables: {
         mp3: [
@@ -232,7 +228,6 @@
       key: "Am",
       preview: "assets/previews/just-do-it.mp3",
       youtube: "https://www.youtube.com/@KYROlll00",
-      vinylVariant: "rage-fire-rim",
       releaseAt: "2026-10-27T23:00:00+02:00",
       deliverables: {
         mp3: [
@@ -259,7 +254,6 @@
       key: "C#",
       preview: "assets/previews/adll.mp3",
       youtube: "https://www.youtube.com/@KYROlll00",
-      vinylVariant: "graffiti-splatter",
       releaseAt: "2026-11-02T19:00:00+02:00",
       deliverables: {
         mp3: [
@@ -286,7 +280,6 @@
       key: "Fm",
       preview: "assets/previews/gunna-type.mp3",
       youtube: "https://www.youtube.com/@KYROlll00",
-      vinylVariant: "white",
       // Schedule the drop for today at exactly 22:00 (Israel time).
       releaseAt: "2026-11-06T22:00:00+02:00",
       deliverables: {

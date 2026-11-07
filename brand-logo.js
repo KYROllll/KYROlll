@@ -119,10 +119,14 @@ function flowerLoop(now) {
     rotatingFlowers.forEach((flower) => { if (flower.visible) paintFlower(flower, elapsed); });
     // Vinyl centre flowers spin on their own constant-speed clock: a clean 16s
     // linear rotation with no easing ramp, so the disc's own motion reads as
-    // steady and elegant rather than easing in from a standstill. The resting
-    // tilt is preserved and the turn is applied on top of it, so the label keeps
-    // its three-dimensional lean while its face rotates — the whole flower is
-    // never replaced by a flat face-on disc. The tiny stage paints at ~30fps.
+    // steady and elegant rather than easing in from a standstill. The turn is a
+    // roll around the flower's own face normal (its local Z), composed *under*
+    // the resting pose — exactly how a label turns on a platter: flat on the
+    // record surface, around its own centre. The old Y-axis turn sent the flower
+    // through edge-on twice a revolution (the "side-flip"), which is not what a
+    // record does. The sign is negative so the canvas turns the same way the
+    // SVG fallback's clockwise `vinylCenterSpin` does; the tiny stage paints at
+    // ~30fps.
     vinylElapsed += dt;
     if (now - lastVinylPaint >= 1000 / VINYL_FPS) {
       lastVinylPaint = now;
@@ -133,8 +137,8 @@ function flowerLoop(now) {
           continue;
         }
         if (!entry.flower.visible) continue;
-        entry.flower.spin.setFromAxisAngle(Y_AXIS, angle);
-        entry.flower.object.quaternion.copy(entry.flower.restingPose).multiply(entry.flower.spin);
+        entry.flower.vinylSpin.setFromAxisAngle(Z_AXIS, -angle);
+        entry.flower.object.quaternion.copy(entry.flower.restingPose).multiply(entry.flower.vinylSpin);
         entry.flower.renderer.render(entry.flower.scene, entry.flower.camera);
       }
     }
@@ -338,7 +342,10 @@ async function init(host) {
   host.classList.add('is-ready');
   const flower = {
     renderer, scene, camera, object, restingPose, rim, visible: true,
-    spin: new THREE.Quaternion(), tumble: new THREE.Quaternion(), roll: new THREE.Quaternion()
+    spin: new THREE.Quaternion(), tumble: new THREE.Quaternion(), roll: new THREE.Quaternion(),
+    // The vinyl label's own in-plane roll (local Z). Kept apart from the shared
+    // loop's Y/X/Z tumble so a centre label can never inherit the hero's tilt.
+    vinylSpin: new THREE.Quaternion()
   };
   new IntersectionObserver(([entry]) => { flower.visible = entry.isIntersecting; }).observe(host);
   flower.renderStill = () => renderer.render(scene, camera);

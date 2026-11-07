@@ -1429,36 +1429,105 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   z-index: 1;
 }
 
-/* FLESH's pressing: a premium white collector disc shot through with smoky
-   charcoal marbling — soft charcoal plumes drifting under the pearl surface, a
-   fine charcoal flake field and the black centre label that is the whole point
-   of the slide-out. Every tone is an equal-channel grey (the storefront's
-   monochrome rule): the marbling never turns the pearl disc into a coloured
-   record, it deepens it. A soft specular highlight at the top-left and two sets
-   of concentric grooves keep it reading as pressed vinyl. */
-.vinyl-record--white {
+/* ---------- The pressing: one plant, a palette cut from each cover --------- */
+/* No beat carries its own vinyl stylesheet block any more. `vinyl-palette.js`
+   samples the beat's cover art (the same `img` the sleeve shows), reads its
+   dominant hue, its accent hue and its overall luminance, and writes the tones
+   onto this record as `--vinyl-*` custom properties. Everything below paints
+   from those properties: the opaque body, the marbling plumes, the flake field,
+   the playing grooves, the centre label and the foil rim. Seven covers
+   therefore press seven different records from one rule set — and a new beat is
+   a catalog edit, not a new block of CSS.
+
+   The fallbacks are the store's neutral black/silver pressing, so a record is
+   already a record before its cover has decoded (and in a browser without 2D
+   canvas). Every colour literal in this block is an equal-channel grey; all the
+   cover colour lives in the per-record properties, which is the deliberately
+   isolated vinyl palette the brand audit exempts. */
+.vinyl-record--pressing {
+  /* the neutral pressing, until the cover reading lands */
+  --vinyl-body-1: #1b1b1b;
+  --vinyl-body-2: #101010;
+  --vinyl-body-3: #050505;
+  --vinyl-sheen-1: rgba(255, 255, 255, 0.14);
+  --vinyl-sheen-2: rgba(255, 255, 255, 0.045);
+  --vinyl-sheen-3: rgba(255, 255, 255, 0.07);
+  --vinyl-sheen-4: rgba(255, 255, 255, 0.12);
+  --vinyl-lip: rgba(255, 255, 255, 0.1);
+  --vinyl-groove-1: rgba(255, 255, 255, 0.05);
+  --vinyl-groove-2: rgba(0, 0, 0, 0.24);
+  --vinyl-marble-1: rgba(255, 255, 255, 0.1);
+  --vinyl-marble-2: rgba(255, 255, 255, 0.06);
+  --vinyl-vein-1: rgba(255, 255, 255, 0.09);
+  --vinyl-vein-2: rgba(0, 0, 0, 0.22);
+  --vinyl-flake-1: rgba(255, 255, 255, 0.3);
+  --vinyl-flake-2: rgba(255, 255, 255, 0.18);
+  --vinyl-vein-x: 64%;
+  --vinyl-vein-y: 24%;
+  --vinyl-vein-x-2: 36%;
+  --vinyl-vein-y-2: 76%;
+  --vinyl-label-1: #1c1c1c;
+  --vinyl-label-2: #050505;
+  --vinyl-label-ring: rgba(255, 255, 255, 0.16);
+  --vinyl-label-edge: rgba(255, 255, 255, 0.2);
+  --vinyl-label-size: 40%;
+  --vinyl-glow: rgba(255, 255, 255, 0.28);
+  --vinyl-rim-1: #8a8a8a;
+  --vinyl-rim-2: #d4d4d4;
+  --vinyl-rim-3: #f5f5f5;
+  --vinyl-rim-4: #bdbdbd;
+  --vinyl-rim-width: 2.4px;
   background:
-    /* the shared pressing finish — lead-in band and fixed room light */
-    radial-gradient(circle at 50% 50%, transparent 0 96.2%, rgba(0, 0, 0, 0.14) 96.7% 97.3%, transparent 97.9%),
-    linear-gradient(118deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.2) 22%, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0) 66%, rgba(255, 255, 255, 0.18) 86%, rgba(255, 255, 255, 0.42) 100%),
-    /* smoky charcoal marbling under the pearl surface */
-    radial-gradient(ellipse 26% 11% at 63% 23%, rgba(38, 38, 38, 0.38) 0%, rgba(38, 38, 38, 0.14) 46%, rgba(38, 38, 38, 0) 74%),
-    radial-gradient(ellipse 19% 8% at 29% 57%, rgba(46, 46, 46, 0.3) 0%, rgba(46, 46, 46, 0) 72%),
-    radial-gradient(ellipse 32% 7% at 54% 79%, rgba(30, 30, 30, 0.24) 0%, rgba(30, 30, 30, 0) 74%),
-    radial-gradient(ellipse 13% 5% at 78% 61%, rgba(52, 52, 52, 0.22) 0%, rgba(52, 52, 52, 0) 78%),
-    /* a fine charcoal flake field scattered through the smoke */
-    radial-gradient(circle, rgba(40, 40, 40, 0.4) 0 0.7px, transparent 1.1px) 3px 5px / 13px 17px,
-    radial-gradient(circle, rgba(60, 60, 60, 0.26) 0 0.9px, transparent 1.4px) 9px 2px / 21px 27px,
-    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0) 34%),
-    radial-gradient(circle at 72% 80%, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0) 42%),
-    repeating-radial-gradient(circle at 50% 50%, rgba(20, 20, 20, 0.08) 0 1px, transparent 1px 6px),
-    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.85) 0 1px, transparent 1px 11px),
-    radial-gradient(circle at 50% 50%, #ffffff 0%, #f5f5f5 42%, #e6e6e6 70%, #fafafa 86%, #d4d4d4 100%);
+    /* the shared pressing finish — the smooth unrecorded lead-in band between
+       the raised outer lip and the first groove */
+    radial-gradient(circle at 50% 50%, transparent 0 96.2%, var(--vinyl-lip) 96.7% 97.3%, transparent 97.9%),
+    /* one fixed room light sweeping the surface — never an animation */
+    linear-gradient(118deg, var(--vinyl-sheen-1) 0%, var(--vinyl-sheen-2) 20%, transparent 34%, transparent 68%, var(--vinyl-sheen-3) 86%, var(--vinyl-sheen-4) 100%),
+    /* the cover's accent drifting as soft plumes under the surface */
+    radial-gradient(ellipse 26% 11% at var(--vinyl-vein-x) var(--vinyl-vein-y), var(--vinyl-marble-1) 0%, transparent 74%),
+    radial-gradient(ellipse 19% 8% at var(--vinyl-vein-x-2) var(--vinyl-vein-y-2), var(--vinyl-marble-2) 0%, transparent 74%),
+    /* a fine flake field scattered through the pressing */
+    radial-gradient(circle, var(--vinyl-flake-1) 0 0.7px, transparent 1.1px) 3px 5px / 13px 17px,
+    radial-gradient(circle, var(--vinyl-flake-2) 0 0.9px, transparent 1.4px) 9px 2px / 21px 27px,
+    /* concentric playing grooves */
+    repeating-radial-gradient(circle at 50% 50%, var(--vinyl-groove-1) 0 1px, transparent 1px 7px),
+    repeating-radial-gradient(circle at 50% 50%, var(--vinyl-groove-2) 0 2px, transparent 2px 9px),
+    /* the opaque body: a pressed record never lets the page through */
+    radial-gradient(circle at 50% 50%, var(--vinyl-body-1) 0%, var(--vinyl-body-2) 58%, var(--vinyl-body-3) 82%, var(--vinyl-body-2) 100%);
   box-shadow:
-    0 28px 64px rgba(0, 0, 0, 0.9),
-    0 0 0 1px rgba(0, 0, 0, 0.35),
-    0 0 0 2px rgba(255, 255, 255, 0.14),
-    inset 0 0 40px rgba(255, 255, 255, 0.55);
+    0 26px 58px rgba(0, 0, 0, 0.88),
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 0 42px rgba(0, 0, 0, 0.62);
+}
+
+/* The inner press: a second, denser groove band and the cover's accent caught
+   in the lacquer. It never paints the label — the label is `::after`. */
+.vinyl-record--pressing::before {
+  inset: 7%;
+  background:
+    radial-gradient(circle, var(--vinyl-flake-1) 0 0.7px, transparent 1.1px) 4px 6px / 8px 10px,
+    radial-gradient(ellipse 24% 9% at var(--vinyl-vein-x) var(--vinyl-vein-y), var(--vinyl-vein-1) 0%, transparent 76%),
+    radial-gradient(ellipse 18% 7% at var(--vinyl-vein-x-2) var(--vinyl-vein-y-2), var(--vinyl-vein-2) 0%, transparent 76%),
+    repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, var(--vinyl-groove-1) 3px 4px, transparent 4px 8px);
+  opacity: 0.9;
+  z-index: 0;
+}
+
+/* The centre label is a deep tint of the cover's own colour, ringed with its
+   accent. It is the physical label of the pressing — the signature flower
+   always rides on top of it, never replaced by cover art. */
+.vinyl-record--pressing::after {
+  width: var(--vinyl-label-size);
+  height: var(--vinyl-label-size);
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 84%, var(--vinyl-label-ring) 84.5% 86%, transparent 86.5%),
+    radial-gradient(circle at 50% 36%, var(--vinyl-label-1) 0%, var(--vinyl-label-2) 72%);
+  border: 1px solid var(--vinyl-label-edge);
+  box-shadow:
+    inset 0 0 0 2px rgba(0, 0, 0, 0.5),
+    inset 0 0 26px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(255, 255, 255, 0.14);
+  z-index: 1;
 }
 
 /* The reveal. `vinyl-open` is added by script.js 1.35 s after the beat card is
@@ -1466,11 +1535,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    the eye for a moment). The record is *already* tucked at that point — the
    `:not()` rule is the element's very first computed state — so nothing is ever
    painted in the exposed position first: no pop, no pre-render flash.
-   Only `translateX` (and a gentle opacity) moves. The old 360° rotation is gone
-   for good: a rotating square's axis-aligned box grows by √2 mid-transition and
-   overshot the stage by ~74 px, which was the "pop / breach" glitch. A pure
-   horizontal slide keeps the circle, its box and its shadow inside the stage the
-   whole way, on the same buttery 1 s `cubic-bezier`. */
+   Only `translateX` (and a gentle opacity) moves: a pure horizontal slide keeps
+   the circle, its box and its shadow inside the stage the whole way. */
 @media (prefers-reduced-motion: no-preference) {
   .vinyl-record {
     transition:
@@ -1483,114 +1549,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   }
 }
 
-.vinyl-record::before {
-  inset: 9%;
-  background: repeating-radial-gradient(circle, #131313, #131313 3px, #232323 4px, #0d0d0d 5px);
-  opacity: 0.85;
-  z-index: 0;
-}
-
-/* Center label: the signature flower, spinning like a real platter. */
-.vinyl-record::after {
-  width: 36%;
-  height: 36%;
-  background: radial-gradient(circle at 50% 38%, #242424, #0b0b0b 72%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.9);
-  z-index: 0;
-}
-
-/* The pearl disc's label is deliberately the opposite of the vinyl: a broad deep
-   matte black field with a crisp silver inner ring. There is no spindle hole in
-   the label paint — the official flower's centre must stay intact. The label is
-   large enough that the exposed crescent is a real black stage for the logo. */
-.vinyl-record--white::before {
-  inset: 7%;
-  background:
-    repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, rgba(18, 18, 18, 0.08) 3px 4px, transparent 4px 9px);
-  opacity: 0.9;
-}
-
-.vinyl-record--white::after {
-  width: 58%;
-  height: 58%;
-  background:
-    radial-gradient(circle at 50% 50%, transparent 0 84%, rgba(255, 255, 255, 0.16) 84.5% 86%, transparent 86.5%),
-    radial-gradient(circle at 50% 36%, #1c1c1c 0%, #0a0a0a 68%, #050505 100%);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  box-shadow:
-    inset 0 0 0 2px #0a0a0a,
-    inset 0 0 0 3px rgba(255, 255, 255, 0.12),
-    inset 0 0 26px rgba(0, 0, 0, 0.95),
-    0 0 0 1px rgba(255, 255, 255, 0.38),
-    0 0 18px rgba(255, 255, 255, 0.12);
-}
-
-/* The frame is a positioning wrapper; the image inside is the only thing that
-   rotates. Keeping those transforms separate means the spin can never move the
-   frame, grow the record's bounding box or blur the art. On the classic black
-   pressing the logo stays in the middle of its small label; on the pearl-white
-   pressing it sits at the optical centre of the exposed label crescent (65.2% of
-   the record), so the sleeve never crops any part of it. Every pressing uses the
-   same signature flower label — a record never wears its cover art. */
-.vinyl-record__logo-frame {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 30%;
-  height: 30%;
-  transform: translate(-50%, -50%);
-  z-index: 1;
-  pointer-events: none;
-}
-
-.vinyl-record--white .vinyl-record__logo-frame {
-  left: 65.2%;
-  width: 22%;
-  height: 22%;
-}
-
-/* THE FLOW gold-rim palette — the vinyl's deliberate colour exception. */
-/* THE FLOW's collector pressing: a deep matte black disc with one ultra-fine
-   metallic gold foil rim. The rim is only a masked hairline at the outer
-   perimeter, so it never crosses the centre label or the spinning flower. */
-.vinyl-record--gold-rim {
-  background:
-    /* the shared pressing finish — lead-in band and fixed room light */
-    radial-gradient(circle at 50% 50%, transparent 0 96.2%, rgba(255, 255, 255, 0.1) 96.7% 97.3%, transparent 97.9%),
-    linear-gradient(118deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.025) 20%, rgba(255, 255, 255, 0) 34%, rgba(255, 255, 255, 0) 68%, rgba(255, 255, 255, 0.045) 86%, rgba(255, 255, 255, 0.08) 100%),
-    radial-gradient(circle at 32% 22%, rgba(255, 255, 255, 0.035) 0%, transparent 34%),
-    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 7px),
-    radial-gradient(circle at 50% 50%, #0a0a0c 0%, #0a0a0c 58%, #070708 82%, #0a0a0c 100%);
-}
-/* Gold flake micro-dust suspended in the black pressing: two off-phase tiled
-   flake fields (0.6–0.9px) plus a handful of individual foil flecks between 1px
-   and 1.7px, so the disc catches the light while it slides out. Nothing here is
-   ever large enough to read as a splatter, and the label stays clean above it. */
-.vinyl-record--gold-rim::before {
-  inset: 8%;
-  background:
-    radial-gradient(circle, rgba(212, 175, 55, 0.55) 0 0.6px, transparent 1px) 3px 4px / 11px 13px,
-    radial-gradient(circle, rgba(229, 193, 88, 0.34) 0 0.8px, transparent 1.3px) 7px 2px / 19px 23px,
-    radial-gradient(circle 1.4px at 22% 27%, rgba(212, 175, 55, 0.62) 0 100%, transparent 100%),
-    radial-gradient(circle 1.1px at 34% 12%, rgba(255, 243, 176, 0.5) 0 100%, transparent 100%),
-    radial-gradient(circle 1.7px at 47% 38%, rgba(229, 193, 88, 0.58) 0 100%, transparent 100%),
-    radial-gradient(circle 1.2px at 58% 71%, rgba(212, 175, 55, 0.44) 0 100%, transparent 100%),
-    radial-gradient(circle 1.5px at 69% 24%, rgba(255, 243, 176, 0.5) 0 100%, transparent 100%),
-    radial-gradient(circle 1px at 78% 52%, rgba(229, 193, 88, 0.4) 0 100%, transparent 100%),
-    radial-gradient(circle 1.6px at 86% 79%, rgba(212, 175, 55, 0.56) 0 100%, transparent 100%),
-    radial-gradient(circle 1.2px at 15% 63%, rgba(255, 243, 176, 0.42) 0 100%, transparent 100%),
-    radial-gradient(circle 1.3px at 41% 88%, rgba(229, 193, 88, 0.46) 0 100%, transparent 100%),
-    repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, rgba(255, 255, 255, 0.045) 3px 4px, transparent 4px 8px);
-  opacity: 0.92;
-}
-/* The foil edge is given a touch more body than the plain hairline so the
-   metallic ring reads as a brushed gold rim rather than a printed line. */
-.vinyl-record--gold-rim .vinyl-record__rim {
-  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - 3px), #000 calc(100% - 1.8px) 100%);
-  mask: radial-gradient(circle closest-side, transparent calc(100% - 3px), #000 calc(100% - 1.8px) 100%);
-  opacity: 1;
-}
+/* The foil rim: one masked conic hairline at the very perimeter, painted above
+   the disc so it can never cross the label or the flower. Every pressing has
+   one — its tone, not its presence, comes from the cover. */
 .vinyl-record__rim {
   position: absolute;
   inset: 0;
@@ -1598,322 +1559,48 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   pointer-events: none;
   z-index: 3;
   background: conic-gradient(from 215deg,
-    #8a6518 0deg,
-    #d4af37 28deg,
-    #fff3b0 48deg,
-    #e5c158 72deg,
-    #b8860b 112deg,
-    #f3d36a 148deg,
-    #8a6518 190deg,
-    #d4af37 228deg,
-    #fff3b0 262deg,
-    #c99727 300deg,
-    #8a6518 360deg);
-  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - 2.4px), #000 calc(100% - 1.6px) 100%);
-  mask: radial-gradient(circle closest-side, transparent calc(100% - 2.4px), #000 calc(100% - 1.6px) 100%);
-  opacity: 0.96;
-}
-.vinyl-record--gold-rim::after { z-index: 1; }
-.vinyl-record--gold-rim .vinyl-record__logo-frame { z-index: 2; }
-/* End THE FLOW gold-rim palette. */
-
-/* GREEN FLESH sage-white-rim palette — the third pressing's deliberate colour exception. */
-/* GREEN FLESH's atmospheric collector pressing: a smoky grey-green body with fine
-   concentric micro-grooves, a soft specular sheen and one delicate pure-white
-   hairline along the outer perimeter. The centre label stays deep matte black,
-   so the complete spinning flower has the same stage as the other pressings.
-   The rim reuses the base masked hairline, so no graphic ever enters the disc. */
-.vinyl-record--sage-white-rim {
-  background:
-    /* the shared pressing finish — lead-in band and fixed room light */
-    radial-gradient(circle at 50% 50%, transparent 0 96.2%, rgba(255, 255, 255, 0.14) 96.7% 97.3%, transparent 97.9%),
-    linear-gradient(118deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.04) 22%, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0) 66%, rgba(255, 255, 255, 0.05) 86%, rgba(255, 255, 255, 0.1) 100%),
-    /* translucent marbling: pale sage veins drifting over a darker body */
-    radial-gradient(ellipse 24% 9% at 64% 21%, rgba(214, 230, 221, 0.24) 0%, rgba(214, 230, 221, 0.08) 48%, rgba(214, 230, 221, 0) 76%),
-    radial-gradient(ellipse 17% 7% at 33% 58%, rgba(8, 22, 17, 0.36) 0%, rgba(8, 22, 17, 0) 74%),
-    radial-gradient(ellipse 28% 6% at 57% 84%, rgba(196, 216, 206, 0.18) 0%, rgba(196, 216, 206, 0) 76%),
-    radial-gradient(ellipse 11% 5% at 78% 62%, rgba(12, 26, 21, 0.3) 0%, rgba(12, 26, 21, 0) 80%),
-    /* a fine mineral grain inside the marble */
-    radial-gradient(circle, rgba(220, 235, 228, 0.24) 0 0.7px, transparent 1.1px) 4px 7px / 15px 19px,
-    radial-gradient(circle at 30% 24%, rgba(224, 235, 228, 0.16) 0%, rgba(224, 235, 228, 0) 34%),
-    radial-gradient(circle at 72% 80%, rgba(5, 16, 12, 0.24) 0%, rgba(5, 16, 12, 0) 44%),
-    repeating-radial-gradient(circle at 50% 50%, rgba(235, 245, 239, 0.045) 0 1px, transparent 1px 7px),
-    repeating-radial-gradient(circle at 50% 50%, rgba(5, 16, 12, 0.16) 0 2px, transparent 2px 9px),
-    radial-gradient(circle at 50% 50%, #3a4b44 0%, #2d3b36 58%, #22302b 82%, #2d3b36 100%);
-  box-shadow:
-    0 26px 58px rgba(0, 0, 0, 0.85),
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    inset 0 0 42px rgba(0, 0, 0, 0.44);
-}
-/* The outer edge wears a soft white mist inside the crisp hairline: a pale halo
-   that fades in over the last few percent of the disc, painted under the label. */
-.vinyl-record--sage-white-rim::before {
-  inset: 7%;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0) 0 86%, rgba(255, 255, 255, 0.1) 93%, rgba(255, 255, 255, 0.26) 98.5%, rgba(255, 255, 255, 0) 100%),
-    repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, rgba(5, 16, 12, 0.16) 3px 4px, transparent 4px 8px);
-  opacity: 0.78;
-}
-.vinyl-record--sage-white-rim::after {
-  width: 36%;
-  height: 36%;
-  background: radial-gradient(circle at 50% 38%, #1a1a1a 0%, #0a0a0a 70%, #050505 100%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.9);
-  z-index: 1;
-}
-.vinyl-record--sage-white-rim .vinyl-record__rim {
-  background: conic-gradient(from 215deg,
-    #f5f5f5 0deg,
-    rgba(255, 255, 255, 0.85) 38deg,
-    #ffffff 74deg,
-    #f5f5f5 128deg,
-    rgba(255, 255, 255, 0.85) 196deg,
-    #ffffff 252deg,
-    #f5f5f5 312deg,
-    #ffffff 360deg);
-  opacity: 1;
-}
-.vinyl-record--sage-white-rim .vinyl-record__logo-frame { z-index: 2; }
-/* End GREEN FLESH sage-white-rim palette. */
-
-/* SQUISH! ice-silver-rim palette — the fourth pressing's deliberate colour exception. */
-/* SQUISH!'s diamond collector pressing: an icy chrome-slate body in
-   #cfd4da / #b8bec6 with fine concentric diamond-silver micro-grooves, a cool
-   specular sheen and one crisp pure-white hairline around the perimeter. The
-   centre label stays deep matte black so the complete spinning flower keeps its
-   stage; the record still holds only the masked rim and the flower. */
-.vinyl-record--ice-silver-rim {
-  background:
-    /* the shared pressing finish — lead-in band and fixed room light */
-    radial-gradient(circle at 50% 50%, transparent 0 96.2%, rgba(255, 255, 255, 0.4) 96.7% 97.3%, transparent 97.9%),
-    linear-gradient(118deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.12) 22%, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0) 66%, rgba(255, 255, 255, 0.14) 86%, rgba(255, 255, 255, 0.34) 100%),
-    /* diamond-cut facets: two crossing specular bands and a cool counter-sheen */
-    linear-gradient(116deg, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, 0.62) 50%, rgba(255, 255, 255, 0) 60%),
-    linear-gradient(-118deg, rgba(255, 255, 255, 0) 42%, rgba(255, 255, 255, 0.34) 50%, rgba(255, 255, 255, 0) 58%),
-    radial-gradient(ellipse 30% 12% at 68% 26%, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 72%),
-    radial-gradient(circle at 31% 22%, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0) 31%),
-    radial-gradient(circle at 72% 82%, rgba(52, 60, 70, 0.3) 0%, rgba(52, 60, 70, 0) 46%),
-    /* crystal-clear shimmer micro-grooves, two densities */
-    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.34) 0 1px, transparent 1px 4px),
-    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.2) 0 1px, transparent 1px 6px),
-    repeating-radial-gradient(circle at 50% 50%, rgba(90, 100, 112, 0.22) 0 2px, transparent 2px 9px),
-    radial-gradient(circle at 50% 50%, #cfd4da 0%, #c7ccd3 42%, #b8bec6 72%, #cbd0d6 88%, #b8bec6 100%);
-  box-shadow:
-    0 26px 58px rgba(0, 0, 0, 0.82),
-    0 0 0 1px rgba(255, 255, 255, 0.5),
-    inset 0 0 44px rgba(255, 255, 255, 0.28);
-}
-.vinyl-record--ice-silver-rim::before {
-  inset: 7%;
-  background:
-    /* a crisp white outer edge that fades into the disc */
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0) 0 88%, rgba(255, 255, 255, 0.22) 95%, rgba(255, 255, 255, 0.52) 99%, rgba(255, 255, 255, 0) 100%),
-    repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, rgba(255, 255, 255, 0.2) 3px 4px, transparent 4px 8px),
-    repeating-radial-gradient(circle at 50% 50%, transparent 0 11px, rgba(90, 100, 112, 0.18) 11px 12px, transparent 12px 18px);
-  opacity: 0.82;
-}
-.vinyl-record--ice-silver-rim::after {
-  width: 36%;
-  height: 36%;
-  background: radial-gradient(circle at 50% 38%, #1a1a1a 0%, #0a0a0a 70%, #050505 100%);
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  box-shadow:
-    inset 0 0 22px rgba(0, 0, 0, 0.94),
-    0 0 0 1px rgba(255, 255, 255, 0.34),
-    0 0 20px rgba(255, 255, 255, 0.16);
-  z-index: 1;
-}
-.vinyl-record--ice-silver-rim .vinyl-record__rim {
-  background: conic-gradient(from 215deg,
-    #ffffff 0deg,
-    rgba(255, 255, 255, 0.72) 44deg,
-    #ffffff 76deg,
-    #f7f9fb 128deg,
-    rgba(255, 255, 255, 0.86) 196deg,
-    #ffffff 252deg,
-    #f7f9fb 312deg,
-    #ffffff 360deg);
-  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - 2.4px), #000 calc(100% - 1.6px) 100%);
-  mask: radial-gradient(circle closest-side, transparent calc(100% - 2.4px), #000 calc(100% - 1.6px) 100%);
-  opacity: 1;
-}
-.vinyl-record--ice-silver-rim .vinyl-record__logo-frame { z-index: 2; }
-/* End SQUISH! ice-silver-rim palette. */
-
-/* JUST D0 IT rage-fire-rim palette — the fifth pressing's deliberate colour exception. */
-/* JUST D0 IT's collector pressing: a deep matte black body in #0a0a0a with fine
-   concentric micro-grooves, a soft neutral sheen and one delicate fiery
-   red/orange hairline around the perimeter. The matte black centre label keeps
-   the complete spinning flower in its usual clean stage; the record still holds
-   only the masked rim and the flower, with no extra graphic layer. */
-.vinyl-record--rage-fire-rim {
-  background:
-    /* the shared pressing finish — lead-in band and fixed room light */
-    radial-gradient(circle at 50% 50%, transparent 0 96.2%, rgba(255, 255, 255, 0.09) 96.7% 97.3%, transparent 97.9%),
-    linear-gradient(118deg, rgba(255, 255, 255, 0.085) 0%, rgba(255, 255, 255, 0.02) 20%, rgba(255, 255, 255, 0) 34%, rgba(255, 255, 255, 0) 68%, rgba(255, 255, 255, 0.04) 86%, rgba(255, 255, 255, 0.075) 100%),
-    radial-gradient(circle at 31% 22%, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 34%),
-    radial-gradient(circle at 72% 82%, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0) 46%),
-    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 7px),
-    repeating-radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.46) 0 2px, transparent 2px 9px),
-    radial-gradient(circle at 50% 50%, #0a0a0a 0%, #0a0a0a 58%, #060606 82%, #0a0a0a 100%);
-  box-shadow:
-    0 26px 58px rgba(0, 0, 0, 0.88),
-    0 0 0 1px rgba(255, 255, 255, 0.06),
-    inset 0 0 42px rgba(0, 0, 0, 0.72);
-}
-.vinyl-record--rage-fire-rim::before {
-  inset: 7%;
-  background:
-    repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, rgba(255, 255, 255, 0.045) 3px 4px, transparent 4px 8px);
-  opacity: 0.66;
-}
-.vinyl-record--rage-fire-rim::after {
-  width: 36%;
-  height: 36%;
-  background: radial-gradient(circle at 50% 38%, #151515 0%, #0a0a0a 70%, #050505 100%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow:
-    inset 0 0 22px rgba(0, 0, 0, 0.94),
-    0 0 0 1px rgba(255, 255, 255, 0.08);
-  z-index: 1;
-}
-.vinyl-record--rage-fire-rim .vinyl-record__rim {
-  background: conic-gradient(from 215deg,
-    #7a140f 0deg,
-    #ff3b30 26deg,
-    #ff7a18 48deg,
-    #ff4d4f 72deg,
-    #a51d16 112deg,
-    #ff6a2a 148deg,
-    #7a140f 190deg,
-    #ff3b30 228deg,
-    #ffb15c 262deg,
-    #ff4d4f 300deg,
-    #7a140f 360deg);
-  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - 2.4px), #000 calc(100% - 1.6px) 100%);
-  mask: radial-gradient(circle closest-side, transparent calc(100% - 2.4px), #000 calc(100% - 1.6px) 100%);
+    var(--vinyl-rim-1) 0deg,
+    var(--vinyl-rim-2) 34deg,
+    var(--vinyl-rim-3) 52deg,
+    var(--vinyl-rim-4) 96deg,
+    var(--vinyl-rim-1) 168deg,
+    var(--vinyl-rim-2) 224deg,
+    var(--vinyl-rim-3) 258deg,
+    var(--vinyl-rim-4) 306deg,
+    var(--vinyl-rim-1) 360deg);
+  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - var(--vinyl-rim-width)), #000 calc(100% - 1.6px) 100%);
+  mask: radial-gradient(circle closest-side, transparent calc(100% - var(--vinyl-rim-width)), #000 calc(100% - 1.6px) 100%);
   opacity: 0.98;
 }
-.vinyl-record--rage-fire-rim .vinyl-record__logo-frame { z-index: 2; }
-/* End JUST D0 IT rage-fire-rim palette. */
 
-/* The graffiti-splatter pressing: a deep matte black disc dusted with an
-   ultra-fine white aerosol spray — micro-speckles, fine mist droplets and three
-   off-phase grain grids between 1px and 2.5px. The dust is painted as layered
-   radial gradients on the disc itself, never extra DOM elements and never an
-   animation, so the exposed vinyl reads as a street-pressed collector disc while
-   the flower keeps its clean, uninterrupted 16s spin. The matte black centre
-   label sits above the spray, so the mark always has a clean stage. */
-.vinyl-record--graffiti-splatter {
-  background:
-    /* the shared pressing finish — lead-in band and fixed room light */
-    radial-gradient(circle at 50% 50%, transparent 0 96.2%, rgba(255, 255, 255, 0.09) 96.7% 97.3%, transparent 97.9%),
-    linear-gradient(118deg, rgba(255, 255, 255, 0.085) 0%, rgba(255, 255, 255, 0.02) 20%, rgba(255, 255, 255, 0) 34%, rgba(255, 255, 255, 0) 68%, rgba(255, 255, 255, 0.04) 86%, rgba(255, 255, 255, 0.075) 100%),
-    /* fine aerosol grain: three off-phase tiled micro-dot fields */
-    radial-gradient(circle, rgba(255, 255, 255, 0.3) 0 0.6px, transparent 1px) 2px 3px / 9px 11px,
-    radial-gradient(circle, rgba(255, 255, 255, 0.22) 0 0.8px, transparent 1.3px) 7px 1px / 17px 19px,
-    radial-gradient(circle, rgba(255, 255, 255, 0.16) 0 1px, transparent 1.6px) 3px 9px / 27px 31px,
-    /* scattered 1px–2.5px droplets, deliberately irregular */
-    radial-gradient(circle 1.8px at 21% 18%, rgba(255, 255, 255, 0.72) 0 100%, transparent 100%),
-    radial-gradient(circle 2.2px at 29% 9%, rgba(255, 255, 255, 0.62) 0 100%, transparent 100%),
-    radial-gradient(circle 1px at 37% 25%, rgba(255, 255, 255, 0.55) 0 100%, transparent 100%),
-    radial-gradient(circle 2.5px at 47% 12%, rgba(255, 255, 255, 0.7) 0 100%, transparent 100%),
-    radial-gradient(circle 1.2px at 56% 63%, rgba(255, 255, 255, 0.45) 0 100%, transparent 100%),
-    radial-gradient(circle 2px at 66% 49%, rgba(255, 255, 255, 0.68) 0 100%, transparent 100%),
-    radial-gradient(circle 1.6px at 75% 72%, rgba(255, 255, 255, 0.58) 0 100%, transparent 100%),
-    radial-gradient(circle 2.4px at 84% 16%, rgba(255, 255, 255, 0.66) 0 100%, transparent 100%),
-    radial-gradient(circle 1.3px at 92% 31%, rgba(255, 255, 255, 0.5) 0 100%, transparent 100%),
-    radial-gradient(circle 1.9px at 20% 68%, rgba(255, 255, 255, 0.6) 0 100%, transparent 100%),
-    radial-gradient(circle 2.3px at 31% 83%, rgba(255, 255, 255, 0.64) 0 100%, transparent 100%),
-    radial-gradient(circle 1.1px at 44% 74%, rgba(255, 255, 255, 0.38) 0 100%, transparent 100%),
-    radial-gradient(circle 2.1px at 58% 87%, rgba(255, 255, 255, 0.55) 0 100%, transparent 100%),
-    radial-gradient(circle 1.5px at 69% 91%, rgba(255, 255, 255, 0.44) 0 100%, transparent 100%),
-    radial-gradient(circle 1.7px at 81% 79%, rgba(255, 255, 255, 0.5) 0 100%, transparent 100%),
-    radial-gradient(circle 1.3px at 93% 86%, rgba(255, 255, 255, 0.36) 0 100%, transparent 100%),
-    radial-gradient(circle 2.5px at 13% 53%, rgba(255, 255, 255, 0.7) 0 100%, transparent 100%),
-    radial-gradient(circle 1.2px at 26% 60%, rgba(255, 255, 255, 0.42) 0 100%, transparent 100%),
-    radial-gradient(circle 2px at 39% 45%, rgba(255, 255, 255, 0.58) 0 100%, transparent 100%),
-    radial-gradient(circle 1.4px at 51% 37%, rgba(255, 255, 255, 0.4) 0 100%, transparent 100%),
-    radial-gradient(circle 2.2px at 62% 22%, rgba(255, 255, 255, 0.62) 0 100%, transparent 100%),
-    radial-gradient(circle 1.1px at 73% 39%, rgba(255, 255, 255, 0.34) 0 100%, transparent 100%),
-    radial-gradient(circle 1.8px at 86% 61%, rgba(255, 255, 255, 0.52) 0 100%, transparent 100%),
-    radial-gradient(circle 2.4px at 9% 78%, rgba(255, 255, 255, 0.68) 0 100%, transparent 100%),
-    radial-gradient(circle 1.3px at 17% 88%, rgba(255, 255, 255, 0.4) 0 100%, transparent 100%),
-    radial-gradient(circle 2.1px at 41% 31%, rgba(255, 255, 255, 0.56) 0 100%, transparent 100%),
-    radial-gradient(circle 1px at 59% 54%, rgba(255, 255, 255, 0.32) 0 100%, transparent 100%),
-    /* the vinyl itself: deep matte black with fine concentric grooves */
-    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 7px),
-    repeating-radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.46) 0 2px, transparent 2px 9px),
-    radial-gradient(circle at 50% 50%, #0a0a0a 0%, #0a0a0a 58%, #060606 82%, #0a0a0a 100%);
-  box-shadow:
-    0 26px 58px rgba(0, 0, 0, 0.88),
-    0 0 0 1px rgba(255, 255, 255, 0.06),
-    inset 0 0 42px rgba(0, 0, 0, 0.72);
+/* The frame is a positioning wrapper; the image inside is the only thing that
+   rotates. Keeping those transforms separate means the spin can never move the
+   frame, grow the record's bounding box or blur the art. The record rides out
+   until its centre sits on the sleeve's edge, so only the right-hand crescent
+   of the centre label is ever exposed: the flower is placed at the optical
+   centre of that crescent (and sized to clear the label's rim at every seeded
+   label width), so the complete mark — and every petal of it — is on the
+   exposed vinyl, never cropped by the opaque sleeve. */
+.vinyl-record__logo-frame {
+  position: absolute;
+  top: 50%;
+  left: 61%;
+  width: 15%;
+  height: 15%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  pointer-events: none;
 }
-/* Fine mist droplets and micro-speckles across the exposed vinyl (the label
-   rides above this layer). A low-opacity grain field keeps the spray airy, and
-   the grooves still read underneath. */
-.vinyl-record--graffiti-splatter::before {
-  inset: 9%;
-  background:
-    /* subtle aerosol dust, tiled off-phase */
-    radial-gradient(circle, rgba(255, 255, 255, 0.28) 0 0.7px, transparent 1.1px) 4px 6px / 8px 10px,
-    radial-gradient(circle, rgba(255, 255, 255, 0.18) 0 0.9px, transparent 1.4px) 1px 3px / 15px 17px,
-    /* 1px–2.5px mist droplets at irregular coordinates */
-    radial-gradient(circle 1.6px at 8% 22%, rgba(255, 255, 255, 0.75) 0 100%, transparent 100%),
-    radial-gradient(circle 1.1px at 13% 41%, rgba(255, 255, 255, 0.5) 0 100%, transparent 100%),
-    radial-gradient(circle 2.1px at 18% 15%, rgba(255, 255, 255, 0.68) 0 100%, transparent 100%),
-    radial-gradient(circle 1.3px at 24% 34%, rgba(255, 255, 255, 0.44) 0 100%, transparent 100%),
-    radial-gradient(circle 1.8px at 29% 9%, rgba(255, 255, 255, 0.62) 0 100%, transparent 100%),
-    radial-gradient(circle 1.2px at 33% 47%, rgba(255, 255, 255, 0.38) 0 100%, transparent 100%),
-    radial-gradient(circle 2.4px at 37% 25%, rgba(255, 255, 255, 0.7) 0 100%, transparent 100%),
-    radial-gradient(circle 1.4px at 42% 55%, rgba(255, 255, 255, 0.46) 0 100%, transparent 100%),
-    radial-gradient(circle 1.9px at 47% 12%, rgba(255, 255, 255, 0.64) 0 100%, transparent 100%),
-    radial-gradient(circle 1px at 51% 38%, rgba(255, 255, 255, 0.32) 0 100%, transparent 100%),
-    radial-gradient(circle 2.2px at 56% 63%, rgba(255, 255, 255, 0.58) 0 100%, transparent 100%),
-    radial-gradient(circle 1.3px at 61% 18%, rgba(255, 255, 255, 0.42) 0 100%, transparent 100%),
-    radial-gradient(circle 1.7px at 66% 49%, rgba(255, 255, 255, 0.66) 0 100%, transparent 100%),
-    radial-gradient(circle 1.2px at 71% 29%, rgba(255, 255, 255, 0.36) 0 100%, transparent 100%),
-    radial-gradient(circle 2.5px at 75% 72%, rgba(255, 255, 255, 0.72) 0 100%, transparent 100%),
-    radial-gradient(circle 1.4px at 79% 44%, rgba(255, 255, 255, 0.48) 0 100%, transparent 100%),
-    radial-gradient(circle 1.8px at 84% 16%, rgba(255, 255, 255, 0.6) 0 100%, transparent 100%),
-    radial-gradient(circle 1.2px at 88% 57%, rgba(255, 255, 255, 0.34) 0 100%, transparent 100%),
-    radial-gradient(circle 2px at 92% 31%, rgba(255, 255, 255, 0.68) 0 100%, transparent 100%),
-    radial-gradient(circle 1.3px at 20% 68%, rgba(255, 255, 255, 0.4) 0 100%, transparent 100%),
-    radial-gradient(circle 1.7px at 31% 83%, rgba(255, 255, 255, 0.58) 0 100%, transparent 100%),
-    radial-gradient(circle 1.1px at 44% 74%, rgba(255, 255, 255, 0.3) 0 100%, transparent 100%),
-    radial-gradient(circle 2.3px at 58% 87%, rgba(255, 255, 255, 0.64) 0 100%, transparent 100%),
-    radial-gradient(circle 1.4px at 69% 91%, rgba(255, 255, 255, 0.42) 0 100%, transparent 100%),
-    radial-gradient(circle 1.9px at 81% 79%, rgba(255, 255, 255, 0.56) 0 100%, transparent 100%),
-    radial-gradient(circle 1.2px at 93% 86%, rgba(255, 255, 255, 0.38) 0 100%, transparent 100%),
-    radial-gradient(circle 1px at 15% 52%, rgba(255, 255, 255, 0.3) 0 100%, transparent 100%),
-    radial-gradient(circle 2.5px at 63% 36%, rgba(255, 255, 255, 0.7) 0 100%, transparent 100%),
-    radial-gradient(circle 1.5px at 35% 91%, rgba(255, 255, 255, 0.46) 0 100%, transparent 100%),
-    repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, rgba(255, 255, 255, 0.045) 3px 4px, transparent 4px 8px);
-  opacity: 1;
-}
-/* The centre label stays a clean matte black plate above the spray. */
-.vinyl-record--graffiti-splatter::after {
-  width: 36%;
-  height: 36%;
-  background: radial-gradient(circle at 50% 38%, #151515 0%, #0a0a0a 70%, #050505 100%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow:
-    inset 0 0 22px rgba(0, 0, 0, 0.94),
-    0 0 0 1px rgba(255, 255, 255, 0.08);
-  z-index: 1;
-}
-.vinyl-record--graffiti-splatter .vinyl-record__logo-frame { z-index: 2; }
 
 .vinyl-record__logo {
   display: block;
   width: 100%;
   height: 100%;
   opacity: 0.96;
-  /* The official flower keeps its own tints — only the white glow around it is
-     added here. */
-  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.28));
+  /* The official flower keeps its own tints — only the glow around it is added
+     here, and that glow is the pressing's own accent (the neutral white is the
+     fallback for a record whose cover has not been read yet). */
+  filter: drop-shadow(0 0 10px var(--vinyl-glow, rgba(255, 255, 255, 0.28)));
   transform-origin: 50% 50%;
   animation: vinylCenterSpin 16s linear infinite;
   will-change: transform;

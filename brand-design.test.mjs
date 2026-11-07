@@ -204,13 +204,99 @@ const noCardBleed = async (page, label) => {
   return report;
 };
 
-// Every rendered colour except the hero tagline's green / pink glitch palette,
-// the vinyl pressings' intentionally coloured rims and the footer's official
-// social marks must be an equal-channel grey. (The rims sit in gradient
-// background images, which this computed-style sweep does not read; the social
-// badges are the platforms' own brand colours inside their inline SVGs, and the
-// CSS text audit below exempts only the scoped stylesheet sections — the icon
-// tiles themselves are greys.)
+// Every record is a KYROIII record, and every KYROIII record is pressed from
+// its beat's own cover: one shared `.vinyl-record--pressing` rule set paints the
+// disc, its label and its foil rim from `--vinyl-*` properties that
+// `vinyl-palette.js` derives from `beat.img`. The record holds only the masked
+// rim and the spinning flower (never a pasted cover), and the flower keeps the
+// 16s platter clock.
+const assertPressing = async (page, card, label, options = {}) => {
+  const record = page.locator(`${card} .vinyl-record`);
+  await record.waitFor();
+  await page.waitForFunction((selector) => {
+    const el = document.querySelector(`${selector} .vinyl-record`);
+    return !!(el && el.dataset.palette === 'cover');
+  }, card, { timeout: 20000 });
+  const pressing = await record.evaluate((el) => {
+    const body = getComputedStyle(el);
+    const labelStyle = getComputedStyle(el, '::after');
+    const rim = el.querySelector('.vinyl-record__rim');
+    const rimStyle = rim ? getComputedStyle(rim) : null;
+    const logo = el.querySelector('.vinyl-record__logo');
+    const logoFrame = el.querySelector('.vinyl-record__logo-frame');
+    const stage = el.querySelector('.vinyl-flower-stage');
+    const recordRect = el.getBoundingClientRect();
+    const frameRect = logoFrame.getBoundingClientRect();
+    const sleeveRect = document.querySelector('.beat-detail__artwork').getBoundingClientRect();
+    const stageRect = document.querySelector('.beat-detail__artwork-wrap').getBoundingClientRect();
+    return {
+      classes: el.className,
+      variant: el.dataset.vinyl,
+      palette: el.dataset.palette,
+      bodyBg: body.backgroundImage,
+      labelBg: labelStyle.backgroundImage,
+      labelWidth: parseFloat(labelStyle.width),
+      labelRatio: parseFloat(labelStyle.width) / recordRect.width,
+      labelRadius: labelStyle.borderTopLeftRadius,
+      labelZ: labelStyle.zIndex,
+      rimBg: rimStyle ? rimStyle.backgroundImage : null,
+      rimMask: rimStyle ? (rimStyle.maskImage || rimStyle.webkitMaskImage) : null,
+      rimZ: rimStyle ? rimStyle.zIndex : null,
+      logoZ: logoFrame ? getComputedStyle(logoFrame).zIndex : null,
+      children: [...el.children].map(child => child.className),
+      splashCount: el.querySelectorAll('.vinyl-record__gold, [class*="splash"], [class*="blob"], [class*="splatter"]').length,
+      logo: !!logo,
+      src: logo ? logo.getAttribute('src') : null,
+      logoAnimation: logo ? getComputedStyle(logo).animationName : null,
+      logoDuration: logo ? getComputedStyle(logo).animationDuration : null,
+      stageTag: stage ? stage.tagName : null,
+      frameSize: [frameRect.width, frameRect.height],
+      insideStage: recordRect.left >= stageRect.left - 1 && recordRect.right <= stageRect.right + 1,
+      diameterRatio: recordRect.width / sleeveRect.width,
+      tones: {
+        body: body.getPropertyValue('--vinyl-body-1').trim(),
+        label: body.getPropertyValue('--vinyl-label-1').trim(),
+        rim: body.getPropertyValue('--vinyl-rim-2').trim(),
+        labelSize: body.getPropertyValue('--vinyl-label-size').trim(),
+      },
+      coverFilter: getComputedStyle(document.querySelector('.beat-detail__artwork img')).filter,
+    };
+  });
+  assert.equal(pressing.classes.includes('vinyl-record--pressing'), true, `${label}: the record uses the shared pressing`);
+  assert.equal(pressing.variant, 'derived', `${label}: the record is cover-derived`);
+  assert.equal(pressing.palette, 'cover', `${label}: the cover palette has been read`);
+  assert.match(pressing.tones.body, /^rgb\(/, `${label}: the body tone is a concrete cover colour`);
+  assert.match(pressing.bodyBg, /radial-gradient/, `${label}: the disc body paints from the cover palette`);
+  assert.match(pressing.labelBg, /radial-gradient/, `${label}: the centre label paints from the cover palette`);
+  assert.match(pressing.rimBg, /conic-gradient/, `${label}: the foil rim is a conic hairline`);
+  assert.match(pressing.rimMask, /radial-gradient/, `${label}: the rim is masked to a fine perimeter hairline`);
+  assert.deepEqual(pressing.children, ['vinyl-record__rim', 'vinyl-record__logo-frame'], `${label}: the record holds only the rim and the flower`);
+  assert.equal(pressing.splashCount, 0, `${label}: no splash, blob or artwork element is generated`);
+  assert.equal(pressing.logo, true, `${label}: the signature flower is the label`);
+  assert.equal(pressing.src, 'assets/kyrolll-flower.svg', `${label}: the label is always the official flower`);
+  if (options.reducedMotion) {
+    assert.equal(pressing.logoAnimation, 'none', `${label}: reduced motion holds the platter still`);
+  } else {
+    assert.equal(pressing.logoAnimation, 'vinylCenterSpin', `${label}: the flower keeps its slow spin`);
+    assert.equal(pressing.logoDuration, '16s', `${label}: the flower keeps the 16s linear loop`);
+  }
+  assert.equal(pressing.labelRadius, '50%', `${label}: the label behind the flower stays a circle`);
+  assert.equal(pressing.labelZ, '1', `${label}: the label sits above the disc`);
+  assert.equal(pressing.logoZ, '2', `${label}: the flower sits above the label`);
+  assert.equal(pressing.rimZ, '3', `${label}: the rim paints above the disc`);
+  assert(Math.abs(pressing.diameterRatio - 0.92) < 0.01, `${label}: the record keeps its 92% inset diameter`);
+  assert.equal(pressing.insideStage, true, `${label}: the record never breaches the artwork stage`);
+  assert.equal(pressing.coverFilter, 'none', `${label}: the cover art keeps its original colour`);
+  return pressing;
+};
+
+// Every rendered colour except the hero tagline's green / pink glitch palette
+// and the footer's official social marks must be an equal-channel grey. (A
+// vinyl pressing's cover-derived tones live in gradient background images,
+// which this computed-style sweep does not read; the social badges are the
+// platforms' own brand colours inside their inline SVGs, and the CSS text audit
+// below exempts only the tagline's scoped stylesheet section — the icon tiles
+// themselves are greys.)
 const noHue = async (page, label) => {
   const report = await page.evaluate(() => {
     const plain = ['color', 'backgroundColor', 'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor', 'outlineColor', 'textDecorationColor', 'caretColor', 'fill', 'stroke', 'columnRuleColor', 'boxShadow', 'textShadow'];
@@ -591,42 +677,29 @@ try {
       `${selector} remains stationary on hover`,
     );
   }
-  // Each beat carries its own pressing: FLESH is a pearl-white disc, a deep
-  // matte black centre label, and the complete official flower painted on it —
-  // there is no spindle hole covering the mark. THE FLOW's gold-rim disc is
-  // checked after the geometry run below. Covers keep their supplied colour.
-  assert.equal(await direct.locator('.beat-detail__artwork img').evaluate(el => getComputedStyle(el).filter), 'none', 'the beat cover art keeps its original colour');
-  assert.equal(await direct.locator('.beat-detail').getAttribute('data-vinyl'), 'white', 'FLESH renders the white vinyl variant');
-  assert.equal(await direct.locator('.vinyl-record').getAttribute('data-vinyl'), 'white', 'the record itself carries the white variant');
-  assert.equal(await direct.locator('.vinyl-record--white').count(), 1, 'the white pressing has its own modifier class');
-  const fleshVinyl = await direct.locator('.vinyl-record').evaluate(el => {
-    const disc = getComputedStyle(el);
-    const label = getComputedStyle(el, '::after');
-    const logo = el.querySelector('.vinyl-record__logo');
-    return {
-      discBg: disc.backgroundImage,
-      labelBg: label.backgroundImage,
-      labelBorder: label.borderTopColor,
-      discAnimation: disc.animationName,
-      spindleCount: el.querySelectorAll('.vinyl-record__spindle').length,
-      logoSrc: logo ? logo.getAttribute('src') : null,
-    };
+  // Every record is pressed from the beat's own cover. FLESH is the proof: a
+  // deep crimson disc with an ember rim, the signature flower on the exposed
+  // crescent of its label, and no spindle hole covering the mark. The catalog
+  // carries no hand-assigned variant at all — the cover is the pressing.
+  const fleshVinyl = await assertPressing(direct, CARD, 'FLESH', { reducedMotion: true });
+  assert.equal(await direct.locator('.beat-detail').getAttribute('data-vinyl'), 'derived', 'the beat page marks its cover-derived pressing');
+  const pressings = await direct.evaluate(async () => {
+    await Promise.all(window.KYROlll_CATALOG.map(beat => window.KYROlll_VINYL.prime(beat).catch(() => null)));
+    return window.KYROlll_CATALOG.map((beat) => {
+      const palette = window.KYROlll_VINYL.paletteFor(beat);
+      return {
+        slug: beat.slug,
+        cover: beat.img,
+        legacy: beat.vinylVariant,
+        key: [palette.vars['--vinyl-body-1'], palette.vars['--vinyl-label-1'], palette.vars['--vinyl-rim-2'], palette.vars['--vinyl-label-size']].join('|'),
+      };
+    });
   });
-  assert.match(fleshVinyl.discBg, /rgb\(245, 245, 245\)|rgb\(255, 255, 255\)/, 'the FLESH disc is painted pearl white');
-  assert.match(fleshVinyl.discBg, /rgba\(38, 38, 38, 0\.38\)/, 'the FLESH disc carries smoky charcoal marbling');
-  assert.match(fleshVinyl.discBg, /rgba\(46, 46, 46, 0\.3\)/, 'the charcoal marbling drifts across the pearl body');
-  assert.match(fleshVinyl.discBg, /rgba\(40, 40, 40, 0\.4\)/, 'the FLESH disc scatters a fine charcoal flake field');
-  assert.match(fleshVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(0, 0, 0\)/, 'the FLESH centre label is matte black');
-  assert.equal(fleshVinyl.spindleCount, 0, 'no spindle hole covers the centre of the flower');
-  assert.equal(fleshVinyl.logoSrc, 'assets/kyrolll-flower.svg', 'the complete official KYROIII flower is the vinyl centre');
-  assert.equal(fleshVinyl.discAnimation, 'none', 'the outer record bounding box never rotates');
-  const vinylVariants = await direct.evaluate(() => Object.fromEntries(window.KYROlll_CATALOG.map(beat => [beat.slug, beat.vinylVariant])));
-  assert.equal(vinylVariants.flesh, 'white', 'catalog data marks FLESH as the white pressing');
-  assert.equal(vinylVariants['the-flow'], 'gold-rim', 'catalog data gives THE FLOW its own black/gold-rim pressing');
-  assert.equal(vinylVariants['green-flesh'], 'sage-white-rim', 'catalog data gives GREEN FLESH its sage-white pressing');
-  assert.equal(vinylVariants.squish, 'ice-silver-rim', 'catalog data gives SQUISH! its ice-silver pressing');
-  assert.equal(vinylVariants['just-d0-it'], 'rage-fire-rim', 'catalog data gives JUST D0 IT its fire-rim pressing');
-  assert.equal(vinylVariants.adll, 'graffiti-splatter', 'catalog data gives ADLL its graffiti-splatter pressing');
+  pressings.forEach((pressing) => {
+    assert.equal(pressing.legacy, undefined, `${pressing.slug}: no hand-assigned vinyl variant`);
+    assert.match(pressing.cover, /^assets\/.+\.png$/, `${pressing.slug}: the pressing has a cover to read`);
+  });
+  assert.equal(new Set(pressings.map(pressing => pressing.key)).size, pressings.length, 'no two beats press an identical record');
   await shot(direct, 'beat-detail');
   await direct.close();
 
@@ -762,7 +835,7 @@ try {
     const logoFrame = document.querySelector('.vinyl-record__logo-frame').getBoundingClientRect();
     const logoImage = document.querySelector('.vinyl-record__logo');
     const logoStyle = getComputedStyle(logoImage);
-    const labelDiameter = record.width * 0.58;
+    const labelDiameter = parseFloat(getComputedStyle(recordEl, '::after').width);
     const label = {
       left: record.left + record.width / 2 - labelDiameter / 2,
       right: record.left + record.width / 2 + labelDiameter / 2,
@@ -849,54 +922,16 @@ try {
   checkReveal(desktopReveal, 'desktop');
   assert(desktopReveal.sleeve.width >= 380 && desktopReveal.sleeve.width <= 435, 'the desktop cover sleeve lands in the 380–430px commanding range');
   assert(desktopReveal.record.left - desktopReveal.sleeve.left > desktopReveal.stage.width * 0.3, 'the desktop reveal is equally generous');
-  // The per-beat variant is clean: FLESH keeps the pearl disc, and THE FLOW is
-  // the only beat wearing the refined black/gold-rim pressing. The record holds
-  // just the single masked hairline and the flower — no splash, blob or artwork.
+  // THE FLOW is not a hand-picked finish either: its own cover presses a dark
+  // teal disc with an ember rim. The record holds just the masked rim and the
+  // flower, and the retired per-beat modifier classes are gone.
   await vinylPage.goto(`${url}/?beat=the-flow`);
   await vinylPage.locator('.beat-detail').waitFor();
-  assert.equal(await vinylPage.locator('.beat-detail').getAttribute('data-vinyl'), 'gold-rim', 'THE FLOW carries its own gold-rim pressing');
-  assert.equal(await vinylPage.locator('.vinyl-record--white').count(), 0, 'THE FLOW no longer shares the pearl disc');
-  assert.equal(await vinylPage.locator('.vinyl-record--gold-rim').count(), 1, 'THE FLOW carries the gold-rim modifier');
-  assert.equal(await vinylPage.locator('.vinyl-record--gold').count(), 0, 'the old gold modifier is retired');
-  const flowVinyl = await vinylPage.locator('.vinyl-record--gold-rim').evaluate(el => {
-    const rim = el.querySelector('.vinyl-record__rim');
-    const rimStyle = rim ? getComputedStyle(rim) : null;
-    const flake = getComputedStyle(el, '::before');
-    return {
-      bodyBg: getComputedStyle(el).backgroundImage,
-      flakeBg: flake.backgroundImage,
-      flakeSize: flake.backgroundSize,
-      flakeOpacity: flake.opacity,
-      children: [...el.children].map(child => child.className),
-      splashCount: el.querySelectorAll('.vinyl-record__gold, [class*="splash"], [class*="blob"], [class*="splatter"]').length,
-      rimBg: rimStyle ? rimStyle.backgroundImage : null,
-      rimMask: rimStyle ? (rimStyle.maskImage || rimStyle.webkitMaskImage) : null,
-      innerRimContent: rim ? getComputedStyle(rim, '::after').content : null,
-      rimZ: rimStyle ? rimStyle.zIndex : null,
-      labelZ: getComputedStyle(el, '::after').zIndex,
-      logoZ: getComputedStyle(el.querySelector('.vinyl-record__logo-frame')).zIndex,
-      logo: !!el.querySelector('.vinyl-record__logo'),
-      coverFilter: getComputedStyle(document.querySelector('.beat-detail__artwork img')).filter,
-    };
-  });
-  assert.match(flowVinyl.bodyBg, /rgb\(10, 10, 12\)/, 'the gold-rim disc body is deep matte black');
-  assert.doesNotMatch(flowVinyl.bodyBg, /gold-splatter|\.svg/, 'the disc body carries no artwork layer');
-  assert.deepEqual(flowVinyl.children, ['vinyl-record__rim', 'vinyl-record__logo-frame'], 'the record holds only the clean rim and the flower');
-  assert.equal(flowVinyl.splashCount, 0, 'zero splash, blob or splatter elements remain');
-  assert.match(flowVinyl.rimBg, /conic-gradient/, 'the outer rim is a metallic gold gradient');
-  assert.match(flowVinyl.rimBg, /rgb\(212, 175, 55\)|rgb\(229, 193, 88\)/, 'the rim uses the specified gold tones');
-  assert.match(flowVinyl.rimMask, /radial-gradient/, 'the rim is masked down to an ultra-fine hairline');
-  assert.equal(flowVinyl.innerRimContent, 'none', 'the rim is one hairline, with no inner pseudo-ring');
-  assert.equal(flowVinyl.rimZ, '3', 'the rim paints above the disc');
-  assert.match(flowVinyl.flakeBg, /rgba\(212, 175, 55, 0\.55\)/, 'the gold pressing suspends gold flake micro-dust');
-  assert.match(flowVinyl.flakeBg, /rgba\(255, 243, 176, 0\.5\)/, 'the gold flake catches the light in pale gold');
-  assert.match(flowVinyl.flakeSize, /11px 13px/, 'the gold flake dust is a tiled micro-field');
-  assert.match(flowVinyl.flakeBg, /1\.7px at/, 'the largest gold fleck stays under 2px');
-  assert.equal(flowVinyl.flakeOpacity, '0.92', 'the gold dust stays a light dusting over the black disc');
-  assert.equal(flowVinyl.labelZ, '1', 'the centre label stays above the disc');
-  assert.equal(flowVinyl.logoZ, '2', 'the spinning flower sits above the label');
-  assert.equal(flowVinyl.logo, true, 'the spinning flower survives the gold-rim pressing');
-  assert.equal(flowVinyl.coverFilter, 'none', 'THE FLOW cover art keeps its original colour');
+  assert.equal(await vinylPage.locator('.beat-detail').getAttribute('data-vinyl'), 'derived', 'THE FLOW carries its own cover-derived pressing');
+  assert.equal(await vinylPage.locator('.vinyl-record--pressing').count(), 1, 'THE FLOW uses the shared pressing');
+  assert.equal(await vinylPage.locator('.vinyl-record--white').count(), 0, 'the retired pearl-disc modifier is gone');
+  assert.equal(await vinylPage.locator('.vinyl-record--gold-rim').count(), 0, 'the retired gold-rim modifier is gone');
+  await assertPressing(vinylPage, FLOW_CARD, 'THE FLOW');
   await vinylPage.close();
 
   // Package 1 — MP3 Lease: the email gate. It asks from scratch every single
@@ -2050,13 +2085,13 @@ try {
   // The third official drop is scheduled for 23:00 Israel time. It follows the
   // same pre-release contract as THE FLOW — a countdown-only tile, a locked
   // detail page, and an in-page unlock — and it wears the smoky grey-green
-  // sage-white-rim pressing with the complete spinning flower. The studio count
+  // cover-pressed record with the complete spinning flower. The studio count
   // must stay at two releases until its clock lands, then become three.
   const greenPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await greenPre.goto(`${url}/?now=${GREEN_FLESH_RELEASE - 3600000}`);
   await greenPre.locator(`[data-countdown="${GREEN_FLESH_ID}"]`).waitFor();
   assert.equal(await greenPre.locator('#grid .catalog-tile').count(), 7, 'the third release is in the seven-card catalog');
-  assert.equal(await greenPre.locator(GREEN_FLESH_CARD).getAttribute('data-vinyl'), 'sage-white-rim', 'the GREEN FLESH catalog card carries its own pressing');
+  assert.equal(await greenPre.locator(GREEN_FLESH_CARD).getAttribute('data-vinyl'), 'derived', 'the GREEN FLESH catalog card is cover-pressed');
   assert.match(await greenPre.locator(`${GREEN_FLESH_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'GREEN FLESH carries its countdown pill');
   assert.doesNotMatch(await greenPre.locator(`${GREEN_FLESH_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
   assert.match(await greenPre.locator(`${GREEN_FLESH_CARD} [data-countdown="${GREEN_FLESH_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'GREEN FLESH shows a live HH:MM:SS clock');
@@ -2106,64 +2141,12 @@ try {
   assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .download-trigger--locked`).count(), 0, 'the GREEN FLESH LOCKED control is gone at release');
   await noYouTubeButton(greenLive, GREEN_FLESH_CARD);
   assert.equal(await greenLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), GREEN_FLESH_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the GREEN FLESH link with the clock');
-  // The third pressing is the smoky grey-green collector disc: a delicate white
-  // outer hairline, the deep matte black centre label and the complete flower,
-  // with no splash, blob or random graphic anywhere on the record.
-  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD}.beat-detail`).getAttribute('data-vinyl'), 'sage-white-rim', 'GREEN FLESH renders the sage-white-rim pressing');
-  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'sage-white-rim', 'the GREEN FLESH record itself carries the variant');
-  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .vinyl-record--sage-white-rim`).count(), 1, 'GREEN FLESH carries the sage-white-rim modifier');
-  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .vinyl-record--white`).count(), 0, 'GREEN FLESH does not share the pearl-white disc');
-  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .vinyl-record--gold-rim`).count(), 0, 'GREEN FLESH does not share THE FLOW gold rim');
-  const greenVinyl = await greenLive.locator(`${GREEN_FLESH_CARD} .vinyl-record`).evaluate(el => {
-    const rim = el.querySelector('.vinyl-record__rim');
-    const rimStyle = rim ? getComputedStyle(rim) : null;
-    const label = getComputedStyle(el, '::after');
-    const logo = el.querySelector('.vinyl-record__logo');
-    const logoFrame = el.querySelector('.vinyl-record__logo-frame');
-    const recordRect = el.getBoundingClientRect();
-    const sleeveRect = document.querySelector('.beat-detail__artwork').getBoundingClientRect();
-    const mist = getComputedStyle(el, '::before');
-    return {
-      bodyBg: getComputedStyle(el).backgroundImage,
-      mistBg: mist.backgroundImage,
-      mistOpacity: mist.opacity,
-      labelBg: label.backgroundImage,
-      labelZ: label.zIndex,
-      rimBg: rimStyle ? rimStyle.backgroundImage : null,
-      rimMask: rimStyle ? (rimStyle.maskImage || rimStyle.webkitMaskImage) : null,
-      rimZ: rimStyle ? rimStyle.zIndex : null,
-      logoZ: logoFrame ? getComputedStyle(logoFrame).zIndex : null,
-      children: [...el.children].map(child => child.className),
-      splashCount: el.querySelectorAll('.vinyl-record__gold, [class*="splash"], [class*="blob"], [class*="splatter"]').length,
-      logo: !!logo,
-      logoAnimation: logo ? getComputedStyle(logo).animationName : null,
-      logoDuration: logo ? getComputedStyle(logo).animationDuration : null,
-      diameterRatio: recordRect.width / sleeveRect.width,
-      coverFilter: getComputedStyle(document.querySelector('.beat-detail__artwork img')).filter,
-    };
-  });
-  assert.match(greenVinyl.bodyBg, /rgb\(45, 59, 54\)|rgb\(58, 75, 68\)/, 'the GREEN FLESH disc body is smoky grey-green');
-  assert.match(greenVinyl.bodyBg, /rgba\(214, 230, 221, 0\.24\)/, 'the GREEN FLESH disc carries pale sage marbling');
-  assert.match(greenVinyl.bodyBg, /rgba\(8, 22, 17, 0\.36\)/, 'the sage marbling drifts over a darker smoked body');
-  assert.match(greenVinyl.bodyBg, /rgba\(220, 235, 228, 0\.24\)/, 'the marbled body carries a fine mineral grain');
-  assert.match(greenVinyl.mistBg, /rgba\(255, 255, 255, 0\.26\)/, 'the GREEN FLESH outer edge wears a delicate white mist');
-  assert.equal(greenVinyl.mistOpacity, '0.78', 'the white edge mist stays a soft halo');
-  assert.doesNotMatch(greenVinyl.bodyBg, /\.svg|splatter|blob/, 'the GREEN FLESH disc body carries no artwork layer');
-  assert.match(greenVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(0, 0, 0\)/, 'the GREEN FLESH centre label stays deep matte black');
-  assert.match(greenVinyl.rimBg, /conic-gradient/, 'the GREEN FLESH outer rim is a crisp white hairline');
-  assert.match(greenVinyl.rimBg, /rgb\(245, 245, 245\)|rgb\(255, 255, 255\)/, 'the GREEN FLESH rim uses the specified white tones');
-  assert.match(greenVinyl.rimBg, /rgba\(255, 255, 255, 0\.85\)/, 'the GREEN FLESH rim carries its delicate translucent white sheen');
-  assert.match(greenVinyl.rimMask, /radial-gradient/, 'the GREEN FLESH rim is masked down to a fine perimeter hairline');
-  assert.deepEqual(greenVinyl.children, ['vinyl-record__rim', 'vinyl-record__logo-frame'], 'the GREEN FLESH record holds only the clean rim and the flower');
-  assert.equal(greenVinyl.splashCount, 0, 'zero splash, blob or splatter elements remain on GREEN FLESH');
-  assert.equal(greenVinyl.rimZ, '3', 'the GREEN FLESH rim paints above the disc');
-  assert.equal(greenVinyl.labelZ, '1', 'the GREEN FLESH centre label sits above the disc');
-  assert.equal(greenVinyl.logoZ, '2', 'the spinning flower sits above the GREEN FLESH label');
-  assert.equal(greenVinyl.logo, true, 'the complete flower survives on the GREEN FLESH pressing');
-  assert.equal(greenVinyl.logoAnimation, 'vinylCenterSpin', 'the GREEN FLESH flower keeps its slow spin');
-  assert.equal(greenVinyl.logoDuration, '16s', 'the GREEN FLESH flower keeps the 16s linear loop');
-  assert(Math.abs(greenVinyl.diameterRatio - 0.92) < 0.01, 'the GREEN FLESH record keeps its 92% inset diameter');
-  assert.equal(greenVinyl.coverFilter, 'none', 'the GREEN FLESH cover art keeps its original colour');
+  // GREEN FLESH is pressed from its own cover as well: the red car presses a
+  // deep maroon body while the teal beam lights its rim.
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD}.beat-detail`).getAttribute('data-vinyl'), 'derived', 'GREEN FLESH renders a cover-derived pressing');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .vinyl-record--pressing`).count(), 1, 'GREEN FLESH uses the shared pressing');
+  assert.equal(await greenLive.locator(`${GREEN_FLESH_CARD} .vinyl-record--white`).count(), 0, 'no retired modifier is reused');
+  await assertPressing(greenLive, GREEN_FLESH_CARD, 'GREEN FLESH');
   // The pro package's hand-over names are built from the beat's own metadata.
   assert.deepEqual(await greenLive.evaluate((id) => window.KYROlll_DOWNLOADS.deliverablesFor(id, 'exclusive').map(item => item.name), GREEN_FLESH_ID), [
     'KYROIII - GREEN FLESH (138 BPM - B).mp3',
@@ -2216,7 +2199,7 @@ try {
   assert.equal(await squishPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-adll', 'ADLL follows the newest drop');
   assert.equal(await squishPre.locator('#grid .catalog-tile').nth(2).getAttribute('id'), 'card-just-d0-it', 'JUST D0 IT follows ADLL');
   assert.equal(await squishPre.locator('#grid .catalog-tile').nth(3).getAttribute('id'), 'card-squish', 'SQUISH! follows JUST D0 IT');
-  assert.equal(await squishPre.locator(SQUISH_CARD).getAttribute('data-vinyl'), 'ice-silver-rim', 'the SQUISH! catalog card carries its own pressing');
+  assert.equal(await squishPre.locator(SQUISH_CARD).getAttribute('data-vinyl'), 'derived', 'the SQUISH! catalog card is cover-pressed');
   assert.match(await squishPre.locator(SQUISH_CARD).innerText(), /\[FREE 100%\] LIL GOTIT TYPE BEAT - SQUISH!/i);
   assert.match(await squishPre.locator(`${SQUISH_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'SQUISH! carries its countdown pill');
   assert.doesNotMatch(await squishPre.locator(`${SQUISH_CARD} .drop-countdown__label`).innerText(), /\d/, 'the SQUISH! label carries no clock hour');
@@ -2263,59 +2246,12 @@ try {
   assert.equal(await squishLive.locator(`${SQUISH_CARD} .download-trigger--locked`).count(), 0, 'the SQUISH! LOCKED control is gone at release');
   await noYouTubeButton(squishLive, SQUISH_CARD);
   assert.equal(await squishLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), SQUISH_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the SQUISH! link with the clock');
-  // The fourth pressing is the icy silver collector disc: chrome-slate body,
-  // fine diamond-silver grooves, a crisp white perimeter hairline, the deep
-  // matte black centre label and the complete spinning flower.
-  assert.equal(await squishLive.locator(`${SQUISH_CARD}.beat-detail`).getAttribute('data-vinyl'), 'ice-silver-rim', 'SQUISH! renders the ice-silver-rim pressing');
-  assert.equal(await squishLive.locator(`${SQUISH_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'ice-silver-rim', 'the SQUISH! record itself carries the variant');
-  assert.equal(await squishLive.locator(`${SQUISH_CARD} .vinyl-record--ice-silver-rim`).count(), 1, 'SQUISH! carries the ice-silver-rim modifier');
-  assert.equal(await squishLive.locator(`${SQUISH_CARD} .vinyl-record--white`).count(), 0, 'SQUISH! does not share the pearl-white disc');
-  assert.equal(await squishLive.locator(`${SQUISH_CARD} .vinyl-record--gold-rim`).count(), 0, 'SQUISH! does not share THE FLOW gold rim');
-  assert.equal(await squishLive.locator(`${SQUISH_CARD} .vinyl-record--sage-white-rim`).count(), 0, 'SQUISH! does not share the GREEN FLESH sage disc');
-  const squishVinyl = await squishLive.locator(`${SQUISH_CARD} .vinyl-record`).evaluate(el => {
-    const rim = el.querySelector('.vinyl-record__rim');
-    const rimStyle = rim ? getComputedStyle(rim) : null;
-    const label = getComputedStyle(el, '::after');
-    const logo = el.querySelector('.vinyl-record__logo');
-    const logoFrame = el.querySelector('.vinyl-record__logo-frame');
-    const recordRect = el.getBoundingClientRect();
-    const sleeveRect = document.querySelector('.beat-detail__artwork').getBoundingClientRect();
-    return {
-      bodyBg: getComputedStyle(el).backgroundImage,
-      labelBg: label.backgroundImage,
-      labelZ: label.zIndex,
-      rimBg: rimStyle ? rimStyle.backgroundImage : null,
-      rimMask: rimStyle ? (rimStyle.maskImage || rimStyle.webkitMaskImage) : null,
-      rimZ: rimStyle ? rimStyle.zIndex : null,
-      logoZ: logoFrame ? getComputedStyle(logoFrame).zIndex : null,
-      children: [...el.children].map(child => child.className),
-      splashCount: el.querySelectorAll('.vinyl-record__gold, [class*="splash"], [class*="blob"], [class*="splatter"]').length,
-      logo: !!logo,
-      logoAnimation: logo ? getComputedStyle(logo).animationName : null,
-      logoDuration: logo ? getComputedStyle(logo).animationDuration : null,
-      diameterRatio: recordRect.width / sleeveRect.width,
-      coverFilter: getComputedStyle(document.querySelector('.beat-detail__artwork img')).filter,
-    };
-  });
-  assert.match(squishVinyl.bodyBg, /rgb\(207, 212, 218\)|rgb\(184, 190, 198\)/, 'the SQUISH! disc body is icy chrome-slate');
-  assert.match(squishVinyl.bodyBg, /linear-gradient\(116deg/, 'the SQUISH! disc carries a diamond-cut specular facet');
-  assert.match(squishVinyl.bodyBg, /rgba\(255, 255, 255, 0\.62\)/, 'the diamond facet catches a crisp white highlight');
-  assert.match(squishVinyl.bodyBg, /rgba\(255, 255, 255, 0\.34\)/, 'the SQUISH! disc carries crystal-clear shimmer micro-grooves');
-  assert.doesNotMatch(squishVinyl.bodyBg, /\.svg|splatter|blob/, 'the SQUISH! disc body carries no artwork layer');
-  assert.match(squishVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(0, 0, 0\)/, 'the SQUISH! centre label stays deep matte black');
-  assert.match(squishVinyl.rimBg, /conic-gradient/, 'the SQUISH! outer rim is a crisp white hairline');
-  assert.match(squishVinyl.rimBg, /rgb\(255, 255, 255\)/, 'the SQUISH! rim uses the specified pure-white tones');
-  assert.match(squishVinyl.rimMask, /radial-gradient/, 'the SQUISH! rim is masked down to a fine perimeter hairline');
-  assert.deepEqual(squishVinyl.children, ['vinyl-record__rim', 'vinyl-record__logo-frame'], 'the SQUISH! record holds only the clean rim and the flower');
-  assert.equal(squishVinyl.splashCount, 0, 'zero splash, blob or splatter elements remain on SQUISH!');
-  assert.equal(squishVinyl.rimZ, '3', 'the SQUISH! rim paints above the disc');
-  assert.equal(squishVinyl.labelZ, '1', 'the SQUISH! centre label sits above the disc');
-  assert.equal(squishVinyl.logoZ, '2', 'the spinning flower sits above the SQUISH! label');
-  assert.equal(squishVinyl.logo, true, 'the complete flower survives on the SQUISH! pressing');
-  assert.equal(squishVinyl.logoAnimation, 'vinylCenterSpin', 'the SQUISH! flower keeps its slow spin');
-  assert.equal(squishVinyl.logoDuration, '16s', 'the SQUISH! flower keeps the 16s linear loop');
-  assert(Math.abs(squishVinyl.diameterRatio - 0.92) < 0.01, 'the SQUISH! record keeps its 92% inset diameter');
-  assert.equal(squishVinyl.coverFilter, 'none', 'the SQUISH! cover art keeps its original colour');
+  // SQUISH! is the pale end of the same engine: its diamond-white cover presses
+  // a silver disc with a bright white rim and a near-black label.
+  assert.equal(await squishLive.locator(`${SQUISH_CARD}.beat-detail`).getAttribute('data-vinyl'), 'derived', 'SQUISH! renders a cover-derived pressing');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .vinyl-record--pressing`).count(), 1, 'SQUISH! uses the shared pressing');
+  assert.equal(await squishLive.locator(`${SQUISH_CARD} .vinyl-record--gold-rim`).count(), 0, 'no retired modifier is reused');
+  await assertPressing(squishLive, SQUISH_CARD, 'SQUISH!');
   assert.deepEqual(await squishLive.evaluate((id) => window.KYROlll_DOWNLOADS.deliverablesFor(id, 'exclusive').map(item => item.name), SQUISH_ID), [
     'KYROIII - SQUISH! (124 BPM - FM).mp3',
     'KYROIII - SQUISH! (124 BPM - FM).wav',
@@ -2354,7 +2290,7 @@ try {
   // ------------------------------------------ fifth release: JUST D0 IT (23:00)
   // The newest drop is scheduled for 23:00 Israel time on 27 October 2026. It
   // follows the same countdown contract and adds the deep matte black
-  // rage-fire-rim pressing. The studio count must stay at four until its clock
+  // cover-pressed record. The studio count must stay at four until its clock
   // lands, then become five.
   const justDoItPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await justDoItPre.goto(`${url}/?now=${JUST_DO_IT_RELEASE - 3600000}`);
@@ -2363,7 +2299,7 @@ try {
   assert.equal(await justDoItPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-' + GUNNA_ID, 'the GUNNA drop leads the catalog as the newest drop');
   assert.equal(await justDoItPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-adll', 'ADLL follows the newest drop');
   assert.equal(await justDoItPre.locator('#grid .catalog-tile').nth(2).getAttribute('id'), 'card-just-d0-it', 'JUST D0 IT follows ADLL');
-  assert.equal(await justDoItPre.locator(JUST_DO_IT_CARD).getAttribute('data-vinyl'), 'rage-fire-rim', 'the JUST D0 IT catalog card carries its own pressing');
+  assert.equal(await justDoItPre.locator(JUST_DO_IT_CARD).getAttribute('data-vinyl'), 'derived', 'the JUST D0 IT catalog card is cover-pressed');
   assert.match(await justDoItPre.locator(JUST_DO_IT_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - JUST D0 IT/i);
   assert.match(await justDoItPre.locator(`${JUST_DO_IT_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'JUST D0 IT carries its countdown pill');
   assert.doesNotMatch(await justDoItPre.locator(`${JUST_DO_IT_CARD} .drop-countdown__label`).innerText(), /\d/, 'the JUST D0 IT label carries no clock hour');
@@ -2412,58 +2348,11 @@ try {
   assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .download-trigger--locked`).count(), 0, 'the JUST D0 IT LOCKED control is gone at release');
   await noYouTubeButton(justDoItLive, JUST_DO_IT_CARD);
   assert.equal(await justDoItLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), JUST_DO_IT_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the JUST D0 IT link with the clock');
-  // The fifth pressing is the deep matte black rage-fire disc: a fine fiery
-  // red/orange perimeter hairline, the matte black centre label and the complete
-  // spinning flower.
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD}.beat-detail`).getAttribute('data-vinyl'), 'rage-fire-rim', 'JUST D0 IT renders the rage-fire-rim pressing');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'rage-fire-rim', 'the JUST D0 IT record itself carries the variant');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--rage-fire-rim`).count(), 1, 'JUST D0 IT carries the rage-fire-rim modifier');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--white`).count(), 0, 'JUST D0 IT does not share the pearl-white disc');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--gold-rim`).count(), 0, 'JUST D0 IT does not share THE FLOW gold rim');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--sage-white-rim`).count(), 0, 'JUST D0 IT does not share the GREEN FLESH sage disc');
-  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--ice-silver-rim`).count(), 0, 'JUST D0 IT does not share the SQUISH! ice-silver disc');
-  const justDoItVinyl = await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record`).evaluate(el => {
-    const rim = el.querySelector('.vinyl-record__rim');
-    const rimStyle = rim ? getComputedStyle(rim) : null;
-    const label = getComputedStyle(el, '::after');
-    const logo = el.querySelector('.vinyl-record__logo');
-    const logoFrame = el.querySelector('.vinyl-record__logo-frame');
-    const recordRect = el.getBoundingClientRect();
-    const sleeveRect = document.querySelector('.beat-detail__artwork').getBoundingClientRect();
-    return {
-      bodyBg: getComputedStyle(el).backgroundImage,
-      labelBg: label.backgroundImage,
-      labelZ: label.zIndex,
-      rimBg: rimStyle ? rimStyle.backgroundImage : null,
-      rimMask: rimStyle ? (rimStyle.maskImage || rimStyle.webkitMaskImage) : null,
-      rimZ: rimStyle ? rimStyle.zIndex : null,
-      logoZ: logoFrame ? getComputedStyle(logoFrame).zIndex : null,
-      children: [...el.children].map(child => child.className),
-      splashCount: el.querySelectorAll('.vinyl-record__gold, [class*="splash"], [class*="blob"], [class*="splatter"]').length,
-      logo: !!logo,
-      logoAnimation: logo ? getComputedStyle(logo).animationName : null,
-      logoDuration: logo ? getComputedStyle(logo).animationDuration : null,
-      diameterRatio: recordRect.width / sleeveRect.width,
-      coverFilter: getComputedStyle(document.querySelector('.beat-detail__artwork img')).filter,
-    };
-  });
-  assert.match(justDoItVinyl.bodyBg, /rgb\(10, 10, 10\)|rgb\(6, 6, 6\)/, 'the JUST D0 IT disc body is deep matte black');
-  assert.doesNotMatch(justDoItVinyl.bodyBg, /\.svg|splatter|blob/, 'the JUST D0 IT disc body carries no artwork layer');
-  assert.match(justDoItVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(5, 5, 5\)/, 'the JUST D0 IT centre label stays matte black');
-  assert.match(justDoItVinyl.rimBg, /conic-gradient/, 'the JUST D0 IT outer rim is a crisp fire hairline');
-  assert.match(justDoItVinyl.rimBg, /rgb\(255, 59, 48\)/, 'the JUST D0 IT rim uses the specified fire red');
-  assert.match(justDoItVinyl.rimBg, /rgb\(255, 77, 79\)/, 'the JUST D0 IT rim carries its lighter red tone');
-  assert.match(justDoItVinyl.rimMask, /radial-gradient/, 'the JUST D0 IT rim is masked down to a fine perimeter hairline');
-  assert.deepEqual(justDoItVinyl.children, ['vinyl-record__rim', 'vinyl-record__logo-frame'], 'the JUST D0 IT record holds only the clean rim and the flower');
-  assert.equal(justDoItVinyl.splashCount, 0, 'zero splash, blob or splatter elements remain on JUST D0 IT');
-  assert.equal(justDoItVinyl.rimZ, '3', 'the JUST D0 IT rim paints above the disc');
-  assert.equal(justDoItVinyl.labelZ, '1', 'the JUST D0 IT centre label sits above the disc');
-  assert.equal(justDoItVinyl.logoZ, '2', 'the spinning flower sits above the JUST D0 IT label');
-  assert.equal(justDoItVinyl.logo, true, 'the complete flower survives on the JUST D0 IT pressing');
-  assert.equal(justDoItVinyl.logoAnimation, 'vinylCenterSpin', 'the JUST D0 IT flower keeps its slow spin');
-  assert.equal(justDoItVinyl.logoDuration, '16s', 'the JUST D0 IT flower keeps the 16s linear loop');
-  assert(Math.abs(justDoItVinyl.diameterRatio - 0.92) < 0.01, 'the JUST D0 IT record keeps its 92% inset diameter');
-  assert.equal(justDoItVinyl.coverFilter, 'none', 'the JUST D0 IT cover art keeps its original colour');
+  // JUST D0 IT's fire-lit cover presses a burnt-orange body with an ember rim.
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD}.beat-detail`).getAttribute('data-vinyl'), 'derived', 'JUST D0 IT renders a cover-derived pressing');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--pressing`).count(), 1, 'JUST D0 IT uses the shared pressing');
+  assert.equal(await justDoItLive.locator(`${JUST_DO_IT_CARD} .vinyl-record--rage-fire-rim`).count(), 0, 'no retired modifier is reused');
+  await assertPressing(justDoItLive, JUST_DO_IT_CARD, 'JUST D0 IT');
   assert.deepEqual(await justDoItLive.evaluate((id) => window.KYROlll_DOWNLOADS.deliverablesFor(id, 'exclusive').map(item => item.name), JUST_DO_IT_ID), [
     'KYROIII - JUST D0 IT (135 BPM - AM).mp3',
     'KYROIII - JUST D0 IT (135 BPM - AM).wav',
@@ -2517,7 +2406,7 @@ try {
   // ----------------------------------------------- sixth release: A.D.L (19:00)
   // The newest drop is scheduled for 19:00 Israel time today, 2 November 2026.
   // It follows the same countdown contract and wears the deep matte black
-  // graffiti-splatter pressing. The studio count stays at five until its clock
+  // cover-pressed record. The studio count stays at five until its clock
   // lands, then becomes six.
   const adllPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await adllPre.goto(`${url}/?now=${ADLL_RELEASE - 3600000}`);
@@ -2525,7 +2414,7 @@ try {
   assert.equal(await adllPre.locator('#grid .catalog-tile').count(), 7, 'the sixth release is in the seven-card catalog');
   assert.equal(await adllPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-' + GUNNA_ID, 'the GUNNA drop leads the catalog as the newest drop');
   assert.equal(await adllPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-adll', 'ADLL follows the newest drop');
-  assert.equal(await adllPre.locator(ADLL_CARD).getAttribute('data-vinyl'), 'graffiti-splatter', 'the ADLL catalog card carries its own pressing');
+  assert.equal(await adllPre.locator(ADLL_CARD).getAttribute('data-vinyl'), 'derived', 'the ADLL catalog card is cover-pressed');
   assert.match(await adllPre.locator(ADLL_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - A\.D\.L/i);
   assert.match(await adllPre.locator(`${ADLL_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'ADLL carries its countdown pill');
   assert.doesNotMatch(await adllPre.locator(`${ADLL_CARD} .drop-countdown__label`).innerText(), /\d/, 'the ADLL label carries no clock hour');
@@ -2574,73 +2463,13 @@ try {
   assert.equal(await adllLive.locator(`${ADLL_CARD} .download-trigger--locked`).count(), 0, 'the ADLL LOCKED control is gone at release');
   await noYouTubeButton(adllLive, ADLL_CARD);
   assert.equal(await adllLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), ADLL_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the ADLL link with the clock');
-  // The sixth pressing is the deep matte black graffiti-splatter disc: an
-  // ultra-fine white aerosol spray across the exposed vinyl, the clean matte
-  // black centre label and the complete spinning flower.
-  assert.equal(await adllLive.locator(`${ADLL_CARD}.beat-detail`).getAttribute('data-vinyl'), 'graffiti-splatter', 'ADLL renders the graffiti-splatter pressing');
-  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'graffiti-splatter', 'the ADLL record itself carries the variant');
-  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--graffiti-splatter`).count(), 1, 'ADLL carries the graffiti-splatter modifier');
-  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--white`).count(), 0, 'ADLL does not share the pearl-white disc');
-  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--gold-rim`).count(), 0, 'ADLL does not share THE FLOW gold rim');
-  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--sage-white-rim`).count(), 0, 'ADLL does not share the GREEN FLESH sage disc');
-  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--ice-silver-rim`).count(), 0, 'ADLL does not share the SQUISH! ice-silver disc');
-  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--rage-fire-rim`).count(), 0, 'ADLL does not share the JUST D0 IT fire disc');
-  const adllVinyl = await adllLive.locator(`${ADLL_CARD} .vinyl-record`).evaluate(el => {
-    const label = getComputedStyle(el, '::after');
-    const mist = getComputedStyle(el, '::before');
-    const logo = el.querySelector('.vinyl-record__logo');
-    const logoFrame = el.querySelector('.vinyl-record__logo-frame');
-    const recordRect = el.getBoundingClientRect();
-    const sleeveRect = document.querySelector('.beat-detail__artwork').getBoundingClientRect();
-    const bodyBg = getComputedStyle(el).backgroundImage;
-    return {
-      bodyBg,
-      bodySize: getComputedStyle(el).backgroundSize,
-      bodySplashes: (bodyBg.match(/radial-gradient/g) || []).length,
-      mistBg: mist.backgroundImage,
-      mistSize: mist.backgroundSize,
-      mistDroplets: (mist.backgroundImage.match(/radial-gradient/g) || []).length,
-      mistOpacity: mist.opacity,
-      labelBg: label.backgroundImage,
-      labelZ: label.zIndex,
-      logoZ: logoFrame ? getComputedStyle(logoFrame).zIndex : null,
-      rimCount: el.querySelectorAll('.vinyl-record__rim').length,
-      children: [...el.children].map(child => child.className),
-      splashDomCount: el.querySelectorAll('.vinyl-record__gold, [class*="splash"], [class*="blob"], [class*="splatter"]').length,
-      logo: !!logo,
-      logoAnimation: logo ? getComputedStyle(logo).animationName : null,
-      logoDuration: logo ? getComputedStyle(logo).animationDuration : null,
-      diameterRatio: recordRect.width / sleeveRect.width,
-      coverFilter: getComputedStyle(document.querySelector('.beat-detail__artwork img')).filter,
-    };
-  });
-  assert.match(adllVinyl.bodyBg, /rgb\(10, 10, 10\)|rgb\(6, 6, 6\)/, 'the ADLL disc body is deep matte black');
-  assert.match(adllVinyl.bodyBg, /rgba\(255, 255, 255, 0\.72\)/, 'the ADLL disc carries fine white spray dust');
-  assert.match(adllVinyl.bodyBg, /rgba\(255, 255, 255, 0\.3\)/, 'the aerosol grain fades down to soft white');
-  assert.doesNotMatch(adllVinyl.bodyBg, /ellipse/, 'the ADLL disc paints no oversized elliptical blobs');
-  assert.match(adllVinyl.bodyBg, /2\.5px at/, 'the ADLL disc tops out at 2.5px mist droplets');
-  const adllRadii = [...adllVinyl.bodyBg.matchAll(/radial-gradient\(([\d.]+)px at/g)].map(match => Number(match[1]));
-  assert(adllRadii.length >= 27, `the ADLL disc scatters ${adllRadii.length} explicit droplets`);
-  assert(adllRadii.every(radius => radius <= 2.5), `no oversized paint dot survives on the ADLL disc (largest ${Math.max(...adllRadii)}px)`);
-  assert(adllVinyl.bodySplashes >= 30, `the ADLL disc body paints ${adllVinyl.bodySplashes} micro-speckle layers`);
-  assert.match(adllVinyl.bodySize, /9px 11px/, 'the aerosol grain is a tiled micro-dot field');
-  assert.match(adllVinyl.mistBg, /rgba\(255, 255, 255, 0\.75\)/, 'the ADLL mist layer carries fine white droplets');
-  assert.doesNotMatch(adllVinyl.mistBg, /ellipse/, 'the ADLL mist paints no oversized elliptical blobs');
-  assert(adllVinyl.mistDroplets >= 30, `the ADLL mist paints ${adllVinyl.mistDroplets} scattered micro-droplets`);
-  assert.match(adllVinyl.mistSize, /8px 10px/, 'the mist adds a second off-phase grain field');
-  assert.equal(adllVinyl.mistOpacity, '1', 'the white droplets stay at full paint strength');
-  assert.doesNotMatch(adllVinyl.bodyBg, /rgb\(230, 57, 70\)|#e63946/i, 'the ADLL disc carries no crimson rim any more');
-  assert.match(adllVinyl.labelBg, /rgb\(10, 10, 10\)|rgb\(5, 5, 5\)/, 'the ADLL centre label stays matte black');
-  assert.equal(adllVinyl.rimCount, 0, 'the graffiti pressing renders no perimeter rim element');
-  assert.deepEqual(adllVinyl.children, ['vinyl-record__logo-frame'], 'the ADLL record holds only the flower; the paint lives in its background');
-  assert.equal(adllVinyl.splashDomCount, 0, 'the splatter paint adds no DOM graphic layer');
-  assert.equal(adllVinyl.labelZ, '1', 'the ADLL centre label sits above the paint');
-  assert.equal(adllVinyl.logoZ, '2', 'the spinning flower sits above the ADLL label');
-  assert.equal(adllVinyl.logo, true, 'the complete flower survives on the ADLL pressing');
-  assert.equal(adllVinyl.logoAnimation, 'vinylCenterSpin', 'the ADLL flower keeps its slow spin');
-  assert.equal(adllVinyl.logoDuration, '16s', 'the ADLL flower keeps the 16s linear loop');
-  assert(Math.abs(adllVinyl.diameterRatio - 0.92) < 0.01, 'the ADLL record keeps its 92% inset diameter');
-  assert.equal(adllVinyl.coverFilter, 'none', 'the ADLL cover art keeps its original colour');
+  // ADLL's black-and-white portrait presses a charcoal disc with a silver rim;
+  // the white aerosol of its cover lives in the palette's flake field, never in
+  // an extra DOM graphic.
+  assert.equal(await adllLive.locator(`${ADLL_CARD}.beat-detail`).getAttribute('data-vinyl'), 'derived', 'ADLL renders a cover-derived pressing');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--pressing`).count(), 1, 'ADLL uses the shared pressing');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--graffiti-splatter`).count(), 0, 'no retired modifier is reused');
+  await assertPressing(adllLive, ADLL_CARD, 'ADLL');
   assert.deepEqual(await adllLive.evaluate((id) => window.KYROlll_DOWNLOADS.deliverablesFor(id, 'exclusive').map(item => item.name), ADLL_ID), [
     'KYROIII - A.D.L (124 BPM - C#).mp3',
     'KYROIII - A.D.L (124 BPM - C#).wav',
@@ -2659,7 +2488,7 @@ try {
   assert.match(await adllLive.locator(`${ADLL_CARD} .card__specs`).innerText(), /EXCLUSIVE RIGHTS SECURED/, 'the specs announce the archived state');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .download-trigger`).count(), 0, 'a claimed beat offers no lease button');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .beat-preview`).count(), 0, 'a claimed beat has no public player');
-  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--graffiti-splatter`).count(), 1, 'the claimed beat keeps its graffiti pressing');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record--pressing`).count(), 1, 'the claimed beat keeps its cover-pressed record');
   await adllLive.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), ADLL_ID);
   await adllLive.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), ADLL_ID);
   assert.equal(await adllLive.locator('.gate-modal').count(), 0, 'a claimed beat opens no gate');
@@ -2719,45 +2548,13 @@ try {
   await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record`).waitFor();
   await gunnaLive.locator(`${GUNNA_CARD}.vinyl-open`).waitFor();
   await gunnaLive.waitForTimeout(1200);
-  assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'white', 'the GUNNA record rides the pearl-white pressing');
+  const gunnaVinyl = await assertPressing(gunnaLive, GUNNA_CARD, 'THE GUNNA DROP');
   assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record--cover`).count(), 0, 'the record never opts into a cover label');
   assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record__logo--cover`).count(), 0, 'the label image is never cover art');
   assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-flower-stage`).evaluate(el => el.tagName), 'DIV', 'the 3D flower stage is a container, not a canvas');
-  const gunnaVinyl = await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record`).evaluate(el => {
-    const logo = el.querySelector('.vinyl-record__logo');
-    const logoStyle = logo ? getComputedStyle(logo) : null;
-    const stage = el.querySelector('.vinyl-flower-stage');
-    const frame = el.querySelector('.vinyl-record__logo-frame');
-    const label = getComputedStyle(el, '::after');
-    const recordRect = el.getBoundingClientRect();
-    const frameRect = frame.getBoundingClientRect();
-    const sleeveRect = document.querySelector('.beat-detail__artwork').getBoundingClientRect();
-    const stageRect = document.querySelector('.beat-detail__artwork-wrap').getBoundingClientRect();
-    return {
-      children: [...el.children].map(child => child.className),
-      labelRatio: parseFloat(label.width) / recordRect.width,
-      labelRadius: label.borderTopLeftRadius,
-      labelBg: label.backgroundImage,
-      src: logo ? logo.getAttribute('src') : null,
-      animation: logoStyle ? logoStyle.animationName : null,
-      duration: logoStyle ? logoStyle.animationDuration : null,
-      stageTag: stage ? stage.tagName : null,
-      frameSize: [frameRect.width, frameRect.height],
-      insideStage: recordRect.left >= stageRect.left - 1 && recordRect.right <= stageRect.right + 1,
-      diameterRatio: recordRect.width / sleeveRect.width,
-    };
-  });
-  assert.deepEqual(gunnaVinyl.children, ['vinyl-record__logo-frame'], 'the record holds only the flower label frame');
-  assert.equal(gunnaVinyl.src, 'assets/kyrolll-flower.svg', 'the label is always the official flower');
-  assert.equal(gunnaVinyl.animation, 'vinylCenterSpin', 'the fallback flower spins with the platter');
-  assert.equal(gunnaVinyl.duration, '16s', 'the flower keeps the 16s linear loop');
-  assert.equal(gunnaVinyl.labelRadius, '50%', 'the label behind the flower stays a circle');
-  assert.match(gunnaVinyl.labelBg, /radial-gradient/, 'the label keeps the pressing\'s own silver-rimmed fill');
-  assert(Math.abs(gunnaVinyl.labelRatio - 0.58) < 0.01, 'the white pressing keeps its 58% label');
   assert.equal(gunnaVinyl.stageTag, 'DIV', 'the 3D flower has a div host');
   assert(gunnaVinyl.frameSize[0] > 0 && gunnaVinyl.frameSize[1] > 0, 'the flower frame has a live box');
-  assert.equal(gunnaVinyl.insideStage, true, 'the record never breaches the artwork stage');
-  assert(Math.abs(gunnaVinyl.diameterRatio - 0.92) < 0.01, 'the record keeps its 92% inset diameter');
+  assert(gunnaVinyl.labelRatio > 0.36 && gunnaVinyl.labelRatio < 0.46, 'the derived label keeps its seeded size band');
   await gunnaLive.close();
 
   // The secured state is not an ADLL-only skin: every active beat paints the
@@ -2893,10 +2690,8 @@ try {
   await supportPage.close();
 
   // Keep the rest of the stylesheet monochrome while expressly checking the
-  // isolated green / pink hero accents, THE FLOW's gold-rim palette, GREEN FLESH's
-  // sage-white-rim palette, SQUISH!'s ice-silver-rim palette, JUST D0 IT's
-  // rage-fire-rim palette, the graffiti-splatter paint and the ALL-CAPS
-  // rules.
+  // isolated green / pink hero accents, the one shared cover-pressed vinyl rule
+  // and the ALL-CAPS rules.
   const cssText = await readFile(new URL('./style.css', import.meta.url), 'utf8');
   const scriptText = await readFile(new URL('./script.js', import.meta.url), 'utf8');
   assert.doesNotMatch(scriptText, /vinyl-record__gold|goldSplash|gold-splatter|sageSplash|sage-blob/, 'the record generates no splash, blob or splatter layer');
@@ -2958,144 +2753,38 @@ try {
   assert.match(taglineCss, /#39ff8b/i, 'the tagline keeps its original neon-green accent');
   assert.match(taglineCss, /#ff3ea5/i, 'the tagline keeps its original vivid-pink accent');
   assert.match(taglineCss, /#ff2e9a/i, 'the pixel heart keeps its original pink base');
-  // FLESH's pearl pressing is upgraded from a plain white disc to a marbled
-  // collector: smoky charcoal plumes under the pearl surface and a fine charcoal
-  // flake field. Every tone is an equal-channel grey, so it stays inside the
-  // monochrome audit; the black centre label and the flower are untouched.
-  const whiteStart = cssText.indexOf('.vinyl-record--white {');
-  const whiteEnd = cssText.indexOf('/* The frame is a positioning wrapper', whiteStart);
-  assert(whiteStart >= 0 && whiteEnd > whiteStart, 'the pearl-white pressing has its own stylesheet block');
-  const whiteCss = cssText.slice(whiteStart, whiteEnd);
-  assert.match(whiteCss, /rgba\(38, 38, 38, 0\.38\)/, 'the pearl disc carries smoky charcoal marbling');
-  assert.match(whiteCss, /rgba\(46, 46, 46, 0\.3\)/, 'the charcoal marbling drifts in soft plumes');
-  assert.match(whiteCss, /rgba\(40, 40, 40, 0\.4\)/, 'the pearl disc scatters a fine charcoal flake field');
-  assert.match(whiteCss, /13px 17px/, 'the charcoal flake field is tiled');
-  assert.match(whiteCss, /#f5f5f5/, 'the pearl body itself is unchanged underneath the marble');
-  // THE FLOW's collector pressing is the second deliberate palette exception:
-  // the deep matte body and the single ultra-fine gold foil rim are the vinyl's
-  // specified palette, isolated so every other stylesheet literal stays neutral.
-  const goldRimStart = cssText.indexOf('/* THE FLOW gold-rim palette');
-  const goldRimEnd = cssText.indexOf('/* End THE FLOW gold-rim palette. */', goldRimStart);
-  assert(goldRimStart >= 0 && goldRimEnd > goldRimStart, 'the gold-rim palette is isolated in its own stylesheet section');
-  const goldRimCss = cssText.slice(goldRimStart, goldRimEnd);
-  assert.match(goldRimCss, /#0a0a0c/i, 'the gold-rim disc body is deep matte black');
-  assert.match(goldRimCss, /#d4af37/i, 'the gold rim uses the specified gold');
-  assert.match(goldRimCss, /#e5c158/i, 'the gold rim carries its light gold sheen');
-  assert.equal((goldRimCss.match(/conic-gradient/g) || []).length, 1, 'the gold-rim palette paints exactly one metallic ring');
-  assert.match(goldRimCss, /mask:\s*radial-gradient/, 'the gold rim is masked to a hairline ring');
-  assert.doesNotMatch(goldRimCss, /\.vinyl-record__rim::after/, 'the gold rim has no inner pseudo-ring');
-  assert.doesNotMatch(goldRimCss, /\.vinyl-record__gold/, 'the gold-rim palette has no splash layer');
-  assert.match(goldRimCss, /\.vinyl-record--gold-rim::before\s*\{[^}]*rgba\(212, 175, 55, 0\.55\)/, 'the gold pressing suspends gold flake micro-dust');
-  assert.match(goldRimCss, /\.vinyl-record--gold-rim::before\s*\{[^}]*11px 13px/, 'the gold flake is a tiled micro-field');
-  assert.match(goldRimCss, /rgba\(255, 243, 176, 0\.5\)/, 'the gold flake catches a pale foil highlight');
-  assert.match(goldRimCss, /\.vinyl-record--gold-rim\s+\.vinyl-record__rim\s*\{[^}]*calc\(100% - 3px\)/, 'the brushed gold rim is given a touch more body');
-  assert.equal((goldRimCss.match(/conic-gradient/g) || []).length, 1, 'the gold flake adds no second metallic ring');
-  // GREEN FLESH's collector pressing is the third deliberate palette exception: the
-  // smoky grey-green body and delicate white outer hairline are the vinyl's
-  // specified colours, isolated so every other stylesheet literal stays neutral.
-  const sageStart = cssText.indexOf('/* GREEN FLESH sage-white-rim palette');
-  const sageEnd = cssText.indexOf('/* End GREEN FLESH sage-white-rim palette. */', sageStart);
-  assert(sageStart >= 0 && sageEnd > sageStart, 'the sage-white-rim palette is isolated in its own stylesheet section');
-  const sageCss = cssText.slice(sageStart, sageEnd);
-  assert.match(sageCss, /#2d3b36/i, 'the sage-white-rim disc body uses the specified smoked grey-green');
-  assert.match(sageCss, /#3a4b44/i, 'the sage-white-rim disc body carries its lighter sage-slate tone');
-  assert.match(sageCss, /#f5f5f5/i, 'the sage-white-rim uses the specified pure-white hairline');
-  assert.match(sageCss, /rgba\(255, 255, 255, 0\.85\)/i, 'the white rim carries its delicate translucent sheen');
-  assert.match(sageCss, /#0a0a0a/i, 'the sage-white-rim centre label stays deep matte black');
-  assert.equal((sageCss.match(/conic-gradient/g) || []).length, 1, 'the sage-white-rim palette paints exactly one delicate ring');
-  assert.match(sageCss, /\.vinyl-record--sage-white-rim\s+\.vinyl-record__logo-frame\s*\{\s*z-index:\s*2/, 'the spinning flower sits above the sage centre label');
-  assert.doesNotMatch(sageCss, /splash|blob|splatter|\.vinyl-record__sage/, 'the sage-white-rim palette has no splash, blob or random graphic');
-  assert.match(sageCss, /rgba\(214, 230, 221, 0\.24\)/, 'the sage disc carries pale sage marbling');
-  assert.match(sageCss, /rgba\(8, 22, 17, 0\.36\)/, 'the sage marbling drifts over a smoked body');
-  assert.match(sageCss, /rgba\(220, 235, 228, 0\.24\)/, 'the marble carries a fine mineral grain');
-  assert.match(sageCss, /\.vinyl-record--sage-white-rim::before\s*\{[^}]*rgba\(255, 255, 255, 0\.26\)/, 'the sage outer edge wears a white mist halo');
-  // SQUISH!'s ice-silver-rim pressing is the fourth deliberate palette exception:
-  // the chrome-slate body and composite white perimeter hairline are the vinyl's
-  // specified colours, isolated so the rest of the storefront stays neutral.
-  const iceStart = cssText.indexOf('/* SQUISH! ice-silver-rim palette');
-  const iceEnd = cssText.indexOf('/* End SQUISH! ice-silver-rim palette. */', iceStart);
-  assert(iceStart >= 0 && iceEnd > iceStart, 'the ice-silver-rim palette is isolated in its own stylesheet section');
-  const iceCss = cssText.slice(iceStart, iceEnd);
-  assert.match(iceCss, /#cfd4da/i, 'the ice-silver-rim disc body uses the specified light chrome-slate');
-  assert.match(iceCss, /#b8bec6/i, 'the ice-silver-rim disc body uses the specified deeper silver');
-  assert.match(iceCss, /#ffffff/i, 'the ice-silver-rim uses the specified pure-white hairline');
-  assert.match(iceCss, /rgba\(255, 255, 255, 0\.72\)/i, 'the ice-silver rim carries its translucent white sheen');
-  assert.match(iceCss, /#0a0a0a/i, 'the ice-silver-rim centre label stays deep matte black');
-  assert.equal((iceCss.match(/conic-gradient/g) || []).length, 1, 'the ice-silver-rim palette paints exactly one metallic ring');
-  assert.match(iceCss, /mask:\s*radial-gradient/, 'the ice-silver rim is masked to a hairline ring');
-  assert.match(iceCss, /\.vinyl-record--ice-silver-rim\s+\.vinyl-record__logo-frame\s*\{\s*z-index:\s*2/, 'the spinning flower sits above the ice-silver centre label');
-  assert.doesNotMatch(iceCss, /splash|blob|splatter|\.vinyl-record__ice/, 'the ice-silver-rim palette has no splash, blob or random graphic');
-  assert.match(iceCss, /linear-gradient\(116deg/, 'the ice-silver disc carries a diamond-cut facet');
-  assert.match(iceCss, /linear-gradient\(-118deg/, 'the diamond facet is crossed by a second reflection');
-  assert.match(iceCss, /rgba\(255, 255, 255, 0\.34\)/, 'the ice-silver disc carries crystal-clear shimmer micro-grooves');
-  assert.match(iceCss, /\.vinyl-record--ice-silver-rim::before\s*\{[^}]*rgba\(255, 255, 255, 0\.52\)/, 'the ice-silver disc keeps a crisp white outer edge');
-  // JUST D0 IT's rage-fire-rim pressing is the fifth deliberate palette
-  // exception: the deep matte black body and fiery red/orange perimeter hairline
-  // are the vinyl's specified colours, isolated so the rest of the storefront
-  // stays neutral.
-  const fireStart = cssText.indexOf('/* JUST D0 IT rage-fire-rim palette');
-  const fireEnd = cssText.indexOf('/* End JUST D0 IT rage-fire-rim palette. */', fireStart);
-  assert(fireStart >= 0 && fireEnd > fireStart, 'the rage-fire-rim palette is isolated in its own stylesheet section');
-  const fireCss = cssText.slice(fireStart, fireEnd);
-  assert.match(fireCss, /#0a0a0a/i, 'the rage-fire-rim disc body is deep matte black');
-  assert.match(fireCss, /#ff3b30/i, 'the rage-fire rim uses the specified fire red');
-  assert.match(fireCss, /#ff4d4f/i, 'the rage-fire rim carries its lighter fire red');
-  assert.match(fireCss, /#ff7a18/i, 'the rage-fire rim carries the cover\'s orange flame tone');
-  assert.equal((fireCss.match(/conic-gradient/g) || []).length, 1, 'the rage-fire-rim palette paints exactly one delicate ring');
-  assert.match(fireCss, /mask:\s*radial-gradient/, 'the fire rim is masked to a hairline ring');
-  assert.match(fireCss, /\.vinyl-record--rage-fire-rim\s+\.vinyl-record__logo-frame\s*\{\s*z-index:\s*2/, 'the spinning flower sits above the fire-rim centre label');
-  assert.doesNotMatch(fireCss, /splash|blob|splatter|\.vinyl-record__rage/, 'the rage-fire-rim palette has no splash, blob or random graphic');
-  // The graffiti-splatter pressing is monochrome by design: white paint on a
-  // #0a0a0a disc. Its paint is background layers, not DOM elements or motion,
-  // so it stays inside the equal-channel audit and never disturbs the flower.
-  const graffitiStart = cssText.indexOf("/* The graffiti-splatter pressing");
-  const graffitiEnd = cssText.indexOf('.vinyl-record__logo {', graffitiStart);
-  assert(graffitiStart >= 0 && graffitiEnd > graffitiStart, 'the graffiti-splatter pressing has its own stylesheet block');
-  const graffitiCss = cssText.slice(graffitiStart, graffitiEnd);
-  assert.match(graffitiCss, /#0a0a0a/i, 'the graffiti-splatter disc body is deep matte black');
-  assert.match(graffitiCss, /rgba\(255, 255, 255, 0\.75\)/i, 'the micro-speckle dust uses the specified bright white');
-  assert.match(graffitiCss, /rgba\(255, 255, 255, 0\.3\)/i, 'the finest grain fades down to the specified soft white');
-  assert.match(graffitiCss, /circle 1px at/, 'the spray carries 1px micro-speckles');
-  assert.match(graffitiCss, /circle 2\.5px at/, 'the spray carries 2.5px mist droplets and nothing larger');
-  assert.match(graffitiCss, /9px 11px/, 'the aerosol grain is a repeating tiled micro-dot field');
-  assert.match(graffitiCss, /8px 10px/, 'a second off-phase grain field breaks up the repeat');
-  assert((graffitiCss.match(/radial-gradient/g) || []).length >= 40, 'the dust is built from dozens of micro-speckle layers and droplets');
-  assert.match(graffitiCss, /\.vinyl-record--graffiti-splatter::before\s*\{[^}]*rgba\(255, 255, 255, 0\.75\)/, 'the fine mist droplets are painted over the disc');
-  assert.match(graffitiCss, /3px 4px, transparent 4px 8px/, 'the vinyl grooves still read underneath the dust');
-  assert.match(graffitiCss, /\.vinyl-record--graffiti-splatter::after\s*\{[^}]*z-index:\s*1/, 'the clean matte label sits above the spray');
-  assert.match(graffitiCss, /\.vinyl-record--graffiti-splatter\s+\.vinyl-record__logo-frame\s*\{\s*z-index:\s*2/, 'the spinning flower sits above the label');
-  assert.doesNotMatch(graffitiCss, /#e63946|conic-gradient/, 'the graffiti pressing carries no coloured rim');
-  assert.doesNotMatch(graffitiCss, /ellipse/, 'the spray uses no oversized elliptical paint blobs');
-  assert.doesNotMatch(graffitiCss, /animation\s*:/, 'the speckle dust is static and never fights the flower spin');
-  // The signature flower is the only centre label. The old cover-label
-  // pressing (`vinylLabel: "cover"`) is retired, so no rule may reintroduce a
-  // pasted-on cover over the flower, and the label keeps its 16s platter clock.
-  assert.doesNotMatch(cssText, /\.vinyl-record--cover/, 'no cover-label pressing remains');
-  assert.doesNotMatch(cssText, /\.vinyl-record__logo--cover/, 'no cover-art label image remains');
-  assert.match(cssText, /\.vinyl-record__logo\s*\{[\s\S]*?animation:\s*vinylCenterSpin\s+16s\s+linear\s+infinite/, 'the flower rides the shared 16s platter clock');
-  // Physical pressing finish: every pressing carries the same two
-  // layers a real pressing has — a smooth unrecorded lead-in band between the
-  // raised outer lip and the first groove, and one fixed room light sweeping the
-  // surface — so the catalog reads as pressings from one plant rather than
-  // illustrations. Both layers are equal-channel white, so the monochrome audit
-  // still covers them.
-  const finishBlocks = {
-    base: cssText.slice(cssText.indexOf('.vinyl-record {'), cssText.indexOf('.vinyl-record--white {')),
-    white: whiteCss,
-    'gold-rim': goldRimCss,
-    sage: sageCss,
-    ice: iceCss,
-    fire: fireCss,
-    graffiti: graffitiCss,
-  };
-  Object.entries(finishBlocks).forEach(([name, block]) => {
-    assert.match(block, /radial-gradient\(circle at 50% 50%, transparent 0 96\.2%/, `${name}: the disc keeps an unrecorded lead-in band`);
-    assert.match(block, /linear-gradient\(118deg/, `${name}: the disc takes one fixed room-light sheen`);
-  });
-  // Every body colour is opaque: an alpha on the disc's own fill would let the
-  // page through it, which no pressed record does.
-  Object.entries({ white: whiteCss, sage: sageCss, ice: iceCss, fire: fireCss, graffiti: graffitiCss, 'gold-rim': goldRimCss })
-    .forEach(([name, block]) => assert.match(block, /radial-gradient\(circle at 50% 50%, #(?:ffffff|3a4b44|cfd4da|0a0a0a|0a0a0c) /, `${name}: the pressing body is a solid opaque colour`));
+  // There is one shared pressing rule for every beat. Its body, marbling,
+  // flake field, centre label and foil rim all read `--vinyl-*` properties that
+  // vinyl-palette.js derives from the beat's own cover, so the stylesheet no
+  // longer carries a per-beat pressing — and every colour literal that remains
+  // in it is an equal-channel grey.
+  const pressingStart = cssText.indexOf('.vinyl-record--pressing {');
+  const pressingEnd = cssText.indexOf('.vinyl-record__logo {', pressingStart);
+  assert(pressingStart >= 0 && pressingEnd > pressingStart, 'the shared pressing has its own stylesheet block');
+  const pressingCss = cssText.slice(pressingStart, pressingEnd);
+  assert.match(pressingCss, /radial-gradient\(circle at 50% 50%, transparent 0 96\.2%/, 'the pressing keeps its unrecorded lead-in band');
+  assert.match(pressingCss, /linear-gradient\(118deg/, 'the pressing takes one fixed room-light sheen');
+  assert.match(pressingCss, /radial-gradient\(circle at 50% 50%, var\(--vinyl-body-1\)/, 'the pressing body is one opaque cover-derived fill');
+  assert.match(pressingCss, /var\(--vinyl-marble-1\)/, 'the cover accent drifts through the body as marbling');
+  assert.match(pressingCss, /var\(--vinyl-vein-x\)/, 'each pressing lays its marbling out on its own seeded coordinates');
+  assert.match(pressingCss, /var\(--vinyl-flake-1\)/, 'the pressing scatters a fine flake field');
+  assert.match(pressingCss, /width: var\(--vinyl-label-size\)/, 'the centre label takes its seeded size from the pressing');
+  assert.match(pressingCss, /var\(--vinyl-label-ring\)/, 'the label wears an accent ring from the cover');
+  assert.match(pressingCss, /conic-gradient\(from 215deg/, 'the foil rim is one conic gradient');
+  assert.match(pressingCss, /mask: radial-gradient\(circle closest-side, transparent calc\(100% - var\(--vinyl-rim-width\)\)/, 'the rim is masked to a cover-tuned hairline');
+  assert.match(pressingCss, /\.vinyl-record__logo-frame \{[^}]*left: 61%/, 'the flower sits on the exposed label crescent');
+  assert.equal((pressingCss.match(/conic-gradient/g) || []).length, 1, 'one pressing paints exactly one metallic ring');
+  assert.doesNotMatch(pressingCss, /\.vinyl-record--(white|gold-rim|sage-white-rim|ice-silver-rim|rage-fire-rim|graffiti-splatter)/, 'no per-beat pressing block survives');
+  assert.doesNotMatch(pressingCss, /\.vinyl-record__gold|gold-splatter|sage-blob/, 'the pressing generates no splash, blob or artwork layer');
+  assert.doesNotMatch(pressingCss, /url\(assets\//, 'the pressing hard-codes no artwork path');
+  const paletteSource = await readFile(new URL('./vinyl-palette.js', import.meta.url), 'utf8');
+  assert.match(paletteSource, /loadCover\(beat && beat\.img\)/, 'the palette engine reads each beat cover');
+  assert.match(paletteSource, /drawImage\(image, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE\)/, 'the cover is sampled on an offscreen canvas');
+  assert.match(paletteSource, /--vinyl-body-1/, 'the cover reading becomes the disc body');
+  assert.match(paletteSource, /--vinyl-label-1/, 'the cover reading becomes the centre label');
+  assert.match(paletteSource, /--vinyl-rim-2/, 'the cover reading becomes the foil rim');
+  assert.match(paletteSource, /--vinyl-label-size/, 'the beat seed sizes its own label');
+  assert.doesNotMatch(paletteSource, /localStorage|sessionStorage|document\.cookie/, 'the palette is remembered in memory only');
   assert.match(cssText, /\.social-icon \{[^}]*width:\s*52px/, 'the footer social badges are large icon tiles');
   assert.match(cssText, /\.social-icon \{[^}]*border-radius:\s*14px/, 'the badges are rounded tiles');
   assert.match(cssText, /\.social-icon:hover,\s*\n\.social-icon:focus-visible \{[^}]*filter:\s*drop-shadow/, 'the badges take a static cyberpunk glow on hover');
@@ -3104,12 +2793,7 @@ try {
   assert.match(cssText, /\.support-modal \{[^}]*z-index:\s*1000000/, 'the desk paints above the package drawer');
   assert.match(cssText, /\.support-sheet \{[^}]*max-height:\s*90dvh/, 'the desk card is measured in dynamic viewport units');
   assert.match(cssText, /\.support-sheet \{[^}]*overflow-y:\s*auto/, 'the desk card scrolls inside itself');
-  const auditedCss = cssText.slice(0, taglineStart)
-    + cssText.slice(taglineEnd, goldRimStart)
-    + cssText.slice(goldRimEnd, sageStart)
-    + cssText.slice(sageEnd, iceStart)
-    + cssText.slice(iceEnd, fireStart)
-    + cssText.slice(fireEnd);
+  const auditedCss = cssText.slice(0, taglineStart) + cssText.slice(taglineEnd);
   const literal = value => (value.includes(',')
     ? value.split(',').slice(0, 3).map(part => Number(part.trim()))
     : (value.length <= 4 ? value.slice(0, 3).split('').map(c => parseInt(c + c, 16)) : [0, 2, 4].map(i => parseInt(value.slice(i, i + 2), 16))));

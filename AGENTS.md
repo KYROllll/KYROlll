@@ -39,12 +39,11 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   again in `toAscii` (`license-pdf.js`), which uppercases before it sanitises; `KYROlll`
   survives only as an API name (`window.KYROlll_*`), an asset path (`assets/kyrolll-*.png`)
   and the YouTube handle.
-- **One palette for the store's own paint — with two isolated colour exceptions.** The
+- **One palette for the store's own paint — with one isolated colour exception.** The
   storefront is deep matte black `#0B0B0B`, pure white `#FFFFFF` and silver `#888888`, with the
   original neon-green / vivid-pink glitch palette isolated to the hero tagline and heart. Every
-  colour literal outside **two** deliberately marked sections — the hero tagline and THE FLOW's
-  `gold-rim` vinyl palette — is an equal-channel grey, and the `theme-color` metas are
-  `#0b0b0b`. The beat cover art is **not** filtered: the catalog tiles and the beat detail show
+  colour literal outside **one** deliberately marked section — the hero tagline — is an
+  equal-channel grey, and the `theme-color` metas are `#0b0b0b`. The beat cover art is **not** filtered: the catalog tiles and the beat detail show
   the supplied covers in their original colour. The same is true of the brand marks:
   `body > canvas` (the falling brush X), `.footer__logo`, `.brand-wordmark__mark`,
   `.vinyl-record__logo` and both watermark images paint in the colour they were drawn in — the
@@ -53,16 +52,17 @@ about *running* the app in this sandbox, not about the app's own behaviour.
 platform's own inline SVG mark (YouTube red, Instagram's gradient, TikTok's cyan/red offsets,
 X's white logo), so the colour lives in markup the stylesheet never paints. The tile, its
 border and its static hover glow are equal-channel greys, and the computed-style hue audit
-exempts only that `.footer__social` subtree. THE FLOW's collector pressing is the coloured vinyl: its deep matte `#0a0a0c`
-  body and single ultra-fine gold foil rim (`#d4af37` / `#e5c158`) are the vinyl's own
-  intentional CSS colour block, scoped between the `THE FLOW gold-rim palette` markers. There
-  is no splash, blob or extra graphic on the disc — just the black body, the perimeter rim and
-  the spinning flower. `npm run build:brand` (which needs `sharp`) still owns the raster brand
+exempts only that `.footer__social` subtree. The vinyl pressings are the other deliberately
+  coloured surface, and they keep even the stylesheet neutral: the body, marbling, label and
+  rim tones are the covers' own colours, arriving at runtime as `--vinyl-*` values on each
+  record (`vinyl-palette.js`), never as literals in `style.css`. There is no splash, blob or
+  extra graphic on any disc — just the pressed body, the perimeter rim and the spinning
+  flower. `npm run build:brand` (which needs `sharp`) still owns the raster brand
   files and is still the only thing that may re-cut them. The generated PDF is equal-channel by
   construction (`license-pdf.js`), and the brand-design test asserts both halves: it reads
-  every colour out of the PDF bytes and every colour literal outside the two marked stylesheet
-  sections, and it asserts the covers keep their colour, the gold rim is painted and masked,
-  and the splash layer is gone. Keep any new CSS accents scoped to those marked exceptions;
+  every colour out of the PDF bytes and every colour literal outside the tagline's marked
+  stylesheet section, and it asserts the covers keep their colour, every beat's pressing is
+  derived from its cover with one painted, masked rim, and the splash layer is gone. Keep any new CSS accents scoped to those marked exceptions;
   all other storefront styling stays neutral.
 - **The dialog is a phone citizen.** `.gate-modal` is measured in *dynamic* viewport units
   (`height: 100vh; height: 100dvh`) and the card is capped at `max-height: 90dvh` and scrolls
@@ -345,7 +345,10 @@ room. FLESH's pearl pressing has a 58% black label, and the complete official fl
 (`.vinyl-record__logo`) sits at 65.2% of the record — the optical centre of the label's
 exposed crescent — so the sleeve never crops any part of the mark. THE FLOW's black/gold
 pressing keeps the classic 36% label and the logo centred on it. The logo image alone spins
-continuously (`vinylCenterSpin`, 16s linear); the outer record box never rotates.
+continuously (`vinylCenterSpin`, 16s linear); the outer record box never rotates. The live 3D
+flower inside the label keeps the same platter clock and turns flat in the label's own plane: `brand-logo.js`
+composes a local-Z roll (`vinylSpin`) under the flower's resting pose, so a vinyl stage never tumbles
+about the world Y axis (which read as the record flipping on its side).
 
 **Every centre label is the signature flower — there is no cover label.** The record is
 always a KYROIII record: `script.js` paints `assets/kyrolll-flower.svg` as the still label on
@@ -365,45 +368,38 @@ rest immediately, and adding `vinyl-open` is a no-op. `.beat-detail__artwork-wra
 `contain: layout` (not `paint`, which would clip the record's shadow) so a child box can
 never nudge a surrounding box.
 
-`catalog.js` gives each beat its own pressing: FLESH is `vinylVariant: "white"` (a pearl-white
-disc with a broad black centre label and the full flower, no spindle hole, shot through with
-smoky charcoal marbling and a fine charcoal flake field), THE FLOW is
-`vinylVariant: "gold-rim"` (a deep matte `#0a0a0c` disc with a single ultra-fine metallic gold
-foil rim and suspended gold flake micro-dust, 0.6–1.7px flecks on two off-phase tiled fields),
-GREEN FLESH is `vinylVariant: "sage-white-rim"` (a smoky, marbled grey-green disc with pale sage
-veins, a white mist halo inside a delicate white outer hairline and the complete flower in its
-deep matte black centre label),
-SQUISH! is `vinylVariant: "ice-silver-rim"` (an icy chrome-slate disc with a diamond-cut
-specular facet, crystal-clear shimmer micro-grooves at two densities and a pure-white perimeter
-hairline), JUST D0 IT is
-`vinylVariant: "rage-fire-rim"` (a deep matte `#0a0a0a` disc with one delicate fire-red/orange
-perimeter hairline and the complete flower in its matte black centre label), A.D.L is
-`vinylVariant: "graffiti-splatter"` (a deep matte `#0a0a0a` disc
-dusted with an ultra-fine white
-aerosol spray — 1px–2.5px `rgba(255,255,255,.75)` micro-speckles fading to `.3`, tiled off-phase
-`9px 11px` / `8px 10px` grain fields and scattered mist droplets as background paint layers, never
-a large blob — with the complete flower in its clean matte black centre label). `script.js` writes
-the variant onto the card (`data-vinyl`) and the record (`.vinyl-record--white` /
-`.vinyl-record--gold-rim` / `.vinyl-record--sage-white-rim` / `.vinyl-record--ice-silver-rim` /
-`.vinyl-record--rage-fire-rim` / `.vinyl-record--graffiti-splatter`); the old `"gold"` value
-resolves to `gold-rim`, and a bare black
-disc remains the base/fallback. Every pressing — the base black disc included — also shares the physical
-finish a real record has: an opaque body colour (never a translucent panel), a smooth unrecorded
-lead-in band between the raised outer lip and the first groove, and one fixed 118° room-light
-sheen across the surface. Both shared layers are equal-channel white, so they stay inside the
-monochrome audit; keep them if a pressing is retuned, because they are what makes six variants
-read as six pressings from one plant instead of six illustrations. The rim is `.vinyl-record__rim`, a conic-gradient masked to a
-~1.6px outer hairline. It sits above the grooves (z-index 3) but only at the perimeter, while
-the centre label (z-index 1) and the spinning flower (z-index 2) stay clean on top. A rim
-pressing's DOM holds only that rim and the flower; the graffiti paint is part of the disc's own
-background layers and adds no DOM element at all — there is no splash, blob or other graphic
-layer on any record. Each coloured pressing is isolated between its own palette markers and
-excluded from the equal-channel audit; the graffiti pressing is white-on-black, so it stays
-inside that audit. The pre-rendered FLESH card in `index.html` mirrors the white markup so the
-first paint is already white; the record's vertical containment, the large cover width, the
-fully-exposed logo and the zero horizontal overflow are asserted at 375, 390, 768 and 1440 px,
-and the
-gold-rim body, single rim gradient/mask, clean DOM and stacking are asserted on THE FLOW.
+There is no hand-assigned pressing any more — `catalog.js` carries no `vinylVariant` field at
+all. `vinyl-palette.js` (loaded after `catalog.js`, before `script.js`) samples each beat's own
+`img` on a 32x32 offscreen canvas, reads its dominant hue, accent hue and overall luminance,
+and derives the record: opaque body tints, marbling plumes, a fine flake field, groove tones,
+a centre-label tint with an accent ring, foil-rim tones and a seeded label size (38-44%).
+`styleFor(beat)` writes them onto the record as `--vinyl-*` custom properties, `script.js`
+renders every beat through the one `.vinyl-record--pressing` rule (marking it
+`data-vinyl="derived"` and always emitting `.vinyl-record__rim`), and `watch()` fills the
+palette in as soon as the cover decodes. A record is therefore a complete neutral
+black/silver pressing from its first frame and takes the cover's tones when they arrive;
+nothing is stored (readings live in an in-page `Map`), and a cover that cannot be read keeps
+the neutral pressing seeded from the beat itself, so no two beats press an identical record.
+Every colour literal in the shared pressing block is an equal-channel grey: the cover colour
+arrives only as per-record `--vinyl-*` values (gradients, masks and the flower's glow filter),
+which is the isolated vinyl palette the audit exempts, while the covers keep their own colour
+(`coverFilter` is asserted `none`). Every pressing shares the physical finish a real record
+has: an opaque body colour (never a translucent panel), a smooth unrecorded lead-in band
+between the raised outer lip and the first groove, and one fixed 118 degree room-light sheen
+across the surface. The rim is `.vinyl-record__rim`, one conic gradient masked to a
+cover-tuned hairline (2.2-3.1px). It sits above the grooves (z-index 3) but only at the
+perimeter, while the centre label (z-index 1) and the spinning flower (z-index 2) stay clean
+on top. The record's DOM holds only that rim and the flower frame — the marbling, flake and
+grain are the disc's own background layers and add no DOM element at all, so there is no
+splash, blob or other graphic layer on any record. The record rides out 53% of its own width,
+which lands its centre on the sleeve's edge, so only the right-hand crescent of the label is
+exposed: the flower frame sits at `left: 61%` of the record at `15%` of its width, the optical
+centre of that crescent, and its size is asserted to clear the label's rim at every seeded
+label width. The record's vertical containment, the large cover width, the exposed logo and
+the zero horizontal overflow are asserted at 375, 390, 768 and 1440 px; the test presses all
+seven beats on the catalog tile and the beat page (seven distinct `--vinyl-*` keys), asserts
+the shared rule's single rim, clean DOM and stacking, and asserts that a claimed beat keeps
+its pressing.
 
 ## Preview responsiveness in this sandbox
 
@@ -981,8 +977,8 @@ Tests that ship with the repo:
   nothing is re-posted until submit, and the record is gone after a reload), and that no gate
   state is written to `localStorage`/`sessionStorage` (only the catalog scroll key may appear).
   It drives the six-card catalog, walks each scheduled drop's countdown and in-page unlock
-  (A.D.L is the newest — 19:00 Israel time, 2 November 2026 — and wears the
-  `graffiti-splatter` pressing), then claims ADLL's exclusive tier and proves the beat
+  (A.D.L is the newest — 19:00 Israel time, 2 November 2026 — and wears its own
+  cover-pressed record), then claims ADLL's exclusive tier and proves the beat
   retires in place: the secured plate, the disclaimer, no player, no menu, no cold-link
   hand-off, and the same state on the catalog tile after a history walk without a reload. It
   taps a
