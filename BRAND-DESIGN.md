@@ -74,15 +74,24 @@ There is no per-beat vinyl any more. Every beat plays the same record: the
 supplied studio photograph, cut to the disc's edge, re-centred on its label and
 alpha-masked to a clean circle (`assets/vinyl-classic.png`), painted as the
 `.vinyl-record` background. Its grooves, both soft speculars, the unrecorded
-lead-in band, the thin bright perimeter edge and the tan centre label are
+lead-in band, the thin bright perimeter edge and the photographic centre label are
 therefore real image pixels — nothing in the stylesheet paints a rim, a marbling
 plume, a flake field or a tint, and there is no palette module or `--vinyl-*`
-colour property. The signature flower sits dead centre on the photographed label
+colour property. The signature flower sits dead centre on the label's own circle
 (a 27% frame inside the label's 28%), spins in place on the 16s platter clock,
 and is the only layer above the disc. No splash, blob or other artwork layer
-exists on the record. `npm run build:brand` remains the single source of truth
-for every generated brand asset, and the storefront is the only thing that
-decides what a hue looks like on screen.
+exists on the record.
+
+The only painted colour on the record is the centre label behind the flower: a
+single warm **brand brown-gold** circle (`#56382f` core, burnished to `#7a4a2e`
+at the light side and deepened to `#3a2418` at the rim), sampled from the brush X
+mark (`assets/kyrolll-brown-x.png`). It is the store's second authored colour
+exception (after the hero tagline's green/pink glitch), isolated between the
+`THE BRAND LABEL PALETTE` markers in `style.css` and exempted from the
+stylesheet's equal-channel audit, so the rest of the store stays neutral. The disc
+itself stays black-and-white from the photograph; only the label reads warm.
+`npm run build:brand` remains the single source of truth for every generated brand asset,
+and the storefront is the only thing that decides what a hue looks like on screen.
 
 ## Falling-X background
 

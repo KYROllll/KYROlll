@@ -294,6 +294,12 @@ const noHue = async (page, label) => {
   });
   assert(report.inspected > 50, `${label}: the audit really walked the page (${report.inspected} elements)`);
   assert.deepEqual(report.bad, [], `${label}: every non-tagline rendered colour is an equal-channel grey`);
+  // The brand-label block is the one warm exception. The audit excludes it, but the
+  // stylesheet itself must still describe the label as the sampled brown-gold radial
+  // (not as black and not as the tan photo-pixel) — so the label reads warm while the
+  // audit stays clean.
+  assert.match(cssText, /\.vinyl-record::before \{[\s\S]*?background: radial-gradient\(circle at 50% 42%, #7a4a2e 0%, #56382f 55%, #3a2418 100%\)/, 'the label is the brand brown-gold radial gradient, not black or photo-tan');
+  assert.match(cssText, /\.vinyl-record::before \{[\s\S]*?width: 28%;\s*height: 28%;\s*transform: translate\(-50%, -50%\);\s*border-radius: 50%;\s*z-index: 1;/, 'the brown-gold label is a centred 28% circle at z-index 1 under the flower frame');
 };
 
 // The ALL-CAPS identity, checked on what actually renders: every text node that
@@ -781,7 +787,7 @@ try {
   await railPage.close();
 
   // The reveal is deliberately bold, but it is still just a translate: the
-  // record must clear the sleeve enough to show the black centre label, stay
+  // record must clear the sleeve enough to show the brown-gold centre label, stay
   // inside the stage, and leave the page with zero horizontal scroll on a phone
   // and a desktop. The sleeve and stage must not move when `vinyl-open` lands.
   const vinylPage = await setupPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'no-preference' });
@@ -847,8 +853,8 @@ try {
   const checkReveal = (sample, label) => {
     checkContained(sample, label);
     assert(sample.record.right - sample.sleeve.right > sample.stage.width * 0.3, `${label}: the disc clears the sleeve generously`);
-    assert(sample.label.right - sample.sleeve.right > 20, `${label}: the black centre label is exposed`);
-    // The complete logo is inside the black label and entirely to the right of
+    assert(sample.label.right - sample.sleeve.right > 20, `${label}: the brown-gold centre label is exposed`);
+    // The complete logo is inside the brown-gold label and entirely to the right of
     // the sleeve once the record has ridden out: no petal is cropped.
     assert(sample.logo.left >= sample.sleeve.right - 0.5, `${label}: the whole logo clears the sleeve edge`);
     assert(sample.logo.right <= sample.label.right + 0.5, `${label}: the whole logo stays on the exposed label`);
@@ -2209,7 +2215,7 @@ try {
   await noYouTubeButton(squishLive, SQUISH_CARD);
   assert.equal(await squishLive.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), SQUISH_ID), 'https://www.youtube.com/@KYROlll00', 'the helper releases the SQUISH! link with the clock');
   // SQUISH! is the pale end of the same engine: its diamond-white cover presses
-  // a silver disc with a bright white rim and a near-black label.
+  // a silver disc with a bright white rim and a near-black label (legacy text, not asserted).
   assert.equal(await squishLive.locator(`${SQUISH_CARD}.beat-detail .vinyl-record`).count(), 1, 'SQUISH! renders the photographed pressing');
   assert.equal(await squishLive.locator(`${SQUISH_CARD} .vinyl-record`).count(), 1, 'SQUISH! renders the photographed pressing');
   assert.equal(await squishLive.locator(`${SQUISH_CARD} .vinyl-record--gold-rim`).count(), 0, 'no retired modifier is reused');
@@ -2734,7 +2740,9 @@ try {
   assert.doesNotMatch(cssText, /\.vinyl-record__rim/, 'no synthetic rim element is styled');
   assert.doesNotMatch(cssText, /\.vinyl-record--(white|gold-rim|sage-white-rim|ice-silver-rim|rage-fire-rim|graffiti-splatter)/, 'no per-beat pressing block survives');
   assert.doesNotMatch(cssText, /\.vinyl-record__gold|gold-splatter|sage-blob/, 'the pressing generates no splash, blob or artwork layer');
-  assert.doesNotMatch(cssText, /\.vinyl-record::(before|after)/, 'the disc paints no synthetic label or groove pseudo-element');
+  assert.match(cssText, /\.vinyl-record::before \{[\s\S]*?background: radial-gradient\(circle at 50% 42%, #7a4a2e 0%, #56382f 55%, #3a2418 100%\)/, 'the label is the brand brown-gold radial gradient, not black or photo-tan');
+  assert.match(cssText, /\.vinyl-record::before \{[\s\S]*?width: 28%;\s*height: 28%;\s*transform: translate\(-50%, -50%\);\s*border-radius: 50%;\s*z-index: 1;/, 'the brown-gold label is a centred 28% circle at z-index 1 under the flower frame');
+  assert.doesNotMatch(cssText, /\.vinyl-record::(after|(before)(?!:))/, 'no other pseudo-element — ::after or a non-label ::before — is painted on the record');
   const indexHtml = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   assert.doesNotMatch(indexHtml, /vinyl-palette/, 'the retired cover-palette module is no longer loaded');
   assert.match(cssText, /\.social-icon \{[^}]*width:\s*52px/, 'the footer social badges are large icon tiles');

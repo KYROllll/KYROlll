@@ -323,25 +323,36 @@ sheen or shadow keyframes, the handle/track contract, samples the player and its
 frames of playback and requires zero drift, and then scrolls the open drawer to prove its seam
 never moves and its direction never flips.
 
-## The vinyl record is one photographed pressing — flower dead centre
+## The vinyl record is one photographed pressing — flower dead centre, brown-gold label
 
 Every beat plays the same record, and that record is a photograph. `.vinyl-record` paints
 `assets/vinyl-classic.png` as `background: url(...) center / contain no-repeat`. The asset is
 the supplied studio shot (`Unknown.jpeg`) cut to the disc's measured edge, re-centred on its
 label and alpha-masked to a clean circle, so the surface is real rather than painted: the
 dense concentric grooves, both soft speculars, the unrecorded lead-in band, the thin bright
-perimeter edge and the tan centre label with its spindle hole are pixels of that photograph.
-`style.css` generates no rim, no marbling plume, no flake field, no label pseudo-element and
-no per-beat tint, so every beat is identical and nothing can drift over time. There is no
+perimeter edge and the photographic centre label with its spindle hole are pixels of that photograph.
+`style.css` generates no rim, no marbling plume, no flake field, no per-beat tint and no
+per-beat pressing modifier, so every beat is identical and nothing can drift over time. There is no
 palette module any more: `vinyl-palette.js` is deleted, no `--vinyl-*` colour property is
 written or read, and `data-vinyl` / `.vinyl-record--pressing` / `.vinyl-record__rim` are gone
 from both the markup and the stylesheet. The geometry vars (`--vinyl-art`,
 `--vinyl-record`, `--vinyl-top`, `--vinyl-slide`) are unrelated and still in use.
 
+**The only painted colour on the record is the centre label.** Behind the flower, the record
+carries one warm **brand brown-gold** circle — a CSS `::before` on `.vinyl-record` — sampled from
+the brush X mark (`assets/kyrolll-brown-x.png`): a `#56382f` core, burnished to `#7a4a2e` at the
+light side and deepened to `#3a2418` at the rim, with a 1px dark hairline and a faint inner
+silver hairline so the label reads as a real record label. It is a `radial-gradient(circle at
+50% 42%, ...)`, 28% of the disc, dead centre on the label. This is the store's second authored
+colour exception (after the hero tagline), isolated between the `THE BRAND LABEL PALETTE`
+markers in `style.css` and exempted from the monochrome audit — everything else on the record
+and the page stays equal-channel grey. The disc itself stays black-and-white from the
+photograph; only the label reads warm.
+
 **The flower sits dead centre of the disc.** The photographed label is a circle 28% of the
 disc across and the cut is centred on it, so the record's own centre *is* the label's centre.
 `.vinyl-record__logo-frame` is a 27% square at `top: 50%; left: 50%; transform:
-translate(-50%, -50%)` — just inside the label, leaving a thin ring of tan around the mark.
+translate(-50%, -50%)` — just inside the label, leaving a thin ring of brown-gold around the mark.
 The record's DOM holds only that frame: `script.js` paints `assets/kyrolll-flower.svg` as the
 still mark and `brand-logo.js` mounts the live 3D scene over it. The host is a
 `<div class="logo-stage vinyl-flower-stage">`, deliberately **not** a `<canvas>`: the renderer
@@ -355,16 +366,18 @@ world Y axis.
 
 **The reveal.** `script.js` adds `vinyl-open` **1.35 s** after the card is built (the card's
 own 0.8 s fade finishes well inside that delay), and `style.css` transitions the record out
-over **1 s** on `cubic-bezier(.16, 1, .3, 1)` with a short opacity fade alongside. The tuck is
-the element's **first** computed state — `.beat-detail:not(.vinyl-open) .vinyl-record` sets
-`translateX(0)` and `opacity: 0` in the stylesheet — so the record is never briefly painted in
-the exposed position: no pre-render flash, no pop. Only `translateX` and `opacity` move; a 360°
-rotation is never reintroduced, because a rotating square's *axis-aligned* box grows by √2 and
-breached the stage. Both the reveal and its transition live inside `@media
-(prefers-reduced-motion: no-preference)`: under reduced motion the record simply rests in the
-exposed position and adding `vinyl-open` is a no-op. `.beat-detail__artwork-wrap` keeps
-`contain: layout` (not `paint`, which would clip the record's shadow) so a child box can never
-nudge a surrounding box.
+over **1 s** on `cubic-bezier(.16, 1, .3, 1)` with a short opacity fade alongside. The record
+starts **tucked inside the sleeve** and rides out under the label frame, so the cover reads as a
+physical sleeve the record is pulled out of — the disc, label and flower all move together and
+the brown-gold label clears the sleeve at the end. The tuck is the element's **first** computed
+state — `.beat-detail:not(.vinyl-open) .vinyl-record` sets `translateX(0)` and `opacity: 0` in
+the stylesheet — so the record is never briefly painted in the exposed position: no pre-render
+flash, no pop. Only `translateX` and `opacity` move; a 360° rotation is never reintroduced,
+because a rotating square's *axis-aligned* box grows by √2 and breached the stage. Both the
+reveal and its transition live inside `@media (prefers-reduced-motion: no-preference)`: under
+reduced motion the record simply rests in the exposed position and adding `vinyl-open` is a no-op.
+`.beat-detail__artwork-wrap` keeps `contain: layout` (not `paint`, which would clip the
+record's shadow) so a child box can never nudge a surrounding box.
 
 **Geometry: the label has to clear the sleeve.** The stage is 100% wide (capped at 620px), the
 sleeve is **60%** of it and the record **92%** of the sleeve, inset 4% of the sleeve on every
@@ -375,8 +388,11 @@ paints **above** the sleeve (`z-index: 3` against the sleeve's 2): at that slide
 overlaps the cover's right edge like a record pulled out of its jacket, and an occluded label
 would cut the flower in half. `brand-design.test.mjs` asserts the frame's centre against the
 disc's centre to within 1px, the 27% frame, the 92% inset diameter, the 60% sleeve, vertical
-containment, the large cover and zero horizontal overflow at 375, 390, 768 and 1440 px, and
-that a claimed beat keeps its pressing.
+containment, the large cover and zero horizontal overflow at 375, 390, 768 and 1440 px, the
+label is a brown-gold radial gradient (not black, not tan-from-photo), the flower spins on
+`vinylCenterSpin`, no synthetic rim/conic-gradient survives, no per-beat modifier class is
+emitted, and the sleeve and stage never move while the record rides out. The label is nowhere
+described as black or as "the black centre label" in the test text.
 
 ## Preview responsiveness in this sandbox
 

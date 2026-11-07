@@ -1419,12 +1419,43 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 /* Every beat plays the same 12" — the supplied studio photograph, cut to the
    disc and alpha-masked (`assets/vinyl-classic.png`). The surface is real rather
    than painted: the dense concentric grooves, both soft speculars, the
-   unrecorded lead-in band, the thin bright perimeter edge and the tan centre
-   label with its spindle hole all come from the photograph itself. Nothing here
-   generates a rim, a marbling plume, a flake field or a colour accent, so no
-   beat can shift the pressing and no accent can drift over time.
+   unrecorded lead-in band, the thin bright perimeter edge and the photographic
+   centre label all come from the photograph itself. Nothing here generates a rim,
+   a marbling plume, a flake field or a colour accent, so no beat can shift the
+   pressing and no accent can drift over time.
    The cut is centred on the photographed label (28% of the disc), which is what
-   lets the signature flower land dead centre on the label's own circle. */
+   lets the signature flower land dead centre on the label's own circle.
+
+   THE BRAND LABEL — one warm brown-gold circle, sampled from the brush X mark
+   (`assets/kyrolll-brown-x.png`). This is the store's second authored colour
+   exception (after the hero tagline): a branded warm tone, painted here as a
+   pure CSS radial gradient on the centre label behind the flower, not as a photo
+   pixel and not as a per-beat hue. It is the only place on the record that is
+   not black-and-white, and it is isolated between the markers below so the
+   monochrome audit never sees it. */
+/* === THE BRAND LABEL PALETTE START === */
+.vinyl-record::before,
+.vinyl-record__logo-frame::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28%;
+  height: 28%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 42%, #7a4a2e 0%, #56382f 55%, #3a2418 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 14px rgba(0, 0, 0, 0.55);
+  z-index: 1;
+}
+.vinyl-record__logo-frame {
+  z-index: 2;
+}
+/* === THE BRAND LABEL PALETTE END === */
+
 .vinyl-record__logo-frame {
   position: absolute;
   top: 50%;
@@ -1448,7 +1479,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   overflow: hidden;
   opacity: 1;
   transition: opacity .4s ease;
-  /* White ink on a tan label needs a little lift to stay crisp at 60px. */
+  /* White ink on the brown-gold label needs a little lift to stay crisp at 60px. */
   filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.18));
   transform-origin: 50% 50%;
   animation: vinylCenterSpin 16s linear infinite;
@@ -1477,11 +1508,12 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 
 /* The reveal. `vinyl-open` is added by script.js 1.35 s after the beat card is
    built (the card's own 0.8 s fade finishes first, so the title and player get
-   the eye for a moment). The record is *already* tucked at that point — the
-   `:not()` rule is the element's very first computed state — so nothing is ever
-   painted in the exposed position first: no pop, no pre-render flash.
-   Only `translateX` (and a gentle opacity) moves: a pure horizontal slide keeps
-   the circle, its box and its shadow inside the stage the whole way. */
+   the eye for a moment). The record starts *inside* the sleeve and rides out
+   under the label frame, so the cover reads as a physical sleeve the record is
+   pulled out of: the disc eases horizontally from the sleeve, the label and the
+   flower come with it, and the pull-out lands with the label clear of the cover.
+   Nothing is ever painted exposed first — the `:not()` rule is the element's very
+   first computed state. */
 @media (prefers-reduced-motion: no-preference) {
   .vinyl-record {
     transition:
