@@ -86,7 +86,7 @@ test("the re-ingested ADLL beat is scheduled for today at 19:00 with its graffit
     .forEach((asset) => assert(readFileSync(new URL(`./${asset}`, import.meta.url)).length > 0, `${asset} is ingested`));
 });
 
-test("the GUNNA drop is scheduled for 22:00 today and its record paints the cover label", () => {
+test("the GUNNA drop is scheduled for 22:00 today and every record keeps the flower label", () => {
   const { window } = catalogContextFor();
   const helpers = window.KYROlll_HELPERS;
   const beat = helpers.beatById("gunna-type");
@@ -97,7 +97,7 @@ test("the GUNNA drop is scheduled for 22:00 today and its record paints the cove
   assert.equal(beat.key, "Fm");
   assert.equal(beat.preview, "assets/previews/gunna-type.mp3");
   assert.equal(beat.vinylVariant, "white", "the drop is pressed on the pearl-white disc");
-  assert.equal(beat.vinylLabel, "cover", "the centre label opts into the beat's own cover art");
+  assert.equal(beat.vinylLabel, undefined, "no beat replaces the signature flower with cover art");
   assert.equal(beat.releaseAt, "2026-11-06T22:00:00+02:00", "the drop lands today at exactly 22:00 Israel time");
   const releaseAt = Date.parse("2026-11-06T22:00:00+02:00");
   assert.equal(helpers.releaseAt(beat), releaseAt);
@@ -118,14 +118,15 @@ test("the GUNNA drop is scheduled for 22:00 today and its record paints the cove
   ["assets/beat-cover.png", "assets/previews/gunna-type.mp3", "assets/previews/gunna-type.wav", "assets/previews/gunna-type-stems.zip"]
     .forEach((asset) => assert(readFileSync(new URL(`./${asset}`, import.meta.url)).length > 0, `${asset} is ingested`));
 
-  // The cover label is data-driven: script.js reads the path off the beat and
-  // flips the record to its cover modifier; style.css paints the art on the
-  // label's own circle. No beat path is hard-coded in the stylesheet.
+  // Every centre label is the signature KYROIII flower: the 3D WebGL stage is
+  // mounted on a div (a canvas cannot host the renderer's own canvas) with the
+  // SVG flower as the no-WebGL fallback. The old cover-label path is gone.
   const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
-  assert.match(script, /beat\.vinylLabel !== "cover"/, "the label art is chosen from catalog data");
-  assert.match(script, /vinyl-record--cover/, "the record opts into the cover modifier");
+  assert.match(script, /const VINYL_LABEL_ART = "assets\/kyrolll-flower\.svg"/, "the flower is the one label art");
+  assert.doesNotMatch(script, /vinylLabel|vinyl-record--cover/, "no record opts into a cover label");
+  assert.match(script, /<div class="logo-stage vinyl-flower-stage"/, "the 3D flower stage is a container, not a canvas");
   const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
-  assert.match(css, /\.vinyl-record--cover \.vinyl-record__logo \{[\s\S]*?border-radius: 50%/, "the cover art is cropped to the label's circle");
+  assert.doesNotMatch(css, /\.vinyl-record--cover/, "the stylesheet carries no cover-label pressing");
   assert.doesNotMatch(css, /url\(assets\/beat-cover\.png\)/, "the stylesheet hard-codes no beat artwork path");
 });
 
@@ -315,7 +316,7 @@ test("all six pressings share a solid body, a lead-in band and one room light", 
 
 test("a beat link lands with the return rail already pinned at the top", () => {
   const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
-  assert.match(script, /window\.scrollTo\(\{ top: Math\.max\(0, top\), behavior: "instant" \}\)/, "the beat page landing is an instant window.scrollTo");
+  assert.match(script, /const target = Math\.max\(0, top\);[\s\S]*?window\.scrollTo\(\{ top: target, behavior: "instant" \}\)/, "the beat page landing is an instant window.scrollTo");
   assert.match(script, /const navHeight = nav && !nav\.hidden \? nav\.getBoundingClientRect\(\)\.height : 0/, "the landing offsets by the pinned rail");
   assert.doesNotMatch(script, /card\.scrollIntoView/, "the landing no longer defers to scrollIntoView");
   const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");

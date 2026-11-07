@@ -287,10 +287,6 @@
       preview: "assets/previews/gunna-type.mp3",
       youtube: "https://www.youtube.com/@KYROlll00",
       vinylVariant: "white",
-      // The record's centre label paints this beat's own cover art
-      // (`img`) instead of the generic flower — see `vinylLabelArt` in
-      // script.js and the `.vinyl-record--cover` block in style.css.
-      vinylLabel: "cover",
       // Schedule the drop for today at exactly 22:00 (Israel time).
       releaseAt: "2026-11-06T22:00:00+02:00",
       deliverables: {

@@ -2711,21 +2711,22 @@ try {
   await adllAfter.close();
 
   // ------------------------------------------- seventh release: GUNNA (22:00)
-  // The newest drop's record is the first whose centre label paints the beat's
-  // own cover art (`vinylLabel: "cover"` in catalog.js). The art is the record's
-  // own spinning label image — no extra layer, no hard-coded path — cropped to
-  // the label circle and keeping its supplied colour.
+  // Every record — the newest drop included — carries the signature 3D KYROIII
+  // flower on its centre label. There is no cover-art label: the label stage is
+  // a div so brand-logo.js can mount its own WebGL canvas inside it.
   const gunnaLive = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'no-preference' });
   await gunnaLive.goto(`${url}/?beat=${GUNNA_ID}&now=${ALL_LIVE_NOW}`, { waitUntil: 'domcontentloaded' });
   await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record`).waitFor();
   await gunnaLive.locator(`${GUNNA_CARD}.vinyl-open`).waitFor();
   await gunnaLive.waitForTimeout(1200);
   assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record`).getAttribute('data-vinyl'), 'white', 'the GUNNA record rides the pearl-white pressing');
-  assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record--cover`).count(), 1, 'the GUNNA record opts into the cover label');
-  assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record__logo--cover`).count(), 1, 'the label image carries the cover modifier');
+  assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record--cover`).count(), 0, 'the record never opts into a cover label');
+  assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record__logo--cover`).count(), 0, 'the label image is never cover art');
+  assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-flower-stage`).evaluate(el => el.tagName), 'DIV', 'the 3D flower stage is a container, not a canvas');
   const gunnaVinyl = await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record`).evaluate(el => {
     const logo = el.querySelector('.vinyl-record__logo');
     const logoStyle = logo ? getComputedStyle(logo) : null;
+    const stage = el.querySelector('.vinyl-flower-stage');
     const frame = el.querySelector('.vinyl-record__logo-frame');
     const label = getComputedStyle(el, '::after');
     const recordRect = el.getBoundingClientRect();
@@ -2734,39 +2735,27 @@ try {
     const stageRect = document.querySelector('.beat-detail__artwork-wrap').getBoundingClientRect();
     return {
       children: [...el.children].map(child => child.className),
-      labelWidth: label.width,
       labelRatio: parseFloat(label.width) / recordRect.width,
-      labelBg: label.backgroundImage,
       labelRadius: label.borderTopLeftRadius,
+      labelBg: label.backgroundImage,
       src: logo ? logo.getAttribute('src') : null,
-      naturalWidth: logo ? logo.naturalWidth : 0,
-      naturalHeight: logo ? logo.naturalHeight : 0,
-      radius: logoStyle ? logoStyle.borderTopLeftRadius : null,
-      objectFit: logoStyle ? logoStyle.objectFit : null,
-      filter: logoStyle ? logoStyle.filter : null,
-      opacity: logoStyle ? logoStyle.opacity : null,
       animation: logoStyle ? logoStyle.animationName : null,
       duration: logoStyle ? logoStyle.animationDuration : null,
-      frameCentre: (frameRect.left + frameRect.right) / 2,
-      recordCentre: (recordRect.left + recordRect.right) / 2,
+      stageTag: stage ? stage.tagName : null,
+      frameSize: [frameRect.width, frameRect.height],
       insideStage: recordRect.left >= stageRect.left - 1 && recordRect.right <= stageRect.right + 1,
       diameterRatio: recordRect.width / sleeveRect.width,
     };
   });
-  assert.deepEqual(gunnaVinyl.children, ['vinyl-record__logo-frame'], 'the cover-label record holds only the spinning label, no extra art layer');
-  assert.match(gunnaVinyl.src, /assets\/beat-cover\.png$/, 'the label art is the beat\'s own cover, read from catalog data');
-  assert.equal(gunnaVinyl.naturalWidth, 1024, 'the cover art loads at its supplied resolution');
-  assert.equal(gunnaVinyl.naturalHeight, 1024, 'the cover art stays square');
-  assert.equal(gunnaVinyl.radius, '50%', 'the square cover is cropped to the label circle');
-  assert.equal(gunnaVinyl.objectFit, 'cover', 'the cover fills the label without distortion');
-  assert.equal(gunnaVinyl.filter, 'none', 'the cover art keeps its supplied colour');
-  assert.equal(gunnaVinyl.opacity, '1', 'the cover art is fully painted');
-  assert.equal(gunnaVinyl.animation, 'vinylCenterSpin', 'the cover art spins with the platter');
-  assert.equal(gunnaVinyl.duration, '16s', 'the cover art keeps the 16s linear loop');
-  assert.equal(gunnaVinyl.labelRadius, '50%', 'the label behind the art stays a circle');
+  assert.deepEqual(gunnaVinyl.children, ['vinyl-record__logo-frame'], 'the record holds only the flower label frame');
+  assert.equal(gunnaVinyl.src, 'assets/kyrolll-flower.svg', 'the label is always the official flower');
+  assert.equal(gunnaVinyl.animation, 'vinylCenterSpin', 'the fallback flower spins with the platter');
+  assert.equal(gunnaVinyl.duration, '16s', 'the flower keeps the 16s linear loop');
+  assert.equal(gunnaVinyl.labelRadius, '50%', 'the label behind the flower stays a circle');
   assert.match(gunnaVinyl.labelBg, /radial-gradient/, 'the label keeps the pressing\'s own silver-rimmed fill');
-  assert(Math.abs(gunnaVinyl.labelRatio - 0.47) < 0.01, 'the cover label grows to 47% of the platter');
-  assert(Math.abs(gunnaVinyl.frameCentre - gunnaVinyl.recordCentre) < 2, 'the cover art is centred on the platter');
+  assert(Math.abs(gunnaVinyl.labelRatio - 0.58) < 0.01, 'the white pressing keeps its 58% label');
+  assert.equal(gunnaVinyl.stageTag, 'DIV', 'the 3D flower has a div host');
+  assert(gunnaVinyl.frameSize[0] > 0 && gunnaVinyl.frameSize[1] > 0, 'the flower frame has a live box');
   assert.equal(gunnaVinyl.insideStage, true, 'the record never breaches the artwork stage');
   assert(Math.abs(gunnaVinyl.diameterRatio - 0.92) < 0.01, 'the record keeps its 92% inset diameter');
   await gunnaLive.close();
@@ -3078,21 +3067,12 @@ try {
   assert.doesNotMatch(graffitiCss, /#e63946|conic-gradient/, 'the graffiti pressing carries no coloured rim');
   assert.doesNotMatch(graffitiCss, /ellipse/, 'the spray uses no oversized elliptical paint blobs');
   assert.doesNotMatch(graffitiCss, /animation\s*:/, 'the speckle dust is static and never fights the flower spin');
-  // A cover-label record (`vinylLabel: "cover"`) replaces the flower with the
-  // beat's own artwork: the label grows, the art is centred on the platter and
-  // cropped to the label's circle, keeps its supplied colour and spins on the
-  // same 16s platter clock. The path is always read from catalog data.
-  const coverStart = cssText.indexOf('/* A cover-label record');
-  const coverEnd = cssText.indexOf('/* THE FLOW gold-rim palette', coverStart);
-  assert(coverStart >= 0 && coverEnd > coverStart, 'the cover-label pressing has its own stylesheet block');
-  const coverCss = cssText.slice(coverStart, coverEnd);
-  assert.match(coverCss, /\.vinyl-record--cover::after\s*\{[^}]*width:\s*47%/, 'the cover label grows to hold the artwork');
-  assert.match(coverCss, /\.vinyl-record--cover\s+\.vinyl-record__logo-frame\s*\{[^}]*left:\s*50%/, 'the cover art is centred on the platter, not the exposed crescent');
-  assert.match(coverCss, /\.vinyl-record--cover\s+\.vinyl-record__logo\s*\{[\s\S]*?border-radius:\s*50%/, 'the square cover is cropped to the label circle');
-  assert.match(coverCss, /\.vinyl-record--cover\s+\.vinyl-record__logo\s*\{[\s\S]*?object-fit:\s*cover/, 'the cover fills the label without distortion');
-  assert.match(coverCss, /\.vinyl-record--cover\s+\.vinyl-record__logo\s*\{[\s\S]*?filter:\s*none/, 'the cover art keeps its supplied colour');
-  assert.match(cssText, /\.vinyl-record__logo\s*\{[\s\S]*?animation:\s*vinylCenterSpin\s+16s\s+linear\s+infinite/, 'the cover art rides the shared 16s platter clock');
-  assert.doesNotMatch(coverCss, /url\(/, 'no cover path is hard-coded in the stylesheet');
+  // The signature flower is the only centre label. The old cover-label
+  // pressing (`vinylLabel: "cover"`) is retired, so no rule may reintroduce a
+  // pasted-on cover over the flower, and the label keeps its 16s platter clock.
+  assert.doesNotMatch(cssText, /\.vinyl-record--cover/, 'no cover-label pressing remains');
+  assert.doesNotMatch(cssText, /\.vinyl-record__logo--cover/, 'no cover-art label image remains');
+  assert.match(cssText, /\.vinyl-record__logo\s*\{[\s\S]*?animation:\s*vinylCenterSpin\s+16s\s+linear\s+infinite/, 'the flower rides the shared 16s platter clock');
   // Physical pressing finish: every pressing carries the same two
   // layers a real pressing has — a smooth unrecorded lead-in band between the
   // raised outer lip and the first groove, and one fixed room light sweeping the

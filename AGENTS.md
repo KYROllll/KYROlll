@@ -162,8 +162,15 @@ starts once every stage has reported its first paint (`stagePainted()`, also cal
 fails so one dead flower can never hold it back) plus a 450 ms hold; before that `elapsed` is 0,
 which is exactly the pose the still image shows. `paused` / `document.hidden` freeze the shared
 clock for every flower at once, and the drifting rim light only starts with the rotation, so the
-hand-off pixels do not move either. Every `.logo-stage` on the page mounts; there is no
-skip filter any more (the `body.auth-body` guard dated from the removed sign-in page). The
+hand-off pixels do not move either. That shared clock belongs to the hero and the preloader
+only: a vinyl centre label is a tiny stage that runs its own constant-speed 16 s clock in the
+same rAF loop (`VINYL_SPIN_S`, ~30 fps), and while its still SVG label spins the page already
+looks complete.
+The hero/preloader build owns the main thread while the veil is up, so vinyl stages are
+mounted only after the `kyrolll:preloader-done` event (with an 8 s fallback for a page whose
+veil never reports). A stage that shipped with the page joins the initial pass, which is why
+`stagePainted()` is gated on `initialHosts` — a label mounted later must not release the
+hero's clock early. The
 veil's `logoBreathe` glow stays cancelled (`.preloader .logo-stage { animation: none }`)
 and the still → canvas cross-fade stays cancelled for the veil flower
 (`.preloader .logo-stage canvas, .preloader .logo-fallback { transition: none }`) — the canvas
@@ -209,6 +216,14 @@ a stale measurement only rescales the marks slightly.
 
 Re-measuring with `document.body.offsetHeight` inside `resize()` was tried and reverted:
 the clamp does not need it, and it did not make the sandbox smoke check any more reliable.
+
+The renderer itself is deliberately cheap: the backing store is pinned to `dpr = 1` (the brush
+marks are soft and translucent, so a retina canvas bought nothing), the sprite count is capped
+at 32 and scales at one per 100 000 px², and the paint loop is capped at ~30 fps — the marks
+drift slowly enough that the cadence is invisible. A `resize` that changes neither the width
+nor the height by more than 48 px returns without touching the bitmap or reseeding: a phone's
+address bar collapsing fires that event on almost every scroll frame, and reallocating a
+page-tall canvas (or reshuffling every mark) there was the visible stutter.
 
 ## `will-change` is handed back when a reveal settles
 
@@ -302,17 +317,18 @@ exposed crescent — so the sleeve never crops any part of the mark. THE FLOW's 
 pressing keeps the classic 36% label and the logo centred on it. The logo image alone spins
 continuously (`vinylCenterSpin`, 16s linear); the outer record box never rotates.
 
-**A beat can opt into a cover label.** `catalog.js` marks it `vinylLabel: "cover"` and
-`script.js` then reads the art straight off the beat (`beat.img`) — never a path hard-coded
-in the stylesheet — paints it on the record's own centre label and adds
-`.vinyl-record--cover` (plus `.vinyl-record__logo--cover` on the image). The label grows to
-47% of the record, the square cover is cropped to the label's circle (`border-radius: 50%` +
-`object-fit: cover`) inside one crisp hairline, and it spins on the same 16s platter clock —
-so the newest drop's record carries that drop's artwork. Cover art keeps its supplied colour
-(the covers are the one thing exempt from the monochrome rule), so the cover label's `filter`
-is `none`. Every other pressing keeps the flower label untouched, and the record's DOM still
-holds only the rim (when it has one) and the logo frame — the art is the logo image, not an
-extra layer.
+**Every centre label is the signature flower — there is no cover label.** The record is
+always a KYROIII record: `script.js` paints `assets/kyrolll-flower.svg` as the still label on
+every pressing, and `brand-logo.js` mounts the live 3D scene over it. The host is a
+`<div class="logo-stage vinyl-flower-stage">`, deliberately **not** a `<canvas>`: the renderer
+appends its own canvas inside the stage, and a canvas element cannot display child content, so
+a canvas host hid both the renderer's canvas and the SVG fallback. Until the WebGL flower has
+painted, the SVG is what shows and it alone spins on the platter clock
+(`vinylCenterSpin`, 16s linear, `will-change: transform`); once `.logo-stage.is-ready` lands
+the renderer's canvas fades in and the still is hidden. The record's DOM still holds only the
+rim (when it has one) and the logo frame. The old `vinylLabel: "cover"` data path and the
+`.vinyl-record--cover` / `.vinyl-record__logo--cover` styles are retired, and the tests assert
+they cannot come back.
 Both the reveal and its transition live inside `@media (prefers-reduced-motion:
 no-preference)`: under reduced motion the base `.vinyl-record` rule leaves the record at
 rest immediately, and adding `vinyl-open` is a no-op. `.beat-detail__artwork-wrap` keeps
@@ -374,6 +390,13 @@ matching `swiftshader|llvmpipe|softpipe|software`) and, only there, builds a lig
 across frames so the page keeps answering while it is built. A GPU keeps every original
 value. After it: one ~1.1s block, ~44ms per frame, 2 long tasks — and the flower is
 unchanged (mean ink luminance 216 before and after).
+
+Two more cuts apply on every renderer, GPU included, and neither changes the flower: a stage
+narrower than 220px — every vinyl centre label — is built with the compact scene
+(`bevelSegments` 2, `curveSegments` 8, the 128px reflection cube, `pixelRatio` capped at 1.25),
+which is invisible at that size, and vinyl labels are not mounted at all until the preloader
+veil lifts, so they never compete with the hero build. The falling-X canvas is likewise capped
+to `dpr = 1`, 32 sprites and ~30 fps (see that section above).
 
 The remaining block is the driver compiling and linking the pearl program, and it is not
 removable without changing the material: SwiftShader does **not** expose

@@ -20,7 +20,7 @@ motion.addEventListener('change', () => { paused = motion.matches; });
 document.addEventListener('motion-toggle', (event) => { paused = event.detail.paused; });
 
 const img = new Image();
-img.src = 'assets/kyrolll-brown-x.png';
+img.src = 'assets/kyrolll-brown-x.png?v=2';
 
 let sprites = [];
 let width = 0;
@@ -28,10 +28,14 @@ let height = 0;
 let dpr = 1;
 let rafId = 0;
 let lastTime = 0;
+let lastPaint = 0;
 let running = false;
+const FRAME_MS = 1000 / 30;
 
 function targetCount() {
-  return Math.max(8, Math.min(50, Math.round((width * height) / 70000)));
+  // A quieter field is cheaper to paint every frame and still reads as the same
+  // drifting background. The count scales with the page area, capped at 32.
+  return Math.max(8, Math.min(32, Math.round((width * height) / 100000)));
 }
 
 function makeSprite() {
@@ -59,13 +63,27 @@ function seed() {
 }
 
 function resize() {
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
-  width = document.documentElement.clientWidth;
-  height = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+  // The marks are soft, translucent brush strokes: a 1x backing store is
+  // visually indistinguishable here and costs a quarter of the pixels a 2x
+  // retina canvas would, so the per-frame clear/draw stays cheap.
+  dpr = 1;
+  const nextWidth = document.documentElement.clientWidth;
+  const nextHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+  // A phone's address bar collapsing fires a height-only resize on almost every
+  // scroll frame. Reallocating a page-tall canvas for a few dozen pixels is the
+  // expensive part, and reseeding would shuffle the marks mid-scroll, so ignore
+  // a resize that did not actually change the page's shape.
+  if (nextWidth === width && Math.abs(nextHeight - height) < 48) return;
+  width = nextWidth;
+  height = nextHeight;
   canvas.style.height = `${height}px`;
-  canvas.width = Math.round(width * dpr);
-  canvas.height = Math.round(height * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const bitmapWidth = Math.max(1, Math.round(width * dpr));
+  const bitmapHeight = Math.max(1, Math.round(height * dpr));
+  if (canvas.width !== bitmapWidth || canvas.height !== bitmapHeight) {
+    canvas.width = bitmapWidth;
+    canvas.height = bitmapHeight;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
   seed();
   drawFrame(0, performance.now());
 }
@@ -101,8 +119,12 @@ function loop(time) {
     lastTime = time;
     return;
   }
+  // Cap the paint cadence at ~30fps. The marks drift slowly, so this is
+  // invisible while halving the canvas work.
+  if (time - lastPaint < FRAME_MS) return;
   const dt = Math.min((time - lastTime) / 1000, 0.05);
   lastTime = time;
+  lastPaint = time;
   drawFrame(dt, time);
 }
 
@@ -111,6 +133,7 @@ function start() {
   running = true;
   resize();
   lastTime = performance.now();
+  lastPaint = 0;
   rafId = requestAnimationFrame(loop);
 }
 
@@ -132,6 +155,7 @@ document.addEventListener('visibilitychange', () => {
     cancelAnimationFrame(rafId);
   } else if (running) {
     lastTime = performance.now();
+    lastPaint = 0;
     rafId = requestAnimationFrame(loop);
   }
 });

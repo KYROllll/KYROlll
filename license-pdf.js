@@ -60,7 +60,7 @@
   "use strict";
 
   const CREDIT = "(Prod. by KYROIII)";
-  const FLOWER_SRC = "assets/kyrolll-flower-rest.png?v=1";
+  const FLOWER_SRC = "assets/kyrolll-flower-rest.png?v=2";
   const SERIAL_PREFIX = "KYRO";
   const SUPPORT_EMAIL = "kyrolll00@gmail.com";
   const STORE_URL = "HTTPS://KYROILL.STORE";

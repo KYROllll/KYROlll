@@ -5,7 +5,12 @@ import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 // page-load preloader, and the vinyl record centre labels. Prior versions only
 // ever styled and mounted the first stage, so later stages (the preloader, the
 // vinyl centres) silently got nothing.
-const hosts = Array.from(document.querySelectorAll('.logo-stage'));
+const allStages = Array.from(document.querySelectorAll('.logo-stage'));
+// A vinyl label is tiny and has a perfectly good CSS-spinning still flower to
+// show, so it must not compete with the hero/preloader build on a cold load.
+// Vinyl stages are mounted by the scan below once the veil has lifted.
+const hosts = allStages.filter((stage) => stage.dataset.vinylFlower !== 'true');
+const initialHosts = new Set(hosts);
 const motion = matchMedia('(prefers-reduced-motion: reduce)');
 const pause = document.querySelector('.motion-toggle');
 let paused = motion.matches;
@@ -19,7 +24,10 @@ const flowerControllers = new Set();
 // 16s linear rotation with no easing ramp, matching the record's own feel. They
 // share the same scene builder as the hero flower but turn on their own timeline.
 const VINYL_SPIN_S = 16; // seconds per full revolution
-const vinylFlowers = new Map(); // stage -> { flower, lastAngle }
+const VINYL_FPS = 30; // a tiny label flower does not need 60fps to read as smooth
+const vinylFlowers = new Map(); // stage -> { flower }
+let vinylElapsed = 0; // accumulates only while the page is animating
+let lastVinylPaint = 0;
 function setFlowerProgress(progress) {
   const p = Math.max(0, Math.min(1, progress));
   flowerControllers.forEach((controller) => { try { controller.setProgress(p); } catch (error) { /* ignore */ } });
@@ -111,12 +119,24 @@ function flowerLoop(now) {
     rotatingFlowers.forEach((flower) => { if (flower.visible) paintFlower(flower, elapsed); });
     // Vinyl centre flowers spin on their own constant-speed clock: a clean 16s
     // linear rotation with no easing ramp, so the disc's own motion reads as
-    // steady and elegant rather than easing in from a standstill.
-    for (const [stage, entry] of vinylFlowers) {
-      if (!stage.isConnected || !entry.flower.visible) continue;
-      const angle = ((now / 1000) / VINYL_SPIN_S) * Math.PI * 2;
-      entry.flower.object.quaternion.copy(entry.flower.restingPose).setFromAxisAngle(Y_AXIS, angle);
-      entry.flower.renderer.render(entry.flower.scene, entry.flower.camera);
+    // steady and elegant rather than easing in from a standstill. The resting
+    // tilt is preserved and the turn is applied on top of it, so the label keeps
+    // its three-dimensional lean while its face rotates — the whole flower is
+    // never replaced by a flat face-on disc. The tiny stage paints at ~30fps.
+    vinylElapsed += dt;
+    if (now - lastVinylPaint >= 1000 / VINYL_FPS) {
+      lastVinylPaint = now;
+      const angle = (vinylElapsed / VINYL_SPIN_S) * Math.PI * 2;
+      for (const [stage, entry] of vinylFlowers) {
+        if (!stage.isConnected) {
+          releaseVinylStage(stage);
+          continue;
+        }
+        if (!entry.flower.visible) continue;
+        entry.flower.spin.setFromAxisAngle(Y_AXIS, angle);
+        entry.flower.object.quaternion.copy(entry.flower.restingPose).multiply(entry.flower.spin);
+        entry.flower.renderer.render(entry.flower.scene, entry.flower.camera);
+      }
     }
   }
   if (rotatingFlowers.size || vinylFlowers.size) requestAnimationFrame(flowerLoop);
@@ -124,10 +144,26 @@ function flowerLoop(now) {
 }
 
 function startFlowerLoop() {
-  if (looping || !rotatingFlowers.size) return;
+  if (looping || (!rotatingFlowers.size && !vinylFlowers.size)) return;
   looping = true;
   previous = performance.now();
+  lastVinylPaint = 0;
   requestAnimationFrame(flowerLoop);
+}
+
+// A vinyl record is rebuilt whenever the grid re-renders (catalog ↔ beat page),
+// and its stage leaves the DOM with the card. Hand its WebGL context and its
+// still-render callback back instead of holding a dead stage in the loop.
+function releaseVinylStage(stage) {
+  const entry = vinylFlowers.get(stage);
+  if (!entry) return;
+  vinylFlowers.delete(stage);
+  instances.delete(stage);
+  if (entry.flower.renderStill) stillRenderers.delete(entry.flower.renderStill);
+  const canvas = entry.flower.renderer.domElement;
+  try { entry.flower.renderer.dispose(); } catch (error) { /* ignore */ }
+  if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
+  if (!rotatingFlowers.size && !vinylFlowers.size) looping = false;
 }
 
 // Shared across instances: the silhouette file is fetched once, never per stage.
@@ -148,9 +184,16 @@ async function init(host) {
   // hand-off continues the rotation instead of restarting it.
   const { size, contours } = await getContours();
   const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
+  const wantsVinyl = host.dataset.vinylFlower === 'true';
+  // A centre-label flower is only ~85–130px wide, so it is pointless to build it
+  // with the hero's full-resolution scene: a coarser bevel, a smaller reflection
+  // cube and a 1.25 pixel ratio are invisible at that size and cut the GPU/CPU
+  // cost of opening a beat. The hero and the preloader keep the full scene.
+  const stageSize = Math.max(1, Math.round(host.getBoundingClientRect().width || host.clientWidth || 96));
+  const compact = wantsVinyl || stageSize < 220;
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.setClearColor(0x000000, 0);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, compact ? 1.25 : 1.5));
   // Software rasterisers (SwiftShader, llvmpipe — what a machine without a GPU
   // falls back to) spend far longer on this pearl material than a GPU does.
   // There the flower is built from a slightly coarser bevel, a smaller
@@ -166,7 +209,6 @@ async function init(host) {
     ? /swiftshader|llvmpipe|softpipe|software|basic render/i.test(String(rendererContext.getParameter(rendererInfo.UNMASKED_RENDERER_WEBGL)))
     : false;
   if (softwareRasteriser) renderer.debug.checkShaderErrors = false;
-  const stageSize = host.getBoundingClientRect().width;
   let renderedSize = stageSize;
   renderer.setSize(stageSize, stageSize, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -188,10 +230,11 @@ async function init(host) {
     panel.position.set(x, y, z); panel.lookAt(0, 0, 0); room.add(panel);
   }
   // The room only ever reaches the flower as a blurred reflection of soft dim
-  // panels, so on a software rasteriser the smallest cube reads the same.
-  if (softwareRasteriser) renderer.setSize(128, 128, false);
+  // panels, so on a software rasteriser (or a tiny label stage) the smallest
+  // cube reads the same.
+  if (softwareRasteriser || compact) renderer.setSize(128, 128, false);
   const environment = pmrem.fromScene(room, .015);
-  if (softwareRasteriser) renderer.setSize(stageSize, stageSize, false);
+  if (softwareRasteriser || compact) renderer.setSize(stageSize, stageSize, false);
   scene.environment = environment.texture;
   room.traverse(child => { child.geometry?.dispose(); child.material?.dispose(); });
   pmrem.dispose();
@@ -219,7 +262,7 @@ async function init(host) {
     const shape = new THREE.Shape(contour.points.map(point));
     for (const hole of contours.filter(c => c.area < 0 && contains(contour.points, c.points[0]))) shape.holes.push(new THREE.Path(hole.points.map(point)));
     // Inset the bevel: its widest edge stays on the imported silhouette.
-    const raw = new THREE.ExtrudeGeometry(shape, { depth: .13, bevelEnabled: true, bevelSegments: softwareRasteriser ? 2 : 5, steps: 1, bevelSize: .009, bevelOffset: -.009, bevelThickness: .024, curveSegments: 12 });
+    const raw = new THREE.ExtrudeGeometry(shape, { depth: .13, bevelEnabled: true, bevelSegments: (softwareRasteriser || compact) ? 2 : 5, steps: 1, bevelSize: .009, bevelOffset: -.009, bevelThickness: .024, curveSegments: compact ? 8 : 12 });
     // Weld the traced segments so the bevel reads as polished metal rather
     // than hundreds of disconnected, flat-shaded pixel-edge facets.
     raw.deleteAttribute('normal'); raw.deleteAttribute('uv');
@@ -298,7 +341,8 @@ async function init(host) {
     spin: new THREE.Quaternion(), tumble: new THREE.Quaternion(), roll: new THREE.Quaternion()
   };
   new IntersectionObserver(([entry]) => { flower.visible = entry.isIntersecting; }).observe(host);
-  stillRenderers.add(() => renderer.render(scene, camera));
+  flower.renderStill = () => renderer.render(scene, camera);
+  stillRenderers.add(flower.renderStill);
   const controller = {
     setProgress(p) {
       // Progressively reveals petals. Nothing drives this during a normal load —
@@ -328,10 +372,13 @@ async function init(host) {
   // Vinyl centre flowers spin on their own constant-speed clock (see `flowerLoop`).
   if (host.dataset.vinylFlower === 'true') {
     // Skip the shared rotation loop for vinyl flowers — they have their own timer.
-    vinylFlowers.set(host, { flower, lastAngle: 0 });
+    vinylFlowers.set(host, { flower });
     startFlowerLoop();
     instances.set(host, { renderer, controller, flower });
-    stagePainted();
+    // Only a stage the page shipped with counts toward the initial paint gate;
+    // a record mounted later (catalog → beat page) must not release the hero's
+    // shared clock early.
+    if (initialHosts.has(host)) stagePainted();
   } else {
     // Join the shared loop. The preloader's flower turns exactly like the hero's —
     // same axes, same periods, same clock — so the veil lifts onto the hero flower
@@ -343,7 +390,7 @@ async function init(host) {
     // Only now does this stage count as painted. The shared rotation clock starts
     // once the last flower on the page has reached this point, so every canvas
     // hands off from the resting pose its still image was showing.
-    stagePainted();
+    if (initialHosts.has(host)) stagePainted();
   }
   // The flower is already whole (every petal visible since the first paint): there
   // is no build-in to run, so no page can reveal the flower assembling itself.
@@ -374,7 +421,7 @@ if (hosts.length) {
       // onto the static flower image instead of waiting out the hard cap.
       host.dataset.flower = 'failed';
       // A stage that never paints must not hold the shared rotation clock back.
-      stagePainted();
+      if (initialHosts.has(host)) stagePainted();
     }
   });
   Promise.all(failures);
@@ -388,22 +435,40 @@ if (hosts.length) {
 // elements and mount a flower on each one as it appears.
 const vinylStageSelector = '.vinyl-flower-stage';
 let vinylMutationObserver = null;
+// The hero/preloader flower owns the main thread while the veil is up; a label
+// flower mounts the moment the veil lifts. Until then the CSS-spinning SVG label
+// is already the signature flower, so nothing looks unfinished.
+let vinylMountsAllowed = !document.getElementById('preloader');
 function mountVinylFlowerIfMissing(stage) {
-  if (!stage || stage.dataset.vinylFlowerInitialized) return;
+  if (!stage || !vinylMountsAllowed || stage.dataset.vinylFlowerInitialized) return;
   if (!stage.classList.contains('logo-stage')) return;
+  // A stage that shipped with the page is already being built by the initial
+  // pass; marking it here prevents a second renderer on the same label.
+  if (initialHosts.has(stage)) { stage.dataset.vinylFlowerInitialized = 'true'; return; }
   stage.dataset.vinylFlowerInitialized = 'true';
   init(stage).catch((error) => {
     console.warn('Vinyl flower mount failed:', error.message);
     stage.dataset.flower = 'failed';
-    stagePainted();
   });
 }
 function scanForVinylStages() {
   document.querySelectorAll(vinylStageSelector).forEach(mountVinylFlowerIfMissing);
 }
-// Run once after a short delay to catch any stages that were added before this
-// script finished loading, then watch for new ones.
-setTimeout(scanForVinylStages, 100);
+// Run once the page-load veil has lifted (so the hero build owns the main
+// thread first), then watch for new stages as the grid re-renders. A page that
+// somehow keeps its veil is still scanned by the fallback timeout.
+if (document.getElementById('preloader')) {
+  document.addEventListener('kyrolll:preloader-done', () => {
+    vinylMountsAllowed = true;
+    scanForVinylStages();
+  }, { once: true });
+  setTimeout(() => {
+    vinylMountsAllowed = true;
+    scanForVinylStages();
+  }, 8000);
+} else {
+  setTimeout(scanForVinylStages, 100);
+}
 if (typeof MutationObserver !== 'undefined') {
   vinylMutationObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {

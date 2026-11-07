@@ -102,21 +102,11 @@ function vinylModifier(variant) {
   return "";
 }
 
-/* The complete official flower is the default centre label. A beat may opt into
-   a *cover label* instead (`vinylLabel: "cover"` in catalog.js): its own cover
-   art — `beat.img` — is then painted inside the label and spins with the platter,
-   so the newest drop's record carries that drop's artwork rather than a generic
-   mark. The path is always read from the catalog, never hard-coded here, so a
-   future pressing only has to point at its cover. */
-const VINYL_DEFAULT_LABEL = "assets/kyrolll-flower.svg";
-function vinylLabelArt(beat) {
-  if (!beat || beat.vinylLabel !== "cover") return VINYL_DEFAULT_LABEL;
-  const art = String(beat.img || "").trim();
-  return art || VINYL_DEFAULT_LABEL;
-}
-function hasCoverLabel(beat) {
-  return vinylLabelArt(beat) !== VINYL_DEFAULT_LABEL;
-}
+/* Every pressing carries the same complete official KYROIII flower on its
+   centre label — the record is always a KYROIII record, never a pasted-on
+   cover. brand-logo.js mounts the live 3D flower on the label's own stage;
+   this SVG is the still fallback for a browser without WebGL. */
+const VINYL_LABEL_ART = "assets/kyrolll-flower.svg";
 
 /* The scheduled-release clock lives in catalog.js: a beat with a future
    `releaseAt` is a *scheduled drop*. Until it lands the store paints the tile
@@ -259,8 +249,6 @@ function beatDetailInner(beat) {
   const locked = exclusiveLocked(beat);
   const pending = !locked && releasePending(beat);
   const vinylVariant = vinylVariantFor(beat);
-  const coverLabel = hasCoverLabel(beat);
-  const labelArt = vinylLabelArt(beat);
   const outerRim = vinylVariant === "gold-rim" || vinylVariant === "sage-white-rim"
     || vinylVariant === "ice-silver-rim" || vinylVariant === "rage-fire-rim"
     ? `<span class="vinyl-record__rim" aria-hidden="true"></span>`
@@ -285,11 +273,11 @@ function beatDetailInner(beat) {
         ${actionsSlotHTML(beat, false)}
       </div>
     </section>      <div class="beat-detail__artwork-wrap">
-      <div class="vinyl-record${vinylModifier(vinylVariant)}${coverLabel ? " vinyl-record--cover" : ""}" data-vinyl="${vinylVariant}" aria-hidden="true">
+      <div class="vinyl-record${vinylModifier(vinylVariant)}" data-vinyl="${vinylVariant}" aria-hidden="true">
         ${outerRim}
         <span class="vinyl-record__logo-frame" aria-hidden="true">
-          <canvas class="logo-stage vinyl-flower-stage" data-vinyl-flower="true" aria-hidden="true"></canvas>
-          <img class="vinyl-record__logo${coverLabel ? " vinyl-record__logo--cover" : ""}" src="${attr(labelArt)}" alt="" width="300" height="300"${coverLabel ? ' fetchpriority="high"' : ' loading="lazy"'}>
+          <div class="logo-stage vinyl-flower-stage" data-vinyl-flower="true" aria-hidden="true"></div>
+          <img class="vinyl-record__logo" src="${attr(VINYL_LABEL_ART)}" alt="" width="300" height="300" loading="lazy" decoding="async">
         </span>
       </div>
       <figure class="beat-detail__artwork">
@@ -313,7 +301,10 @@ function scrollToBeatDetail() {
   const nav = $("beat-navigation");
   const navHeight = nav && !nav.hidden ? nav.getBoundingClientRect().height : 0;
   const top = card.getBoundingClientRect().top + window.scrollY - navHeight;
-  window.scrollTo({ top: Math.max(0, top), behavior: "instant" });
+  const target = Math.max(0, top);
+  // A resize that leaves the card where it already is needs no scroll write.
+  if (Math.abs(window.scrollY - target) < 1) return;
+  window.scrollTo({ top: target, behavior: "instant" });
 }
 
 // Content above the card (lazy artwork, fonts) can still be settling right
@@ -322,9 +313,22 @@ function landOnBeatDetail() {
   scrollToBeatDetail();
   requestAnimationFrame(scrollToBeatDetail);
   if ("ResizeObserver" in window) {
-    const observer = new ResizeObserver(() => scrollToBeatDetail());
+    // Artwork and fonts settle after the card is built, so the landing offset is
+    // re-applied while the page grows. Coalesce a burst of body resizes into one
+    // write per frame instead of scrolling for every observer callback.
+    let scheduled = 0;
+    const observer = new ResizeObserver(() => {
+      if (scheduled) return;
+      scheduled = requestAnimationFrame(() => {
+        scheduled = 0;
+        scrollToBeatDetail();
+      });
+    });
     observer.observe(document.body);
-    setTimeout(() => observer.disconnect(), 3000);
+    setTimeout(() => {
+      cancelAnimationFrame(scheduled);
+      observer.disconnect();
+    }, 3000);
   } else {
     [120, 350, 700].forEach((delay) => setTimeout(scrollToBeatDetail, delay));
   }
