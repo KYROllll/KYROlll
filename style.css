@@ -1364,23 +1364,20 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   --vinyl-slide: 74%;
 }
 
-/* The sleeve gives the record room to travel by handing over part of its box. */
+/* The sleeve is the jacket's front face: it comes *after* the vinyl-record in DOM
+   order so it paints on top of the slide-out, exactly like a record pulled out of its
+   sleeve. It still takes up the left part of the wrap and gives the disc the right strip
+   to emerge into; only the layering changed — the geometry, the slide and the shadow are
+   the same as before. */
 .beat-detail__artwork {
   position: relative;
-  /* The sleeve is inset on the stage so the record has somewhere to slide to: it
-     covers the left 68% of the wrap, leaving the right strip for the record to
-     emerge into. Both stay inside the wrap, which is what stops the protrusion
-     from being clipped by the `overflow-x: clip` guard on the sections above.
-     `justify-self` is reset from the old grid-item `center`: the sleeve is a
-     block box here, and `center` would push it right of the record's start so the
-     record appeared to slide out of the sleeve's LEFT side. The `--vinyl-top`
-     margin centres the 68% square vertically in the square stage. */
   justify-self: normal;
   width: var(--vinyl-art);
   height: var(--vinyl-art);
   margin: var(--vinyl-top) auto 0 0;
   max-width: 100%;
-  z-index: 2;
+  /* The jacket sits in front of the record where they overlap. */
+  z-index: 4;
   border-radius: 4px;
   border: 1px solid var(--hairline);
   overflow: hidden;
@@ -1408,9 +1405,11 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
      square cut filling the square box. */
   background: url("assets/vinyl-classic.png") center / contain no-repeat;
   border-radius: 50%;
-  /* Sits above the sleeve: the disc is pulled out far enough that its centre
-     label clears the cover, and painting it over the jacket keeps the whole
-     photographed label — and the flower on it — visible. */
+  /* Sits behind the sleeve (z-index: 3 vs jacket's z-index: 4): the disc is
+     pulled out far enough that its centre label clears the cover, and the jacket
+     paints over the record's left edge to create the "record pulled from its
+     sleeve" illusion. The photographed label — and the flower on it — stay
+     visible because the disc is exposed to the right of the jacket. */
   box-shadow: 0 26px 58px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06);
   z-index: 3;
 }

@@ -244,15 +244,15 @@ function beatDetailInner(beat) {
         ${actionsSlotHTML(beat, false)}
       </div>
     </section>      <div class="beat-detail__artwork-wrap">
+      <figure class="beat-detail__artwork">
+        <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" decoding="async" fetchpriority="high">
+      </figure>
       <div class="vinyl-record" aria-hidden="true">
         <span class="vinyl-record__logo-frame" aria-hidden="true">
           <div class="logo-stage vinyl-flower-stage" data-vinyl-flower="true" aria-hidden="true"></div>
           <img class="vinyl-record__logo" src="${attr(VINYL_LABEL_ART)}" alt="" width="300" height="300" loading="lazy" decoding="async">
         </span>
       </div>
-      <figure class="beat-detail__artwork">
-        <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" decoding="async" fetchpriority="high">
-      </figure>
     </div>`;
 }
 

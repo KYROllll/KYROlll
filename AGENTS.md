@@ -383,9 +383,12 @@ record's shadow) so a child box can never nudge a surrounding box.
 sleeve is **60%** of it and the record **92%** of the sleeve, inset 4% of the sleeve on every
 side (`top: 4%`, `height: 92%`, `width: 92%` relative to it) so its circular top and bottom can
 never poke past the cover frame. The record rides out **74%** of its own width, landing its far
-edge at ~98.5% of the stage — far enough that the whole centre label clears the jacket. It also
-paints **above** the sleeve (`z-index: 3` against the sleeve's 2): at that slide it still
-overlaps the cover's right edge like a record pulled out of its jacket, and an occluded label
+edge at ~98.5% of the stage — far enough that the whole centre label clears the jacket. It also paints **behind** the sleeve now — the DOM order inside `.beat-detail__artwork-wrap` is the
+sleeve `<figure>` first, then `.vinyl-record`, so the cover is the front face and the disc
+emerges from behind it: exactly the pull-out from a record jacket. The sleeve's own `z-index: 2`
+still wins over the record's `z-index: 3` only where they overlap, so the label stays
+uncut and fully visible once the disc has slid clear of the jacket. The record overlaps the
+cover's right edge like a record pulled out of its jacket, and an occluded label
 would cut the flower in half. `brand-design.test.mjs` asserts the frame's centre against the
 disc's centre to within 1px, the 27% frame, the 92% inset diameter, the 60% sleeve, vertical
 containment, the large cover and zero horizontal overflow at 375, 390, 768 and 1440 px, the
