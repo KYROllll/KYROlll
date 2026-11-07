@@ -52,17 +52,18 @@ about *running* the app in this sandbox, not about the app's own behaviour.
 platform's own inline SVG mark (YouTube red, Instagram's gradient, TikTok's cyan/red offsets,
 X's white logo), so the colour lives in markup the stylesheet never paints. The tile, its
 border and its static hover glow are equal-channel greys, and the computed-style hue audit
-exempts only that `.footer__social` subtree. The vinyl pressings are the other deliberately
-  coloured surface, and they keep even the stylesheet neutral: the body, marbling, label and
-  rim tones are the covers' own colours, arriving at runtime as `--vinyl-*` values on each
-  record (`vinyl-palette.js`), never as literals in `style.css`. There is no splash, blob or
-  extra graphic on any disc — just the pressed body, the perimeter rim and the spinning
-  flower. `npm run build:brand` (which needs `sharp`) still owns the raster brand
+exempts only that `.footer__social` subtree. The vinyl disc is the one other coloured
+  surface, and it keeps the stylesheet neutral too: `.vinyl-record` paints the supplied studio
+  photograph (`assets/vinyl-classic.png`), so the tan centre label and the disc's real
+  speculars are image pixels, never colour literals in `style.css`. One asset serves every
+  beat — there is no palette module, no `--vinyl-*` colour property and no generated rim — and
+  the only thing painted over the disc is the spinning flower. `npm run build:brand` (which needs `sharp`) still owns the raster brand
   files and is still the only thing that may re-cut them. The generated PDF is equal-channel by
   construction (`license-pdf.js`), and the brand-design test asserts both halves: it reads
   every colour out of the PDF bytes and every colour literal outside the tagline's marked
-  stylesheet section, and it asserts the covers keep their colour, every beat's pressing is
-  derived from its cover with one painted, masked rim, and the splash layer is gone. Keep any new CSS accents scoped to those marked exceptions;
+  stylesheet section, and it asserts the covers keep their colour, that every record paints
+  the same photographed disc with the flower dead centre on its label, and that no synthetic
+  rim, splash or label pseudo-element is painted. Keep any new CSS accents scoped to those marked exceptions;
   all other storefront styling stays neutral.
 - **The dialog is a phone citizen.** `.gate-modal` is measured in *dynamic* viewport units
   (`height: 100vh; height: 100dvh`) and the card is capped at `max-height: 90dvh` and scrolls
@@ -322,84 +323,60 @@ sheen or shadow keyframes, the handle/track contract, samples the player and its
 frames of playback and requires zero drift, and then scrolls the open drawer to prove its seam
 never moves and its direction never flips.
 
-## The vinyl record slides out after a beat — translate only
+## The vinyl record is one photographed pressing — flower dead centre
 
-The beat page's sleeve/record pair starts with the record fully tucked behind the opaque
-sleeve. `script.js` adds `vinyl-open` **1.35 s** after the card is built (the card's own
-0.8 s fade finishes well inside that delay), and `style.css` transitions the record out over
-**1 s** on `cubic-bezier(.16, 1, .3, 1)`, with a short opacity fade alongside.
+Every beat plays the same record, and that record is a photograph. `.vinyl-record` paints
+`assets/vinyl-classic.png` as `background: url(...) center / contain no-repeat`. The asset is
+the supplied studio shot (`Unknown.jpeg`) cut to the disc's measured edge, re-centred on its
+label and alpha-masked to a clean circle, so the surface is real rather than painted: the
+dense concentric grooves, both soft speculars, the unrecorded lead-in band, the thin bright
+perimeter edge and the tan centre label with its spindle hole are pixels of that photograph.
+`style.css` generates no rim, no marbling plume, no flake field, no label pseudo-element and
+no per-beat tint, so every beat is identical and nothing can drift over time. There is no
+palette module any more: `vinyl-palette.js` is deleted, no `--vinyl-*` colour property is
+written or read, and `data-vinyl` / `.vinyl-record--pressing` / `.vinyl-record__rim` are gone
+from both the markup and the stylesheet. The geometry vars (`--vinyl-art`,
+`--vinyl-record`, `--vinyl-top`, `--vinyl-slide`) are unrelated and still in use.
 
-The tuck is the element's **first** computed state — `.beat-detail:not(.vinyl-open)
-.vinyl-record` sets `translateX(0)` and `opacity: 0` in the stylesheet, so the record is
-never briefly painted in the exposed position: no pre-render flash, no pop. Only
-`translateX` and `opacity` move. A 360° rotation is never reintroduced: a rotating square's
-*axis-aligned* box grows by √2 (a 422 px record measured ~597 px wide) and overshot the
-stage by up to ~74 px — that was the original "pop / breach the artwork frame" glitch. A
-pure horizontal slide keeps the circle, its box and its shadow inside the stage throughout.
-The stage is 100% wide (capped at 620px) and the sleeve is 68% of it, which is a ~422px
-square on desktop and a nearly full-width cover on a phone. The record is 92% of the sleeve,
-inset 4% of the sleeve on every side (`top: 4%`, `height: 92%`, `width: 92%` relative to the
-sleeve), so its circular top and bottom can never poke past the cover frame; it travels 53%
-of its own width and its far edge lands at ~98.44% of the stage, leaving ~1.5% breathing
-room. FLESH's pearl pressing has a 58% black label, and the complete official flower
-(`.vinyl-record__logo`) sits at 65.2% of the record — the optical centre of the label's
-exposed crescent — so the sleeve never crops any part of the mark. THE FLOW's black/gold
-pressing keeps the classic 36% label and the logo centred on it. The logo image alone spins
-continuously (`vinylCenterSpin`, 16s linear); the outer record box never rotates. The live 3D
-flower inside the label keeps the same platter clock and turns flat in the label's own plane: `brand-logo.js`
-composes a local-Z roll (`vinylSpin`) under the flower's resting pose, so a vinyl stage never tumbles
-about the world Y axis (which read as the record flipping on its side).
-
-**Every centre label is the signature flower — there is no cover label.** The record is
-always a KYROIII record: `script.js` paints `assets/kyrolll-flower.svg` as the still label on
-every pressing, and `brand-logo.js` mounts the live 3D scene over it. The host is a
+**The flower sits dead centre of the disc.** The photographed label is a circle 28% of the
+disc across and the cut is centred on it, so the record's own centre *is* the label's centre.
+`.vinyl-record__logo-frame` is a 27% square at `top: 50%; left: 50%; transform:
+translate(-50%, -50%)` — just inside the label, leaving a thin ring of tan around the mark.
+The record's DOM holds only that frame: `script.js` paints `assets/kyrolll-flower.svg` as the
+still mark and `brand-logo.js` mounts the live 3D scene over it. The host is a
 `<div class="logo-stage vinyl-flower-stage">`, deliberately **not** a `<canvas>`: the renderer
 appends its own canvas inside the stage, and a canvas element cannot display child content, so
 a canvas host hid both the renderer's canvas and the SVG fallback. Until the WebGL flower has
-painted, the SVG is what shows and it alone spins on the platter clock
-(`vinylCenterSpin`, 16s linear, `will-change: transform`); once `.logo-stage.is-ready` lands
-the renderer's canvas fades in and the still is hidden. The record's DOM still holds only the
-rim (when it has one) and the logo frame. The old `vinylLabel: "cover"` data path and the
-`.vinyl-record--cover` / `.vinyl-record__logo--cover` styles are retired, and the tests assert
-they cannot come back.
-Both the reveal and its transition live inside `@media (prefers-reduced-motion:
-no-preference)`: under reduced motion the base `.vinyl-record` rule leaves the record at
-rest immediately, and adding `vinyl-open` is a no-op. `.beat-detail__artwork-wrap` keeps
-`contain: layout` (not `paint`, which would clip the record's shadow) so a child box can
-never nudge a surrounding box.
+painted, the SVG is what shows and it alone spins on the platter clock (`vinylCenterSpin`,
+16s linear, `will-change: transform`); once `.logo-stage.is-ready` lands the renderer's canvas
+fades in and the still is hidden. The logo image alone spins in-plane (`brand-logo.js`
+composes the same roll as a local-Z turn, `vinylSpin`), so the record never tumbles about the
+world Y axis.
 
-There is no hand-assigned pressing any more — `catalog.js` carries no `vinylVariant` field at
-all. `vinyl-palette.js` (loaded after `catalog.js`, before `script.js`) samples each beat's own
-`img` on a 32x32 offscreen canvas, reads its dominant hue, accent hue and overall luminance,
-and derives the record: opaque body tints, marbling plumes, a fine flake field, groove tones,
-a centre-label tint with an accent ring, foil-rim tones and a seeded label size (38-44%).
-`styleFor(beat)` writes them onto the record as `--vinyl-*` custom properties, `script.js`
-renders every beat through the one `.vinyl-record--pressing` rule (marking it
-`data-vinyl="derived"` and always emitting `.vinyl-record__rim`), and `watch()` fills the
-palette in as soon as the cover decodes. A record is therefore a complete neutral
-black/silver pressing from its first frame and takes the cover's tones when they arrive;
-nothing is stored (readings live in an in-page `Map`), and a cover that cannot be read keeps
-the neutral pressing seeded from the beat itself, so no two beats press an identical record.
-Every colour literal in the shared pressing block is an equal-channel grey: the cover colour
-arrives only as per-record `--vinyl-*` values (gradients, masks and the flower's glow filter),
-which is the isolated vinyl palette the audit exempts, while the covers keep their own colour
-(`coverFilter` is asserted `none`). Every pressing shares the physical finish a real record
-has: an opaque body colour (never a translucent panel), a smooth unrecorded lead-in band
-between the raised outer lip and the first groove, and one fixed 118 degree room-light sheen
-across the surface. The rim is `.vinyl-record__rim`, one conic gradient masked to a
-cover-tuned hairline (2.2-3.1px). It sits above the grooves (z-index 3) but only at the
-perimeter, while the centre label (z-index 1) and the spinning flower (z-index 2) stay clean
-on top. The record's DOM holds only that rim and the flower frame — the marbling, flake and
-grain are the disc's own background layers and add no DOM element at all, so there is no
-splash, blob or other graphic layer on any record. The record rides out 53% of its own width,
-which lands its centre on the sleeve's edge, so only the right-hand crescent of the label is
-exposed: the flower frame sits at `left: 61%` of the record at `15%` of its width, the optical
-centre of that crescent, and its size is asserted to clear the label's rim at every seeded
-label width. The record's vertical containment, the large cover width, the exposed logo and
-the zero horizontal overflow are asserted at 375, 390, 768 and 1440 px; the test presses all
-seven beats on the catalog tile and the beat page (seven distinct `--vinyl-*` keys), asserts
-the shared rule's single rim, clean DOM and stacking, and asserts that a claimed beat keeps
-its pressing.
+**The reveal.** `script.js` adds `vinyl-open` **1.35 s** after the card is built (the card's
+own 0.8 s fade finishes well inside that delay), and `style.css` transitions the record out
+over **1 s** on `cubic-bezier(.16, 1, .3, 1)` with a short opacity fade alongside. The tuck is
+the element's **first** computed state — `.beat-detail:not(.vinyl-open) .vinyl-record` sets
+`translateX(0)` and `opacity: 0` in the stylesheet — so the record is never briefly painted in
+the exposed position: no pre-render flash, no pop. Only `translateX` and `opacity` move; a 360°
+rotation is never reintroduced, because a rotating square's *axis-aligned* box grows by √2 and
+breached the stage. Both the reveal and its transition live inside `@media
+(prefers-reduced-motion: no-preference)`: under reduced motion the record simply rests in the
+exposed position and adding `vinyl-open` is a no-op. `.beat-detail__artwork-wrap` keeps
+`contain: layout` (not `paint`, which would clip the record's shadow) so a child box can never
+nudge a surrounding box.
+
+**Geometry: the label has to clear the sleeve.** The stage is 100% wide (capped at 620px), the
+sleeve is **60%** of it and the record **92%** of the sleeve, inset 4% of the sleeve on every
+side (`top: 4%`, `height: 92%`, `width: 92%` relative to it) so its circular top and bottom can
+never poke past the cover frame. The record rides out **74%** of its own width, landing its far
+edge at ~98.5% of the stage — far enough that the whole centre label clears the jacket. It also
+paints **above** the sleeve (`z-index: 3` against the sleeve's 2): at that slide it still
+overlaps the cover's right edge like a record pulled out of its jacket, and an occluded label
+would cut the flower in half. `brand-design.test.mjs` asserts the frame's centre against the
+disc's centre to within 1px, the 27% frame, the 92% inset diameter, the 60% sleeve, vertical
+containment, the large cover and zero horizontal overflow at 375, 390, 768 and 1440 px, and
+that a claimed beat keeps its pressing.
 
 ## Preview responsiveness in this sandbox
 

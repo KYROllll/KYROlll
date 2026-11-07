@@ -28,7 +28,7 @@ test("the fifth release is scheduled, packaged and pointed at the free-download 
   assert.equal(beat.shortTitle, "JUST D0 IT");
   assert.equal(beat.bpm, 135);
   assert.equal(beat.key, "Am");
-  assert.equal(beat.vinylVariant, undefined, "the pressing is derived from the cover, not hand-assigned");
+  assert.equal(beat.vinylVariant, undefined, "every record is the same pressing, not hand-assigned");
   assert.equal(beat.releaseAt, "2026-10-27T23:00:00+02:00");
   const releaseAt = Date.parse("2026-10-27T23:00:00+02:00");
   assert.equal(window.KYROlll_HELPERS.releaseAt(beat), releaseAt);
@@ -63,7 +63,7 @@ test("the re-ingested ADLL beat is scheduled for today at 19:00 with its graffit
   assert.equal(beat.bpm, 124);
   assert.equal(beat.key, "C#");
   assert.equal(beat.preview, "assets/previews/adll.mp3");
-  assert.equal(beat.vinylVariant, undefined, "the pressing is derived from the cover, not hand-assigned");
+  assert.equal(beat.vinylVariant, undefined, "every record is the same pressing, not hand-assigned");
   assert.equal(beat.releaseAt, "2026-11-02T19:00:00+02:00", "ADLL drops today at 19:00 Israel time");
   const releaseAt = Date.parse("2026-11-02T19:00:00+02:00");
   assert.equal(window.KYROlll_HELPERS.releaseAt(beat), releaseAt);
@@ -101,7 +101,7 @@ test("the GUNNA drop is scheduled for 22:00 today and every record keeps the flo
   assert.equal(beat.bpm, 146);
   assert.equal(beat.key, "Fm");
   assert.equal(beat.preview, "assets/previews/gunna-type.mp3");
-  assert.equal(beat.vinylVariant, undefined, "the pressing is derived from the cover, not hand-assigned");
+  assert.equal(beat.vinylVariant, undefined, "every record is the same pressing, not hand-assigned");
   assert.equal(beat.vinylLabel, undefined, "no beat replaces the signature flower with cover art");
   assert.equal(beat.releaseAt, "2026-11-06T22:00:00+02:00", "the drop lands today at exactly 22:00 Israel time");
   const releaseAt = Date.parse("2026-11-06T22:00:00+02:00");
@@ -250,24 +250,20 @@ test("every beat is pressed from its own cover, and the beat page keeps a sticky
     assert.equal(beat.vinylVariant, undefined, `${beat.slug}: no hand-assigned variant — the cover is the pressing`);
     assert.match(beat.img, /^assets\/.+\.png$/, `${beat.slug}: the beat carries the cover the palette is read from`);
   });
-  const palette = readFileSync(new URL("./vinyl-palette.js", import.meta.url), "utf8");
-  assert.match(palette, /beat\.img/, "the palette engine reads the beat's own cover");
-  assert.match(palette, /drawImage\(image, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE\)/, "the cover is sampled on an offscreen canvas");
-  assert.match(palette, /--vinyl-body-1/, "the reading becomes the record's body tone");
-  assert.match(palette, /--vinyl-label-1/, "the reading becomes the centre-label tone");
-  assert.match(palette, /--vinyl-rim-2/, "the reading becomes the foil-rim tone");
-  assert.match(palette, /--vinyl-label-size/, "each pressing gets its own seeded label size");
-  assert.match(palette, /CACHE\.set\(key, palette\)/, "the palette is cached in memory per cover");
-  assert.doesNotMatch(palette, /localStorage|sessionStorage|document\.cookie/, "the palette is never written down");
   const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
-  assert.match(css, /\.vinyl-record--pressing \{[\s\S]*?var\(--vinyl-body-1\)/, "one rule set paints every pressing from the cover palette");
-  assert.match(css, /\.vinyl-record__rim \{[\s\S]*?conic-gradient\(\s*from 215deg/, "the foil rim is a masked conic hairline");
-  assert.match(css, /\.vinyl-record__logo \{[\s\S]*?animation: vinylCenterSpin 16s linear infinite/, "the pressing logo keeps its 16s linear spin");
+  assert.match(css, /\.vinyl-record \{[^}]*url\("assets\/vinyl-classic\.png"\)/, "every record paints the photographed pressing");
+  assert.match(css, /\.vinyl-record \{[^}]*center \/ contain no-repeat/, "the photographed disc fills its square box");
+  assert.match(css, /\.vinyl-record__logo-frame \{[^}]*left: 50%/, "the flower frame is centred on the label");
+  assert.match(css, /\.vinyl-record__logo-frame \{[^}]*transform: translate\(-50%, -50%\)/, "the flower frame is centred on the label");
+  assert.match(css, /\.vinyl-record__logo-frame \{[^}]*width: 27%/, "the flower fits inside the photographed label");
+  assert.match(css, /\.vinyl-record__logo \{[\s\S]*?animation: vinylCenterSpin 16s linear infinite/, "the flower keeps its 16s linear spin");
+  assert.doesNotMatch(css, /\.vinyl-record__rim|--vinyl-rim-|conic-gradient\(\s*from 215deg/, "no synthetic rim or rim palette remains");
+  assert.doesNotMatch(css, /--vinyl-(body|label|marble|vein|flake|groove)-/, "the record takes no cover-derived colour");
   assert.doesNotMatch(css, /\.vinyl-record--(white|gold-rim|sage-white-rim|ice-silver-rim|rage-fire-rim|graffiti-splatter)/,
     "the retired per-beat modifier classes are gone");
   const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
   assert.match(html, /id="all-beats-link"[^>]*aria-label="Back to all beats"/, "the beat page carries a labelled ALL BEATS control");
-  assert.match(html, /<script src="vinyl-palette\.js\?v=\d+"><\/script>/, "the palette module is loaded before the grid renders");
+  assert.doesNotMatch(html, /vinyl-palette/, "the retired palette module is no longer loaded");
   assert.match(html, /<div class="logo-stage vinyl-flower-stage" data-vinyl-flower="true"/, "the centre label still mounts the live 3D flower");
   const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
   assert.match(script, /allBeatsLink\.setAttribute\("data-beat-back", ""\)/, "the return control is wired in script.js");
@@ -322,16 +318,18 @@ test("the footer carries the four official social marks as large SVG badges", ()
   });
 });
 
-test("every pressing shares one physical finish — a solid body, a lead-in band and one room light", () => {
+test("every record is the same photographed pressing with the flower dead centre", () => {
   const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
-  assert.equal((css.match(/transparent 0 96\.2%/g) || []).length, 2,
-    "the base disc and the shared pressing rule carry the unrecorded lead-in band");
-  assert.equal((css.match(/linear-gradient\(118deg/g) || []).length, 2,
-    "the base disc and the shared pressing take the same fixed room-light sheen");
-  const block = css.slice(css.indexOf('.vinyl-record--pressing {'), css.indexOf('.vinyl-record--pressing::before'));
-  assert.match(block, /var\(--vinyl-lip\)/, "the lead-in band tone comes from the pressing");
-  assert.match(block, /var\(--vinyl-sheen-1\)/, "the room light comes from the pressing");
-  assert.match(block, /radial-gradient\(circle at 50% 50%, var\(--vinyl-body-1\)/, "the pressing body is one opaque cover-derived fill");
+  assert.match(css, /\.vinyl-record \{[^}]*url\("assets\/vinyl-classic\.png"\) center \/ contain no-repeat/,
+    "the disc is the supplied photograph, cut to the disc");
+  assert.doesNotMatch(css, /transparent 0 96\.2%|linear-gradient\(118deg/,
+    "no synthetic lead-in band or room-light sheen is painted over the photograph");
+  const frame = css.slice(css.indexOf('.vinyl-record__logo-frame {'), css.indexOf('.vinyl-record__logo-frame .logo-stage {'));
+  assert.match(frame, /top: 50%/, "the flower frame is centred vertically on the label");
+  assert.match(frame, /left: 50%/, "the flower frame is centred horizontally on the label");
+  assert.match(frame, /transform: translate\(-50%, -50%\)/, "the flower frame is centred on the label");
+  assert.match(frame, /width: 27%/, "the flower fits inside the photographed label");
+  assert.doesNotMatch(css, /\.vinyl-record__rim|--vinyl-rim-|conic-gradient/, "no synthetic rim palette survives");
 });
 
 test("a beat link lands with the return rail already pinned at the top", () => {

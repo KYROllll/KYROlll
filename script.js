@@ -76,22 +76,12 @@ function specLine(beat) {
   return `${beat.bpm} BPM // ${String(beat.key).toUpperCase()}`;
 }
 
-/* Every record is pressed from its own cover: there is one pressing rule set
-   (`.vinyl-record--pressing` in style.css) and `vinyl-palette.js` writes the
-   beat's cover-derived tones onto the record as `--vinyl-*` custom properties.
-   The inline style below carries the module's deterministic neutral pressing,
-   so the disc is never unstyled for the frame before the cover is read; the
-   palette then settles into the real derive. No beat carries a hand-written
-   variant id any more — a new cover is a new pressing by construction. */
-function vinylRecordStyle(beat) {
-  const vinyl = window.KYROlll_VINYL;
-  return vinyl && vinyl.styleFor ? vinyl.styleFor(beat) : "";
-}
-
-/* Every pressing carries the same complete official KYROIII flower on its
-   centre label — the record is always a KYROIII record, never a pasted-on
-   cover. brand-logo.js mounts the live 3D flower on the label's own stage;
-   this SVG is the still fallback for a browser without WebGL. */
+/* Every record is the same photographed pressing (style.css paints the disc), so
+   there is no per-beat palette to derive. The disc carries the complete official
+   KYROIII flower on its photographed centre label — the record is always a
+   KYROIII record, never a pasted-on cover. brand-logo.js mounts the live 3D
+   flower on the label's own stage; this SVG is the still fallback for a browser
+   without WebGL. */
 const VINYL_LABEL_ART = "assets/kyrolll-flower.svg";
 
 /* The scheduled-release clock lives in catalog.js: a beat with a future
@@ -234,7 +224,6 @@ function actionsSlotHTML(beat, compact) {
 function beatDetailInner(beat) {
   const locked = exclusiveLocked(beat);
   const pending = !locked && releasePending(beat);
-  const vinylStyle = vinylRecordStyle(beat);
   const meta = locked
     ? `<div class="card__specs">${specLine(beat)} // EXCLUSIVE RIGHTS SECURED</div>`
     : pending
@@ -255,8 +244,7 @@ function beatDetailInner(beat) {
         ${actionsSlotHTML(beat, false)}
       </div>
     </section>      <div class="beat-detail__artwork-wrap">
-      <div class="vinyl-record vinyl-record--pressing" data-vinyl="derived" style="${vinylStyle}" aria-hidden="true">
-        <span class="vinyl-record__rim" aria-hidden="true"></span>
+      <div class="vinyl-record" aria-hidden="true">
         <span class="vinyl-record__logo-frame" aria-hidden="true">
           <div class="logo-stage vinyl-flower-stage" data-vinyl-flower="true" aria-hidden="true"></div>
           <img class="vinyl-record__logo" src="${attr(VINYL_LABEL_ART)}" alt="" width="300" height="300" loading="lazy" decoding="async">
@@ -352,7 +340,6 @@ function buildGrid() {
   list.forEach((beat) => {
     const card = document.createElement("article");
     card.id = "card-" + beat.id;
-    card.setAttribute("data-vinyl", "derived");
     if (detail) {
       card.className = "beat-detail";
       card.innerHTML = beatDetailInner(beat);
@@ -379,9 +366,6 @@ function buildGrid() {
     if (detailCard) {
       clearTimeout(vinylTimer);
       vinylTimer = setTimeout(() => detailCard.classList.add('vinyl-open'), VINYL_REVEAL_DELAY_MS);
-      // The record is pressed from this beat's own cover: apply the palette that
-      // is already known, then refine it as soon as the cover has been sampled.
-      if (window.KYROlll_VINYL) window.KYROlll_VINYL.watch(list[0], detailCard.querySelector('.vinyl-record'));
     }
     // Land directly on the beat card instead of the top of the page.
     landOnBeatDetail();

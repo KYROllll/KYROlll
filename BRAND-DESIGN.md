@@ -35,17 +35,15 @@ dependency.
 ## Store palette: black, white, silver, with the restored hero accent
 
 The storefront is built on deep matte black `#0B0B0B`, pure white `#FFFFFF`,
-silver `#888888` and their equal-channel grey siblings. Two sections are
-deliberate colour exceptions: the hero's `THAT MY FAVORITE` tagline and pixel
-heart keep their original neon-green and vivid-pink glitch accents, and THE
-FLOW's collector vinyl isolates its deep matte `#0a0a0c` body and
-`#d4af37` / `#e5c158` gold foil rim between the `THE FLOW gold-rim palette`
-markers. Every other color literal in `style.css` is an equal-channel grey. The
-generated PDF remains monochromatic by construction (`license-pdf.js` draws only
-equal-channel greys). Beat cover art keeps the colour it was supplied in. The
-brand marks keep their colour too. The `gold-rim` vinyl carries no splash or
-artwork layer; its only colour is the single CSS foil rim described below — see
-"Beat art keeps its colour; the gold rim is the vinyl's CSS exception".
+silver `#888888` and their equal-channel grey siblings. One section is a
+deliberate colour exception: the hero's `THAT MY FAVORITE` tagline and pixel
+heart keep their original neon-green and vivid-pink glitch accents. Every other
+color literal in `style.css` is an equal-channel grey. The generated PDF remains
+monochromatic by construction (`license-pdf.js` draws only equal-channel greys).
+Beat cover art keeps the colour it was supplied in, and so does the vinyl disc:
+it is a photograph (below), not a painted gradient, so its tan label never
+becomes a CSS colour. The brand marks keep their colour too. See "Beat art keeps
+its colour; the vinyl disc is a photograph".
 
 Its borders are the crisp white/silver pair: a pure white frame (`1 1 1`, the
 requested `#FFFFFF`) with a silver hairline and silver rules at
@@ -61,7 +59,7 @@ into the panel. Its text is uppercase and its few literals (`#101010`, `#484848`
 white) are equal-channel greys, so the open drawer passes the same zero-hue and
 ALL-CAPS audits the rest of the store does.
 
-## Beat art keeps its colour; the gold rim is the vinyl's CSS exception
+## Beat art keeps its colour; the vinyl disc is a photograph
 
 The beat cover art is shown exactly as supplied on both the catalog tiles
 (`.catalog-tile__art img`) and the beat detail (`.beat-detail__artwork img`):
@@ -72,17 +70,19 @@ re-cut or desaturated either: the brush X on the falling canvas
 drawn — the warm brown of the brush marks and the tints in the wordmark artwork
 included.
 
-Each beat also owns its vinyl. FLESH wears the pearl-white disc with a black
-centre label; THE FLOW wears the `gold-rim` collector pressing: a deep matte
-`#0a0a0c` disc with a single ultra-fine metallic gold foil rim. The rim is
-`.vinyl-record__rim`, a conic-gradient masked to a ~1.6px outer hairline. It
-paints above the grooves but only at the perimeter, so the black centre label and
-the spinning flower stay clean. There is no splash, blob or other artwork layer
-on the disc; the record DOM holds only the rim and the flower. The `gold-rim`
-palette is isolated between the `THE FLOW gold-rim palette` markers and exempted
-from the stylesheet's equal-channel audit; everything else stays neutral.
-`npm run build:brand` remains the single source of truth for every raster asset,
-and the storefront is the only thing that decides what a hue looks like on screen.
+There is no per-beat vinyl any more. Every beat plays the same record: the
+supplied studio photograph, cut to the disc's edge, re-centred on its label and
+alpha-masked to a clean circle (`assets/vinyl-classic.png`), painted as the
+`.vinyl-record` background. Its grooves, both soft speculars, the unrecorded
+lead-in band, the thin bright perimeter edge and the tan centre label are
+therefore real image pixels — nothing in the stylesheet paints a rim, a marbling
+plume, a flake field or a tint, and there is no palette module or `--vinyl-*`
+colour property. The signature flower sits dead centre on the photographed label
+(a 27% frame inside the label's 28%), spins in place on the 16s platter clock,
+and is the only layer above the disc. No splash, blob or other artwork layer
+exists on the record. `npm run build:brand` remains the single source of truth
+for every generated brand asset, and the storefront is the only thing that
+decides what a hue looks like on screen.
 
 ## Falling-X background
 

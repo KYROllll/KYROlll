@@ -909,23 +909,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 /* `.vinyl-record`'s own base declarations used to sit here, every one of them
    superseded (same selector, later section) by the Vinyl Sanctum block below —
    only the paint and geometry that survived there are left. */
-.vinyl-record::before {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-}
-.vinyl-record::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 32%;
-  height: 32%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: radial-gradient(circle, #888888 0%, #666666 60%, #333 100%);
-  border: 4px solid #000;
-}
 .beat-detail__artwork {
   position: relative;
   width: 100%;
@@ -1364,17 +1347,21 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
      it. */
   contain: layout;
   /* The stage geometry. The wrap is the whole stage; the sleeve (`__artwork`) is
-     68% of it, which at the 620px desktop cap is a commanding ~422px square. The
-     record is 92% of the sleeve, inset 4% vertically and horizontally so its
-     circular top/bottom can never poke past the sleeve, and it rides out over
-     the remaining 32% strip. `--vinyl-slide` is 53% of the record's own width;
-     the record's far edge lands at ~98.44% of the stage, leaving ~1.5% of
-     breathing room. The white pressing's logo sits at the optical centre of the
-     exposed label crescent (65.2% of the record), so no part of it is hidden. */
-  --vinyl-art: 68%;
+     60% of it, which at the 620px desktop cap is a ~372px square. The record is
+     92% of the sleeve, inset 4% vertically and horizontally so its circular
+     top/bottom can never poke past the sleeve, and it rides out over the
+     remaining 40% strip. `--vinyl-slide` is 74% of the record's own width; the
+     record's far edge lands at ~98.5% of the stage, leaving the whole centre
+     label clear of the sleeve. */
+  --vinyl-art: 60%;
   --vinyl-record: calc(var(--vinyl-art) * 0.92);
-  --vinyl-top: 16%;
-  --vinyl-slide: 53%;
+  --vinyl-top: 20%;
+  /* The disc rides out far enough that its centre label — the photographed tan
+     circle the flower sits on — clears the sleeve entirely. The record paints
+     above the sleeve (see its z-index), so the whole label is visible at rest
+     while the disc still overlaps the cover's edge like a record pulled out of
+     its jacket. */
+  --vinyl-slide: 74%;
 }
 
 /* The sleeve gives the record room to travel by handing over part of its box. */
@@ -1415,184 +1402,59 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
      motion or without JS. The reveal itself is below: the record starts fully
      tucked behind the opaque sleeve and rides out a beat later. */
   transform: translateX(var(--vinyl-slide));
-  background:
-    /* The pressing finish every disc shares: a smooth unrecorded lead-in band
-       between the raised outer lip and the first groove, and one fixed room
-       light sweeping the surface. Real pressings are opaque, so the body below
-       these two layers is always a solid colour — never a translucent panel. */
-    radial-gradient(circle at 50% 50%, transparent 0 96.2%, rgba(255, 255, 255, 0.08) 96.7% 97.3%, transparent 97.9%),
-    linear-gradient(118deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.03) 20%, rgba(255, 255, 255, 0) 34%, rgba(255, 255, 255, 0) 68%, rgba(255, 255, 255, 0.05) 86%, rgba(255, 255, 255, 0.09) 100%),
-    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 7px),
-    radial-gradient(circle at 50% 50%, #1b1b1b 0%, #101010 42%, #050505 72%, #171717 100%);
+  /* The real pressing: the supplied photograph, cut to the disc and masked to a
+     clean circle, so the grooves, speculars, lead-in band, perimeter edge and
+     the tan centre label are all the photographed surface. `contain` keeps the
+     square cut filling the square box. */
+  background: url("assets/vinyl-classic.png") center / contain no-repeat;
   border-radius: 50%;
+  /* Sits above the sleeve: the disc is pulled out far enough that its centre
+     label clears the cover, and painting it over the jacket keeps the whole
+     photographed label — and the flower on it — visible. */
   box-shadow: 0 26px 58px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.06);
-  z-index: 1;
+  z-index: 3;
 }
 
-/* ---------- The pressing: one plant, a palette cut from each cover --------- */
-/* No beat carries its own vinyl stylesheet block any more. `vinyl-palette.js`
-   samples the beat's cover art (the same `img` the sleeve shows), reads its
-   dominant hue, its accent hue and its overall luminance, and writes the tones
-   onto this record as `--vinyl-*` custom properties. Everything below paints
-   from those properties: the opaque body, the marbling plumes, the flake field,
-   the playing grooves, the centre label and the foil rim. Seven covers
-   therefore press seven different records from one rule set — and a new beat is
-   a catalog edit, not a new block of CSS.
-
-   The fallbacks are the store's neutral black/silver pressing, so a record is
-   already a record before its cover has decoded (and in a browser without 2D
-   canvas). Every colour literal in this block is an equal-channel grey; all the
-   cover colour lives in the per-record properties, which is the deliberately
-   isolated vinyl palette the brand audit exempts. */
-.vinyl-record--pressing {
-  /* the neutral pressing, until the cover reading lands */
-  --vinyl-body-1: #1b1b1b;
-  --vinyl-body-2: #101010;
-  --vinyl-body-3: #050505;
-  --vinyl-sheen-1: rgba(255, 255, 255, 0.14);
-  --vinyl-sheen-2: rgba(255, 255, 255, 0.045);
-  --vinyl-sheen-3: rgba(255, 255, 255, 0.07);
-  --vinyl-sheen-4: rgba(255, 255, 255, 0.12);
-  --vinyl-lip: rgba(255, 255, 255, 0.1);
-  --vinyl-groove-1: rgba(255, 255, 255, 0.05);
-  --vinyl-groove-2: rgba(0, 0, 0, 0.24);
-  --vinyl-marble-1: rgba(255, 255, 255, 0.1);
-  --vinyl-marble-2: rgba(255, 255, 255, 0.06);
-  --vinyl-vein-1: rgba(255, 255, 255, 0.09);
-  --vinyl-vein-2: rgba(0, 0, 0, 0.22);
-  --vinyl-flake-1: rgba(255, 255, 255, 0.3);
-  --vinyl-flake-2: rgba(255, 255, 255, 0.18);
-  --vinyl-vein-x: 64%;
-  --vinyl-vein-y: 24%;
-  --vinyl-vein-x-2: 36%;
-  --vinyl-vein-y-2: 76%;
-  --vinyl-label-1: #1c1c1c;
-  --vinyl-label-2: #050505;
-  --vinyl-label-ring: rgba(255, 255, 255, 0.16);
-  --vinyl-label-edge: rgba(255, 255, 255, 0.2);
-  --vinyl-label-size: 40%;
-  --vinyl-glow: rgba(255, 255, 255, 0.28);
-  --vinyl-rim-1: #8a8a8a;
-  --vinyl-rim-2: #d4d4d4;
-  --vinyl-rim-3: #f5f5f5;
-  --vinyl-rim-4: #bdbdbd;
-  --vinyl-rim-width: 2.4px;
-  background:
-    /* the shared pressing finish — the smooth unrecorded lead-in band between
-       the raised outer lip and the first groove */
-    radial-gradient(circle at 50% 50%, transparent 0 96.2%, var(--vinyl-lip) 96.7% 97.3%, transparent 97.9%),
-    /* one fixed room light sweeping the surface — never an animation */
-    linear-gradient(118deg, var(--vinyl-sheen-1) 0%, var(--vinyl-sheen-2) 20%, transparent 34%, transparent 68%, var(--vinyl-sheen-3) 86%, var(--vinyl-sheen-4) 100%),
-    /* the cover's accent drifting as soft plumes under the surface */
-    radial-gradient(ellipse 26% 11% at var(--vinyl-vein-x) var(--vinyl-vein-y), var(--vinyl-marble-1) 0%, transparent 74%),
-    radial-gradient(ellipse 19% 8% at var(--vinyl-vein-x-2) var(--vinyl-vein-y-2), var(--vinyl-marble-2) 0%, transparent 74%),
-    /* a fine flake field scattered through the pressing */
-    radial-gradient(circle, var(--vinyl-flake-1) 0 0.7px, transparent 1.1px) 3px 5px / 13px 17px,
-    radial-gradient(circle, var(--vinyl-flake-2) 0 0.9px, transparent 1.4px) 9px 2px / 21px 27px,
-    /* concentric playing grooves */
-    repeating-radial-gradient(circle at 50% 50%, var(--vinyl-groove-1) 0 1px, transparent 1px 7px),
-    repeating-radial-gradient(circle at 50% 50%, var(--vinyl-groove-2) 0 2px, transparent 2px 9px),
-    /* the opaque body: a pressed record never lets the page through */
-    radial-gradient(circle at 50% 50%, var(--vinyl-body-1) 0%, var(--vinyl-body-2) 58%, var(--vinyl-body-3) 82%, var(--vinyl-body-2) 100%);
-  box-shadow:
-    0 26px 58px rgba(0, 0, 0, 0.88),
-    0 0 0 1px rgba(255, 255, 255, 0.08),
-    inset 0 0 42px rgba(0, 0, 0, 0.62);
-}
-
-/* The inner press: a second, denser groove band and the cover's accent caught
-   in the lacquer. It never paints the label — the label is `::after`. */
-.vinyl-record--pressing::before {
-  inset: 7%;
-  background:
-    radial-gradient(circle, var(--vinyl-flake-1) 0 0.7px, transparent 1.1px) 4px 6px / 8px 10px,
-    radial-gradient(ellipse 24% 9% at var(--vinyl-vein-x) var(--vinyl-vein-y), var(--vinyl-vein-1) 0%, transparent 76%),
-    radial-gradient(ellipse 18% 7% at var(--vinyl-vein-x-2) var(--vinyl-vein-y-2), var(--vinyl-vein-2) 0%, transparent 76%),
-    repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, var(--vinyl-groove-1) 3px 4px, transparent 4px 8px);
-  opacity: 0.9;
-  z-index: 0;
-}
-
-/* ---- The realistic classic black vinyl we ship (reference look) ----
-   This is a temporary, monochrome override that replaces the cover-driven
-   pressing rules ABOVE with the photoreal reference: deep matte black body,
-   dense fine concentric grooves, two soft white speculars, a bright rim
-   highlight, and a clean perfectly-circular labelled disc with the 3D flower
-   dead centre.
-   It is intentionally placed AFTER the pressing block so it wins, and it
-   deliberately does NOT introduce any hue — only equal-channel grey/white/black.
-   To revert, remove this whole block and restore the neutral pressing
-   (the `--vinyl-*` rules from `.vinyl-record--pressing` onward). */
-/* ---------- REALISTIC BLACK VINYL — monochrome (temporary override) ---------- */
-.vinyl-record {
-  /* opaque pressed-black body — no translucent panel ever shows through */
-  background:
-    /* wide soft upper-left specular arc */
-    radial-gradient(120% 70% at 32% 26%, rgba(255,255,255,0.16) 0 12%, rgba(255,255,255,0.05) 22%, transparent 42%),
-    /* bright vertical highlight streak to the right */
-    radial-gradient(28% 140% at 74% 50%, rgba(255,255,255,0.22) 0 4%, rgba(255,255,255,0.06) 12%, transparent 100%),
-    /* subtle deep radial shading so the body reads as a round disc, not a flat blob */
-    radial-gradient(circle at 38% 32%, rgba(255,255,255,0.05) 0 6%, transparent 30%),
-    radial-gradient(circle at 50% 50%, #0c0c0c 0%, #050505 78%, #0a0a0a 100%),
-    /* dense fine concentric grooves (this is the vinyl surface) */
-    repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05) 0 1px, transparent 1px 6px);
-  box-shadow:
-    0 26px 58px rgba(0,0,0,0.85),
-    /* thin bright perimeter edge highlight */
-    0 0 0 1px rgba(255,255,255,0.18),
-    inset 0 0 45px rgba(0,0,0,0.65);
-}
-/* A second pass of finer grooves, slightly darker, so the field never looks
-   sparse at rest. */
-.vinyl-record::before {
-  inset: 3%;
-  background:
-    repeating-radial-gradient(circle at 50% 50%, transparent 0 2px, rgba(255,255,255,0.035) 2px 3px, transparent 3px 7px);
-  opacity: 0.85;
-  z-index: 0;
-}
-/* A clean centred plain disc label, sized so the flower sits dead centre and
-   clears it comfortably. The label is a pure black disc, not a tinted circle,
-   so the white ink on it stays crisp. */
-.vinyl-record::after {
-  width: 34%;
-  height: 34%;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 50%, #0b0b0b 0%, #000000 100%);
-  box-shadow:
-    inset 0 0 0 1px rgba(255,255,255,0.18),
-    inset 0 0 14px rgba(0,0,0,0.85);
-  z-index: 1;
-}
-/* The flower rides on top of the label, exactly centred on the disc. */
+/* ---------- The disc: one real pressing, photographed ---------------------- */
+/* Every beat plays the same 12" — the supplied studio photograph, cut to the
+   disc and alpha-masked (`assets/vinyl-classic.png`). The surface is real rather
+   than painted: the dense concentric grooves, both soft speculars, the
+   unrecorded lead-in band, the thin bright perimeter edge and the tan centre
+   label with its spindle hole all come from the photograph itself. Nothing here
+   generates a rim, a marbling plume, a flake field or a colour accent, so no
+   beat can shift the pressing and no accent can drift over time.
+   The cut is centred on the photographed label (28% of the disc), which is what
+   lets the signature flower land dead centre on the label's own circle. */
 .vinyl-record__logo-frame {
+  position: absolute;
   top: 50%;
   left: 50%;
-  width: 78%;
-  height: 78%;
+  /* 27% of the disc: just inside the 28% photographed label, so a thin ring of
+     the tan label always frames the mark. */
+  width: 27%;
+  height: 27%;
   transform: translate(-50%, -50%);
   z-index: 2;
+  pointer-events: none;
 }
-/* Thin bright outer rim hairline so the edge reads as a real pressed disc. */
-.vinyl-record__rim {
-  background: conic-gradient(from 215deg,
-    rgba(255,255,255,0.22) 0deg,
-    rgba(255,255,255,0.42) 52deg,
-    rgba(255,255,255,0.22) 120deg,
-    rgba(255,255,255,0.05) 220deg,
-    rgba(255,255,255,0.22) 300deg,
-    rgba(255,255,255,0.42) 340deg,
-    rgba(255,255,255,0.22) 360deg);
-  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - 1.6px), #000 calc(100% - 1.6px) 60%, transparent 61%);
-  mask: radial-gradient(circle closest-side, transparent calc(100% - 1.6px), #000 calc(100% - 1.6px) 60%, transparent 61%);
-}
-/* Keep the spin from ever pushing the logo outside the label. */
+/* The mark itself: the still SVG, and the live 3D stage fitted over it. */
 .vinyl-record__logo {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   overflow: hidden;
+  opacity: 1;
+  transition: opacity .4s ease;
+  /* White ink on a tan label needs a little lift to stay crisp at 60px. */
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.18));
+  transform-origin: 50% 50%;
+  animation: vinylCenterSpin 16s linear infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+  pointer-events: none;
 }
 /* The WebGL flower canvas is positioned inside the frame; keep its transitions
    so the static SVG -> live 3D hand-off still reads. */
@@ -1612,50 +1474,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .vinyl-record__logo-frame .logo-stage.is-ready canvas {
   opacity: 1;
 }
-/* The static SVG fallback stays visible until the 3D flower paints, then fades. */
-.vinyl-record__logo {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  opacity: 1;
-  transition: opacity .4s ease;
-  border-radius: 50%;
-  filter: drop-shadow(0 0 5px rgba(255,255,255,0.10));
-  animation: vinylCenterSpin 16s linear infinite;
-  will-change: transform;
-  backface-visibility: hidden;
-  pointer-events: none;
-}
-.vinyl-record__logo-frame .logo-stage.is-ready ~ .vinyl-record__logo {
-  opacity: 0;
-}
-
-
-/* The centre label is a deep tint of the cover's own colour, ringed with its
-   accent. It is the physical label of the pressing — the signature flower
-   always rides on top of it, never replaced by cover art. */
-.vinyl-record--pressing::after {
-  width: var(--vinyl-label-size);
-  height: var(--vinyl-label-size);
-  background:
-    radial-gradient(circle at 50% 50%, transparent 0 84%, var(--vinyl-label-ring) 84.5% 86%, transparent 86.5%),
-    radial-gradient(circle at 50% 36%, var(--vinyl-label-1) 0%, var(--vinyl-label-2) 72%);
-  border: 1px solid var(--vinyl-label-edge);
-  box-shadow:
-    inset 0 0 0 2px rgba(0, 0, 0, 0.5),
-    inset 0 0 26px rgba(0, 0, 0, 0.9),
-    0 0 0 1px rgba(255, 255, 255, 0.14);
-  z-index: 1;
-}
-
-
-/* ---- OBSOLETE BLOCK REMOVAL: removed the mysterious duplicated logo-frame
-   block that followed `.vinyl-record--pressing::after` so it can never be
-   re-introduced. If you ever re-add a logo-frame rule, add it ONCE, inside the
-   vinyl section, and keep it identical to the `.vinyl-record__logo-frame`
-   rules already above. ---- */
 
 /* The reveal. `vinyl-open` is added by script.js 1.35 s after the beat card is
    built (the card's own 0.8 s fade finishes first, so the title and player get
@@ -1674,90 +1492,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
     transform: translateX(0);
     opacity: 0;
   }
-}
-
-/* The foil rim: one masked conic hairline at the very perimeter, painted above
-   the disc so it can never cross the label or the flower. Every pressing has
-   one — its tone, not its presence, comes from the cover. */
-.vinyl-record__rim {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 3;
-  background: conic-gradient(from 215deg,
-    var(--vinyl-rim-1) 0deg,
-    var(--vinyl-rim-2) 34deg,
-    var(--vinyl-rim-3) 52deg,
-    var(--vinyl-rim-4) 96deg,
-    var(--vinyl-rim-1) 168deg,
-    var(--vinyl-rim-2) 224deg,
-    var(--vinyl-rim-3) 258deg,
-    var(--vinyl-rim-4) 306deg,
-    var(--vinyl-rim-1) 360deg);
-  -webkit-mask: radial-gradient(circle closest-side, transparent calc(100% - var(--vinyl-rim-width)), #000 calc(100% - 1.6px) 100%);
-  mask: radial-gradient(circle closest-side, transparent calc(100% - var(--vinyl-rim-width)), #000 calc(100% - 1.6px) 100%);
-  opacity: 0.98;
-}
-
-/* The frame is a positioning wrapper; the image inside is the only thing that
-   rotates. Keeping those transforms separate means the spin can never move the
-   frame, grow the record's bounding box or blur the art.
-
-   We ship the realistic black disc, so the flower is dead-centre on the disc,
-   not in the exposed crescent. The frame is therefore centred on the record.
-   (The optical-centre crescent rule below is kept only as historical comment so
-   it cannot be silently revived by a later edit.) */
-.vinyl-record__logo-frame {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 78%;
-  height: 78%;
-  transform: translate(-50%, -50%);
-  z-index: 2;
-  pointer-events: none;
-}
-
-.vinyl-record__logo {
-  display: block;
-  width: 100%;
-  height: 100%;
-  opacity: 1;
-  /* The official flower keeps its own tints — only a soft glow is added, and that
-     glow is white so the disc stays equal-channel. */
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.14));
-  transform-origin: 50% 50%;
-  animation: vinylCenterSpin 16s linear infinite;
-  will-change: transform;
-  backface-visibility: hidden;
-  pointer-events: none;
-  border-radius: 50%;
-  overflow: hidden;
-}
-
-/* WebGL flower canvas inside vinyl record centre labels. The canvas is mounted
-   by brand-logo.js and renders the same 3D flower as the hero, but on its own
-   constant-speed 16s linear spin clock. It sits behind the SVG fallback so the
-   still image is visible until the WebGL flower paints its first frame. */
-.vinyl-record__logo-frame .logo-stage {
-  position: absolute;
-  inset: 0;
-  transform: none;
-  will-change: transform;
-}
-.vinyl-record__logo-frame .logo-stage canvas {
-  display: block;
-  inset: 0;
-  opacity: 0;
-  transition: opacity .4s ease;
-  border-radius: 50%;
-}
-.vinyl-record__logo-frame .logo-stage.is-ready canvas {
-  opacity: 1;
-}
-.vinyl-record__logo-frame .logo-stage.is-ready ~ .vinyl-record__logo {
-  opacity: 0;
 }
 
 @keyframes vinylCenterSpin {
