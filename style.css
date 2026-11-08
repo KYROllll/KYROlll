@@ -226,6 +226,9 @@ button {
   width: 100%;
   max-width: 1440px;
   margin-inline: auto;
+  box-sizing: border-box;
+  align-content: start;
+  align-items: start;
 }
 .grid-closed { grid-column: 1 / -1; }
 
@@ -650,12 +653,14 @@ body > canvas {
      column keeps every child inside the card at any height. */
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  height: 100%;
   min-width: 0;
   border: 1px solid var(--hairline);
   background: var(--paper);
 }
 .catalog-tile__link { display: block; flex: 1 1 auto; color: var(--white); text-decoration: none; }
-.catalog-tile__art { display: block; aspect-ratio: 1; overflow: hidden; }
+.catalog-tile__art { display: block; aspect-ratio: 1; overflow: hidden; position: relative; }
 .catalog-tile__art img {
   display: block;
   width: 100%;
@@ -1459,7 +1464,11 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
   /* Exposed rest position — the default state, and the only state under reduced
      motion or without JS. The reveal itself is below: the record starts fully
      tucked behind the opaque sleeve and rides out a beat later. */
-  transform: translateX(var(--vinyl-slide));
+  transform: translate3d(var(--vinyl-slide), 0, 0);
+  -webkit-transform: translate3d(var(--vinyl-slide), 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform;
   /* The real pressing: the supplied photograph, cut to the disc and masked to a
      clean circle, so the grooves, speculars, lead-in band, perimeter edge and
      the tan centre label are all the photographed surface. `contain` keeps the
@@ -1552,9 +1561,13 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
 @media (prefers-reduced-motion: no-preference) {
   .vinyl-record {
     transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
   }
   .js .beat-detail:not(.vinyl-open) .vinyl-record {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
+    -webkit-transform: translate3d(0, 0, 0);
     visibility: hidden;
   }
 }

@@ -330,36 +330,38 @@ function scrollToBeatDetail() {
   window.scrollTo({ top: target, behavior: "instant" });
 }
 
-// Content above the card (lazy artwork, fonts) can still be settling right
-// after render, so keep re-aligning while the page grows, then stop.
+/* Land exactly twice: once in the swap task and once on the following frame.
+   The detail artwork is sized by reserved square geometry before image bytes
+   arrive, and the record is absolutely positioned, so the old body-size
+   observer only added repeated viewport movement after an otherwise stable
+   landing. */
 function landOnBeatDetail() {
   scrollToBeatDetail();
   requestAnimationFrame(scrollToBeatDetail);
-  /* The archived stage is a reserved square: cover, seal and type are already
-     sized before the image reports, so re-aligning on later body resizes only
-     risks a visible shake. The two writes above are the whole landing. */
-  if (document.querySelector(".beat-detail .exclusive-art")) return;
-  if ("ResizeObserver" in window) {
-    // Artwork and fonts settle after the card is built, so the landing offset is
-    // re-applied while the page grows. Coalesce a burst of body resizes into one
-    // write per frame instead of scrolling for every observer callback.
-    let scheduled = 0;
-    const observer = new ResizeObserver(() => {
-      if (scheduled) return;
-      scheduled = requestAnimationFrame(() => {
-        scheduled = 0;
-        scrollToBeatDetail();
-      });
-    });
-    observer.observe(document.body);
-    setTimeout(() => {
-      cancelAnimationFrame(scheduled);
-      observer.disconnect();
-    }, 3000);
-  } else {
-    [120, 350, 700].forEach((delay) => setTimeout(scrollToBeatDetail, delay));
-  }
 }
+
+/* The catalog, beat card and fallback panel all share one grid element. Preserve
+   its outgoing box while the destination fragment is built: this prevents the
+   intermediate zero-height state that made the footer and following content
+   snap when the old grid was cleared before its replacement was appended. */
+let gridDeckTimer = 0;
+function lockGridDeck() {
+  if (!grid) return;
+  const rect = grid.getBoundingClientRect();
+  grid.dataset.gridDeckHeight = String(Math.ceil(rect.height));
+  grid.dataset.gridDeckWidth = String(Math.ceil(rect.width));
+  grid.style.minHeight = `${Math.ceil(rect.height)}px`;
+  grid.style.minWidth = `${Math.ceil(rect.width)}px`;
+}
+function releaseGridDeckSoon() {
+  if (!grid) return;
+  window.clearTimeout(gridDeckTimer);
+  gridDeckTimer = window.setTimeout(() => {
+    grid.style.minHeight = "";
+    grid.style.minWidth = "";
+  }, 180);
+}
+window.addEventListener("resize", releaseGridDeckSoon);
 
 function buildGrid() {
   previewPlayer.stop();
@@ -369,11 +371,12 @@ function buildGrid() {
      grid would no longer take it with it: close it before the re-render, or a
      back/forward that rebuilds the catalog could leave a stale drawer on screen. */
   if (window.KYROlll_DOWNLOADS) window.KYROlll_DOWNLOADS.closeMenu();
-  grid.innerHTML = "";
+  lockGridDeck();
   const params = new URLSearchParams(location.search);
   const id = params.get("beat");
   const detail = id !== null;
   const list = detail ? CATALOG.filter((beat) => beat.id === id || beat.slug === id) : [...CATALOG].sort(byNewest);
+  const nextCards = document.createDocumentFragment();
   document.documentElement.classList.toggle("beat-page", detail);
   grid.classList.toggle("grid--detail", detail);
   const beatNav = $("beat-navigation");
@@ -390,7 +393,10 @@ function buildGrid() {
     panel.innerHTML = detail
       ? '<div class="grid-closed__box"><div class="grid-closed__title">BEAT NOT FOUND</div><p><a href="index.html#catalog">VIEW ALL BEATS →</a></p></div>'
       : '<div class="grid-closed__box"><div class="grid-closed__title">NO BEATS AVAILABLE</div><p>CHECK BACK FOR NEW BEATS.</p></div>';
-    grid.appendChild(panel);
+    nextCards.appendChild(panel);
+    grid.replaceChildren(nextCards);
+    releaseGridDeckSoon();
+    refreshReleaseWatch();
     return;
   }
 
@@ -408,13 +414,14 @@ function buildGrid() {
         ? " catalog-tile--exclusive-locked" + (owned ? " catalog-tile--exclusive-owned" : "")
         : pending ? " catalog-tile--pending" : "");
       card.innerHTML = `<a class="catalog-tile__link" href="index.html?beat=${encodeURIComponent(beat.id)}" aria-label="View ${attr(beat.title)}">
-        <span class="catalog-tile__art"><img src="${attr(beat.img)}" alt="" loading="lazy" decoding="async">${locked ? exclusiveArtHTML(true, owned) : ""}</span>
+        <span class="catalog-tile__art"><img src="${attr(beat.img)}" alt="" width="1024" height="1024" loading="lazy" decoding="async">${locked ? exclusiveArtHTML(true, owned) : ""}</span>
         <span class="catalog-tile__title">${beat.title}</span>
       </a>
       ${actionsSlotHTML(beat, true)}`;
     }
-    grid.appendChild(card);
+    nextCards.appendChild(card);
   });
+  grid.replaceChildren(nextCards);
   // A freshly rendered card's artwork starts fetching right now: hand the new
   // images to the flower indicator so the wait is branded instead of blank.
   if (window.KYROlll_FLOWER_SPINNER) window.KYROlll_FLOWER_SPINNER.watch(grid);
@@ -432,6 +439,7 @@ function buildGrid() {
     // Land directly on the beat card instead of the top of the page.
     landOnBeatDetail();
   }
+  releaseGridDeckSoon();
   refreshReleaseWatch();
 }
 

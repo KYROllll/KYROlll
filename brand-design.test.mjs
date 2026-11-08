@@ -673,6 +673,38 @@ try {
   await shot(direct, 'beat-detail');
   await direct.close();
 
+  const gridDeckGeometry = (page) => page.evaluate(() => {
+    const rect = (el) => {
+      const box = el.getBoundingClientRect();
+      return {
+        left: box.left,
+        top: box.top + window.scrollY,
+        width: box.width,
+        height: box.height,
+      };
+    };
+    const grid = document.getElementById('grid');
+    const gridStyle = getComputedStyle(grid);
+    return {
+      scrollY: window.scrollY,
+      documentHeight: document.documentElement.scrollHeight,
+      grid: rect(grid),
+      padding: gridStyle.padding,
+      gap: gridStyle.gap,
+      children: [...grid.children].map((child) => {
+        const box = rect(child);
+        return {
+          id: child.id,
+          className: child.className,
+          left: box.left,
+          top: box.top,
+          width: box.width,
+          height: box.height,
+        };
+      }),
+    };
+  });
+
   // ------------------------------------------------------- catalog scroll memory
   // Opening a beat rewrites the URL and rebuilds the grid. The catalog offset is
   // remembered in sessionStorage for that trip, so Back — and an explicit exit
@@ -698,6 +730,11 @@ try {
     await tap(point);
     await page.locator('#card-6c56eda2-df4a-45b0-b9b7-68f8efdbb1af.beat-detail').waitFor();
     assert.match(page.url(), /\?beat=6c56eda2/, `${label}: the tile opens its beat detail`);
+    await page.waitForTimeout(250);
+    const detailDeckBefore = await gridDeckGeometry(page);
+    await page.waitForTimeout(700);
+    const detailDeckAfter = await gridDeckGeometry(page);
+    assert.deepEqual(Object.values(detailDeckAfter), Object.values(detailDeckBefore), `${label}: the beat-detail grid deck is locked while settling`);
     const stored = await page.evaluate(() => Object.fromEntries(Object.entries(sessionStorage)));
     assert.deepEqual(Object.keys(stored), [CATALOG_SCROLL_KEY], `${label}: only the scroll offset is remembered`);
     assert(Math.abs(Number(stored[CATALOG_SCROLL_KEY]) - before) <= 2, `${label}: the saved offset is the catalog position`);
@@ -705,6 +742,10 @@ try {
     await page.locator('#grid .catalog-tile').first().waitFor();
     await page.waitForFunction(top => Math.abs(window.scrollY - top) <= 2, before, { timeout: 5000 });
     assert(Math.abs(await page.evaluate(() => window.scrollY) - before) <= 2, `${label}: Back restores the exact catalog position`);
+    const catalogBefore = await gridDeckGeometry(page);
+    await page.waitForTimeout(700);
+    const catalogAfter = await gridDeckGeometry(page);
+    assert.deepEqual(Object.values(catalogAfter), Object.values(catalogBefore), `${label}: the catalog grid deck is locked after Back`);
     // The ALL BEATS control is the second way out of a beat page; it uses the
     // same memory instead of jumping to the grid heading.
     await tap(point);
@@ -713,6 +754,10 @@ try {
     await page.locator('#grid .catalog-tile').first().waitFor();
     await page.waitForFunction(top => Math.abs(window.scrollY - top) <= 2, before, { timeout: 5000 });
     assert(Math.abs(await page.evaluate(() => window.scrollY) - before) <= 2, `${label}: ALL BEATS restores the exact catalog position`);
+    const allBeatsBefore = await gridDeckGeometry(page);
+    await page.waitForTimeout(700);
+    const allBeatsAfter = await gridDeckGeometry(page);
+    assert.deepEqual(Object.values(allBeatsAfter), Object.values(allBeatsBefore), `${label}: the catalog grid deck is locked after ALL BEATS`);
     await page.close();
   };
   const desktopScroll = await setupPage({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
@@ -839,6 +884,9 @@ try {
       discOpacity: rs.opacity,
       discVisibility: rs.visibility,
       discTransition: rs.transitionProperty,
+      discWillChange: rs.willChange,
+      discBackface: rs.backfaceVisibility,
+      discPosition: rs.position,
       imgOpacity: is.opacity,
       imgVisibility: is.visibility,
       imgAnimation: is.animationName,
@@ -853,7 +901,10 @@ try {
   // whole life and only its paint is paused while the sleeve covers it.
   assert.equal(tuckedPaint.discOpacity, '1', 'the tucked disc is already fully opaque — the label never fades in');
   assert.equal(tuckedPaint.discVisibility, 'hidden', 'a tucked disc takes no paint behind the opaque sleeve');
-  assert.doesNotMatch(tuckedPaint.discTransition, /opacity/, 'the reveal transitions the transform only');
+  assert.equal(tuckedPaint.discTransition, 'transform', 'the reveal transitions the transform only');
+  assert.match(tuckedPaint.discWillChange, /transform/, 'the tucked disc keeps its compositor layer');
+  assert.equal(tuckedPaint.discBackface, 'hidden', 'the tucked disc hides its backface during the GPU slide');
+  assert.equal(tuckedPaint.discPosition, 'absolute', 'the tucked disc sits outside document flow');
   assert.equal(tuckedPaint.imgOpacity, '1', 'the label print is opaque while the disc waits');
   assert.equal(tuckedPaint.imgVisibility, 'visible', 'nothing on the label suppresses its own paint');
   assert.equal(tuckedPaint.imgAnimation, 'none', 'the label carries no animation even while tucked');
@@ -881,6 +932,9 @@ try {
     return {
       discOpacity: rs.opacity,
       discVisibility: rs.visibility,
+      discWillChange: rs.willChange,
+      discBackface: rs.backfaceVisibility,
+      discPosition: rs.position,
       imgOpacity: is.opacity,
       imgVisibility: is.visibility,
       imgAnimation: is.animationName,
@@ -892,6 +946,11 @@ try {
   // when the 1 s slide ends.
   assert.equal(openPaint.discOpacity, '1', 'the disc stays fully opaque through the reveal');
   assert.equal(openPaint.discVisibility, 'visible', 'the emerging disc is painted');
+  assert.match(openPaint.discWillChange, /transform/, 'the opened disc keeps its compositor layer');
+  assert.equal(openPaint.discBackface, 'hidden', 'the opened disc keeps its backface hidden');
+  assert.equal(openPaint.discPosition, 'absolute', 'the opened disc remains outside document flow');
+  assert(Math.abs(phoneReveal.record.top - tucked.record.top) <= 1, 'the vinyl slide keeps its vertical position while moving horizontally');
+  assert(Math.abs(phoneReveal.record.height - tucked.record.height) <= 1, 'the vinyl slide never resizes the disc');
   assert.equal(openPaint.imgOpacity, '1', 'the label print is opaque on the exposed disc');
   assert.equal(openPaint.imgVisibility, 'visible', 'the label print is painted on the exposed disc');
   assert.equal(openPaint.imgAnimation, 'none', 'the exposed label is still a static print');
@@ -927,6 +986,7 @@ try {
   assert.equal(spinA, 'none', 'the centre label carries no transform at all');
   assert.equal(spinA, spinB, 'the centre label never rotates — it is a static print');
   assert(phoneReveal.record.left - tucked.record.left > phoneReveal.stage.width * 0.25, 'the phone reveal is a real slide, not a nudge');
+  assert.match(phoneReveal.transform, /matrix/, 'the opened disc carries a composited transform');
   // The reveal only moves the record: the stage and sleeve keep their document
   // position and size through the whole 1.35 s delay + slide.
   assert.deepEqual([phoneReveal.stage.left, phoneReveal.stage.top, phoneReveal.stage.width, phoneReveal.stage.height], [tucked.stage.left, tucked.stage.top, tucked.stage.width, tucked.stage.height], 'the phone stage never moves');
@@ -2829,7 +2889,10 @@ try {
   // reveal is a 1 s translate-only slide with the elite easing. The 360° spin it
   // replaced ballooned the square record's box by √2 and overshot the stage, so
   // the opened state must never carry a rotation.
-  assert.match(cssText, /\.beat-detail:not\(\.vinyl-open\) \.vinyl-record \{[^}]*transform:\s*translateX\(0\)/, 'the record starts tucked behind the sleeve');
+  assert.match(cssText, /\.beat-detail:not\(\.vinyl-open\) \.vinyl-record \{[^}]*transform:\s*translate3d\(0, 0, 0\)/, 'the record starts tucked behind the sleeve');
+  assert.match(cssText, /\.vinyl-record \{[^}]*transform:\s*translate3d\(var\(--vinyl-slide\), 0, 0\)/, 'the record rests on a GPU-composited transform');
+  assert.match(cssText, /\.vinyl-record \{[^}]*will-change:\s*transform/, 'the record keeps its compositor layer');
+  assert.match(cssText, /\.vinyl-record \{[^}]*backface-visibility:\s*hidden/, 'the record hides its backface during the slide');
   assert.match(cssText, /@media \(prefers-reduced-motion: no-preference\) \{[\s\S]*?\.vinyl-record \{[^}]*transition:\s*transform 1s cubic-bezier\(0\.16, 1, 0\.3, 1\)/, 'the record reveal is a 1 s eased slide');
   assert.doesNotMatch(cssText, /\.beat-detail[^{}]*vinyl-open[^{}]*\{[^}]*rotate\(/, 'the record reveal never rotates');
   // The marquee ticker: GPU-promoted container and track, layout/paint-isolated,
