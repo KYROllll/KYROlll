@@ -236,7 +236,7 @@ test("every beat is audited for one uniform license, package set and secured loc
   assert(packages.every((pack) => pack.name && pack.blurb && pack.includes.length > 0), "every package carries its own copy and includes");
   assert.match(packages[0].includes.join(" "), /NON-EXCLUSIVE LICENSE/);
   assert.match(packages[1].includes.join(" "), /NON-EXCLUSIVE LICENSE/);
-  assert.match(packages[2].includes.join(" "), /FULL EXCLUSIVE RIGHTS \/ LICENSE/);
+  assert.match(packages[2].includes.join(" "), /FULL EXCLUSIVE RIGHTS — RESELL, RE-LICENSE & TRADE/);
 
   const ids = new Set();
   const slugs = new Set();
@@ -265,11 +265,15 @@ test("every beat is audited for one uniform license, package set and secured loc
   // grant, and two clearly-labelled grant branches (non-exclusive vs exclusive).
   const pdf = readFileSync(new URL("./license-pdf.js", import.meta.url), "utf8");
   assert.match(pdf, /const CREDIT = "\(Prod\. by KYROIII\)";/, "the mandatory credit is one constant");
-  assert.match(pdf, /This beat is 100% free - for NON-PROFIT and COMMERCIAL \/ PROFIT use/, "every license carries the free commercial grant");
+  assert.match(pdf, /This beat is 100% free for NON-PROFIT and COMMERCIAL \/ PROFIT use/, "the exclusive certificate carries the free commercial grant");
+  assert.match(pdf, /This beat is 100% free - for NON-PROFIT and COMMERCIAL \/ PROFIT use/, "the lease carries the free commercial grant");
   assert.match(pdf, /Upload it, stream it, monetise it/, "streaming and monetisation are granted explicitly");
-  assert.match(pdf, /Limits: keep the credit, never resell the beat as a beat or license\./, "the grant names its limit");
-  assert.match(pdf, /This license is non-exclusive, worldwide, perpetual and fully paid-up: other artists may/, "the lease is non-exclusive");
-  assert.match(pdf, /This license is EXCLUSIVE, worldwide, perpetual and fully paid-up: the beat is retired and/, "the exclusive tier grants exclusive rights and retires the beat");
+  assert.match(pdf, /Limits: keep the credit, never resell the beat as a/, "a non-exclusive lease names its one limit");
+  assert.match(pdf, /This license is non-exclusive, worldwide, perpetual and fully paid-up:/, "the lease is non-exclusive");
+  assert.match(pdf, /This license is EXCLUSIVE,/, "the exclusive tier grants exclusive rights");
+  assert.match(pdf, /the beat is retired and never licensed again/, "the exclusive tier retires the beat");
+  assert.match(pdf, /You may resell, re-license, transfer or trade it/, "the exclusive certificate grants resale and re-licensing freedom");
+
   assert.match(pdf, /data\.exclusive\s*\n?\s*\? "EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE"/, "the masthead names the exclusive grant");
   assert.match(pdf, /: "NON-EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE"/, "the masthead names the non-exclusive grant");
   assert.match(pdf, /exclusive: pack\.grant/, "the certificate reads the package's grant, so no beat can carry its own terms");
@@ -281,6 +285,8 @@ test("every beat is audited for one uniform license, package set and secured loc
   assert.match(script, /const locked = exclusiveLocked\(beat\);[\s\S]*?locked \? exclusiveLockedHTML\(owned\)/, "the beat page replaces the player with the secured notice");
   assert.match(script, /exclusive-locked-button/, "the action slot keeps a disabled control");
   assert.match(script, /exclusive-badge__owner/, "the buyer's ownership marker is painted");
+  assert.match(script, /\$\{locked \? "" : `<div class="vinyl-record"/, "a claimed beat renders no vinyl record at all");
+  assert.match(script, /detailCard\.querySelector\('\.vinyl-record'\)/, "the record reveal never runs without a record");
   assert.match(script, /catalog-tile--exclusive-locked/, "the catalog tile carries its own secured modifier");
   assert.match(script, /exclusive-lock__note/, "the secured notice carries the archive disclaimer");
   assert.match(script, /KYROlll_EXCLUSIVE_LOCK/, "the storefront reads the shared lock copy");

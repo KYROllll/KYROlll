@@ -302,11 +302,11 @@ function beatDetailInner(beat) {
         <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" decoding="async" fetchpriority="high">
         ${locked ? exclusiveArtHTML(false, owned) : ""}
       </figure>
-      <div class="vinyl-record" aria-hidden="true">
+      ${locked ? "" : `<div class="vinyl-record" aria-hidden="true">
         <span class="vinyl-record__logo-frame" aria-hidden="true">
           <img class="vinyl-record__logo" src="${attr(VINYL_LABEL_ART)}" alt="" width="1024" height="1024" fetchpriority="high" decoding="sync">
         </span>
-      </div>
+      </div>`}
     </div>`;
 }
 
@@ -419,8 +419,10 @@ function buildGrid() {
     // The card fades in first; a beat later the record slides out from behind
     // the sleeve. The class only ever *adds* the exposed state — the tucked
     // state is the element's initial one, so there is no pre-render flash.
+    // A claimed beat is an archived pressing: it has no public record, so the
+    // reveal timer never runs and the stage keeps the veiled cover alone.
     const detailCard = grid.querySelector('.beat-detail');
-    if (detailCard) {
+    if (detailCard && detailCard.querySelector('.vinyl-record')) {
       clearTimeout(vinylTimer);
       vinylTimer = setTimeout(() => detailCard.classList.add('vinyl-open'), VINYL_REVEAL_DELAY_MS);
     }

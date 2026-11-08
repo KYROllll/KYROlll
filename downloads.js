@@ -754,11 +754,17 @@
   function termsHTML(beat, pack) {
     const includes = (pack.includes || []).map((line) =>
       '<li>' + escapeHTML(line) + '</li>').join("");
-    return '<p class="sign-terms__lead">A FREE, NON-EXCLUSIVE, WORLDWIDE, PERPETUAL LICENSE TO ' +
+    const exclusive = pack.grant === "exclusive" || pack.id === "exclusive";
+    return '<p class="sign-terms__lead">A FREE, ' + (exclusive ? 'EXCLUSIVE' : 'NON-EXCLUSIVE') +
+        ', WORLDWIDE, PERPETUAL LICENSE TO ' +
         escapeHTML(beat.title) + ' — THE ' + escapeHTML(pack.name) + '.</p>' +
       '<p class="sign-terms__item"><span class="sign-terms__no">1.0</span>100% FREE FOR NON-PROFIT AND ' +
         'COMMERCIAL / PROFIT USE. RELEASE IT ON SPOTIFY, APPLE MUSIC, YOUTUBE OR ANYWHERE. NO ROYALTIES, ' +
-        'NO HIDDEN FEES, NO CATCH.</p>' +
+        'NO HIDDEN FEES, NO CATCH.' +
+        (exclusive
+          ? ' FULL COMMERCIAL FREEDOM: RESELL, RE-LICENSE, TRANSFER OR TRADE THIS EXCLUSIVE ASSET AND ' +
+            'KEEP 100% OF THE PROCEEDS.'
+          : '') + '</p>' +
       '<p class="sign-terms__item"><span class="sign-terms__no">2.0</span>THE ONLY RULE — CREDIT ' +
         '(PROD. BY KYROIII) IN THE SONG TITLE OR DESCRIPTION.</p>' +
       '<p class="sign-terms__item"><span class="sign-terms__no">3.0</span>WHAT THIS PACKAGE INCLUDES:</p>' +

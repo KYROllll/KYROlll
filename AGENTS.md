@@ -583,7 +583,9 @@ payment gateway.
   original colour under a deep neutral veil (`.exclusive-art`), prints the captured resting
   flower (`assets/kyrolll-flower-rest.png`) as a clean white seal, and sets
   `CLAIMED / SOLD OUT` in wide, light display type with an `EXCLUSIVE RIGHTS SECURED` kicker; the
-  buyer's version reads `OWNED / YOURS` over `PRIVATE MASTER`. The live status plate
+  buyer's version reads `OWNED / YOURS` over `PRIVATE MASTER`. A claimed beat's page renders **no
+  `.vinyl-record` at all** — `script.js` omits it from `beatDetailInner` and never starts the reveal
+  timer — so the pristine archived cover stands alone against the dark stage. The live status plate
   (`.exclusive-badge`) is a seal-and-copy banner, and `.exclusive-lock` is the same treatment on
   the beat page and the download page. **Everything in that treatment is static** — no scan,
   sheen or keyframe — so a claimed card can never flicker or move. It is equal-channel greys
@@ -788,11 +790,14 @@ never arrive half-empty:
   more: `downloads.js` hands over files and gates only, and the license is a PDF issued by
   `license-pdf.js` (see below). Every package is **100% free for non-profit AND commercial/profit
   use** (release on Spotify, Apple Music, YouTube, stream it, monetise it), with the same single
-  rule — credit `(Prod. by KYROIII)` in the song title or description — and the same stated
-  limits: do not resell the beat itself as a beat or license. The **grant** is package-level and
-  shared by every beat (`pack.grant`): `mp3` and `wav` are `non-exclusive` (other artists may
-  license the same beat), while `exclusive` is `exclusive` — full rights, the beat retired from
-  the store, and no further license issued. The package's `includes` are listed under "WHAT THIS
+  rule — credit `(Prod. by KYROIII)` in the song title or description. A **non-exclusive lease**
+  (`mp3`/`wav`) keeps one limit: do not resell the beat itself as a beat or license, because other
+  artists may license it too. The **exclusive** tier is different — full rights, the beat retired
+  from the store and no further license issued — and its certificate grants explicit resale freedom:
+  the owner may resell, re-license, transfer or trade the exclusive asset and keep 100% of the
+  proceeds, with the credit as the only rule. The **grant** is package-level and shared by every
+  beat (`pack.grant`): `mp3` and `wav` are `non-exclusive`, while `exclusive` is `exclusive`. The
+  package's `includes` are listed under "WHAT THIS
   PACKAGE INCLUDES". The gate, trigger, menu, download-list and download-page styles live in
   `style.css` under "10. Free downloads, package menu, gates & download page".
 

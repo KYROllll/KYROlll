@@ -533,14 +533,17 @@
     /* ------------------------------------------------------- clauses */
 
     heading("1.0    GRANT OF RIGHTS");
-    paragraph("This beat is 100% free - for NON-PROFIT and COMMERCIAL / PROFIT use. Release it on Spotify, " +
-      "Apple Music, YouTube, anywhere. Upload it, stream it, monetise it, keep what you make. No royalties, " +
-      "no hidden fees, no catch. " + (data.exclusive
-        ? "This license is EXCLUSIVE, worldwide, perpetual and fully paid-up: the beat is retired and " +
-          "never licensed again."
-        : "This license is non-exclusive, worldwide, perpetual and fully paid-up: other artists may " +
-          "license the same beat.") +
-      " Limits: keep the credit, never resell the beat as a beat or license.");
+    paragraph(data.exclusive
+      ? "This beat is 100% free for NON-PROFIT and COMMERCIAL / PROFIT use. Release it, stream it, " +
+        "monetise it, keep everything. No royalties, no hidden fees. This license is EXCLUSIVE, " +
+        "worldwide, perpetual and fully paid-up: the beat is retired and never licensed again. " +
+        "You may resell, re-license, transfer or trade it and keep 100% of the proceeds. " +
+        "The only rule is the credit."
+      : "This beat is 100% free - for NON-PROFIT and COMMERCIAL / PROFIT use. Release it on Spotify, " +
+        "Apple Music, YouTube, anywhere. Upload it, stream it, monetise it, keep what you make. No royalties, " +
+        "no hidden fees, no catch. This license is non-exclusive, worldwide, perpetual and fully paid-up: " +
+        "other artists may license the same beat. Limits: keep the credit, never resell the beat as a " +
+        "beat or license.");
 
     heading("2.0    THE ONLY RULE");
     paragraph("Give proper credit in the song title or description, exactly as:");

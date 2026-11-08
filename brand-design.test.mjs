@@ -1411,10 +1411,11 @@ try {
   assert.equal(proText.includes('NON-EXCLUSIVE - WORLDWIDE'), false, 'the exclusive certificate never reads as a lease');
   assert(proText.includes('THIS LICENSE IS EXCLUSIVE'), 'clause 1.0 grants exclusive rights');
   assert(proText.includes('THE BEAT IS RETIRED AND NEVER LICENSED AGAIN'), 'the exclusive grant retires the beat');
-  assert(proText.includes('THIS BEAT IS 100% FREE - FOR NON-PROFIT AND COMMERCIAL / PROFIT USE'), 'the exclusive license stays 100% free and commercial');
+  assert(proText.includes('THIS BEAT IS 100% FREE FOR NON-PROFIT AND COMMERCIAL / PROFIT USE'), 'the exclusive license stays 100% free and commercial');
   assert(pdfRuns(proText).includes('(PROD. BY KYROIII)'), 'the exclusive license still carries the mandatory credit');
-  assert(proText.includes('FULL EXCLUSIVE RIGHTS / LICENSE'), 'the includes spell out the exclusive grant');
-  assert(proText.includes('LIMITS: KEEP THE CREDIT, NEVER RESELL THE BEAT AS A BEAT OR LICENSE'), 'the exclusive grant states its limit');
+  assert(pdfRuns(proText).join(' ').includes('FULL EXCLUSIVE RIGHTS - RESELL, RE-LICENSE & TRADE'), 'the includes spell out the exclusive grant and its resale freedom');
+  assert(pdfRuns(proText).join(' ').includes('YOU MAY RESELL, RE-LICENSE, TRANSFER OR TRADE IT AND KEEP 100% OF THE PROCEEDS'), 'the exclusive grant permits resale and re-licensing');
+  assert.equal(pdfRuns(proText).join(' ').includes('LIMITS: KEEP THE CREDIT, NEVER RESELL'), false, 'the exclusive grant carries no resale restriction');
   // The hand-drawn signature reaches the PDF as real vector strokes, inside the
   // LICENSEE column, and the document stays monochrome and uppercase.
   const ink = drawnPaths(proText);
@@ -2532,7 +2533,8 @@ try {
   assert.equal(await adllLive.locator(`${ADLL_CARD} .download-trigger`).count(), 0, 'a claimed beat offers no lease button');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .exclusive-locked-button`).isDisabled(), true, 'a claimed beat keeps a disabled control');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .beat-preview`).count(), 0, 'a claimed beat has no public player');
-  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record`).count(), 1, 'the claimed beat keeps its photographed record');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record`).count(), 0, 'a claimed beat hides the vinyl record completely');
+  assert.equal(await adllLive.locator(`${ADLL_CARD}.beat-detail .vinyl-open`).count(), 0, 'a claimed beat never starts the record reveal');
   await adllLive.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), ADLL_ID);
   await adllLive.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), ADLL_ID);
   assert.equal(await adllLive.locator('.gate-modal').count(), 0, 'a claimed beat opens no gate');
@@ -2707,6 +2709,7 @@ try {
   assert.equal(await stranger.locator(`${ADLL_CARD} .exclusive-badge__owner`).count(), 0, 'another buyer gets no ownership marker');
   assert.equal(await stranger.locator(`${ADLL_CARD} .download-trigger`).count(), 0, 'another buyer gets no lease trigger');
   assert.equal(await stranger.locator(`${ADLL_CARD} .beat-preview`).count(), 0, 'another buyer gets no public player');
+  assert.equal(await stranger.locator(`${ADLL_CARD} .vinyl-record`).count(), 0, 'another buyer sees the archived cover without a record');
   assert.equal(await stranger.locator(`${ADLL_CARD} .exclusive-locked-button`).isDisabled(), true, 'another buyer gets a disabled control');
   assert.equal((await stranger.locator(`${ADLL_CARD} .exclusive-locked-button`).innerText()).trim(), 'SOLD OUT', 'the disabled control says SOLD OUT');
   assert.match(await stranger.locator(`${ADLL_CARD} .card__specs`).innerText(), /CLAIMED \/ SOLD OUT/, 'the specs carry the public sold-out state');
