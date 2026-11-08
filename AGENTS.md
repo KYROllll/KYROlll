@@ -164,14 +164,10 @@ fails so one dead flower can never hold it back) plus a 450 ms hold; before that
 which is exactly the pose the still image shows. `paused` / `document.hidden` freeze the shared
 clock for every flower at once, and the drifting rim light only starts with the rotation, so the
 hand-off pixels do not move either. That shared clock belongs to the hero and the preloader
-only: a vinyl centre label is a tiny stage that runs its own constant-speed 16 s clock in the
-same rAF loop (`VINYL_SPIN_S`, ~30 fps), and while its still SVG label spins the page already
-looks complete.
-The hero/preloader build owns the main thread while the veil is up, so vinyl stages are
-mounted only after the `kyrolll:preloader-done` event (with an 8 s fallback for a page whose
-veil never reports). A stage that shipped with the page joins the initial pass, which is why
-`stagePainted()` is gated on `initialHosts` — a label mounted later must not release the
-hero's clock early. The
+only: a vinyl centre label is not a WebGL stage at all any more (see the vinyl section — it is
+the brown X logo image, spun by CSS), so nothing on the record joins `flowerLoop`.
+A stage that shipped with the page joins the initial pass, which is why
+`stagePainted()` is gated on `initialHosts`. The
 veil's `logoBreathe` glow stays cancelled (`.preloader .logo-stage { animation: none }`)
 and the still → canvas cross-fade stays cancelled for the veil flower
 (`.preloader .logo-stage canvas, .preloader .logo-fallback { transition: none }`) — the canvas
@@ -323,7 +319,7 @@ sheen or shadow keyframes, the handle/track contract, samples the player and its
 frames of playback and requires zero drift, and then scrolls the open drawer to prove its seam
 never moves and its direction never flips.
 
-## The vinyl record is one photographed pressing — flower dead centre, brown-gold label
+## The vinyl record is one photographed pressing — brown X mark dead centre, brown-gold label
 
 Every beat plays the same record, and that record is a photograph. `.vinyl-record` paints
 `assets/vinyl-classic.png` as `background: url(...) center / contain no-repeat`. The asset is
@@ -349,20 +345,24 @@ markers in `style.css` and exempted from the monochrome audit — everything els
 and the page stays equal-channel grey. The disc itself stays black-and-white from the
 photograph; only the label reads warm.
 
-**The flower sits dead centre of the disc.** The photographed label is a circle 28% of the
-disc across and the cut is centred on it, so the record's own centre *is* the label's centre.
-`.vinyl-record__logo-frame` is a 27% square at `top: 50%; left: 50%; transform:
-translate(-50%, -50%)` — just inside the label, leaving a thin ring of brown-gold around the mark.
-The record's DOM holds only that frame: `script.js` paints `assets/kyrolll-flower.svg` as the
-still mark and `brand-logo.js` mounts the live 3D scene over it. The host is a
-`<div class="logo-stage vinyl-flower-stage">`, deliberately **not** a `<canvas>`: the renderer
-appends its own canvas inside the stage, and a canvas element cannot display child content, so
-a canvas host hid both the renderer's canvas and the SVG fallback. Until the WebGL flower has
-painted, the SVG is what shows and it alone spins on the platter clock (`vinylCenterSpin`,
-16s linear, `will-change: transform`); once `.logo-stage.is-ready` lands the renderer's canvas
-fades in and the still is hidden. The logo image alone spins in-plane (`brand-logo.js`
-composes the same roll as a local-Z turn, `vinylSpin`), so the record never tumbles about the
-world Y axis.
+**The brown X mark sits dead centre of the disc — it is a plain image, not a 3D stage.**
+The photographed label is a circle 28% of the disc across and the cut is centred on it, so the
+record's own centre *is* the label's centre. `.vinyl-record__logo-frame` is a 27% square at
+`top: 50%; left: 50%; transform: translate(-50%, -50%)` — just inside the label, leaving a thin
+ring of brown-gold around the mark. The record's DOM holds only that frame, and the mark inside
+it is `<img class="vinyl-record__logo" src="assets/kyrolll-x-logo.png" width="400" height="400"
+loading="lazy" decoding="async">`: the **authentic brush-X** from `assets/kyrolll-brown-x.png`,
+extracted, cut to a transparent square and centred. `script.js` holds that one path in
+`VINYL_LABEL_ART`, and the record no longer mounts `<div class="logo-stage
+vinyl-flower-stage">` / `brand-logo.js` at all — the live 3D flower now belongs to the hero and
+the preloader only. There is therefore no `.logo-stage` in the record's DOM, no canvas, no
+`is-ready` cross-fade and no SVG fallback: the PNG is the mark from the first frame, and it
+alone spins in-plane on the platter clock (`vinylCenterSpin`, 16 s linear,
+`will-change: transform`), so the record never tumbles about the world Y axis.
+`image-rendering: crisp-edges` keeps the mark hard-edged, and its drop shadow is warm brown
+(`0 0 4px rgba(122, 74, 46, .25)`) to sit on the brown-gold label rather than casting grey.
+Because the mark is a raster image it is exempt from CSS `text-transform`, exactly like the
+brush-X brand marks and the watermarks in the hero and footer.
 
 **The reveal.** `script.js` adds `vinyl-open` **1.35 s** after the card is built (the card's
 own 0.8 s fade finishes well inside that delay), and `style.css` transitions the record out
@@ -392,10 +392,12 @@ cover's right edge like a record pulled out of its jacket, and an occluded label
 would cut the flower in half. `brand-design.test.mjs` asserts the frame's centre against the
 disc's centre to within 1px, the 27% frame, the 92% inset diameter, the 60% sleeve, vertical
 containment, the large cover and zero horizontal overflow at 375, 390, 768 and 1440 px, the
-label is a brown-gold radial gradient (not black, not tan-from-photo), the flower spins on
-`vinylCenterSpin`, no synthetic rim/conic-gradient survives, no per-beat modifier class is
-emitted, and the sleeve and stage never move while the record rides out. The label is nowhere
-described as black or as "the black centre label" in the test text.
+label is a brown-gold radial gradient (not black, not tan-from-photo), the brown X mark is a
+plain `<img>` from `assets/kyrolll-x-logo.png` spinning on `vinylCenterSpin`, no vinyl
+`logo-stage`/`data-vinyl-flower` host survives in the markup, no synthetic rim/conic-gradient
+survives, no per-beat modifier class is emitted, and the sleeve and stage never move while the
+record rides out. The label is nowhere described as black or as "the black centre label" in
+the test text.
 
 ## Preview responsiveness in this sandbox
 
@@ -413,11 +415,10 @@ across frames so the page keeps answering while it is built. A GPU keeps every o
 value. After it: one ~1.1s block, ~44ms per frame, 2 long tasks — and the flower is
 unchanged (mean ink luminance 216 before and after).
 
-Two more cuts apply on every renderer, GPU included, and neither changes the flower: a stage
-narrower than 220px — every vinyl centre label — is built with the compact scene
-(`bevelSegments` 2, `curveSegments` 8, the 128px reflection cube, `pixelRatio` capped at 1.25),
-which is invisible at that size, and vinyl labels are not mounted at all until the preloader
-veil lifts, so they never compete with the hero build. The falling-X canvas is likewise capped
+One more cut applies on every renderer, GPU included, and it does not change the flower: a
+stage narrower than 220px is built with the compact scene (`bevelSegments` 2, `curveSegments`
+8, the 128px reflection cube, `pixelRatio` capped at 1.25), which is invisible at that size.
+The falling-X canvas is likewise capped
 to `dpr = 1`, 32 sprites and ~30 fps (see that section above).
 
 The remaining block is the driver compiling and linking the pearl program, and it is not
@@ -1015,7 +1016,14 @@ not an enforcement layer: the files stay public and a reload serves the beat as 
 parse. Home is the default state: the head only adds `beat-page` when the URL carries
 `?beat=`, and `html:not(.beat-page) #grid > .beat-detail` keeps that pre-rendered card
 hidden on the home route — so entering the store never flashes a beat page before the
-homepage hero.
+homepage hero. That rule is **`display: none`, not `visibility: hidden`**: a
+visually-hidden card is still laid out, so the browser fetched its cover (93KB, at
+`fetchpriority="high"`), its `assets/vinyl-classic.png` record background (266KB) and its
+label mark (55KB) on every home visit — ~414KB, competing with the hero's own flower —
+only for `script.js` to discard the card a moment later. Measured on the home route, taking
+the card out of the render tree drops `vinyl-classic.png` and `kyrolll-x-logo.png` from the
+load entirely. Do not restore `visibility` here, and keep the pre-rendered cover
+`loading="lazy"` for the same reason.
 
 ## `kyroiii-plugin/` is a separate product surface
 

@@ -2726,8 +2726,11 @@ try {
   // rim, no metallic ring, no cover-derived palette, no per-beat block — so every
   // colour literal that remains in the stylesheet is an equal-channel grey.
   assert.match(cssText, /\.vinyl-record \{[^}]*url\("assets\/vinyl-classic\.png"\)/, 'the disc is the supplied photograph');
-  const discStart = cssText.indexOf('.vinyl-record__logo-frame {');
-  const discEnd = cssText.indexOf('.vinyl-record__logo-frame .logo-stage {', discStart);
+  // The frame's measurement block is the one that positions it — the palette
+  // section above also declares `.vinyl-record__logo-frame`, but only its
+  // z-index, so the lookup anchors on the rule that carries `position`.
+  const discStart = cssText.indexOf('.vinyl-record__logo-frame {\n  position: absolute');
+  const discEnd = cssText.indexOf('}', discStart);
   assert(discStart >= 0 && discEnd > discStart, 'the flower frame has its own stylesheet block');
   const discCss = cssText.slice(discStart, discEnd);
   assert.match(discCss, /top: 50%/, 'the flower frame is centred vertically on the label');
@@ -2753,7 +2756,22 @@ try {
   assert.match(cssText, /\.support-modal \{[^}]*z-index:\s*1000000/, 'the desk paints above the package drawer');
   assert.match(cssText, /\.support-sheet \{[^}]*max-height:\s*90dvh/, 'the desk card is measured in dynamic viewport units');
   assert.match(cssText, /\.support-sheet \{[^}]*overflow-y:\s*auto/, 'the desk card scrolls inside itself');
-  const auditedCss = cssText.slice(0, taglineStart) + cssText.slice(taglineEnd);
+  // Every authored colour exception is declared between `START`/`END` markers
+  // (the hero tagline, the hero's warm bloom, and the record's brown-gold
+  // label). Strip all of them, then insist that everything left is grey.
+  const stripMarkedPalettes = (css) => {
+    let out = '';
+    let i = 0;
+    for (;;) {
+      const start = css.indexOf('=== THE BRAND', i);
+      if (start < 0) return out + css.slice(i);
+      out += css.slice(i, start);
+      const end = css.indexOf('END === */', start);
+      if (end < 0) return out + css.slice(start);
+      i = end + 'END === */'.length;
+    }
+  };
+  const auditedCss = stripMarkedPalettes(cssText.slice(0, taglineStart) + cssText.slice(taglineEnd));
   const literal = value => (value.includes(',')
     ? value.split(',').slice(0, 3).map(part => Number(part.trim()))
     : (value.length <= 4 ? value.slice(0, 3).split('').map(c => parseInt(c + c, 16)) : [0, 2, 4].map(i => parseInt(value.slice(i, i + 2), 16))));

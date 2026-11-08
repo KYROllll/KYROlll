@@ -91,7 +91,7 @@ test("the re-ingested ADLL beat is scheduled for today at 19:00 with its graffit
     .forEach((asset) => assert(readFileSync(new URL(`./${asset}`, import.meta.url)).length > 0, `${asset} is ingested`));
 });
 
-test("the GUNNA drop is scheduled for 22:00 today and every record keeps the flower label", () => {
+test("the GUNNA drop is scheduled for 22:00 today and every record keeps the brown X logo label", () => {
   const { window } = catalogContextFor();
   const helpers = window.KYROlll_HELPERS;
   const beat = helpers.beatById("gunna-type");
@@ -102,9 +102,9 @@ test("the GUNNA drop is scheduled for 22:00 today and every record keeps the flo
   assert.equal(beat.key, "Fm");
   assert.equal(beat.preview, "assets/previews/gunna-type.mp3");
   assert.equal(beat.vinylVariant, undefined, "every record is the same pressing, not hand-assigned");
-  assert.equal(beat.vinylLabel, undefined, "no beat replaces the signature flower with cover art");
-  assert.equal(beat.releaseAt, "2026-11-06T22:00:00+02:00", "the drop lands today at exactly 22:00 Israel time");
-  const releaseAt = Date.parse("2026-11-06T22:00:00+02:00");
+  assert.equal(beat.vinylLabel, undefined, "no beat replaces the signature brown X logo with cover art");
+  assert.equal(beat.releaseAt, "2026-11-07T22:00:00+02:00", "the drop lands today at exactly 22:00 Israel time");
+  const releaseAt = Date.parse("2026-11-07T22:00:00+02:00");
   assert.equal(helpers.releaseAt(beat), releaseAt);
   assert.equal(helpers.isReleased(beat, releaseAt - 1), false, "the beat stays scheduled until 22:00");
   assert.equal(helpers.isReleased(beat, releaseAt), true, "the beat unlocks on the clock");
@@ -128,13 +128,14 @@ test("the GUNNA drop is scheduled for 22:00 today and every record keeps the flo
   ]
     .forEach((asset) => assert(readFileSync(new URL(`./${asset}`, import.meta.url)).length > 0, `${asset} is ingested`));
 
-  // Every centre label is the signature KYROIII flower: the 3D WebGL stage is
-  // mounted on a div (a canvas cannot host the renderer's own canvas) with the
-  // SVG flower as the no-WebGL fallback. The old cover-label path is gone.
+  // Every centre label is the brown KYROIII X-logo: the 3D WebGL stage is gone
+  // from the record and the record shows the static PNG mark. The old 3D
+  // flower path and the cover-label path are both gone.
   const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
-  assert.match(script, /const VINYL_LABEL_ART = "assets\/kyrolll-flower\.svg"/, "the flower is the one label art");
+  assert.match(script, /const VINYL_LABEL_ART = "assets\/kyrolll-x-logo\.png"/, "the brown X logo is the one label art");
   assert.doesNotMatch(script, /vinylLabel|vinyl-record--cover/, "no record opts into a cover label");
-  assert.match(script, /<div class="logo-stage vinyl-flower-stage"/, "the 3D flower stage is a container, not a canvas");
+  assert.doesNotMatch(script, /data-vinyl-flower="true"/, "the vinyl record no longer mounts the live 3D flower stage");
+  assert.doesNotMatch(script, /<div class="logo-stage vinyl-flower-stage"/, "the 3D flower stage is not rendered on the record");
   const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
   assert.doesNotMatch(css, /\.vinyl-record--cover/, "the stylesheet carries no cover-label pressing");
   assert.doesNotMatch(css, /url\(assets\/beat-cover\.png\)/, "the stylesheet hard-codes no beat artwork path");
@@ -253,10 +254,10 @@ test("every beat is pressed from its own cover, and the beat page keeps a sticky
   const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
   assert.match(css, /\.vinyl-record \{[^}]*url\("assets\/vinyl-classic\.png"\)/, "every record paints the photographed pressing");
   assert.match(css, /\.vinyl-record \{[^}]*center \/ contain no-repeat/, "the photographed disc fills its square box");
-  assert.match(css, /\.vinyl-record__logo-frame \{[^}]*left: 50%/, "the flower frame is centred on the label");
-  assert.match(css, /\.vinyl-record__logo-frame \{[^}]*transform: translate\(-50%, -50%\)/, "the flower frame is centred on the label");
-  assert.match(css, /\.vinyl-record__logo-frame \{[^}]*width: 27%/, "the flower fits inside the photographed label");
-  assert.match(css, /\.vinyl-record__logo \{[\s\S]*?animation: vinylCenterSpin 16s linear infinite/, "the flower keeps its 16s linear spin");
+  assert.match(css, /\.vinyl-record__logo-frame \{[^}]*left: 50%/, "the logo frame is centred on the label");
+  assert.match(css, /\.vinyl-record__logo-frame \{[^}]*transform: translate\(-50%, -50%\)/, "the logo frame is centred on the label");
+  assert.match(css, /\.vinyl-record__logo-frame \{[^}]*width: 27%/, "the logo fits inside the photographed label");
+  assert.match(css, /\.vinyl-record__logo \{[\s\S]*?animation: vinylCenterSpin 16s linear infinite/, "the label marks keep their 16s linear spin");
   assert.doesNotMatch(css, /\.vinyl-record__rim|--vinyl-rim-|conic-gradient\(\s*from 215deg/, "no synthetic rim or rim palette remains");
   assert.doesNotMatch(css, /--vinyl-(body|label|marble|vein|flake|groove)-/, "the record takes no cover-derived colour");
   assert.doesNotMatch(css, /\.vinyl-record--(white|gold-rim|sage-white-rim|ice-silver-rim|rage-fire-rim|graffiti-splatter)/,
@@ -264,7 +265,9 @@ test("every beat is pressed from its own cover, and the beat page keeps a sticky
   const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
   assert.match(html, /id="all-beats-link"[^>]*aria-label="Back to all beats"/, "the beat page carries a labelled ALL BEATS control");
   assert.doesNotMatch(html, /vinyl-palette/, "the retired palette module is no longer loaded");
-  assert.match(html, /<div class="logo-stage vinyl-flower-stage" data-vinyl-flower="true"/, "the centre label still mounts the live 3D flower");
+  assert.match(html, /<div class="logo-stage"[^>]*role="img"[^>]*aria-label="KYROIII custom die-cut pearl flower/, "the hero/preloader still mount the 3D flower on their own stages");
+  assert.doesNotMatch(html, /<div class="logo-stage[^>]*data-vinyl-flower="true"/, "the centre label no longer mounts the live 3D flower");
+  assert.match(html, /<img class="vinyl-record__logo"[^>]*src="assets\/kyrolll-x-logo\.png"/, "the beat card's record shows the brown X logo as a plain image");
   const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
   assert.match(script, /allBeatsLink\.setAttribute\("data-beat-back", ""\)/, "the return control is wired in script.js");
   assert.match(script, /if \(!restoreCatalogScroll\(\)\)/, "the return control restores the saved catalog offset");
@@ -318,7 +321,7 @@ test("the footer carries the four official social marks as large SVG badges", ()
   });
 });
 
-test("every record is the same photographed pressing with the flower dead centre", () => {
+test("every record is the same photographed pressing with the brown X logo dead centre", () => {
   const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
   assert.match(css, /\.vinyl-record \{[^}]*url\("assets\/vinyl-classic\.png"\) center \/ contain no-repeat/,
     "the disc is the supplied photograph, cut to the disc");

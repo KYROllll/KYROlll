@@ -281,7 +281,7 @@
       preview: "assets/previews/gunna-type.mp3",
       youtube: "https://www.youtube.com/@KYROlll00",
       // Schedule the drop for today at exactly 22:00 (Israel time).
-      releaseAt: "2026-11-06T22:00:00+02:00",
+      releaseAt: "2026-11-07T22:00:00+02:00",
       deliverables: {
         mp3: [
           { file: "assets/previews/gunna-type.mp3", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).mp3", label: "TAGGED MP3" }

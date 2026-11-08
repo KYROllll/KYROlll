@@ -77,12 +77,11 @@ function specLine(beat) {
 }
 
 /* Every record is the same photographed pressing (style.css paints the disc), so
-   there is no per-beat palette to derive. The disc carries the complete official
-   KYROIII flower on its photographed centre label — the record is always a
-   KYROIII record, never a pasted-on cover. brand-logo.js mounts the live 3D
-   flower on the label's own stage; this SVG is the still fallback for a browser
-   without WebGL. */
-const VINYL_LABEL_ART = "assets/kyrolll-flower.svg";
+   there is no per-beat palette to derive. The disc carries the brown KYROIII
+   X-logo on its photographed centre label — the record is always a KYROIII
+   record, never a pasted-on cover. The PNG is the label art in every browser
+   (no WebGL stage on the record any more). */
+const VINYL_LABEL_ART = "assets/kyrolll-x-logo.png";
 
 /* The scheduled-release clock lives in catalog.js: a beat with a future
    `releaseAt` is a *scheduled drop*. Until it lands the store paints the tile
@@ -249,8 +248,7 @@ function beatDetailInner(beat) {
       </figure>
       <div class="vinyl-record" aria-hidden="true">
         <span class="vinyl-record__logo-frame" aria-hidden="true">
-          <div class="logo-stage vinyl-flower-stage" data-vinyl-flower="true" aria-hidden="true"></div>
-          <img class="vinyl-record__logo" src="${attr(VINYL_LABEL_ART)}" alt="" width="300" height="300" loading="lazy" decoding="async">
+          <img class="vinyl-record__logo" src="${attr(VINYL_LABEL_ART)}" alt="" width="400" height="400" loading="lazy" decoding="async">
         </span>
       </div>
     </div>`;

@@ -131,13 +131,16 @@ button {
   width: min(100%, 520px);
   aspect-ratio: 1;
   z-index: 1;
-  /* Keep the WebGL flower on its own compositor layer so the glow animation and
-     page scroll never force it through layout or repaint. */
   transform: translateZ(0);
-  will-change: transform, filter;
+  will-change: transform;
   backface-visibility: hidden;
-  contain: layout;
+  contain: content;
 }
+/* The hero/preloader stage still hosts the live 3D flower (brand-logo.min.js);
+   the still is its captured resting render and is swapped for the canvas on the
+   very first frame, so the cross-fade is invisible. The download page keeps the
+   same stage but shows the brown X logo directly — no WebGL flower on that
+   surface any more. */
 .logo-stage canvas, .logo-fallback {
   position: absolute;
   inset: 0;
@@ -145,13 +148,6 @@ button {
   width: 100%;
   height: 100%;
 }
-/* The still logo is a frame the 3D flower rendered itself, captured at 2x from a
-   1040px stage, so the hand-off changes nothing but the material: the pixels the
-   canvas paints are the pixels the image was already showing. `.logo-fallback`
-   therefore carries no padding and no transform — the image is stage-sized and
-   already sits exactly where the renderer draws the flower — and the .4s
-   cross-fade reads as the flower settling into its lit render rather than one
-   image replacing another. */
 .logo-stage canvas { opacity: 0; transition: opacity .4s ease; }
 .logo-stage.is-ready canvas { opacity: 1; }
 .logo-fallback { object-fit: contain; opacity: 1; transition: opacity .4s ease, visibility 0s linear .4s; }
@@ -570,9 +566,33 @@ body > canvas {
      footer. Capping it to the body's box keeps it exactly as tall as the page. */
   height: 100% !important;
 }
-.brand-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; border-bottom: 1px solid var(--hairline); }
+.brand-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  border-bottom: 1px solid var(--hairline);
+  position: relative;
+  overflow: hidden;
+}
+.brand-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* === THE BRAND WARM PALETTE START === */
+  /* The hero's warm bloom belongs to the same brown-gold family as the record
+     label, so it is marked as an authored colour exception and the monochrome
+     audit skips it. */
+  box-shadow: inset 0 0 60px rgba(122, 74, 46, 0.08);
+  /* === THE BRAND WARM PALETTE END === */
+  z-index: 0;
+}
 .motion-toggle {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  position: relative;
+  z-index: 1;
 }
 .motion-toggle { color: var(--gray); border: 0; background: none; font-size: 9px; padding: 10px 0; }
 .motion-toggle:hover { color: var(--white); }
@@ -594,8 +614,18 @@ body > canvas {
   .brand-hero { padding: 32px 20px 44px; }
   .brand-wordmark { font-size: clamp(44px, 9vw, 72px); }
   .logo-stage { width: min(100%, 420px); }
+  .brand-hero .preloader__flower { width: min(40vw, 180px); }
+  .brand-hero .logo-stage { width: min(100%, 240px); }
 }
 @media (max-width: 600px) {
+  .brand-hero { padding: 18px 20px; }
+  .brand-hero__wordmark { font-size: clamp(40px, 15vw, 60px); }
+  .brand-hero__wordmark .brand-wordmark { font-size: clamp(40px, 15vw, 60px); }
+  .logo-stage { width: min(100%, 300px); }
+  .header { padding: 18px 20px; }
+  .catalog-heading { padding: 22px 20px; }
+
+  .brand-hero::before { width: min(150vw, 760px); /* === THE BRAND WARM PALETTE START === */ box-shadow: inset 0 0 60px rgba(122, 74, 46, 0.14); /* === THE BRAND WARM PALETTE END === */ }
   /* Keep form fields at 16px so iOS does not zoom the page on focus. */
   input {
     font-size: 16px !important;
@@ -631,16 +661,21 @@ body > canvas {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* The cover art that ships with the beat is distinctive — do not desaturate or
+     recolour it. Each pressing paints the brown-gold / pearl / ice-silver / sage /
+     fire-red / graffiti palette behind the disc separately, so the photo stays
+     above that and is never touched by the cover's CSS colour block. */
 }
 .catalog-tile__title { display: block; padding: 16px; font-size: 12px; font-weight: 700; line-height: 1.5; letter-spacing: .04em; }
 .catalog-tile__link:focus-visible, .beat-navigation a:focus-visible { outline: 2px solid var(--white); outline-offset: 3px; }
 
-.beat-page .brand-hero { flex-direction: row; justify-content: space-between; text-align: left; gap: 24px; padding: 14px clamp(16px, 3vw, 40px); }
+.beat-page .brand-hero { flex-direction: row; justify-content: space-between; text-align: left; gap: 24px; padding: 14px clamp(16px, 3vw, 40px); position: relative; overflow: hidden; }
 .beat-page .signature-section { width: auto; align-items: flex-start; }
 .beat-page .brand-wordmark { font-size: clamp(38px, 5vw, 58px); margin: 0; }
 .beat-page .brand-logo-container { width: auto; }
 .beat-page .logo-stage { width: 88px; }
 .beat-page .logo-fallback { padding: 0; }
+/* beat-page .brand-hero::after is the beat page's own grain rim (see above). */
 /* The way back to the catalog is a sticky glass rail: it sits in the flow at the
    top of the beat page, then pins itself to the top of the viewport for the whole
    scroll, so the return control is never more than a glance away — no hunting for
@@ -662,7 +697,7 @@ body > canvas {
   background: linear-gradient(180deg, rgba(11, 11, 11, 0.94) 0%, rgba(11, 11, 11, 0.72) 64%, rgba(11, 11, 11, 0) 100%);
   -webkit-backdrop-filter: blur(18px) saturate(130%);
   backdrop-filter: blur(18px) saturate(130%);
-  contain: layout style;
+  contain: layout;
 }
 .beat-navigation a {
   display: inline-flex;
@@ -691,9 +726,14 @@ body > canvas {
 }
 /* index.html pre-renders the active release's card so a direct beat link
    (?beat=…) paints without a flash. The home route swaps it for the catalog
-   tiles right after parse, so keep it hidden until then — otherwise the store
-   briefly shows a beat page before the homepage hero. */
-html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
+   tiles right after parse, so keep it hidden until then — otherwise the store    briefly shows a beat page before the homepage hero. */
+/* `display: none`, not `visibility: hidden`: a visually-hidden card is still laid
+   out, so its cover, its CSS vinyl background and its label mark were all
+   fetched on every home visit — ~414KB, with the cover at high priority
+   competing with the hero — only for script.js to throw the card away a moment
+   later. Out of the render tree, none of it is requested at all. */
+html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
+}
 .grid.grid--detail {
   grid-template-columns: minmax(0, 1fr);
   padding: clamp(32px, 5vw, 64px) clamp(16px, 4vw, 40px) 96px;
@@ -824,6 +864,8 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .marquee-banner {
   background: var(--white);
   color: var(--black);
+  position: relative;
+  overflow: hidden;
   overflow: hidden;
   white-space: nowrap;
   border-top: 1px solid var(--white);
@@ -864,6 +906,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   display: inline-flex;
   will-change: transform;
   transform: translate3d(0, 0, 0);
+  contain: strict;
   backface-visibility: hidden;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -989,7 +1032,6 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   pointer-events: none;
   z-index: 0;
 }
-
 .beat-page .brand-hero::before { display: none; }
 
 /* Grainy vignette that rises into the frame as the intro hands over to the catalog. */
@@ -1006,7 +1048,20 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   z-index: 0;
 }
 
-.beat-page .brand-hero::after { display: none; }
+/* beat-page .brand-hero::after is the beat page's own grain rim — suppress the shared grain rim on the beat page (it carries its own vignette below). */
+.beat-page .brand-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 0;
+  height: 52%;
+  background:
+    linear-gradient(to bottom, transparent, rgba(8, 8, 8, 0.96)),
+    radial-gradient(ellipse at 50% 130%, rgba(255, 255, 255, 0.1), transparent 62%);
+  opacity: calc(var(--hero-p) * 0.95);
+  pointer-events: none;
+  z-index: 0;
+}
+/* beat-page .brand-hero::after is the beat page's own grain rim — suppress the shared grain rim on the beat page (it carries its own vignette below). */
 
 /* Parallax layers: the wordmark drifts up, the 3D flower sinks and grows. */
 .signature-section {
@@ -1208,7 +1263,10 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .logo-stage {
   animation: logoBreathe 7.5s ease-in-out 1.6s infinite;
   /* The base glow is the animation's 0% frame, so the loop starting at 1.6s
-     grows from the glow already on screen instead of popping a halo on. */
+     grows from the glow already on screen instead of popping a halo on. This
+     glow is worn by the hero flower and the preloader only — the vinyl record
+     uses its own brown ink drop-shadow, and the download page keeps the still
+     X logo without the glow. */
   filter: drop-shadow(0 0 26px rgba(255, 255, 255, 0.13));
 }
 
@@ -1305,12 +1363,14 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    nearest stacking-context ancestor, which was `.grid`, so the footer (a later
    `.reveal` sibling) painted over the drawer and swallowed its taps. Settled
    sections are ordinary blocks again, and the lifted tile (`z-index: 5`) wins. */
-.reveal.is-revealed { opacity: 1; transform: none; will-change: auto; }
+.reveal.is-revealed { opacity: 1; transform: none; will-change: auto; contain: content;
+}
 
 /* On a beat detail link every revealed section is already on screen, so the
    slide-in would drag the beat card after we align it — show them settled (and
    settled means settled: no `will-change`, so no layer and no stacking context). */
-.beat-page .reveal { opacity: 1; transform: none; transition: none; will-change: auto; }
+.beat-page .reveal { opacity: 1; transform: none; transition: none; will-change: auto; contain: content;
+}
 
 /* The marquee is exempt from the section reveal, exactly like a beat page's
    sections above. The reveal is an opacity curtain, and an ancestor held at
@@ -1423,14 +1483,14 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
    a marbling plume, a flake field or a colour accent, so no beat can shift the
    pressing and no accent can drift over time.
    The cut is centred on the photographed label (28% of the disc), which is what
-   lets the signature flower land dead centre on the label's own circle.
+   lets the brown KYROIII X logo land dead centre on the label's own circle.
 
    THE BRAND LABEL — one warm brown-gold circle, sampled from the brush X mark
    (`assets/kyrolll-brown-x.png`). This is the store's second authored colour
    exception (after the hero tagline): a branded warm tone, painted here as a
-   pure CSS radial gradient on the centre label behind the flower, not as a photo
-   pixel and not as a per-beat hue. It is the only place on the record that is
-   not black-and-white, and it is isolated between the markers below so the
+   pure CSS radial gradient on the centre label behind the brown X mark, not as a
+   photo pixel and not as a per-beat hue. It is the only place on the record that
+   is not black-and-white, and it is isolated between the markers below so the
    monochrome audit never sees it. */
 /* === THE BRAND LABEL PALETTE START === */
 .vinyl-record::before,
@@ -1453,6 +1513,12 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .vinyl-record__logo-frame {
   z-index: 2;
 }
+
+/* The mark's shadow is warm for the same reason the label is: it has to sit on
+   the brown-gold pressing, not float over it as a grey glow. */
+.vinyl-record__logo {
+  filter: drop-shadow(0 0 4px rgba(122, 74, 46, 0.25));
+}
 /* === THE BRAND LABEL PALETTE END === */
 
 .vinyl-record__logo-frame {
@@ -1467,7 +1533,10 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   z-index: 2;
   pointer-events: none;
 }
-/* The mark itself: the still SVG, and the live 3D stage fitted over it. */
+/* The mark itself: the brown KYROIII X logo on the centre label, spinning with
+   the record. No WebGL flower — the brown X is the signature mark on the brown-gold
+   label, painted as a crisp PNG with its own alpha channel, and it is the only
+   logo layer on this surface (the hero/preloader keep their own 3D flower stage). */
 .vinyl-record__logo {
   position: absolute;
   inset: 0;
@@ -1478,39 +1547,21 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   overflow: hidden;
   opacity: 1;
   transition: opacity .4s ease;
-  /* White ink on the brown-gold label needs a little lift to stay crisp at 60px. */
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.18));
+  /* The platter turn is in-plane only: the mark spins, the record box never
+     rotates, so a rotating square can never grow past the sleeve. */
   transform-origin: 50% 50%;
   animation: vinylCenterSpin 16s linear infinite;
+  image-rendering: crisp-edges;
   will-change: transform;
   backface-visibility: hidden;
   pointer-events: none;
 }
-/* The WebGL flower canvas is positioned inside the frame; keep its transitions
-   so the static SVG -> live 3D hand-off still reads. */
-.vinyl-record__logo-frame .logo-stage {
-  position: absolute;
-  inset: 0;
-  transform: none;
-  will-change: transform;
-}
-.vinyl-record__logo-frame .logo-stage canvas {
-  display: block;
-  inset: 0;
-  opacity: 0;
-  transition: opacity .4s ease;
-  border-radius: 50%;
-}
-.vinyl-record__logo-frame .logo-stage.is-ready canvas {
-  opacity: 1;
-}
-
 /* The reveal. `vinyl-open` is added by script.js 1.35 s after the beat card is
    built (the card's own 0.8 s fade finishes first, so the title and player get
    the eye for a moment). The record starts *inside* the sleeve and rides out
    under the label frame, so the cover reads as a physical sleeve the record is
    pulled out of: the disc eases horizontally from the sleeve, the label and the
-   flower come with it, and the pull-out lands with the label clear of the cover.
+   X-logo come with it, and the pull-out lands with the label clear of the cover.
    Nothing is ever painted exposed first — the `:not()` rule is the element's very
    first computed state. */
 @media (prefers-reduced-motion: no-preference) {
@@ -1530,22 +1581,9 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   to { transform: rotate(360deg); }
 }
 
-/* The WebGL flower canvas may fail to initialise (no WebGL, context lost, etc.)
-   in which case the SVG fallback stays visible. The `.logo-stage` without `.is-ready`
-   keeps its canvas hidden so only the static SVG shows. */
-.vinyl-record__logo-frame .logo-stage:not(.is-ready) canvas {
-  opacity: 0;
-}
-.vinyl-record__logo-frame .logo-stage:not(.is-ready) ~ .vinyl-record__logo {
-  opacity: 1;
-}
-
-/* Under reduced motion the vinyl record still reveals but the centre flower does
+/* Under reduced motion the vinyl record still reveals but the centre logo does
    not spin — it shows the resting pose only, matching the hero's own behaviour. */
 @media (prefers-reduced-motion: reduce) {
-  .vinyl-record__logo-frame .logo-stage canvas {
-    animation: none !important;
-  }
   .vinyl-record__logo {
     animation: none !important;
   }
@@ -1629,7 +1667,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 
 .beat-detail__info,
 .beat-detail__head {
-  contain: layout style;
+  contain: layout;
 }
 
 .beat-detail__title {
@@ -1693,7 +1731,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .motion-paused .brand-hero::before,
 .motion-paused .flower-spinner__flower,
 .motion-paused .beat-preview[data-state="loading"] .beat-preview__toggle::after {
-  animation-play-state: paused !important;
+  animation-play-state: paused;
 }
 
 /* ---------- 8. Fluid mobile & tablet -------------------------------------- */
@@ -1704,7 +1742,12 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
     min-height: min(80svh, 780px);
     padding-bottom: clamp(92px, 15vh, 150px);
   }
-  .brand-hero::before { width: min(150vw, 760px); }
+  .brand-hero::before {
+    width: min(150vw, 760px);
+    /* === THE BRAND WARM PALETTE START === */
+    box-shadow: inset 0 0 60px rgba(122, 74, 46, 0.12);
+    /* === THE BRAND WARM PALETTE END === */
+  }
 }
 
 @media (max-width: 768px) {
@@ -1713,6 +1756,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
      copy to 0px wide on phones. */
   .beat-detail__content { grid-column: 1; order: 1; padding: 18px; border-radius: 16px; }
   .beat-detail__artwork-wrap { grid-column: 1; order: 2; }
+  .beat-detail__artwork-wrap::before { width: min(150vw, 760px); }
 }
 
 @media (max-width: 600px) {
@@ -1929,7 +1973,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
 .drop-countdown[data-release-countdown] {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
-  contain: layout style;
+  contain: layout;
 }
 
 .drop-countdown[data-release-countdown] .drop-countdown__time {
@@ -2040,7 +2084,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
     inset 0 0 0 1px rgba(0, 0, 0, .72),
     inset 0 0 22px rgba(255, 255, 255, .08),
     0 0 26px rgba(255, 255, 255, .08);
-  contain: layout style;
+  contain: layout;
 }
 .exclusive-badge::before {
   content: "";
@@ -2094,7 +2138,7 @@ html:not(.beat-page) #grid > .beat-detail { visibility: hidden; }
   border-radius: 16px;
   background: linear-gradient(158deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .008));
   overflow: hidden;
-  contain: layout style;
+  contain: layout;
 }
 .exclusive-lock__scan {
   position: absolute;
