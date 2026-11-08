@@ -269,6 +269,25 @@ test("every beat is pressed from its own cover, and the beat page keeps a sticky
   assert.doesNotMatch(html, /<div class="logo-stage[^>]*data-vinyl-flower="true"/, "the centre label no longer mounts the live 3D flower");
   assert.match(html, /<img class="vinyl-record__logo"[^>]*src="assets\/kyrolll-flower-label\.png"/, "the beat card's record shows the original flower logo as a plain image");
   const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
+  // The label is the beat page's own artwork, so it is fetched on the spot and
+  // decoded synchronously: lazy + async decoding left the plate blank until the
+  // flower's decode landed, which is the "logo disappears" the store shipped.
+  for (const [name, markup] of [["index.html", html], ["script.js", script]]) {
+    assert.match(markup, /class="vinyl-record__logo"[^>]*fetchpriority="high"[^>]*decoding="sync"/,
+      `${name}: the label is high priority and decoded synchronously`);
+    assert.doesNotMatch(markup, /class="vinyl-record__logo"[^>]*loading="lazy"/,
+      `${name}: the label is never lazy-loaded`);
+  }
+  // The reveal moves the record and nothing else — a disc that faded in left the
+  // print arriving semi-transparent, so the tuck suppresses paint instead.
+  assert.doesNotMatch(css, /\.vinyl-record \{[^}]*transition:[^}]*opacity/,
+    "the disc's reveal never transitions its opacity");
+  assert.match(css, /\.js \.beat-detail:not\(\.vinyl-open\) \.vinyl-record \{[^}]*visibility: hidden/,
+    "a tucked disc suppresses its paint, gated on the script that will release it");
+  assert.doesNotMatch(css, /\.beat-detail:not\(\.vinyl-open\) \.vinyl-record \{[^}]*opacity: 0/,
+    "the label print is never faded in");
+  assert.match(css, /\.vinyl-record__logo \{[^}]*opacity: 1/,
+    "the label print is pinned opaque whatever the disc is doing");
   assert.match(script, /allBeatsLink\.setAttribute\("data-beat-back", ""\)/, "the return control is wired in script.js");
   assert.match(script, /if \(!restoreCatalogScroll\(\)\)/, "the return control restores the saved catalog offset");
 });

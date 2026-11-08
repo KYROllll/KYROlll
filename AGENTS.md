@@ -378,16 +378,35 @@ hero and footer.
 
 **The reveal.** `script.js` adds `vinyl-open` **1.35 s** after the card is built (the card's
 own 0.8 s fade finishes well inside that delay), and `style.css` transitions the record out
-over **1 s** on `cubic-bezier(.16, 1, .3, 1)` with a short opacity fade alongside. The record
+over **1 s** on `cubic-bezier(.16, 1, .3, 1)`. The record
 starts **tucked inside the sleeve** and rides out under the label frame, so the cover reads as a
 physical sleeve the record is pulled out of — the disc and its label move together and the
 label plate clears the sleeve at the end. The tuck is the element's **first** computed
-state — `.beat-detail:not(.vinyl-open) .vinyl-record` sets `translateX(0)` and `opacity: 0` in
-the stylesheet — so the record is never briefly painted in the exposed position: no pre-render
-flash, no pop. Only `translateX` and `opacity` move; a 360° rotation is never reintroduced,
-because a rotating square's *axis-aligned* box grows by √2 and breached the stage. Both the
-reveal and its transition live inside `@media (prefers-reduced-motion: no-preference)`: under
-reduced motion the record simply rests in the exposed position and adding `vinyl-open` is a no-op.
+state — `.js .beat-detail:not(.vinyl-open) .vinyl-record` sets `translateX(0)` and
+`visibility: hidden` in the stylesheet — so the record is never briefly painted in the exposed
+position: no pre-render flash, no pop. **The reveal moves the transform and nothing else.** It
+used to fade the disc in as well, and that fade is why the print arrived half-there: measured
+mid-slide the disc sat at opacity **0.52–0.75**, and in the first frames after `vinyl-open` the
+plate carried **zero** flower pixels before the mark popped in later. A tucked disc is already
+fully hidden by the opaque sleeve (it spans 2.4–57.6 % of the stage inside a sleeve spanning
+0–60 %, at a lower `z-index`), so no opacity is needed to conceal it — `visibility` takes away
+its paint (and the shadow spill that would otherwise halo the sleeve) while the disc's own
+opacity stays `1` for its whole life. The tuck is gated on the `.js` class set in `index.html`'s
+head, so a visitor whose script never runs gets the exposed, static record rather than one that
+suppresses itself forever. A 360° rotation is never reintroduced, because a rotating square's
+*axis-aligned* box grows by √2 and breached the stage. Both the reveal and its transition live
+inside `@media (prefers-reduced-motion: no-preference)`: under reduced motion the record simply
+rests in the exposed position and adding `vinyl-open` is a no-op.
+
+**The label never waits on the network.** Its `<img>` (`script.js` and the pre-rendered card in
+`index.html`) carries `fetchpriority="high"` and `decoding="sync"` and **no `loading="lazy"`**: a
+lazy label is fetched on the browser's schedule, so a phone could pull the disc out onto a bare
+black plate, and `decoding="async"` let the flower land a frame or more after the plate did.
+`.vinyl-record__logo` also pins `opacity: 1` / `visibility: visible`, so nothing on the print's
+own box can be faded, hidden or un-rendered while the disc moves. `brand-design.test.mjs` samples
+both paint states (tucked and open: disc opacity `1`, the label's paint never suppressed, the
+artwork already decoded at 1024²) and `preview-player.test.mjs` asserts the markup and the
+absence of any opacity fade in the reveal.
 `.beat-detail__artwork-wrap` keeps `contain: layout` (not `paint`, which would clip the
 record's shadow) so a child box can never nudge a surrounding box.
 

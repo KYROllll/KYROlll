@@ -82,8 +82,11 @@ KYROIII flower on its own solid black plate (`assets/kyrolll-flower-label.png`,
 the raster the official logo SVG embeds, pixels untouched) — printed dead centre
 on a 30% circle that clears the photographed label's 28.06%, and it is the only
 layer above the disc. It never rotates, carries no filter and declares no
-animation: the label is ink on a record, not an animated logo. No splash, blob or
-other artwork layer exists on the record.
+animation: the label is ink on a record, not an animated logo. It also never
+fades: the artwork is fetched eagerly (never `loading="lazy"`, `fetchpriority="high"`,
+`decoding="sync"`) and the disc's pull-out animates the transform alone, so the
+print is fully opaque and fully painted before, during and after the slide. No
+splash, blob or other artwork layer exists on the record.
 
 The record paints no colour of its own: the plate is the artwork's `#000000`, the
 flower is `#FFFFFF`, and the disc is the photograph, so the record is

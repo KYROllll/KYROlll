@@ -825,7 +825,38 @@ try {
     };
   });
   const tucked = await vinylGeometry();
+  const tuckedPaint = await vinylPage.evaluate(() => {
+    const record = document.querySelector('.vinyl-record');
+    const img = document.querySelector('.vinyl-record__logo');
+    const rs = getComputedStyle(record);
+    const is = getComputedStyle(img);
+    return {
+      discOpacity: rs.opacity,
+      discVisibility: rs.visibility,
+      discTransition: rs.transitionProperty,
+      imgOpacity: is.opacity,
+      imgVisibility: is.visibility,
+      imgAnimation: is.animationName,
+      complete: img.complete,
+      naturalWidth: img.naturalWidth,
+      loading: img.getAttribute('loading'),
+    };
+  });
   assert.equal(await vinylPage.locator('.beat-detail').evaluate(el => el.classList.contains('vinyl-open')), false, 'the record starts tucked behind the sleeve');
+  // A tucked disc hides by paint, never by opacity: a fade made the label arrive
+  // half-there (measured at 0.52–0.75 mid-slide), so the disc is opaque for its
+  // whole life and only its paint is paused while the sleeve covers it.
+  assert.equal(tuckedPaint.discOpacity, '1', 'the tucked disc is already fully opaque — the label never fades in');
+  assert.equal(tuckedPaint.discVisibility, 'hidden', 'a tucked disc takes no paint behind the opaque sleeve');
+  assert.doesNotMatch(tuckedPaint.discTransition, /opacity/, 'the reveal transitions the transform only');
+  assert.equal(tuckedPaint.imgOpacity, '1', 'the label print is opaque while the disc waits');
+  assert.equal(tuckedPaint.imgVisibility, 'visible', 'nothing on the label suppresses its own paint');
+  assert.equal(tuckedPaint.imgAnimation, 'none', 'the label carries no animation even while tucked');
+  // The label is fetched eagerly and decoded synchronously, so the flower is
+  // already on the plate when the disc emerges instead of popping in later.
+  assert.equal(tuckedPaint.loading, null, 'the label is never lazy-loaded');
+  assert.equal(tuckedPaint.complete, true, 'the label artwork has finished loading before the reveal');
+  assert.equal(tuckedPaint.naturalWidth, 1024, 'the label artwork is decoded at its full size before the reveal');
   assert(tucked.record.right <= tucked.sleeve.right + 1, 'the tucked record sits behind the sleeve');
   // The 1.35 s class timer shares the main thread with the preloader's flower
   // build, which can block for several seconds on a software rasteriser; allow
@@ -837,6 +868,29 @@ try {
     revealSamples.push(await vinylGeometry());
   }
   const phoneReveal = await vinylGeometry();
+  const openPaint = await vinylPage.evaluate(() => {
+    const record = document.querySelector('.vinyl-record');
+    const img = document.querySelector('.vinyl-record__logo');
+    const rs = getComputedStyle(record);
+    const is = getComputedStyle(img);
+    return {
+      discOpacity: rs.opacity,
+      discVisibility: rs.visibility,
+      imgOpacity: is.opacity,
+      imgVisibility: is.visibility,
+      imgAnimation: is.animationName,
+      imgTransform: is.transform,
+    };
+  });
+  // The pulled-out disc is in exactly the paint state it had while tucked: only
+  // the transform ever moved, so nothing about the label can change or drop
+  // when the 1 s slide ends.
+  assert.equal(openPaint.discOpacity, '1', 'the disc stays fully opaque through the reveal');
+  assert.equal(openPaint.discVisibility, 'visible', 'the emerging disc is painted');
+  assert.equal(openPaint.imgOpacity, '1', 'the label print is opaque on the exposed disc');
+  assert.equal(openPaint.imgVisibility, 'visible', 'the label print is painted on the exposed disc');
+  assert.equal(openPaint.imgAnimation, 'none', 'the exposed label is still a static print');
+  assert.equal(openPaint.imgTransform, 'none', 'the exposed label takes no transform');
   const checkContained = (sample, label) => {
     assert(sample.viewport.scrollWidth <= sample.viewport.width, `${label}: zero horizontal page overflow`);
     assert(sample.record.right <= sample.stage.right + 1, `${label}: the record never leaves the stage on the right`);

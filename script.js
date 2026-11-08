@@ -248,7 +248,7 @@ function beatDetailInner(beat) {
       </figure>
       <div class="vinyl-record" aria-hidden="true">
         <span class="vinyl-record__logo-frame" aria-hidden="true">
-          <img class="vinyl-record__logo" src="${attr(VINYL_LABEL_ART)}" alt="" width="1024" height="1024" loading="lazy" decoding="async">
+          <img class="vinyl-record__logo" src="${attr(VINYL_LABEL_ART)}" alt="" width="1024" height="1024" fetchpriority="high" decoding="sync">
         </span>
       </div>
     </div>`;

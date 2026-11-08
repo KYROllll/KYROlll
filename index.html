@@ -20,9 +20,13 @@
     // Arm the page-load preloader before the first paint. Gated on JS so a
     // no-script visitor (or a script error) is never left under the veil.
     document.documentElement.classList.add("preloader-armed");
+    // Same gate for the record's pull-out tuck: the tucked disc suppresses its
+    // own paint, so only a page that will definitely add `vinyl-open` may arm
+    // it. Without the script the record simply sits exposed and static.
+    document.documentElement.classList.add("js");
   </script>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg?v=5">
-  <link rel="stylesheet" href="style.css?v=182">
+  <link rel="stylesheet" href="style.css?v=183">
 </head>
 <!-- The `beat-page` state lives on <html> only (set in the head for a direct beat
      link and re-synced by script.js), so the homepage hero renders in its full
@@ -120,7 +124,7 @@
           </figure>
           <div class="vinyl-record" aria-hidden="true">
             <span class="vinyl-record__logo-frame" aria-hidden="true">
-              <img class="vinyl-record__logo" src="assets/kyrolll-flower-label.png" alt="" width="1024" height="1024" loading="lazy" decoding="async">
+              <img class="vinyl-record__logo" src="assets/kyrolll-flower-label.png" alt="" width="1024" height="1024" fetchpriority="high" decoding="sync">
             </span>
           </div>
         </div>
@@ -155,7 +159,7 @@
   <script src="marquee.js?v=10"></script>
   <script src="downloads.js?v=34"></script>
   <script src="preview-player.js?v=8"></script>
-  <script src="script.js?v=77"></script>
+  <script src="script.js?v=78"></script>
   <script src="support.js?v=6"></script>
   <script type="module" src="assets/brand-logo.min.js?v=26"></script>
   <script type="module" src="assets/background-x.min.js?v=8"></script>

@@ -1514,13 +1514,17 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
   pointer-events: none;
 }
 /* The mark itself: the exact original logo art, cropped to the plate's circle
-   by the frame's own radius. No 3D stage, no rotation, no colour filter. */
+   by the frame's own radius. No 3D stage, no rotation, no colour filter — and
+   nothing that can fade it: the print is opaque from its first painted frame,
+   which is why the disc's reveal never touches opacity. */
 .vinyl-record__logo {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
   border-radius: 50%;
+  opacity: 1;
+  visibility: visible;
   pointer-events: none;
 }
 /* The reveal. `vinyl-open` is added by script.js 1.35 s after the beat card is
@@ -1530,16 +1534,28 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
    pulled out of: the disc eases horizontally from the sleeve, the label print
    comes with it, and the pull-out lands with the label clear of the cover.
    Nothing is ever painted exposed first — the `:not()` rule is the element's very
-   first computed state. */
+   first computed state.
+
+   The reveal is **translate only**. It used to fade the disc in as well, which
+   made the print arrive half-there: measured mid-slide the disc sat at opacity
+   0.52–0.75 and the flower's pixels were not painted at all, so the label read as
+   something materialising rather than as ink on the disc. A tucked disc is
+   already fully hidden by the opaque sleeve (it spans 2.4–57.6% of the stage
+   inside a sleeve that spans 0–60%, at a lower z-index), so no opacity is needed
+   to conceal it — only its paint, which is what `visibility` takes away, along
+   with the shadow spill that would otherwise halo the sleeve. The disc's opacity
+   is therefore 1 for its whole life: the label is painted, opaque and stable
+   before, during and after the pull-out.
+
+   The tuck is gated on `.js` (set in the head) so a visitor without the script
+   never gets a record that suppresses itself forever. */
 @media (prefers-reduced-motion: no-preference) {
   .vinyl-record {
-    transition:
-      transform 1s cubic-bezier(0.16, 1, 0.3, 1),
-      opacity .55s ease;
+    transition: transform 1s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  .beat-detail:not(.vinyl-open) .vinyl-record {
+  .js .beat-detail:not(.vinyl-open) .vinyl-record {
     transform: translateX(0);
-    opacity: 0;
+    visibility: hidden;
   }
 }
 
