@@ -360,16 +360,21 @@ const GUNNA_RELEASE = Date.parse('2026-11-07T22:00:00+02:00');
 // clock says, so the catalog-wide checks stand on firm ground.
 const ALL_LIVE_NOW = GUNNA_RELEASE + 3600000;
 
-// Nothing about a gate may be remembered: the storefront writes no gate state
-// at all (no unlock set, no remembered address). The one thing it does write is
-// the catalog scroll offset, so that is the only key sessionStorage may hold.
+// The store's one durable record is the global exclusive-claims register: it is
+// what retires a claimed beat on every page and what remembers the buyer. Gate
+// input itself is still never remembered (no unlock set, no address, no
+// signature), so the only other key sessionStorage may hold is the catalog
+// scroll offset.
 const CATALOG_SCROLL_KEY = 'kyrolll_catalog_scroll';
+const EXCLUSIVE_CLAIMS_KEY = 'kyrolll_exclusive_claims';
+const ALLOWED_LOCAL_KEYS = [EXCLUSIVE_CLAIMS_KEY];
 const noGateMemory = async (page, label) => {
   const storage = await page.evaluate(() => ({
     local: Object.keys(localStorage),
     session: Object.keys(sessionStorage),
   }));
-  assert.deepEqual(storage.local, [], `${label}: localStorage stays empty`);
+  assert.deepEqual(storage.local.filter(key => !ALLOWED_LOCAL_KEYS.includes(key)), [],
+    `${label}: localStorage holds no gate state beyond the exclusive-claims register`);
   assert.deepEqual(storage.session.filter(key => key !== CATALOG_SCROLL_KEY), [], `${label}: sessionStorage holds no gate state`);
 };
 
@@ -1431,13 +1436,25 @@ try {
   assert.equal(drawnPaths(proText).length, ink.length, 'the signs are stable');
   assert.deepEqual(pdfRuns(proText).filter(run => /[a-z]/.test(run)), [], 'the hand-signed license is uppercase too');
 
-  // Fresh state every time — and no session shortcut: selecting ANY package
+  // The exclusive signature is durable: returning to the beat in the same
+  // browser paints CLAIMED / SOLD OUT, marks it OWNED / YOURS for the buyer and
+  // offers only an inert control — no drawer, no lease, no second claim.
+  await proPage.goto(`${url}/?beat=flesh`);
+  await proPage.locator(`${CARD} .exclusive-badge`).waitFor();
+  assert.match(await proPage.locator(`${CARD} .exclusive-badge__text`).innerText(), /CLAIMED \/ SOLD OUT/, 'the returning catalog paints the global sold-out state');
+  assert.match(await proPage.locator(`${CARD} .exclusive-badge__owner`).innerText(), /OWNED \/ YOURS/, 'the buyer is recognised on return');
+  assert.match(await proPage.locator(`${CARD} .card__specs`).innerText(), /OWNED \/ YOURS/, 'the beat page specs carry the ownership marker');
+  assert.equal(await proPage.locator(`${CARD} .download-trigger`).count(), 0, 'a claimed beat offers no lease trigger');
+  assert.equal(await proPage.locator(`${CARD} .exclusive-locked-button`).isDisabled(), true, 'the claim control is disabled');
+  assert.equal(await proPage.locator(`${CARD} .beat-preview`).count(), 0, 'a claimed beat has no public player');
+
+  // On an unclaimed beat, fresh state still rules: selecting ANY package
   // re-opens the full gate from scratch, with nothing remembered or prefilled,
   // and the REVIEW & SIGNATURE stage is never auto-opened. The signature step is
   // mandatory on every selection.
-  await proPage.goto(`${url}/?beat=flesh`);
+  await proPage.goto(`${url}/?beat=just-d0-it&now=${ALL_LIVE_NOW}`);
   for (const pkg of ['mp3', 'wav', 'exclusive']) {
-    await proPage.locator(`${CARD} .download-trigger`).click();
+    await proPage.locator(`${JUST_DO_IT_CARD} .download-trigger`).click();
     await proPage.locator('.download-menu.is-open').waitFor();
     await proPage.locator(`.download-tier[data-package="${pkg}"]`).click();
     await proPage.locator('.gate-modal').waitFor();
@@ -1498,6 +1515,8 @@ try {
   await coldPage.reload();
   await coldPage.waitForFunction(() => !!window.KYROlll_DOWNLOADS);
   assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), false, 'the record does not outlive the page');
+  assert.equal(await coldPage.evaluate(id => window.KYROlll_HELPERS.isExclusiveLocked(id), BEAT_ID), true, 'the exclusive claim survives a reload');
+  assert.equal(await coldPage.evaluate(id => window.KYROlll_HELPERS.isExclusiveOwned(id), BEAT_ID), true, 'the buyer keeps ownership across sessions');
   await coldPage.close();
 
   // A phone is where the store is used most — and where a dialog that measures
@@ -2497,14 +2516,17 @@ try {
   // Exclusive rights: the moment the one exclusive license is claimed the beat
   // is archived. Every lease and the player give way to the secured badge, the
   // professional disclaimer, and an inert state even when the API is called
-  // directly. The claim is a record on the live catalog entry — the test then
-  // walks to the catalog without reloading, so the locked tile paints too.
+  // directly. The claim is written to the browser's exclusive-claims register;
+  // the test then walks to the catalog without reloading, so the locked tile
+  // paints too.
   assert.equal(await adllLive.evaluate((id) => window.KYROlll_HELPERS.lockExclusive(id), ADLL_ID), true, 'the exclusive tier claims ADLL');
   await adllLive.locator(`${ADLL_CARD} .exclusive-badge`).waitFor();
-  assert.equal((await adllLive.locator(`${ADLL_CARD} .exclusive-badge__text`).innerText()).trim(), '[EXCLUSIVE RIGHTS CLAIMED // SECURED]', 'the beat page carries the secured status');
-  assert.match(await adllLive.locator(`${ADLL_CARD} .exclusive-lock__note`).innerText(), /SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE/, 'the beat page carries the producer disclaimer');
-  assert.match(await adllLive.locator(`${ADLL_CARD} .card__specs`).innerText(), /EXCLUSIVE RIGHTS SECURED/, 'the specs announce the archived state');
+  assert.equal((await adllLive.locator(`${ADLL_CARD} .exclusive-badge__text`).innerText()).trim(), '[CLAIMED / SOLD OUT]', 'the beat page carries the sold-out status');
+  assert.equal((await adllLive.locator(`${ADLL_CARD} .exclusive-badge__owner`).innerText()).trim(), '[OWNED / YOURS]', 'the buyer sees the ownership marker');
+  assert.match(await adllLive.locator(`${ADLL_CARD} .exclusive-lock__note`).innerText(), /YOU HOLD THE EXCLUSIVE RIGHTS/, 'the beat page carries the ownership note');
+  assert.match(await adllLive.locator(`${ADLL_CARD} .card__specs`).innerText(), /OWNED \/ YOURS/, 'the specs announce the ownership state');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .download-trigger`).count(), 0, 'a claimed beat offers no lease button');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .exclusive-locked-button`).isDisabled(), true, 'a claimed beat keeps a disabled control');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .beat-preview`).count(), 0, 'a claimed beat has no public player');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record`).count(), 1, 'the claimed beat keeps its photographed record');
   await adllLive.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), ADLL_ID);
@@ -2517,9 +2539,10 @@ try {
     window.dispatchEvent(new PopStateEvent('popstate'));
   });
   await adllLive.locator(`${ADLL_CARD}.catalog-tile .exclusive-badge`).waitFor();
-  assert.equal((await adllLive.locator(`${ADLL_CARD} .exclusive-badge__text`).innerText()).trim(), '[EXCLUSIVE RIGHTS CLAIMED // SECURED]', 'the claimed catalog tile carries the secured status');
+  assert.equal((await adllLive.locator(`${ADLL_CARD} .exclusive-badge__text`).innerText()).trim(), '[CLAIMED / SOLD OUT]', 'the claimed catalog tile carries the sold-out status');
   assert.match(await adllLive.locator(`${ADLL_CARD} .exclusive-badge`).getAttribute('class'), /exclusive-badge--compact/, 'the tile wears the compact secured plate');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .download-trigger`).count(), 0, 'the claimed tile offers no lease button');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .exclusive-locked-button`).isDisabled(), true, 'the claimed tile keeps a disabled control');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .drop-countdown`).count(), 0, 'a claim retires the countdown');
   await noHue(adllLive, 'the secured ADLL catalog tile');
   await shot(adllLive, 'adll-exclusive-locked');
@@ -2577,8 +2600,9 @@ try {
 
   // The secured state is not an ADLL-only skin: every active beat paints the
   // same plate on its catalog tile and its beat page, and none of them keeps a
-  // lease, a countdown or a public player once claimed. The claims are the
-  // in-page record only, so this one page view can claim all seven.
+  // lease, a countdown or a public player once claimed. Every claim is written
+  // to the browser's exclusive-claims register, so this page (the buyer) paints
+  // the ownership marker alongside the public sold-out state.
   const lockAll = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await lockAll.goto(`${url}/?now=${ALL_LIVE_NOW}`, { waitUntil: 'domcontentloaded' });
   await lockAll.locator('#grid .catalog-tile').first().waitFor();
@@ -2590,22 +2614,33 @@ try {
   await lockAll.locator('#grid .catalog-tile .exclusive-badge').first().waitFor();
   const securedTiles = await lockAll.evaluate(() => [...document.querySelectorAll('#grid .catalog-tile')].map(tile => {
     const badge = tile.querySelector('.exclusive-badge');
+    const button = tile.querySelector('.exclusive-locked-button');
     return {
       id: tile.id,
       badge: ((tile.querySelector('.exclusive-badge__text') || {}).textContent || '').trim(),
+      owner: ((tile.querySelector('.exclusive-badge__owner') || {}).textContent || '').trim(),
       compact: !!badge && badge.classList.contains('exclusive-badge--compact'),
       triggers: tile.querySelectorAll('.download-trigger').length,
       countdown: tile.querySelectorAll('.drop-countdown').length,
       modifier: tile.classList.contains('catalog-tile--exclusive-locked'),
+      ownedModifier: tile.classList.contains('catalog-tile--exclusive-owned'),
+      button: !!button,
+      disabled: !!button && button.disabled,
+      buttonText: button ? button.textContent.trim() : '',
     };
   }));
   assert.equal(securedTiles.length, 7, 'all seven beats are painted after their claims');
   securedTiles.forEach(tile => {
-    assert.equal(tile.badge, '[EXCLUSIVE RIGHTS CLAIMED // SECURED]', `${tile.id}: every tile carries the same secured copy`);
+    assert.equal(tile.badge, '[CLAIMED / SOLD OUT]', `${tile.id}: every tile carries the same sold-out copy`);
+    assert.equal(tile.owner, '[OWNED / YOURS]', `${tile.id}: the buyer sees the ownership marker`);
     assert.equal(tile.compact, true, `${tile.id}: every tile wears the compact plate`);
     assert.equal(tile.triggers, 0, `${tile.id}: a claimed tile offers no lease trigger`);
     assert.equal(tile.countdown, 0, `${tile.id}: a claim retires any countdown`);
     assert.equal(tile.modifier, true, `${tile.id}: the tile carries the secured modifier`);
+    assert.equal(tile.ownedModifier, true, `${tile.id}: the tile carries the ownership modifier`);
+    assert.equal(tile.button, true, `${tile.id}: a claimed tile keeps a visible control`);
+    assert.equal(tile.disabled, true, `${tile.id}: the claim control is disabled`);
+    assert.equal(tile.buttonText, 'OWNED / YOURS', `${tile.id}: the disabled control names the ownership`);
   });
   await noCardBleed(lockAll, 'the fully secured catalog');
   await noHue(lockAll, 'the fully secured catalog');
@@ -2618,14 +2653,17 @@ try {
   const flowDetail = '#grid .beat-detail';
   await lockAll.locator(`${flowDetail} .exclusive-badge`).waitFor();
   assert.equal((await lockAll.locator(`${flowDetail} .exclusive-badge__text`).innerText()).trim(),
-    '[EXCLUSIVE RIGHTS CLAIMED // SECURED]', 'a second beat page carries the same secured plate');
+    '[CLAIMED / SOLD OUT]', 'a second beat page carries the same sold-out plate');
+  assert.equal((await lockAll.locator(`${flowDetail} .exclusive-badge__owner`).innerText()).trim(),
+    '[OWNED / YOURS]', 'a second beat page names the buyer');
   assert.match(await lockAll.locator(`${flowDetail} .exclusive-lock__note`).innerText(),
-    /SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE/, 'a second beat page carries the same disclaimer');
+    /YOU HOLD THE EXCLUSIVE RIGHTS/, 'a second beat page carries the ownership note');
   assert.match(await lockAll.locator(`${flowDetail} .card__specs`).innerText(),
-    /EXCLUSIVE RIGHTS SECURED/, 'a second beat page announces the archived state');
+    /OWNED \/ YOURS/, 'a second beat page announces the ownership state');
   assert.equal(await lockAll.locator(`${flowDetail} .beat-preview`).count(), 0, 'a second claimed beat has no public player');
   assert.equal(await lockAll.locator(`${flowDetail} .download-trigger`).count(), 0, 'a second claimed beat offers no lease');
   assert.equal(await lockAll.locator(`${flowDetail} .download-actions--secured`).count(), 1, 'the secured action slot is the whole control');
+  assert.equal(await lockAll.locator(`${flowDetail} .exclusive-locked-button`).isDisabled(), true, 'a second claimed beat keeps a disabled control');
   // Leaving the beat page and returning to the catalog keeps every claim: the
   // record lives on the catalog entries, not on the route.
   await lockAll.evaluate(() => {
@@ -2635,6 +2673,36 @@ try {
   await lockAll.locator('#grid .catalog-tile .exclusive-badge').first().waitFor();
   assert.equal(await lockAll.locator('#grid .catalog-tile .exclusive-badge').count(), 7, 'the catalog keeps every claim after the round trip');
   await lockAll.close();
+
+  // A claim made by someone else — seeded into the store's global register — is
+  // a public CLAIMED / SOLD OUT: no ownership line, no lease, no player and a
+  // disabled SOLD OUT control. This is the visitor who did not buy the rights.
+  const stranger = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce' });
+  await stranger.addInitScript((id) => {
+    try {
+      localStorage.setItem('kyrolll_exclusive_claims', JSON.stringify({
+        version: 1,
+        buyerId: 'buyer-current-visitor',
+        claims: {
+          [id]: {
+            at: '2026-11-02T19:00:00.000Z',
+            ownerId: 'buyer-someone-else',
+          },
+        },
+      }));
+    } catch (err) { /* the origin may not be ready yet on the first init pass */ }
+  }, ADLL_ID);
+  await stranger.goto(`${url}/?beat=adll&now=${ADLL_RELEASE + 1000}`, { waitUntil: 'domcontentloaded' });
+  await stranger.locator(`${ADLL_CARD} .exclusive-badge`).waitFor();
+  assert.equal((await stranger.locator(`${ADLL_CARD} .exclusive-badge__text`).innerText()).trim(),
+    '[CLAIMED / SOLD OUT]', 'a claim by another buyer paints the public sold-out state');
+  assert.equal(await stranger.locator(`${ADLL_CARD} .exclusive-badge__owner`).count(), 0, 'another buyer gets no ownership marker');
+  assert.equal(await stranger.locator(`${ADLL_CARD} .download-trigger`).count(), 0, 'another buyer gets no lease trigger');
+  assert.equal(await stranger.locator(`${ADLL_CARD} .beat-preview`).count(), 0, 'another buyer gets no public player');
+  assert.equal(await stranger.locator(`${ADLL_CARD} .exclusive-locked-button`).isDisabled(), true, 'another buyer gets a disabled control');
+  assert.equal((await stranger.locator(`${ADLL_CARD} .exclusive-locked-button`).innerText()).trim(), 'SOLD OUT', 'the disabled control says SOLD OUT');
+  assert.match(await stranger.locator(`${ADLL_CARD} .card__specs`).innerText(), /CLAIMED \/ SOLD OUT/, 'the specs carry the public sold-out state');
+  await stranger.close();
 
   // ------------------------------------------------------------ support desk
   // The footer's SUPPORT control no longer opens a mail app: it opens the

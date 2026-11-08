@@ -355,34 +355,200 @@
   // ------------------------------------------------------- exclusive rights
   // A beat has exactly one exclusive license to give. The moment that package
   // is signed for, the beat is claimed: it leaves the free market, its public
-  // preview and every lease are retired, and the catalog paints the secured
-  // status instead of a button.
-  // Like every other piece of storefront state this is a record, not storage:
-  // the claim is written onto the live catalog entry and announced on the
-  // window (`kyrolll:exclusive-locked`), so the grid re-renders in place, and
-  // it is gone with the page. Nothing is written to localStorage, sessionStorage
-  // or a cookie — a reload starts from the catalog as published.
-  const EXCLUSIVE_LOCK_LABEL = "[EXCLUSIVE RIGHTS CLAIMED // SECURED]";
+  // preview and every lease are retired, and every page of the store paints the
+  // secured status instead of a button.
+  //
+  // The claim is GLOBAL and DURABLE inside this browser. It is written to
+  // localStorage under `kyrolll_exclusive_claims`, so every catalog, every beat
+  // page, every download page and every tab agree — across reloads, history
+  // walks and return visits. The same record carries an anonymous buyer id:
+  // the visitor who signed the exclusive license is recognised on return and
+  // sees `OWNED / YOURS`, while any other claim paints `CLAIMED / SOLD OUT`.
+  //
+  // The files are still public static assets, so this is a storefront record,
+  // not a server-side lock: it prevents duplicate claims and confusion in the
+  // UI, but it is not an access-control boundary.
+  const EXCLUSIVE_LOCK_LABEL = "[CLAIMED / SOLD OUT]";
+  const EXCLUSIVE_OWNED_LABEL = "[OWNED / YOURS]";
   const EXCLUSIVE_LOCK_NOTE = "THIS BEAT HAS BEEN SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE.";
+  const EXCLUSIVE_OWNED_NOTE = "YOU HOLD THE EXCLUSIVE RIGHTS TO THIS BEAT. IT IS ARCHIVED FROM PUBLIC RELEASE AND CANNOT BE CLAIMED AGAIN.";
+  const EXCLUSIVE_LOCK_BUTTON = "SOLD OUT";
+  const EXCLUSIVE_OWNED_BUTTON = "OWNED / YOURS";
+  const EXCLUSIVE_CLAIMS_KEY = "kyrolll_exclusive_claims";
+  const EXCLUSIVE_CLAIMS_VERSION = 1;
+
+  /* localStorage is the only durable piece of storefront state. It can be
+     unavailable (private mode, a locked-down browser, a file:// page), so every
+     read and write is defensive: if it fails the store still works from the
+     in-memory catalog exactly as it did before claims were persisted. */
+  function exclusiveStorage() {
+    try {
+      return window.localStorage || null;
+    } catch (err) {
+      return null;
+    }
+  }
+  function parseExclusiveClaims(raw) {
+    if (!raw) return null;
+    try {
+      const data = JSON.parse(raw);
+      if (!data || typeof data !== "object" || data.version !== EXCLUSIVE_CLAIMS_VERSION) return null;
+      if (!data.claims || typeof data.claims !== "object" || Array.isArray(data.claims)) return null;
+      const claims = {};
+      Object.keys(data.claims).forEach((id) => {
+        const record = data.claims[id];
+        if (!record || typeof record !== "object" || typeof record.at !== "string") return;
+        claims[id] = {
+          at: record.at,
+          ownerId: typeof record.ownerId === "string" ? record.ownerId : ""
+        };
+      });
+      return {
+        version: EXCLUSIVE_CLAIMS_VERSION,
+        buyerId: typeof data.buyerId === "string" ? data.buyerId : "",
+        claims: claims
+      };
+    } catch (err) {
+      return null;
+    }
+  }
+  function mintBuyerId() {
+    const bytes = new Uint8Array(16);
+    try {
+      if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+    } catch (err) { /* fall through to the non-crypto seed */ }
+    let token = "";
+    for (let i = 0; i < bytes.length; i += 1) {
+      // Math.random is enough for an ownership marker; this is never a
+      // security boundary, only a way to recognise the same browser.
+      const byte = bytes[i] || Math.floor(Math.random() * 256);
+      token += ("0" + byte.toString(16)).slice(-2);
+    }
+    return "buyer-" + token;
+  }
+  function readExclusiveClaims() {
+    const storage = exclusiveStorage();
+    if (!storage) return null;
+    try {
+      return parseExclusiveClaims(storage.getItem(EXCLUSIVE_CLAIMS_KEY));
+    } catch (err) {
+      return null;
+    }
+  }
+  let exclusiveClaims = readExclusiveClaims() || {
+    version: EXCLUSIVE_CLAIMS_VERSION,
+    buyerId: "",
+    claims: {}
+  };
+  if (!exclusiveClaims.buyerId) exclusiveClaims.buyerId = mintBuyerId();
+  function saveExclusiveClaims() {
+    const storage = exclusiveStorage();
+    if (!storage) return false;
+    try {
+      storage.setItem(EXCLUSIVE_CLAIMS_KEY, JSON.stringify(exclusiveClaims));
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  /* A claim shipped in `catalog.js` (rights sold outside the store) is honoured
+     as a public sale — never as this browser's purchase. */
+  const shippedExclusiveClaims = {};
+  window.KYROlll_CATALOG.forEach((beat) => {
+    if (beat && beat.exclusiveLocked) shippedExclusiveClaims[beat.id] = true;
+  });
+  function projectExclusiveClaims() {
+    window.KYROlll_CATALOG.forEach((beat) => {
+      if (!beat) return;
+      const record = exclusiveClaims.claims[beat.id];
+      if (record) {
+        beat.exclusiveLocked = true;
+        beat.exclusiveLockedAt = record.at;
+        beat.exclusiveOwned = !!record.ownerId && record.ownerId === exclusiveClaims.buyerId;
+        return;
+      }
+      if (shippedExclusiveClaims[beat.id]) {
+        beat.exclusiveLocked = true;
+        beat.exclusiveOwned = false;
+        return;
+      }
+      delete beat.exclusiveLocked;
+      delete beat.exclusiveLockedAt;
+      delete beat.exclusiveOwned;
+    });
+  }
+  projectExclusiveClaims();
+
+  function announceExclusiveClaim(beat) {
+    if (typeof window.dispatchEvent !== "function" || typeof window.CustomEvent !== "function") return;
+    window.dispatchEvent(new window.CustomEvent("kyrolll:exclusive-locked", {
+      detail: { beatId: beat.id, slug: beat.slug, owned: !!beat.exclusiveOwned }
+    }));
+  }
   function isExclusiveLocked(beatId) {
     const beat = window.KYROlll_HELPERS.beatById(beatId);
     return !!(beat && beat.exclusiveLocked);
   }
-  function lockExclusive(beatId) {
+  function isExclusiveOwned(beatId) {
     const beat = window.KYROlll_HELPERS.beatById(beatId);
-    if (!beat || beat.exclusiveLocked) return false;
-    beat.exclusiveLocked = true;
-    beat.exclusiveLockedAt = new Date(timeNow()).toISOString();
-    if (typeof window.dispatchEvent === "function" && typeof window.CustomEvent === "function") {
-      window.dispatchEvent(new window.CustomEvent("kyrolll:exclusive-locked", {
-        detail: { beatId: beat.id, slug: beat.slug }
-      }));
+    return !!(beat && beat.exclusiveLocked && beat.exclusiveOwned);
+  }
+  function exclusiveClaim(beatId) {
+    const beat = window.KYROlll_HELPERS.beatById(beatId);
+    if (!beat) return null;
+    const record = exclusiveClaims.claims[beat.id];
+    if (record) {
+      return {
+        at: record.at,
+        owned: !!record.ownerId && record.ownerId === exclusiveClaims.buyerId
+      };
     }
+    return beat.exclusiveLocked ? { at: beat.exclusiveLockedAt || "", owned: false } : null;
+  }
+  function lockExclusive(beatId, meta) {
+    const beat = window.KYROlll_HELPERS.beatById(beatId);
+    if (!beat || beat.exclusiveLocked || exclusiveClaims.claims[beat.id]) return false;
+    const ownerId = (meta && meta.ownerId) || exclusiveClaims.buyerId;
+    const at = new Date(timeNow()).toISOString();
+    exclusiveClaims.claims[beat.id] = { at: at, ownerId: ownerId };
+    beat.exclusiveLocked = true;
+    beat.exclusiveLockedAt = at;
+    beat.exclusiveOwned = ownerId === exclusiveClaims.buyerId;
+    saveExclusiveClaims();
+    announceExclusiveClaim(beat);
     return true;
+  }
+  /* Another tab is the source of truth when it writes the claims record. The
+     live catalog is re-projected and the store repaints, so a claim made in one
+     tab retires the beat in every other tab without a reload. */
+  if (typeof window.addEventListener === "function") {
+    window.addEventListener("storage", (event) => {
+      if (!event || event.key !== EXCLUSIVE_CLAIMS_KEY) return;
+      const next = event.newValue ? parseExclusiveClaims(event.newValue) : {
+        version: EXCLUSIVE_CLAIMS_VERSION,
+        buyerId: exclusiveClaims.buyerId,
+        claims: {}
+      };
+      if (!next) return;
+      if (!next.buyerId) next.buyerId = exclusiveClaims.buyerId;
+      exclusiveClaims = next;
+      projectExclusiveClaims();
+      if (typeof window.dispatchEvent === "function" && typeof window.CustomEvent === "function") {
+        window.dispatchEvent(new window.CustomEvent("kyrolll:exclusive-claims", {
+          detail: { claims: Object.keys(exclusiveClaims.claims) }
+        }));
+      }
+    });
   }
   window.KYROlll_EXCLUSIVE_LOCK = {
     label: EXCLUSIVE_LOCK_LABEL,
-    note: EXCLUSIVE_LOCK_NOTE
+    ownedLabel: EXCLUSIVE_OWNED_LABEL,
+    note: EXCLUSIVE_LOCK_NOTE,
+    ownedNote: EXCLUSIVE_OWNED_NOTE,
+    button: EXCLUSIVE_LOCK_BUTTON,
+    ownedButton: EXCLUSIVE_OWNED_BUTTON,
+    storageKey: EXCLUSIVE_CLAIMS_KEY
   };
 
   window.KYROlll_HELPERS = {
@@ -441,9 +607,12 @@
     formatCountdown: formatCountdown,
     releaseLabel: releaseLabel,
     // The exclusive-rights register: `isExclusiveLocked` answers whether the
-    // beat has been claimed, and `lockExclusive` marks it (and announces the
-    // change) the moment its exclusive package is signed for.
+    // beat has been claimed, `isExclusiveOwned` answers whether this browser is
+    // the buyer, and `exclusiveClaim` returns the recorded claim. `lockExclusive`
+    // marks the beat (persists it) the moment its exclusive package is signed.
     isExclusiveLocked(beatId) { return isExclusiveLocked(beatId); },
-    lockExclusive(beatId) { return lockExclusive(beatId); }
+    isExclusiveOwned(beatId) { return isExclusiveOwned(beatId); },
+    exclusiveClaim(beatId) { return exclusiveClaim(beatId); },
+    lockExclusive(beatId, meta) { return lockExclusive(beatId, meta); }
   };
 })();

@@ -73,11 +73,16 @@
   /* A beat whose exclusive rights have been claimed is off the market. A cold
      link sees the secured archive instead of a file list; the one exception is
      the flow that has just signed for that exclusive license itself, which still
-     hands its buyer the files. Nothing about the claim is stored — it lives on
-     the live catalog entry, exactly like every other record in the store. */
+     hands its buyer the files. The claim is persisted by catalog.js, so the
+     archive and the buyer's OWNED / YOURS marker survive a reload and a return
+     visit. */
   const exclusiveLocked = () => {
     const h = helpers();
     return !!(h && h.isExclusiveLocked && beat && h.isExclusiveLocked(beat.id));
+  };
+  const exclusiveOwned = () => {
+    const h = helpers();
+    return !!(h && h.isExclusiveOwned && beat && h.isExclusiveOwned(beat.id));
   };
 
   /* The address submitted at that gate — the fallback LICENSEE signature. The
@@ -375,28 +380,43 @@
   }
 
   /* The secured archive: a claimed beat keeps its title and specs but has no
-     player, no files and no license on the public page. */
+     player, no files and no license on the public page. If this browser is the
+     buyer, the same archive carries the OWNED / YOURS marker instead of a
+     generic sold-out plate. */
   function showExclusiveLocked() {
     clearDropWatch();
+    const owned = exclusiveOwned();
     const copy = window.KYROlll_EXCLUSIVE_LOCK || {
-      label: "[EXCLUSIVE RIGHTS CLAIMED // SECURED]",
-      note: "THIS BEAT HAS BEEN SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE."
+      label: "[CLAIMED / SOLD OUT]",
+      ownedLabel: "[OWNED / YOURS]",
+      note: "THIS BEAT HAS BEEN SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE.",
+      ownedNote: "YOU HOLD THE EXCLUSIVE RIGHTS TO THIS BEAT. IT IS ARCHIVED FROM PUBLIC RELEASE AND CANNOT BE CLAIMED AGAIN.",
+      button: "SOLD OUT",
+      ownedButton: "OWNED / YOURS"
     };
-    document.title = "EXCLUSIVE RIGHTS CLAIMED — " + beat.title + " — KYROIII";
-    kickerEl.textContent = "EXCLUSIVE RIGHTS";
+    const label = copy.label || "[CLAIMED / SOLD OUT]";
+    const ownedLabel = copy.ownedLabel || "[OWNED / YOURS]";
+    const note = owned ? (copy.ownedNote || copy.note) : copy.note;
+    const button = owned ? (copy.ownedButton || "OWNED / YOURS") : (copy.button || "SOLD OUT");
+    document.title = (owned ? "OWNED / YOURS — " : "CLAIMED / SOLD OUT — ") + beat.title + " — KYROIII";
+    kickerEl.textContent = owned ? "OWNED / YOURS" : "CLAIMED / SOLD OUT";
     titleEl.textContent = beat.title;
-    subEl.textContent = copy.note;
-    if (metaEl) metaEl.innerHTML = [beat.bpm + " BPM", String(beat.key).toUpperCase(), "ARCHIVED"]
+    subEl.textContent = note;
+    if (metaEl) metaEl.innerHTML = [beat.bpm + " BPM", String(beat.key).toUpperCase(), owned ? "OWNED / YOURS" : "SOLD OUT"]
       .map((chip) => '<span class="dl-meta__chip">' + escapeHTML(chip) + "</span>").join("");
     filesPanel.hidden = true;
     licensePanel.hidden = true;
-    listEl.innerHTML = '<div class="exclusive-lock exclusive-lock--page" role="status">' +
+    listEl.innerHTML = '<div class="exclusive-lock exclusive-lock--page" role="status" data-state="' + (owned ? "exclusive-owned" : "exclusive-locked") + '">' +
         '<span class="exclusive-lock__scan" aria-hidden="true"></span>' +
-        '<span class="exclusive-badge" data-exclusive-lock>' +
+        '<span class="exclusive-badge' + (owned ? " exclusive-badge--owned" : "") + '" data-exclusive-lock="' + (owned ? "owned" : "sold-out") + '">' +
           '<span class="exclusive-badge__tick" aria-hidden="true"></span>' +
-          '<span class="exclusive-badge__text">' + escapeHTML(copy.label) + "</span>" +
+          '<span class="exclusive-badge__text">' + escapeHTML(label) + "</span>" +
+          (owned ? '<span class="exclusive-badge__owner" data-exclusive-owner>' + escapeHTML(ownedLabel) + "</span>" : "") +
         "</span>" +
-        '<p class="exclusive-lock__note">' + escapeHTML(copy.note) + "</p>" +
+        '<p class="exclusive-lock__note">' + escapeHTML(note) + "</p>" +
+        '<button type="button" class="exclusive-locked-button" data-exclusive-claim-disabled disabled aria-disabled="true">' +
+          '<span class="exclusive-locked-button__label">' + escapeHTML(button) + "</span>" +
+        "</button>" +
       "</div>" +
       '<div class="download-list__empty"><a class="kyrolll-btn" href="index.html#catalog">BACK TO THE STORE</a></div>';
   }

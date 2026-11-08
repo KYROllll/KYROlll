@@ -103,32 +103,52 @@ function releaseLabel(beat) {
 }
 /* Exclusive rights are gone the moment that license is signed for: the beat is
    claimed for good and the storefront retires its public player, its countdown
-   and every lease behind one secured status. The copy lives in catalog.js so the
-   data and the markup can never drift. */
+   and every lease behind one secured status. The claim is durable (catalog.js
+   persists it), so the same status paints on every page after a reload. */
 function exclusiveLocked(beat) {
   const h = window.KYROlll_HELPERS;
   return !!(beat && h && h.isExclusiveLocked && h.isExclusiveLocked(beat.id));
 }
+function exclusiveOwned(beat) {
+  const h = window.KYROlll_HELPERS;
+  return !!(beat && h && h.isExclusiveOwned && h.isExclusiveOwned(beat.id));
+}
 function exclusiveLockCopy() {
   return window.KYROlll_EXCLUSIVE_LOCK || {
-    label: "[EXCLUSIVE RIGHTS CLAIMED // SECURED]",
-    note: "THIS BEAT HAS BEEN SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE."
+    label: "[CLAIMED / SOLD OUT]",
+    ownedLabel: "[OWNED / YOURS]",
+    note: "THIS BEAT HAS BEEN SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE.",
+    ownedNote: "YOU HOLD THE EXCLUSIVE RIGHTS TO THIS BEAT. IT IS ARCHIVED FROM PUBLIC RELEASE AND CANNOT BE CLAIMED AGAIN.",
+    button: "SOLD OUT",
+    ownedButton: "OWNED / YOURS"
   };
 }
-function exclusiveBadgeHTML(compact) {
+function exclusiveBadgeHTML(compact, owned) {
   const copy = exclusiveLockCopy();
-  return `<span class="exclusive-badge${compact ? " exclusive-badge--compact" : ""}" data-exclusive-lock role="status">
+  return `<span class="exclusive-badge${compact ? " exclusive-badge--compact" : ""}${owned ? " exclusive-badge--owned" : ""}" data-exclusive-lock="${owned ? "owned" : "sold-out"}" role="status">
           <span class="exclusive-badge__tick" aria-hidden="true"></span>
           <span class="exclusive-badge__text">${attr(copy.label)}</span>
+          ${owned ? `<span class="exclusive-badge__owner" data-exclusive-owner>${attr(copy.ownedLabel)}</span>` : ""}
         </span>`;
+}
+/* The claim is closed to everyone: the action slot keeps a disabled control so
+   the beat reads as sold out rather than as a card that lost its button. It is
+   deliberately NOT `.download-trigger`, because no tap may open the drawer. */
+function exclusiveLockedButtonHTML(beat, compact, owned) {
+  const copy = exclusiveLockCopy();
+  const label = owned ? (copy.ownedButton || "OWNED / YOURS") : (copy.button || "SOLD OUT");
+  return `<button type="button" class="exclusive-locked-button${compact ? " exclusive-locked-button--compact" : ""}" data-exclusive-claim-disabled data-beat-id="${attr(beat.id)}" aria-disabled="true" disabled>
+        <span class="exclusive-locked-button__label">${attr(label)}</span>
+      </button>`;
 }
 /* The claimed beat's own page keeps its artwork and specs but loses the player:
    there is no public master once the exclusive rights are secured. */
-function exclusiveLockedHTML() {
-  return `<div class="exclusive-lock" data-state="exclusive-locked" role="status">
+function exclusiveLockedHTML(owned) {
+  const copy = exclusiveLockCopy();
+  return `<div class="exclusive-lock" data-state="${owned ? "exclusive-owned" : "exclusive-locked"}" role="status">
         <span class="exclusive-lock__scan" aria-hidden="true"></span>
-        <p class="exclusive-lock__kicker">ARCHIVED // PRIVATE MASTER</p>
-        <p class="exclusive-lock__note">${attr(exclusiveLockCopy().note)}</p>
+        <p class="exclusive-lock__kicker">${owned ? "OWNED / YOURS // PRIVATE MASTER" : "ARCHIVED // PRIVATE MASTER"}</p>
+        <p class="exclusive-lock__note">${attr(owned ? copy.ownedNote : copy.note)}</p>
       </div>`;
 }
 /* The countdown pill: one universal label plus a timer that ticks in place.
@@ -205,10 +225,12 @@ function downloadActionsHTML(beat, compact) {
    lands the slot becomes the live trigger. */
 function actionsSlotHTML(beat, compact) {
   if (exclusiveLocked(beat)) {
-    const badge = exclusiveBadgeHTML(!!compact);
+    const owned = exclusiveOwned(beat);
+    const badge = exclusiveBadgeHTML(!!compact, owned);
+    const disabled = exclusiveLockedButtonHTML(beat, !!compact, owned);
     return compact
-      ? `<div class="catalog-tile__actions">${badge}</div>`
-      : `<div class="download-actions download-actions--secured">${badge}</div>`;
+      ? `<div class="catalog-tile__actions catalog-tile__actions--exclusive-locked">${badge}${disabled}</div>`
+      : `<div class="download-actions download-actions--secured">${badge}${disabled}</div>`;
   }
   if (releasePending(beat)) {
     const pill = countdownBadgeHTML(beat, !compact);
@@ -222,9 +244,10 @@ function actionsSlotHTML(beat, compact) {
 
 function beatDetailInner(beat) {
   const locked = exclusiveLocked(beat);
+  const owned = locked && exclusiveOwned(beat);
   const pending = !locked && releasePending(beat);
   const meta = locked
-    ? `<div class="card__specs">${specLine(beat)} // EXCLUSIVE RIGHTS SECURED</div>`
+    ? `<div class="card__specs">${specLine(beat)} // ${owned ? "OWNED / YOURS" : "CLAIMED / SOLD OUT"}</div>`
     : pending
       ? `<div class="card__specs">${specLine(beat)} // SCHEDULED DROP</div>`
       : `<div class="card__specs">${specLine(beat)} // TAGGED AUDIO</div>`;
@@ -238,7 +261,7 @@ function beatDetailInner(beat) {
         </div>
         ${meta}
       </div>
-      ${locked ? exclusiveLockedHTML() : pending ? dropLockedHTML() : previewHTML(beat)}
+      ${locked ? exclusiveLockedHTML(owned) : pending ? dropLockedHTML() : previewHTML(beat)}
       <div class="card__actions">
         ${actionsSlotHTML(beat, false)}
       </div>
@@ -343,8 +366,11 @@ function buildGrid() {
       card.innerHTML = beatDetailInner(beat);
     } else {
       const locked = exclusiveLocked(beat);
+      const owned = locked && exclusiveOwned(beat);
       const pending = !locked && releasePending(beat);
-      card.className = "catalog-tile" + (locked ? " catalog-tile--exclusive-locked" : pending ? " catalog-tile--pending" : "");
+      card.className = "catalog-tile" + (locked
+        ? " catalog-tile--exclusive-locked" + (owned ? " catalog-tile--exclusive-owned" : "")
+        : pending ? " catalog-tile--pending" : "");
       card.innerHTML = `<a class="catalog-tile__link" href="index.html?beat=${encodeURIComponent(beat.id)}" aria-label="View ${attr(beat.title)}">
         <span class="catalog-tile__art"><img src="${attr(beat.img)}" alt="" loading="lazy" decoding="async"></span>
         <span class="catalog-tile__title">${beat.title}</span>
@@ -437,10 +463,14 @@ function rebuildCatalog() {
    the store is left alone: the flow is already leaving for the download page,
    and tearing the grid down under the dialog would only disturb that hand-off.
    The next render reads the claimed catalog entry. */
-window.addEventListener("kyrolll:exclusive-locked", () => {
+function repaintExclusiveClaims() {
   if (document.documentElement.classList.contains("gate-open")) return;
   rebuildCatalog();
-});
+}
+window.addEventListener("kyrolll:exclusive-locked", repaintExclusiveClaims);
+/* Another tab claimed (or cleared) a beat: catalog.js re-projects the live
+   entries from localStorage and this page repaints them in place. */
+window.addEventListener("kyrolll:exclusive-claims", repaintExclusiveClaims);
 
 window.addEventListener("DOMContentLoaded", () => {
   try {

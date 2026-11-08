@@ -16,11 +16,13 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   `downloads.js` — with `download-page.js` for the landing page — is the whole
   "commerce" layer: the "DOWNLOAD FREE" trigger opens a three-package menu, and every
   package then sits behind the same two-step gate — an email address, then acceptance of the
-  license — with no social like, follow or subscribe step. **No gate state is ever written down** — no `localStorage`, no
-  cookie, no unlock set and nothing prefilled. The one thing the storefront remembers is the
-  catalog scroll offset in `sessionStorage` (`kyrolll_catalog_scroll`, tab-only and gone when
-  the tab closes), so the trip back from a beat lands where the visitor left. The only other
-  memory is a
+  license — with no social like, follow or subscribe step. **Gate input is never written down** —
+  no address, no unlock set, no signature and nothing prefilled. The storefront's two durable
+  records are the catalog scroll offset in `sessionStorage` (`kyrolll_catalog_scroll`, tab-only
+  and gone when the tab closes) and the global exclusive-claims register in `localStorage`
+  (`kyrolll_exclusive_claims`, below): the first lands the trip back from a beat where the
+  visitor left, the second retires a claimed beat on every page and remembers its anonymous
+  buyer. The only other memory is a
   plain in-page `Map` in `downloads.js` (`grants`): a package passed in *this* page view is
   not asked for twice, and the map dies with the page, so a reload, a new tab or a shared
   link always asks again from scratch. The one thing that can leave the browser is the
@@ -114,8 +116,9 @@ it. A version only ever needs to move forwards.
 `server.mjs` also answers `.html`, `.js`, `.mjs` and `.css` with
 `Cache-Control: no-cache`, so the preview server revalidates the page and its scripts on every
 load; the `?v=N` query remains the cache-buster that travels to a static host (GitHub Pages has
-no `server.mjs`). Never add a Service Worker for this: a store that remembers nothing in the
-browser should not start remembering its own assets.
+no `server.mjs`). Never add a Service Worker for this: the store's only durable records are the
+tiny, explicit scroll and exclusive-claim entries, and it should not start caching its own
+assets.
 
 `assets/brand-logo.min.js` bundles `three` (r186) plus one `three/addons` helper
 (`BufferGeometryUtils`'s `mergeVertices`). It **can** be rebuilt here — install the
@@ -523,19 +526,28 @@ payment gateway.
 - A beat has exactly **one** exclusive license to give, so the exclusive tier is also a
   retirement switch. When an `exclusive` package is signed for, `downloads.js` calls
   `KYROlll_HELPERS.lockExclusive(beat.id)` in `finalizeGate`: the claim is written onto the live
-  catalog entry (`exclusiveLocked` + `exclusiveLockedAt`), announced as the
+  catalog entry (`exclusiveLocked` + `exclusiveLockedAt` + `exclusiveOwned`) **and persisted**
+  in `localStorage` under `kyrolll_exclusive_claims`; it is announced as the
   `kyrolll:exclusive-locked` CustomEvent, and `script.js` repaints the tile/beat page from it.
+  The register is global to the browser: every catalog, beat page, download page and open tab
+  reads the same record (a `storage` event re-projects it live), so a reload, a history walk or
+  a return visit keeps the beat retired. It also carries an anonymous `buyerId`: the buyer's own
+  record projects `exclusiveOwned: true` and paints `[OWNED / YOURS]` alongside the public
+  `[CLAIMED / SOLD OUT]` plate, while any other claim paints the sold-out plate alone.
   A claimed beat offers no lease menu and no public player — the action slot and the page carry
-  the `[EXCLUSIVE RIGHTS CLAIMED // SECURED]` plate and the
+  the `[CLAIMED / SOLD OUT]` plate, a **disabled** `SOLD OUT` / `OWNED / YOURS` control (never a
+  `.download-trigger`), and the
   `THIS BEAT HAS BEEN SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE.`
-  disclaimer, its specs read `// EXCLUSIVE RIGHTS SECURED`, and `start`/`openMenu` refuse it
-  with a toast even when called directly; a cold `download.html` link to a claimed beat shows
-  the same secured archive view instead of the files or a gate. `isExclusiveLocked(beatId)`
-  answers the register and `KYROlll_EXCLUSIVE_LOCK` holds the label/note copy. Like every other
-  piece of storefront state it is a **record, not storage** — the claim lives on the in-memory
-  entry and dies with the page, so a reload starts from the catalog as published. An entry may
-  also ship already claimed (`exclusiveLocked: true`) for rights sold outside the store; none
-  does today, A.D.L included.
+  disclaimer, its specs read `// CLAIMED / SOLD OUT` (or `// OWNED / YOURS` for the buyer), and
+  `start`/`openMenu` refuse it with a toast even when called directly; a cold `download.html`
+  link to a claimed beat shows the same secured archive view instead of the files or a gate.
+  `finalizeGate` re-checks the register before it issues, so a second gate that was already
+  open in another tab cannot receive the exclusive license either. `isExclusiveLocked(beatId)`
+  answers the register, `isExclusiveOwned(beatId)` answers the
+  buyer and `KYROlll_EXCLUSIVE_LOCK` holds the label/note/button copy. The files stay public, so
+  this is a storefront lock and a duplicate-claim guard, not server-side access control. An
+  entry may also ship already claimed (`exclusiveLocked: true`) for rights sold outside the
+  store; none does today, A.D.L included.
 - `window.KYROlll_SITE` — `{ formspreeEndpoint, paidFormspreeEndpoint }`. `formspreeEndpoint`
   is the authoritative **KYROIII — FREE DOWNLOADS** form (`https://formspree.io/f/mvkkkoew`)
   for every `[FREE 100%]` beat, while `paidFormspreeEndpoint` is an intentionally empty slot for
@@ -550,11 +562,13 @@ payment gateway.
   the files and sends nothing.
 
 `downloads.js` exposes `window.KYROlll_DOWNLOADS` and owns the whole interaction. It has
-**no backend** — no Supabase, no worker and no storage of any kind (the old
-`readEmail`/`writeEmail`/`markUnlocked` API is gone). Its one memory is the in-page `grants`
+**no backend** — no Supabase, no worker and no server-side storage (the old
+`readEmail`/`writeEmail`/`markUnlocked` API is gone). Its one in-page memory is the `grants`
 `Map`: `isUnlocked(beatId, packageId)` answers from it and `finalizeGate` fills it, but it is a
 **record only** — no path consults it to skip a step, so every selection re-opens the full gate
-and re-requires REVIEW & SIGN, and a reload starts empty. The only outbound request is the
+and re-requires REVIEW & SIGN, and a reload starts empty. The one durable record it writes goes
+through `KYROlll_HELPERS.lockExclusive` (the `kyrolll_exclusive_claims` register in `catalog.js`),
+not through a gate. The only outbound request is the
 single authoritative analytics POST at SIGN & UNLOCK (`postAnalytics`: `fetch(endpoint)` with
 `Accept: application/json` and a JSON body), carrying the email, verified full name, beat and
 package context, the exact license serial, the completed gate steps (`EMAIL + LICENSE
@@ -834,12 +848,14 @@ back to the gate address, so the document is never unsigned. It prebuilds the li
 whose file is missing is dimmed to "UNAVAILABLE" instead of handing over the storefront's HTML.
 There is no raw-text preview, no `.txt` and no COPY button. The page content paints immediately
 and never waits on the flower; if WebGL fails the still `kyrolll-flower-rest.png` simply
-remains. The page itself remembers nothing: `boot()` trusts only the one-shot `?t=` grant token
-`downloads.js` mints when a gate is passed — and only together with the signature that flow
-carries (`?sign=` / `?sig=`) — so a cold link — a shared URL, a bookmark, a new browser — is
-gated over the page and the flow is the same from any entry point (and that cold
+remains. The page itself remembers no gate input: `boot()` trusts only the one-shot `?t=` grant
+token `downloads.js` mints when a gate is passed — and only together with the signature that
+flow carries (`?sign=` / `?sig=`) — so a cold link — a shared URL, a bookmark, a new browser —
+is gated over the page and the flow is the same from any entry point (and that cold
 gate runs the same REVIEW & SIGN stage in place, so the signature never has to make the
-round trip). The LICENSEE signature is the one captured in the sign step, or the typed
+round trip). It does read the global exclusive-claims register from `catalog.js`: a claimed beat
+shows the secured archive, with `OWNED / YOURS` for its buyer and `CLAIMED / SOLD OUT` for
+everyone else. The LICENSEE signature is the one captured in the sign step, or the typed
 `#license-signature` value on top of it, falling back to the `?email=` value from that same
 flow (updated live if a gate happens to run on this page) — never a stored address.
 
@@ -852,13 +868,14 @@ the storefront HTML with a `200`, which is exactly what makes a "download" open 
 WAV. None of this exists on a static host (there is no `server.mjs`), so the client-side pieces —
 the prebuilt PDF and the `download` attribute — carry the flow there.
 
-Nothing the visitor leaves is stored anywhere — not server-side, and in the browser only the
-catalog scroll offset (`kyrolll_catalog_scroll`) is remembered. There is
-no persisted unlock set, no remembered address, no marketing list and no `kyrolll_licensee`:
-those `localStorage` keys are gone, and the brand-design test asserts `localStorage` stays empty
-across four passes through the gates while `sessionStorage` holds nothing but that one scroll
-key. The in-page `grants` Map is
-the only gate memory there is, and it does not survive the page. The only thing that leaves the
+Nothing the visitor types is stored anywhere — not server-side, and in the browser there is no
+persisted unlock set, no remembered address, no marketing list and no `kyrolll_licensee`. The
+only durable browser records are the catalog scroll offset (`kyrolll_catalog_scroll`, tab-only)
+and the global exclusive-claims register (`kyrolll_exclusive_claims`, an anonymous buyer id plus
+the claimed beat ids/timestamps — never an email or a signature). The brand-design test asserts
+`localStorage` holds only that claims register across four passes through the gates while
+`sessionStorage` holds nothing but the one scroll key. The in-page `grants` Map is the only gate
+memory there is, and it does not survive the page. The only thing that leaves the
 browser is the address the visitor submits at a gate, which is `fetch`-posted to the configured
 newsletter provider (and only there).
 
@@ -896,8 +913,9 @@ ALL BEATS control restores it too. `history.scrollRestoration = "manual"` stops 
 own entry-scroll from fighting that write, and the restore is `behavior: "instant"` — the
 visitor asked to go back, not to watch the page travel. It applies on desktop and on a phone
 (the test taps a tile with a real pointer/mouse and with a real touch, then walks Back and ALL
-BEATS). This is the only browser storage the store uses; it holds no gate state, address or
-signature, and `sessionStorage` dies with the tab.
+BEATS). Together with the exclusive-claims register in `localStorage`, this is the whole of the
+store's browser memory; the scroll key holds no gate state, address or signature, and
+`sessionStorage` dies with the tab.
 
 ## The support desk is built into the store
 
@@ -1001,13 +1019,17 @@ Tests that ship with the repo:
   malformed one, and never on a re-opened gate), that the backdrop and Escape never dismiss a
   gate or the sign stage (only CANCEL does), that selecting a package passed on the download page
   re-opens the full gate and still requires the signature (nothing is auto-opened or prefilled,
-  nothing is re-posted until submit, and the record is gone after a reload), and that no gate
-  state is written to `localStorage`/`sessionStorage` (only the catalog scroll key may appear).
-  It drives the six-card catalog, walks each scheduled drop's countdown and in-page unlock
+  nothing is re-posted until submit, and the in-page grant is gone after a reload), and that gate
+  input is never written to `localStorage`/`sessionStorage` (only the exclusive-claims register
+  and the catalog scroll key may appear). It proves the exclusive claim is durable: after a
+  reload the buyer still sees `[OWNED / YOURS]` beside `[CLAIMED / SOLD OUT]`, and a claim seeded
+  for another buyer paints the sold-out plate with no ownership line. It
+  drives the six-card catalog, walks each scheduled drop's countdown and in-page unlock
   (A.D.L is the newest — 19:00 Israel time, 2 November 2026 — and wears its own
   cover-pressed record), then claims ADLL's exclusive tier and proves the beat
-  retires in place: the secured plate, the disclaimer, no player, no menu, no cold-link
-  hand-off, and the same state on the catalog tile after a history walk without a reload. It
+  retires in place: the sold-out plate, the ownership marker, the disclaimer, no player, no
+  menu, no cold-link hand-off, disabled `SOLD OUT` / `OWNED / YOURS` controls, and the same
+  state on the catalog tile after a history walk without a reload. It
   taps a
   tile with a real mouse and a real touch to prove Back and ALL BEATS land on the remembered
   catalog offset. It needs
@@ -1035,11 +1057,11 @@ again, with the signature stage empty and locked, while a reload, a new tab or a
 asked from scratch. The
 email is the one thing that can leave the browser: with `KYROlll_NEWSLETTER` configured, the gate
 posts the address to that provider (the opt-in box is a required part of every gate). The
-exclusive claim is the one piece of state the store paints from memory — it retires a beat's
-leases and player in the live page, and it is deliberately not persisted, so the
-`ARCHIVED FROM PUBLIC RELEASE` view is a courtesy to the visitor who just bought the rights,
-not an enforcement layer: the files stay public and a reload serves the beat as published
-(which is why a sold-out beat should ship with `exclusiveLocked: true` in `catalog.js`).
+exclusive claim is the one piece of state the store persists on purpose: it retires a beat's
+leases and player across every page and tab, and it survives a reload so the buyer keeps the
+`OWNED / YOURS` marker and nobody can claim the same rights twice. It is still a storefront
+record, not a server-side lock — the files stay public — so a rights sale made outside the
+browser should ship with `exclusiveLocked: true` in `catalog.js`.
 
 `index.html` pre-renders the active release's beat card so a direct beat link
 (`?beat=…`) paints without a flash; `script.js` replaces the grid contents right after

@@ -2032,6 +2032,7 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
 .exclusive-badge {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 9px;
@@ -2089,6 +2090,53 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
   letter-spacing: .1em;
   clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
 }
+/* The buyer's own claim: the plate stays the same sold-out plate — the catalog
+   status is universal — and a quiet ownership line is printed under it. */
+.exclusive-badge--owned { border-color: rgba(255, 255, 255, .86); }
+.exclusive-badge__owner {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 100%;
+  margin-top: 3px;
+  font-size: 8px;
+  letter-spacing: .22em;
+  color: rgba(255, 255, 255, .86);
+}
+/* A claimed beat still shows a control in the action slot, but it is inert:
+   disabled, unlit and outside the `.download-trigger` contract, so no tap can
+   ever reach the package drawer or a second claim. */
+.exclusive-locked-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 10px;
+  padding: 14px 20px;
+  border: 1px dashed rgba(255, 255, 255, .24);
+  background: rgba(255, 255, 255, .025);
+  color: var(--gray);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
+  cursor: not-allowed;
+  box-sizing: border-box;
+  opacity: .9;
+}
+.exclusive-locked-button:disabled { opacity: .9; }
+.exclusive-locked-button__label { pointer-events: none; }
+.exclusive-locked-button--compact {
+  margin-top: 8px;
+  padding: 10px;
+  font-size: 9px;
+  letter-spacing: .12em;
+}
+.catalog-tile__actions--exclusive-locked { display: flex; flex-direction: column; gap: 8px; }
+.catalog-tile__actions--exclusive-locked .exclusive-locked-button { margin-top: 0; }
 @keyframes exclusiveScan {
   from { transform: translate3d(-100%, 0, 0); }
   to { transform: translate3d(100%, 0, 0); }

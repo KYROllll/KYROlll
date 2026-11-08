@@ -7,16 +7,24 @@ const context = vm.createContext({});
 vm.runInContext(readFileSync(new URL("./preview-player.js", import.meta.url), "utf8"), context);
 const BeatPreviewPlayer = vm.runInContext("BeatPreviewPlayer", context);
 
-const catalogContextFor = () => {
+const catalogContextFor = (sharedStorage) => {
   const events = [];
+  const store = sharedStorage || new Map();
+  const localStorage = {
+    getItem(key) { return store.has(key) ? store.get(key) : null; },
+    setItem(key, value) { store.set(key, String(value)); },
+    removeItem(key) { store.delete(key); },
+    clear() { store.clear(); },
+  };
   const window = {
+    localStorage,
     CustomEvent: class {
       constructor(type, init) { this.type = type; this.detail = init && init.detail; }
     },
     dispatchEvent(event) { events.push(event); return true; },
   };
   vm.runInContext(readFileSync(new URL("./catalog.js", import.meta.url), "utf8"), vm.createContext({ window }));
-  return { window, events };
+  return { window, events, storage: store };
 };
 
 test("the fifth release is scheduled, packaged and pointed at the free-download form", () => {
@@ -141,32 +149,51 @@ test("the GUNNA drop is scheduled for 22:00 today and every record keeps the ori
   assert.doesNotMatch(css, /url\(assets\/beat-cover\.png\)/, "the stylesheet hard-codes no beat artwork path");
 });
 
-test("the exclusive license claims the beat and retires its public leases", () => {
-  const { window, events } = catalogContextFor();
+test("the exclusive license claims the beat globally and retires its public leases", () => {
+  const storage = new Map();
+  const { window, events } = catalogContextFor(storage);
   const helpers = window.KYROlll_HELPERS;
-  assert.equal(window.KYROlll_EXCLUSIVE_LOCK.label, "[EXCLUSIVE RIGHTS CLAIMED // SECURED]");
+  assert.equal(window.KYROlll_EXCLUSIVE_LOCK.label, "[CLAIMED / SOLD OUT]");
+  assert.equal(window.KYROlll_EXCLUSIVE_LOCK.ownedLabel, "[OWNED / YOURS]");
   assert.match(window.KYROlll_EXCLUSIVE_LOCK.note, /SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE/);
+  assert.match(window.KYROlll_EXCLUSIVE_LOCK.ownedNote, /YOU HOLD THE EXCLUSIVE RIGHTS/);
   assert.equal(helpers.isExclusiveLocked("adll"), false, "a published beat starts unclaimed");
+  assert.equal(helpers.isExclusiveOwned("adll"), false, "no buyer is recorded yet");
   assert.equal(helpers.lockExclusive("adll"), true, "the exclusive tier claims the beat");
   assert.equal(helpers.isExclusiveLocked("adll"), true);
+  assert.equal(helpers.isExclusiveOwned("adll"), true, "the claim is recorded to this browser's buyer");
   assert.equal(window.KYROlll_HELPERS.beatById("adll").exclusiveLocked, true, "the live catalog entry records the claim");
   assert.match(window.KYROlll_HELPERS.beatById("adll").exclusiveLockedAt, /^\d{4}-\d{2}-\d{2}T/);
   assert.equal(helpers.lockExclusive("adll"), false, "the exclusive license is issued only once");
   assert.equal(events.length, 1, "the claim is announced once");
   assert.equal(events[0].type, "kyrolll:exclusive-locked");
   assert.equal(events[0].detail.slug, "adll");
+  assert.equal(events[0].detail.owned, true);
+  // The claim is durable: a new page on the same browser reads the same record
+  // and recognises the same buyer. A fresh browser (fresh storage) starts clean.
+  assert.equal(storage.has(window.KYROlll_EXCLUSIVE_LOCK.storageKey), true, "the claim is written to localStorage");
+  const revisit = catalogContextFor(storage).window.KYROlll_HELPERS;
+  assert.equal(revisit.isExclusiveLocked("adll"), true, "the claim survives a new page");
+  assert.equal(revisit.isExclusiveOwned("adll"), true, "the buyer keeps ownership across sessions");
+  const stranger = catalogContextFor().window.KYROlll_HELPERS;
+  assert.equal(stranger.isExclusiveLocked("adll"), false, "a browser with no claim starts unclaimed");
   const downloads = readFileSync(new URL("./downloads.js", import.meta.url), "utf8");
   assert.match(downloads, /pack\.id === "exclusive"[\s\S]*?lockExclusive\(beat\.id\)/, "SIGN & UNLOCK claims an exclusive beat");
   assert.match(downloads, /holdExclusiveClaim\(beat\)/, "the download layer refuses a claimed beat");
   const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
   assert.match(script, /data-exclusive-lock/, "the storefront renders the secured badge");
-  assert.match(script, /EXCLUSIVE RIGHTS SECURED/, "the beat page names the secured state");
+  assert.match(script, /CLAIMED \/ SOLD OUT/, "the beat page names the sold-out state");
+  assert.match(script, /OWNED \/ YOURS/, "the buyer gets an ownership marker");
+  assert.match(script, /exclusive-locked-button/, "a claimed beat renders an inert control");
   assert.match(script, /kyrolll:exclusive-locked/, "the grid repaints when a claim lands");
+  assert.match(script, /kyrolll:exclusive-claims/, "the grid repaints when another tab changes the register");
   const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
   assert.match(css, /\.exclusive-badge \{[\s\S]*?clip-path: polygon/, "the secured badge wears the cut-corner plate");
   assert.match(css, /\.exclusive-badge::before[\s\S]*?exclusiveScan/, "the badge carries one slow light pass");
+  assert.match(css, /\.exclusive-locked-button \{[\s\S]*?cursor: not-allowed/, "the claimed control is visibly inert");
   const page = readFileSync(new URL("./download-page.js", import.meta.url), "utf8");
   assert.match(page, /showExclusiveLocked/, "a cold link to a claimed beat shows the secured archive");
+  assert.match(page, /isExclusiveOwned/, "a returning buyer sees the ownership marker");
 });
 
 test("every beat is audited for one uniform license, package set and secured lock state", () => {
@@ -224,9 +251,11 @@ test("every beat is audited for one uniform license, package set and secured loc
 
   // The secured state is painted from one place on both surfaces.
   const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
-  assert.match(script, /function exclusiveBadgeHTML\(compact\)[\s\S]*?exclusive-badge--compact/, "the compact tile badge is one renderer");
+  assert.match(script, /function exclusiveBadgeHTML\(compact, owned\)[\s\S]*?exclusive-badge--compact/, "the compact tile badge is one renderer");
   assert.match(script, /if \(exclusiveLocked\(beat\)\) \{[\s\S]*?exclusiveBadgeHTML/, "the action slot paints the secured plate for every locked beat");
-  assert.match(script, /const locked = exclusiveLocked\(beat\);[\s\S]*?locked \? exclusiveLockedHTML\(\)/, "the beat page replaces the player with the secured notice");
+  assert.match(script, /const locked = exclusiveLocked\(beat\);[\s\S]*?locked \? exclusiveLockedHTML\(owned\)/, "the beat page replaces the player with the secured notice");
+  assert.match(script, /exclusive-locked-button/, "the action slot keeps a disabled control");
+  assert.match(script, /exclusive-badge__owner/, "the buyer's ownership marker is painted");
   assert.match(script, /catalog-tile--exclusive-locked/, "the catalog tile carries its own secured modifier");
   assert.match(script, /exclusive-lock__note/, "the secured notice carries the archive disclaimer");
   assert.match(script, /KYROlll_EXCLUSIVE_LOCK/, "the storefront reads the shared lock copy");

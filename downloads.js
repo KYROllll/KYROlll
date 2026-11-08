@@ -375,12 +375,14 @@
     return true;
   }
   /* There is exactly one exclusive license per beat. Once it is signed for, the
-     beat is claimed: every lease, the package drawer and a cold download link
-     are closed, even if a caller invokes the API directly. */
+     beat is claimed for good: every lease, the package drawer and a cold
+     download link are closed, even if a caller invokes the API directly. The
+     claim is persisted by catalog.js, so this refusal survives a reload. */
   function holdExclusiveClaim(beat) {
     const h = helpers();
     if (!(beat && h && h.isExclusiveLocked && h.isExclusiveLocked(beat.id))) return false;
-    showToast("EXCLUSIVE RIGHTS CLAIMED — THIS BEAT IS SECURED");
+    const owned = !!(h.isExclusiveOwned && h.isExclusiveOwned(beat.id));
+    showToast(owned ? "OWNED / YOURS — EXCLUSIVE RIGHTS CLAIMED" : "CLAIMED / SOLD OUT — THIS BEAT IS SECURED");
     return true;
   }
 
@@ -1071,11 +1073,22 @@
     });
   }
 
-  /* Common completion: show the success beat, record the grant for this page
-     view (a record only — it never skips a later gate), then proceed and hand
-     the just-submitted address and the serial minted at SIGN & UNLOCK to the
-     next step. Nothing is ever written down. */
+  /* Common completion: record the grant for this page view (a record only — it
+     never skips a later gate), then proceed and hand the just-submitted address
+     and the serial minted at SIGN & UNLOCK to the next step. Nothing about the
+     gate input is ever written down. The exclusive claim is the one durable
+     record, and it is issued exactly once: if another tab claimed the beat while
+     this gate was open, the flow is refused instead of handing over a second
+     exclusive license. */
   function finalizeGate(beat, pack, onUnlocked, email, serial) {
+    if (pack.id === "exclusive") {
+      const h = helpers();
+      if (h && h.isExclusiveLocked && h.isExclusiveLocked(beat.id)) {
+        showToast("CLAIMED / SOLD OUT — THIS BEAT IS SECURED");
+        unlockPage();
+        return;
+      }
+    }
     rememberGrant(beat.id, pack.id, email);
     const sm = showSuccessModal();
     /* The exclusive license is the one that takes the beat off the market. The
@@ -1084,7 +1097,13 @@
        the storefront reads the claimed entry on its next render. */
     if (pack.id === "exclusive") {
       const h = helpers();
-      if (h && h.lockExclusive) h.lockExclusive(beat.id);
+      const claimed = h && h.lockExclusive ? h.lockExclusive(beat.id) : true;
+      if (!claimed) {
+        if (sm && sm.parentNode) sm.remove();
+        showToast("CLAIMED / SOLD OUT — THIS BEAT IS SECURED");
+        unlockPage();
+        return;
+      }
     }
     setTimeout(() => {
       if (sm && sm.parentNode) sm.remove();
