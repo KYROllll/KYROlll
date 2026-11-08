@@ -2516,15 +2516,19 @@ try {
   // Exclusive rights: the moment the one exclusive license is claimed the beat
   // is archived. Every lease and the player give way to the secured badge, the
   // professional disclaimer, and an inert state even when the API is called
-  // directly. The claim is written to the browser's exclusive-claims register;
-  // the test then walks to the catalog without reloading, so the locked tile
-  // paints too.
+  // directly. The claim is written to the browser's shared-claims cache (the
+  // local preview keeps the live bus off); the test then walks to the catalog
+  // without reloading, so the locked tile paints too.
   assert.equal(await adllLive.evaluate((id) => window.KYROlll_HELPERS.lockExclusive(id), ADLL_ID), true, 'the exclusive tier claims ADLL');
   await adllLive.locator(`${ADLL_CARD} .exclusive-badge`).waitFor();
   assert.equal((await adllLive.locator(`${ADLL_CARD} .exclusive-badge__text`).innerText()).trim(), '[CLAIMED / SOLD OUT]', 'the beat page carries the sold-out status');
   assert.equal((await adllLive.locator(`${ADLL_CARD} .exclusive-badge__owner`).innerText()).trim(), '[OWNED / YOURS]', 'the buyer sees the ownership marker');
   assert.match(await adllLive.locator(`${ADLL_CARD} .exclusive-lock__note`).innerText(), /YOU HOLD THE EXCLUSIVE RIGHTS/, 'the beat page carries the ownership note');
   assert.match(await adllLive.locator(`${ADLL_CARD} .card__specs`).innerText(), /OWNED \/ YOURS/, 'the specs announce the ownership state');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .exclusive-art`).count(), 1, 'the claimed cover wears the archive overlay');
+  assert.equal((await adllLive.locator(`${ADLL_CARD} .exclusive-art__title`).innerText()).trim(), 'OWNED', 'the owner overlay names the private master');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .exclusive-art__stamp img`).getAttribute('src'), 'assets/kyrolll-flower-rest.png', 'the archive overlay prints the official flower seal');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .exclusive-lock__stamp img`).getAttribute('src'), 'assets/kyrolll-flower-rest.png', 'the secured panel carries the same seal');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .download-trigger`).count(), 0, 'a claimed beat offers no lease button');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .exclusive-locked-button`).isDisabled(), true, 'a claimed beat keeps a disabled control');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .beat-preview`).count(), 0, 'a claimed beat has no public player');
@@ -2541,6 +2545,8 @@ try {
   await adllLive.locator(`${ADLL_CARD}.catalog-tile .exclusive-badge`).waitFor();
   assert.equal((await adllLive.locator(`${ADLL_CARD} .exclusive-badge__text`).innerText()).trim(), '[CLAIMED / SOLD OUT]', 'the claimed catalog tile carries the sold-out status');
   assert.match(await adllLive.locator(`${ADLL_CARD} .exclusive-badge`).getAttribute('class'), /exclusive-badge--compact/, 'the tile wears the compact secured plate');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .catalog-tile__art .exclusive-art`).count(), 1, 'the claimed tile art is veiled');
+  assert.equal((await adllLive.locator(`${ADLL_CARD} .exclusive-art__title`).innerText()).trim(), 'OWNED', 'the buyer tile is marked as owned');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .download-trigger`).count(), 0, 'the claimed tile offers no lease button');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .exclusive-locked-button`).isDisabled(), true, 'the claimed tile keeps a disabled control');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .drop-countdown`).count(), 0, 'a claim retires the countdown');
@@ -2681,7 +2687,8 @@ try {
   await stranger.addInitScript((id) => {
     try {
       localStorage.setItem('kyrolll_exclusive_claims', JSON.stringify({
-        version: 1,
+        version: 2,
+        generation: '2026-11-08T09:00:00.000Z',
         buyerId: 'buyer-current-visitor',
         claims: {
           [id]: {
@@ -2689,6 +2696,7 @@ try {
             ownerId: 'buyer-someone-else',
           },
         },
+        outbox: [],
       }));
     } catch (err) { /* the origin may not be ready yet on the first init pass */ }
   }, ADLL_ID);

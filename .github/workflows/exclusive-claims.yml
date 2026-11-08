@@ -1,0 +1,58 @@
+name: Sync exclusive claims
+
+# The storefront is static, so the live claim bus (ntfy.sh) is materialised into
+# the committed seed at data/exclusive-claims.json every few minutes. Every page
+# reads that seed and subscribes to the same topic, so a claim is visible on all
+# open devices immediately and survives for every future visitor.
+#
+# Manual reset: Actions -> Sync exclusive claims -> Run workflow -> tick "reset".
+# That bumps the generation, clears every claim and ignores all older bus
+# messages. It is the supported way to return a test beat to the open market.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      reset:
+        description: "Clear the global exclusive-claims register"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: exclusive-claims
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Merge the live claim bus into the shared seed
+        if: ${{ !inputs.reset }}
+        run: node scripts/sync-exclusive-claims.mjs
+
+      - name: Reset the shared register
+        if: ${{ inputs.reset }}
+        run: node scripts/sync-exclusive-claims.mjs --reset
+
+      - name: Commit the shared register when it changed
+        run: |
+          if git diff --quiet -- data/exclusive-claims.json; then
+            echo "No claim changes."
+            exit 0
+          fi
+          git config user.name "KYROIII CLAIMS"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/exclusive-claims.json
+          git commit -m "Sync exclusive claims"
+          # A concurrent human commit can land between checkout and push; rebase
+          # onto it so the register still ships instead of failing the run.
+          git pull --rebase --autostash origin main
+          git push origin HEAD:main

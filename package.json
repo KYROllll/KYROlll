@@ -3,7 +3,9 @@
   "private": true,
   "scripts": {
     "build:brand": "node build-brand-assets.mjs",
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "test": "node --test preview-player.test.mjs",
+    "sync:claims": "node scripts/sync-exclusive-claims.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

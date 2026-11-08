@@ -178,22 +178,47 @@ test("the exclusive license claims the beat globally and retires its public leas
   const stranger = catalogContextFor().window.KYROlll_HELPERS;
   assert.equal(stranger.isExclusiveLocked("adll"), false, "a browser with no claim starts unclaimed");
   const downloads = readFileSync(new URL("./downloads.js", import.meta.url), "utf8");
-  assert.match(downloads, /pack\.id === "exclusive"[\s\S]*?lockExclusive\(beat\.id\)/, "SIGN & UNLOCK claims an exclusive beat");
+  assert.match(downloads, /syncExclusiveClaims\(\{ force: true \}\)\.then\(finish, finish\)/, "SIGN & UNLOCK refreshes the shared register before it claims an exclusive beat");
+  assert.match(downloads, /pack\.id === "exclusive"[\s\S]*?lockExclusive\(beat\.id\)/, "SIGN & UNLOCK claims the exclusive beat only once");
   assert.match(downloads, /holdExclusiveClaim\(beat\)/, "the download layer refuses a claimed beat");
   const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
   assert.match(script, /data-exclusive-lock/, "the storefront renders the secured badge");
+  assert.match(script, /data-exclusive-art/, "the claimed cover wears the archive overlay");
+  assert.match(script, /exclusive-art__stamp/, "the archive overlay prints the flower seal");
   assert.match(script, /CLAIMED \/ SOLD OUT/, "the beat page names the sold-out state");
   assert.match(script, /OWNED \/ YOURS/, "the buyer gets an ownership marker");
   assert.match(script, /exclusive-locked-button/, "a claimed beat renders an inert control");
   assert.match(script, /kyrolll:exclusive-locked/, "the grid repaints when a claim lands");
-  assert.match(script, /kyrolll:exclusive-claims/, "the grid repaints when another tab changes the register");
+  assert.match(script, /kyrolll:exclusive-claims/, "the grid repaints when the shared register changes");
   const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
-  assert.match(css, /\.exclusive-badge \{[\s\S]*?clip-path: polygon/, "the secured badge wears the cut-corner plate");
-  assert.match(css, /\.exclusive-badge::before[\s\S]*?exclusiveScan/, "the badge carries one slow light pass");
+  assert.match(css, /\.exclusive-art \{[\s\S]*?radial-gradient[\s\S]*?pointer-events: none/, "the claimed cover wears a dark archive veil");
+  assert.match(css, /\.exclusive-art__stamp \{[\s\S]*?object-fit: contain/, "the flower seal is printed on the veil");
+  assert.match(css, /\.exclusive-badge \{[\s\S]*?grid-template-columns[\s\S]*?exclusive-badge__seal/, "the secured plate is a seal-and-copy banner");
   assert.match(css, /\.exclusive-locked-button \{[\s\S]*?cursor: not-allowed/, "the claimed control is visibly inert");
   const page = readFileSync(new URL("./download-page.js", import.meta.url), "utf8");
   assert.match(page, /showExclusiveLocked/, "a cold link to a claimed beat shows the secured archive");
   assert.match(page, /isExclusiveOwned/, "a returning buyer sees the ownership marker");
+  assert.match(page, /exclusive-lock__stamp/, "the download page's secured archive carries the same flower seal");
+});
+
+test("the old local-only register is retired and a local reset reopens the beat", () => {
+  const stale = new Map();
+  stale.set("kyrolll_exclusive_claims", JSON.stringify({
+    version: 1,
+    buyerId: "buyer-old",
+    claims: { adll: { at: "2026-11-02T19:00:00.000Z", ownerId: "buyer-old" } },
+  }));
+  const retired = catalogContextFor(stale).window.KYROlll_HELPERS;
+  assert.equal(retired.isExclusiveLocked("adll"), false, "the version-1 test claim is retired");
+  assert.equal(retired.isExclusiveOwned("adll"), false, "the old buyer marker is retired too");
+  assert.equal(stale.has("kyrolll_exclusive_claims"), false, "the stale local register is removed");
+
+  const storage = new Map();
+  const helpers = catalogContextFor(storage).window.KYROlll_HELPERS;
+  assert.equal(helpers.lockExclusive("adll"), true);
+  assert.equal(helpers.isExclusiveLocked("adll"), true);
+  assert.equal(helpers.resetExclusiveClaims(), true, "the developer reset clears this browser's cache");
+  assert.equal(helpers.isExclusiveLocked("adll"), false, "the beat is open again after a reset");
 });
 
 test("every beat is audited for one uniform license, package set and secured lock state", () => {

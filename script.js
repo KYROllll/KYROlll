@@ -82,6 +82,10 @@ function specLine(beat) {
    always a KYROIII record, never a pasted-on cover. The PNG is the label art in
    every browser (no WebGL stage on the record), and it is a static print. */
 const VINYL_LABEL_ART = "assets/kyrolll-flower-label.png";
+/* The claimed card's archive seal is the same captured resting flower the hero
+   hands off from — a transparent render, so it can sit over the cover art as a
+   stamp without a plate or a recolour. */
+const EXCLUSIVE_STAMP_ART = "assets/kyrolll-flower-rest.png";
 
 /* The scheduled-release clock lives in catalog.js: a beat with a future
    `releaseAt` is a *scheduled drop*. Until it lands the store paints the tile
@@ -103,8 +107,9 @@ function releaseLabel(beat) {
 }
 /* Exclusive rights are gone the moment that license is signed for: the beat is
    claimed for good and the storefront retires its public player, its countdown
-   and every lease behind one secured status. The claim is durable (catalog.js
-   persists it), so the same status paints on every page after a reload. */
+   and every lease behind one secured status. The claim is global (catalog.js
+   reads the shared seed and the live claim bus), so the same status paints on
+   every device, every page and after every reload. */
 function exclusiveLocked(beat) {
   const h = window.KYROlll_HELPERS;
   return !!(beat && h && h.isExclusiveLocked && h.isExclusiveLocked(beat.id));
@@ -123,12 +128,21 @@ function exclusiveLockCopy() {
     ownedButton: "OWNED / YOURS"
   };
 }
+function exclusiveStampHTML(className) {
+  /* `data-flower-skip` keeps `flower-spinner.js` from treating the seal as the
+     cover's own load: the cover is what the wait belongs to, and the seal must
+     never hide it. */
+  return `<span class="${className}" aria-hidden="true"><img src="${EXCLUSIVE_STAMP_ART}" alt="" width="1040" height="1040" loading="lazy" decoding="async" data-flower-skip></span>`;
+}
 function exclusiveBadgeHTML(compact, owned) {
   const copy = exclusiveLockCopy();
   return `<span class="exclusive-badge${compact ? " exclusive-badge--compact" : ""}${owned ? " exclusive-badge--owned" : ""}" data-exclusive-lock="${owned ? "owned" : "sold-out"}" role="status">
-          <span class="exclusive-badge__tick" aria-hidden="true"></span>
-          <span class="exclusive-badge__text">${attr(copy.label)}</span>
-          ${owned ? `<span class="exclusive-badge__owner" data-exclusive-owner>${attr(copy.ownedLabel)}</span>` : ""}
+          ${exclusiveStampHTML("exclusive-badge__seal")}
+          <span class="exclusive-badge__body">
+            <span class="exclusive-badge__kicker">${owned ? "PRIVATE MASTER // YOURS" : "EXCLUSIVE RIGHTS // ARCHIVED"}</span>
+            <span class="exclusive-badge__text">${attr(copy.label)}</span>
+            ${owned ? `<span class="exclusive-badge__owner" data-exclusive-owner>${attr(copy.ownedLabel)}</span>` : ""}
+          </span>
         </span>`;
 }
 /* The claim is closed to everyone: the action slot keeps a disabled control so
@@ -138,17 +152,35 @@ function exclusiveLockedButtonHTML(beat, compact, owned) {
   const copy = exclusiveLockCopy();
   const label = owned ? (copy.ownedButton || "OWNED / YOURS") : (copy.button || "SOLD OUT");
   return `<button type="button" class="exclusive-locked-button${compact ? " exclusive-locked-button--compact" : ""}" data-exclusive-claim-disabled data-beat-id="${attr(beat.id)}" aria-disabled="true" disabled>
+        <span class="exclusive-locked-button__mark" aria-hidden="true"></span>
         <span class="exclusive-locked-button__label">${attr(label)}</span>
       </button>`;
+}
+/* The dark archive overlay that sits on the cover art: the captured flower as a
+   clean embossed seal, a hairline plate, and the label-grade CLAIMED / SOLD OUT
+   typography. It is decorative — the badge below carries the live status. */
+function exclusiveArtHTML(compact, owned) {
+  return `<span class="exclusive-art${compact ? " exclusive-art--compact" : ""}${owned ? " exclusive-art--owned" : ""}" data-exclusive-art="${owned ? "owned" : "sold-out"}" aria-hidden="true">
+        <span class="exclusive-art__frame"></span>
+        ${exclusiveStampHTML("exclusive-art__stamp")}
+        <span class="exclusive-art__kicker">${owned ? "PRIVATE MASTER" : "EXCLUSIVE RIGHTS SECURED"}</span>
+        <span class="exclusive-art__title">${owned ? "OWNED" : "CLAIMED"}</span>
+        <span class="exclusive-art__sub">${owned ? "YOURS" : "SOLD OUT"}</span>
+        ${owned ? `<span class="exclusive-art__owned">${attr(exclusiveLockCopy().ownedLabel)}</span>` : ""}
+      </span>`;
 }
 /* The claimed beat's own page keeps its artwork and specs but loses the player:
    there is no public master once the exclusive rights are secured. */
 function exclusiveLockedHTML(owned) {
   const copy = exclusiveLockCopy();
   return `<div class="exclusive-lock" data-state="${owned ? "exclusive-owned" : "exclusive-locked"}" role="status">
-        <span class="exclusive-lock__scan" aria-hidden="true"></span>
-        <p class="exclusive-lock__kicker">${owned ? "OWNED / YOURS // PRIVATE MASTER" : "ARCHIVED // PRIVATE MASTER"}</p>
-        <p class="exclusive-lock__note">${attr(owned ? copy.ownedNote : copy.note)}</p>
+        ${exclusiveStampHTML("exclusive-lock__stamp")}
+        <div class="exclusive-lock__copy">
+          <p class="exclusive-lock__kicker">${owned ? "PRIVATE MASTER // YOURS" : "EXCLUSIVE RIGHTS // ARCHIVED"}</p>
+          <p class="exclusive-lock__title">${owned ? "OWNED / YOURS" : "CLAIMED / SOLD OUT"}</p>
+          <p class="exclusive-lock__note">${attr(owned ? copy.ownedNote : copy.note)}</p>
+          <p class="exclusive-lock__meta">${owned ? "ONE-OF-ONE LICENSE // YOURS" : "ONE-OF-ONE LICENSE // NO LONGER AVAILABLE"}</p>
+        </div>
       </div>`;
 }
 /* The countdown pill: one universal label plus a timer that ticks in place.
@@ -268,6 +300,7 @@ function beatDetailInner(beat) {
     </section>      <div class="beat-detail__artwork-wrap">
       <figure class="beat-detail__artwork">
         <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" decoding="async" fetchpriority="high">
+        ${locked ? exclusiveArtHTML(false, owned) : ""}
       </figure>
       <div class="vinyl-record" aria-hidden="true">
         <span class="vinyl-record__logo-frame" aria-hidden="true">
@@ -372,7 +405,7 @@ function buildGrid() {
         ? " catalog-tile--exclusive-locked" + (owned ? " catalog-tile--exclusive-owned" : "")
         : pending ? " catalog-tile--pending" : "");
       card.innerHTML = `<a class="catalog-tile__link" href="index.html?beat=${encodeURIComponent(beat.id)}" aria-label="View ${attr(beat.title)}">
-        <span class="catalog-tile__art"><img src="${attr(beat.img)}" alt="" loading="lazy" decoding="async"></span>
+        <span class="catalog-tile__art"><img src="${attr(beat.img)}" alt="" loading="lazy" decoding="async">${locked ? exclusiveArtHTML(true, owned) : ""}</span>
         <span class="catalog-tile__title">${beat.title}</span>
       </a>
       ${actionsSlotHTML(beat, true)}`;
@@ -468,8 +501,9 @@ function repaintExclusiveClaims() {
   rebuildCatalog();
 }
 window.addEventListener("kyrolll:exclusive-locked", repaintExclusiveClaims);
-/* Another tab claimed (or cleared) a beat: catalog.js re-projects the live
-   entries from localStorage and this page repaints them in place. */
+/* Another tab, the shared seed or the live claim bus changed a claim:
+   catalog.js re-projects the live entries and this page repaints them in
+   place, so a claim made on any device retires the beat here without a reload. */
 window.addEventListener("kyrolll:exclusive-claims", repaintExclusiveClaims);
 
 window.addEventListener("DOMContentLoaded", () => {

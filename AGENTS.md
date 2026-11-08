@@ -19,10 +19,11 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   license — with no social like, follow or subscribe step. **Gate input is never written down** —
   no address, no unlock set, no signature and nothing prefilled. The storefront's two durable
   records are the catalog scroll offset in `sessionStorage` (`kyrolll_catalog_scroll`, tab-only
-  and gone when the tab closes) and the global exclusive-claims register in `localStorage`
-  (`kyrolll_exclusive_claims`, below): the first lands the trip back from a beat where the
-  visitor left, the second retires a claimed beat on every page and remembers its anonymous
-  buyer. The only other memory is a
+  and gone when the tab closes) and the `localStorage` cache of the global exclusive-claims
+  register (`kyrolll_exclusive_claims`, below — the authoritative copy lives in
+  `data/exclusive-claims.json` and on the claim bus): the first lands the trip back from a beat
+  where the visitor left, the second retires a claimed beat on every device and remembers its
+  anonymous buyer. The only other memory is a
   plain in-page `Map` in `downloads.js` (`grants`): a package passed in *this* page view is
   not asked for twice, and the map dies with the page, so a reload, a new tab or a shared
   link always asks again from scratch. The one thing that can leave the browser is the
@@ -117,8 +118,8 @@ it. A version only ever needs to move forwards.
 `Cache-Control: no-cache`, so the preview server revalidates the page and its scripts on every
 load; the `?v=N` query remains the cache-buster that travels to a static host (GitHub Pages has
 no `server.mjs`). Never add a Service Worker for this: the store's only durable records are the
-tiny, explicit scroll and exclusive-claim entries, and it should not start caching its own
-assets.
+tiny, explicit scroll offset and the exclusive-claims cache, and it should not start caching its
+own assets.
 
 `assets/brand-logo.min.js` bundles `three` (r186) plus one `three/addons` helper
 (`BufferGeometryUtils`'s `mergeVertices`). It **can** be rebuilt here — install the
@@ -223,7 +224,9 @@ drops the node entirely, so a card at rest carries no idle animation. An image t
 browser already holds (a cache hit, or one that finished before the script ran) never
 shows a spinner at all; an image that fails clears the wait and leaves the broken cover
 visible. The `brand-design.test.mjs` audit is unaffected because the indicator is only
-painted while a fetch is genuinely pending.
+painted while a fetch is genuinely pending. A decorative image that lives inside a watched
+slot carries `data-flower-skip` (the claimed card's seal does): otherwise its lazy arrival
+would mark the whole cover `is-loading` and hide an already-painted cover behind a spinner.
 
 The turn is `flowerSpinnerTurn` (3s linear): a continuous in-plane rotation carrying a
 gentle rocking Y tilt. A full Y-axis flip was tried and reverted — the still render goes
@@ -524,15 +527,37 @@ payment gateway.
   that has not landed shows the same countdown and unlocks itself; a flow that just passed
   a gate carries the grant token and goes straight through.
 - A beat has exactly **one** exclusive license to give, so the exclusive tier is also a
-  retirement switch. When an `exclusive` package is signed for, `downloads.js` calls
-  `KYROlll_HELPERS.lockExclusive(beat.id)` in `finalizeGate`: the claim is written onto the live
-  catalog entry (`exclusiveLocked` + `exclusiveLockedAt` + `exclusiveOwned`) **and persisted**
-  in `localStorage` under `kyrolll_exclusive_claims`; it is announced as the
-  `kyrolll:exclusive-locked` CustomEvent, and `script.js` repaints the tile/beat page from it.
-  The register is global to the browser: every catalog, beat page, download page and open tab
-  reads the same record (a `storage` event re-projects it live), so a reload, a history walk or
-  a return visit keeps the beat retired. It also carries an anonymous `buyerId`: the buyer's own
-  record projects `exclusiveOwned: true` and paints `[OWNED / YOURS]` alongside the public
+  retirement switch — and that switch is **global across devices**, not browser-local.
+  `catalog.js` keeps the register in three layers:
+  1. **`data/exclusive-claims.json`** — the committed **shared seed**, version `2`, carrying
+     `{ version, generation, topic, updatedAt, cursor, claims }`. Every page fetches it first,
+     so a new visitor sees every claim without any live connection.
+  2. **The live claim bus** — the public `ntfy.sh` topic named in the seed (production:
+     `kyroiii-claims-6f2a9d4c8b1e7f30`). A claim is POSTed as
+     `{ type: "claim", beatId, at, ownerId, nonce, generation }`; every open page subscribes
+     over SSE and also polls, so a claim on one device repaints the card on another within
+     seconds, with no reload. ntfy's server `time` normalises `at`, and the message id breaks a
+     same-second tie — earliest claim wins.
+  3. **`localStorage` `kyrolll_exclusive_claims`** — now only a **cache plus offline outbox**,
+     schema `{ version: 2, generation, buyerId, claims, outbox }`. A version-1 record is deleted
+     on read (that is the old local-only test state, so the retired test beat reopens by
+     itself). A claim made while the network is down sits in `outbox` and is published on the
+     next successful sync.
+  `.github/workflows/exclusive-claims.yml` runs every 5 minutes: `scripts/sync-exclusive-claims.mjs`
+  polls the topic from `cursor`, merges the earliest claim per beat into the seed and commits it
+  (`contents: write`). That materialises the bus so it outlives ntfy's 12-hour message retention.
+  The workflow's manual **`reset`** input (`workflow_dispatch`, tick `reset`) bumps `generation`,
+  clears `claims` and moves `cursor` past every old message; old messages are then ignored at
+  every layer. **That is the supported way to reopen a test beat store-wide.**
+  `downloads.js` calls `lockExclusive(beat.id)` in `finalizeGate` only *after*
+  `syncExclusiveClaims({ force: true })` has applied the seed and polled the bus (both bounded by
+  a timeout), so a gate already open on another device cannot receive a second exclusive license
+  when the first one has been published. The claim is written onto the live catalog entry
+  (`exclusiveLocked` + `exclusiveLockedAt` + `exclusiveOwned`), announced as
+  `kyrolll:exclusive-locked`, and the shared register announces `kyrolll:exclusive-claims`;
+  `script.js` repaints the tile/beat page from either.
+  The register carries an anonymous `buyerId`: the buyer's own record projects
+  `exclusiveOwned: true` and paints `[OWNED / YOURS]` alongside the public
   `[CLAIMED / SOLD OUT]` plate, while any other claim paints the sold-out plate alone.
   A claimed beat offers no lease menu and no public player — the action slot and the page carry
   the `[CLAIMED / SOLD OUT]` plate, a **disabled** `SOLD OUT` / `OWNED / YOURS` control (never a
@@ -541,13 +566,28 @@ payment gateway.
   disclaimer, its specs read `// CLAIMED / SOLD OUT` (or `// OWNED / YOURS` for the buyer), and
   `start`/`openMenu` refuse it with a toast even when called directly; a cold `download.html`
   link to a claimed beat shows the same secured archive view instead of the files or a gate.
-  `finalizeGate` re-checks the register before it issues, so a second gate that was already
-  open in another tab cannot receive the exclusive license either. `isExclusiveLocked(beatId)`
-  answers the register, `isExclusiveOwned(beatId)` answers the
+  `isExclusiveLocked(beatId)` answers the register, `isExclusiveOwned(beatId)` answers the
   buyer and `KYROlll_EXCLUSIVE_LOCK` holds the label/note/button copy. The files stay public, so
   this is a storefront lock and a duplicate-claim guard, not server-side access control. An
   entry may also ship already claimed (`exclusiveLocked: true`) for rights sold outside the
   store; none does today, A.D.L included.
+  **The global bus is off on a local preview by default** (`localhost`, `127.0.0.1`, `::1`,
+  `file:`), so the Playwright suite never publishes test claims into the production topic.
+  Enable it for a manual cross-device test with `?globalsync=1` (optionally
+  `&claimstopic=<throwaway topic>`), or set
+  `window.KYROlll_EXCLUSIVE_SYNC = { enabled: true, topic: "…" }` before `catalog.js` loads.
+  `KYROlll_HELPERS.syncExclusiveClaims()` and ``.resetExclusiveClaims()` are exposed for
+  diagnostics and tests; the latter only clears the local cache/outbox (the authoritative reset
+  is the Action's `reset` input).
+  **The claimed card is an archived pressing, not a disabled button.** The cover keeps its
+  original colour under a deep neutral veil (`.exclusive-art`), prints the captured resting
+  flower (`assets/kyrolll-flower-rest.png`) as a clean white seal, and sets
+  `CLAIMED / SOLD OUT` in wide, light display type with an `EXCLUSIVE RIGHTS SECURED` kicker; the
+  buyer's version reads `OWNED / YOURS` over `PRIVATE MASTER`. The live status plate
+  (`.exclusive-badge`) is a seal-and-copy banner, and `.exclusive-lock` is the same treatment on
+  the beat page and the download page. **Everything in that treatment is static** — no scan,
+  sheen or keyframe — so a claimed card can never flicker or move. It is equal-channel greys
+  only; the overlay's `noHue` audit is part of `brand-design.test.mjs`.
 - `window.KYROlll_SITE` — `{ formspreeEndpoint, paidFormspreeEndpoint }`. `formspreeEndpoint`
   is the authoritative **KYROIII — FREE DOWNLOADS** form (`https://formspree.io/f/mvkkkoew`)
   for every `[FREE 100%]` beat, while `paidFormspreeEndpoint` is an intentionally empty slot for
@@ -567,8 +607,9 @@ payment gateway.
 `Map`: `isUnlocked(beatId, packageId)` answers from it and `finalizeGate` fills it, but it is a
 **record only** — no path consults it to skip a step, so every selection re-opens the full gate
 and re-requires REVIEW & SIGN, and a reload starts empty. The one durable record it writes goes
-through `KYROlll_HELPERS.lockExclusive` (the `kyrolll_exclusive_claims` register in `catalog.js`),
-not through a gate. The only outbound request is the
+through `KYROlll_HELPERS.lockExclusive` into the **global** exclusive-claims register in
+`catalog.js` (after `syncExclusiveClaims({ force: true })`), not through a gate. The only outbound
+request is the
 single authoritative analytics POST at SIGN & UNLOCK (`postAnalytics`: `fetch(endpoint)` with
 `Accept: application/json` and a JSON body), carrying the email, verified full name, beat and
 package context, the exact license serial, the completed gate steps (`EMAIL + LICENSE
@@ -853,9 +894,9 @@ token `downloads.js` mints when a gate is passed — and only together with the 
 flow carries (`?sign=` / `?sig=`) — so a cold link — a shared URL, a bookmark, a new browser —
 is gated over the page and the flow is the same from any entry point (and that cold
 gate runs the same REVIEW & SIGN stage in place, so the signature never has to make the
-round trip). It does read the global exclusive-claims register from `catalog.js`: a claimed beat
-shows the secured archive, with `OWNED / YOURS` for its buyer and `CLAIMED / SOLD OUT` for
-everyone else. The LICENSEE signature is the one captured in the sign step, or the typed
+round trip). It does read the global exclusive-claims register from `catalog.js` (seed + live
+bus + local cache): a claimed beat shows the secured archive, with `OWNED / YOURS` for its buyer
+and `CLAIMED / SOLD OUT` for everyone else. The LICENSEE signature is the one captured in the sign step, or the typed
 `#license-signature` value on top of it, falling back to the `?email=` value from that same
 flow (updated live if a gate happens to run on this page) — never a stored address.
 
@@ -871,10 +912,10 @@ the prebuilt PDF and the `download` attribute — carry the flow there.
 Nothing the visitor types is stored anywhere — not server-side, and in the browser there is no
 persisted unlock set, no remembered address, no marketing list and no `kyrolll_licensee`. The
 only durable browser records are the catalog scroll offset (`kyrolll_catalog_scroll`, tab-only)
-and the global exclusive-claims register (`kyrolll_exclusive_claims`, an anonymous buyer id plus
-the claimed beat ids/timestamps — never an email or a signature). The brand-design test asserts
-`localStorage` holds only that claims register across four passes through the gates while
-`sessionStorage` holds nothing but the one scroll key. The in-page `grants` Map is the only gate
+and the local cache of the global exclusive-claims register (`kyrolll_exclusive_claims`, an
+anonymous buyer id plus the claimed beat ids/timestamps and any pending offline outbox — never an
+email or a signature). The brand-design test asserts `localStorage` holds only that claims cache
+across four passes through the gates while `sessionStorage` holds nothing but the one scroll key. The in-page `grants` Map is the only gate
 memory there is, and it does not survive the page. The only thing that leaves the
 browser is the address the visitor submits at a gate, which is `fetch`-posted to the configured
 newsletter provider (and only there).
@@ -913,9 +954,9 @@ ALL BEATS control restores it too. `history.scrollRestoration = "manual"` stops 
 own entry-scroll from fighting that write, and the restore is `behavior: "instant"` — the
 visitor asked to go back, not to watch the page travel. It applies on desktop and on a phone
 (the test taps a tile with a real pointer/mouse and with a real touch, then walks Back and ALL
-BEATS). Together with the exclusive-claims register in `localStorage`, this is the whole of the
-store's browser memory; the scroll key holds no gate state, address or signature, and
-`sessionStorage` dies with the tab.
+BEATS). Together with the `localStorage` cache of the global exclusive-claims register, this is
+the whole of the store's browser memory; the scroll key holds no gate state, address or signature,
+and `sessionStorage` dies with the tab.
 
 ## The support desk is built into the store
 
@@ -978,6 +1019,15 @@ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/   # 200 storefro
 There are no secrets and no environment variables: the app boots as-is, and the free
 downloads work the moment the static files are served.
 
+Reopening a test beat store-wide is the GitHub Action, not a local edit: run
+**Actions → Sync exclusive claims → Run workflow** with `reset` ticked (or, from a checkout,
+`node scripts/sync-exclusive-claims.mjs --reset` and commit `data/exclusive-claims.json`). That
+bumps the seed generation, so every browser ignores its cached claim and every older bus message
+on the next seed fetch. A purely local reset is `KYROlll_HELPERS.resetExclusiveClaims()`, which
+only clears the cache/outbox. To exercise the live bus on `localhost`, load the store with
+`?globalsync=1` (and a throwaway `&claimstopic=…`), or set
+`window.KYROlll_EXCLUSIVE_SYNC = { enabled: true, topic: "…" }` before `catalog.js` runs.
+
 Tests that ship with the repo:
 - `preview-player.test.mjs` is `node:test` based and needs no browser:
   `node --test preview-player.test.mjs`
@@ -1020,16 +1070,19 @@ Tests that ship with the repo:
   gate or the sign stage (only CANCEL does), that selecting a package passed on the download page
   re-opens the full gate and still requires the signature (nothing is auto-opened or prefilled,
   nothing is re-posted until submit, and the in-page grant is gone after a reload), and that gate
-  input is never written to `localStorage`/`sessionStorage` (only the exclusive-claims register
+  input is never written to `localStorage`/`sessionStorage` (only the exclusive-claims cache
   and the catalog scroll key may appear). It proves the exclusive claim is durable: after a
-  reload the buyer still sees `[OWNED / YOURS]` beside `[CLAIMED / SOLD OUT]`, and a claim seeded
-  for another buyer paints the sold-out plate with no ownership line. It
+  reload the buyer still sees `[OWNED / YOURS]` beside `[CLAIMED / SOLD OUT]`, and a version-2
+  claim seeded for another buyer paints the sold-out plate with no ownership line. It
   drives the six-card catalog, walks each scheduled drop's countdown and in-page unlock
   (A.D.L is the newest — 19:00 Israel time, 2 November 2026 — and wears its own
   cover-pressed record), then claims ADLL's exclusive tier and proves the beat
-  retires in place: the sold-out plate, the ownership marker, the disclaimer, no player, no
+  retires in place: the archive veil and flower seal on the cover, the sold-out plate, the
+  ownership marker, the disclaimer, no player, no
   menu, no cold-link hand-off, disabled `SOLD OUT` / `OWNED / YOURS` controls, and the same
-  state on the catalog tile after a history walk without a reload. It
+  state on the catalog tile after a history walk without a reload. (The local preview keeps the
+  live bus off, so the suite exercises the same seed/cache path the store uses without
+  publishing into production.) It
   taps a
   tile with a real mouse and a real touch to prove Back and ALL BEATS land on the remembered
   catalog offset. It needs
@@ -1058,10 +1111,11 @@ asked from scratch. The
 email is the one thing that can leave the browser: with `KYROlll_NEWSLETTER` configured, the gate
 posts the address to that provider (the opt-in box is a required part of every gate). The
 exclusive claim is the one piece of state the store persists on purpose: it retires a beat's
-leases and player across every page and tab, and it survives a reload so the buyer keeps the
-`OWNED / YOURS` marker and nobody can claim the same rights twice. It is still a storefront
-record, not a server-side lock — the files stay public — so a rights sale made outside the
-browser should ship with `exclusiveLocked: true` in `catalog.js`.
+leases and player across every page, every tab and every device (seed + live bus), and it
+survives a reload so the buyer keeps the `OWNED / YOURS` marker and nobody can claim the same
+rights twice. It is still a storefront record, not a server-side lock — the files stay public
+and the ntfy topic is public — so a rights sale made outside the browser should ship with
+`exclusiveLocked: true` in `catalog.js`.
 
 `index.html` pre-renders the active release's beat card so a direct beat link
 (`?beat=…`) paints without a flash; `script.js` replaces the grid contents right after

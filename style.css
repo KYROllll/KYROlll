@@ -2022,86 +2022,191 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
 
 .drop-locked--page { margin-bottom: 16px; }
 
-/* ---- Exclusive rights claimed: the secured status ------------------------- */
-/* Once the one exclusive license is signed for, the beat is archived. Its
-   lease buttons and its countdown give way to a single secured badge: a sharp
-   cut-corner plate, a hairline frame, a fine diagonal etch and one slow light
-   pass — high-end cyberpunk in the store's strict equal-channel palette, with
-   no hue anywhere. The badge is deliberately static in layout: only the light
-   pass moves, on the compositor, so a claimed tile can never jitter. */
-.exclusive-badge {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  width: 100%;
-  min-width: 0;
-  padding: 12px 16px;
-  border: 1px solid rgba(255, 255, 255, .58);
-  background:
-    repeating-linear-gradient(135deg, rgba(255, 255, 255, .055) 0 1px, transparent 1px 6px),
-    radial-gradient(140% 180% at 50% 0%, rgba(255, 255, 255, .16), rgba(255, 255, 255, .015) 68%),
-    rgba(8, 8, 8, .94);
-  color: var(--white);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: .16em;
-  line-height: 1.2;
-  text-align: center;
-  overflow: hidden;
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-  box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, .72),
-    inset 0 0 22px rgba(255, 255, 255, .08),
-    0 0 26px rgba(255, 255, 255, .08);
-  contain: layout style;
-}
-.exclusive-badge::before {
-  content: "";
+/* ---- Exclusive rights claimed: the archived-label treatment ---------------
+   A claimed beat is a retired pressing, not a disabled button. The cover keeps
+   its colour but sits under a deep neutral veil; the captured flower render is
+   printed on it as a clean white seal; and the status is set in the store's
+   own display voice — wide, quiet, all caps. Everything here is static: no
+   scan, no sheen, no keyframe, so a claimed card can never flicker or move. */
+.exclusive-art {
   position: absolute;
   inset: 0;
-  background: linear-gradient(100deg, transparent 0%, transparent 38%, rgba(255, 255, 255, .2) 50%, transparent 62%, transparent 100%);
-  transform: translate3d(-100%, 0, 0);
-  animation: exclusiveScan 5.4s linear infinite;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 18px;
+  background:
+    radial-gradient(100% 90% at 50% 12%, rgba(0, 0, 0, .42) 0%, rgba(0, 0, 0, .78) 54%, rgba(0, 0, 0, .94) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, .38) 0%, rgba(0, 0, 0, .9) 100%);
+  color: var(--white);
+  text-align: center;
+  pointer-events: none;
+  overflow: hidden;
+  contain: layout style;
+}
+.exclusive-art__frame {
+  position: absolute;
+  inset: 12px;
+  border: 1px solid rgba(255, 255, 255, .17);
+  border-radius: 1px;
   pointer-events: none;
 }
-.exclusive-badge__tick {
+.exclusive-art__stamp {
   position: relative;
-  z-index: 1;
+  display: block;
   flex: none;
-  width: 7px;
-  height: 7px;
-  border: 1px solid var(--white);
-  background: rgba(255, 255, 255, .18);
-  box-shadow: 0 0 10px rgba(255, 255, 255, .55);
-  transform: rotate(45deg);
+  width: 34%;
+  max-width: 148px;
+  aspect-ratio: 1;
+  filter: drop-shadow(0 14px 26px rgba(0, 0, 0, .62));
+}
+.exclusive-art__stamp img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.exclusive-art__kicker {
+  position: relative;
+  display: block;
+  margin-top: 2px;
+  font-size: 6.5px;
+  font-weight: 700;
+  letter-spacing: .34em;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, .58);
+  text-indent: .34em;
+}
+.exclusive-art__title {
+  position: relative;
+  display: block;
+  font-size: clamp(19px, 2.6vw, 30px);
+  font-weight: 300;
+  letter-spacing: .34em;
+  line-height: 1;
+  text-indent: .34em;
+  color: var(--white);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, .5);
+}
+.exclusive-art__sub {
+  position: relative;
+  display: block;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .48em;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, .68);
+  text-indent: .48em;
+}
+.exclusive-art__owned {
+  position: relative;
+  display: block;
+  margin-top: 3px;
+  padding: 5px 9px;
+  border: 1px solid rgba(255, 255, 255, .3);
+  font-size: 6.5px;
+  font-weight: 700;
+  letter-spacing: .26em;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, .9);
+  text-indent: .26em;
+}
+.exclusive-art--compact {
+  gap: 5px;
+  padding: 13px;
+}
+.exclusive-art--compact .exclusive-art__frame { inset: 9px; }
+.exclusive-art--compact .exclusive-art__stamp { width: 39%; max-width: 112px; }
+.exclusive-art--compact .exclusive-art__kicker { font-size: 5.5px; letter-spacing: .26em; text-indent: .26em; }
+.exclusive-art--compact .exclusive-art__title { font-size: clamp(16px, 2.1vw, 23px); letter-spacing: .28em; text-indent: .28em; }
+.exclusive-art--compact .exclusive-art__sub { font-size: 6px; letter-spacing: .4em; text-indent: .4em; }
+.exclusive-art--compact .exclusive-art__owned { padding: 4px 7px; font-size: 5.5px; }
+
+/* The live status plate that sits under the art. A seal, the kicker and the
+   sold-out line; the owner gets one quiet extra line. */
+.exclusive-badge {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 11px 14px;
+  border: 1px solid rgba(255, 255, 255, .24);
+  border-radius: 2px;
+  background:
+    linear-gradient(158deg, rgba(255, 255, 255, .075), rgba(255, 255, 255, .012) 58%),
+    rgba(8, 8, 8, .94);
+  color: var(--white);
+  text-align: left;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, .66),
+    0 16px 34px rgba(0, 0, 0, .34);
+  overflow: hidden;
+  contain: layout style;
+}
+.exclusive-badge__seal {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border: 1px solid rgba(255, 255, 255, .28);
+  border-radius: 50%;
+  background: #000;
+  overflow: hidden;
+}
+.exclusive-badge__seal img {
+  display: block;
+  width: 88%;
+  height: 88%;
+  object-fit: contain;
+}
+.exclusive-badge__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.exclusive-badge__kicker {
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: .3em;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, .5);
 }
 .exclusive-badge__text {
-  position: relative;
-  z-index: 1;
   min-width: 0;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  line-height: 1.3;
+  color: var(--white);
   overflow-wrap: anywhere;
 }
-.exclusive-badge--compact {
-  padding: 10px 12px;
-  font-size: 8.5px;
-  letter-spacing: .1em;
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
-}
-/* The buyer's own claim: the plate stays the same sold-out plate — the catalog
-   status is universal — and a quiet ownership line is printed under it. */
-.exclusive-badge--owned { border-color: rgba(255, 255, 255, .86); }
 .exclusive-badge__owner {
-  position: relative;
-  z-index: 1;
-  flex: 0 0 100%;
-  margin-top: 3px;
-  font-size: 8px;
+  font-size: 7px;
+  font-weight: 700;
   letter-spacing: .22em;
-  color: rgba(255, 255, 255, .86);
+  line-height: 1.4;
+  color: rgba(255, 255, 255, .84);
 }
+.exclusive-badge--compact {
+  gap: 9px;
+  padding: 8px 10px;
+}
+.exclusive-badge--compact .exclusive-badge__seal { width: 30px; height: 30px; }
+.exclusive-badge--compact .exclusive-badge__kicker { font-size: 5.5px; letter-spacing: .24em; }
+.exclusive-badge--compact .exclusive-badge__text { font-size: 8.5px; letter-spacing: .12em; }
+.exclusive-badge--compact .exclusive-badge__owner { font-size: 6.5px; letter-spacing: .18em; }
+/* The buyer's own claim: the plate stays the universal sold-out plate; the
+   ownership line is the only difference. */
+.exclusive-badge--owned { border-color: rgba(255, 255, 255, .5); }
+
 /* A claimed beat still shows a control in the action slot, but it is inert:
    disabled, unlit and outside the `.download-trigger` contract, so no tap can
    ever reach the package drawer or a second claim. */
@@ -2110,86 +2215,135 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 9px;
   width: 100%;
   margin-top: 10px;
   padding: 14px 20px;
-  border: 1px dashed rgba(255, 255, 255, .24);
-  background: rgba(255, 255, 255, .025);
-  color: var(--gray);
+  border: 1px solid rgba(255, 255, 255, .16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .04), rgba(255, 255, 255, .012)),
+    rgba(0, 0, 0, .34);
+  color: rgba(255, 255, 255, .56);
   font-family: inherit;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: .18em;
+  letter-spacing: .26em;
   line-height: 1.2;
   text-align: center;
   text-transform: uppercase;
   cursor: not-allowed;
   box-sizing: border-box;
-  opacity: .9;
 }
-.exclusive-locked-button:disabled { opacity: .9; }
+.exclusive-locked-button:disabled { opacity: 1; }
+.exclusive-locked-button__mark {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border: 1px solid rgba(255, 255, 255, .4);
+  background: rgba(255, 255, 255, .08);
+  transform: rotate(45deg);
+}
 .exclusive-locked-button__label { pointer-events: none; }
 .exclusive-locked-button--compact {
   margin-top: 8px;
   padding: 10px;
-  font-size: 9px;
-  letter-spacing: .12em;
+  font-size: 8.5px;
+  letter-spacing: .18em;
 }
 .catalog-tile__actions--exclusive-locked { display: flex; flex-direction: column; gap: 8px; }
 .catalog-tile__actions--exclusive-locked .exclusive-locked-button { margin-top: 0; }
-@keyframes exclusiveScan {
-  from { transform: translate3d(-100%, 0, 0); }
-  to { transform: translate3d(100%, 0, 0); }
-}
-.motion-paused .exclusive-badge::before { animation-play-state: paused !important; }
-@media (prefers-reduced-motion: reduce) {
-  .exclusive-badge::before { animation: none; opacity: .35; transform: none; }
-}
+
 /* The claimed beat's own page: the player is replaced by the archive notice,
    and the badge sits where the leases used to be. */
 .exclusive-lock {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
   padding: 22px;
-  border: 1px solid rgba(255, 255, 255, .09);
-  border-radius: 16px;
-  background: linear-gradient(158deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .008));
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 4px;
+  background:
+    radial-gradient(120% 130% at 12% 0%, rgba(255, 255, 255, .08), rgba(255, 255, 255, .012) 62%),
+    rgba(8, 8, 8, .86);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .58);
   overflow: hidden;
   contain: layout style;
 }
-.exclusive-lock__scan {
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .03) 0 1px, transparent 1px 4px);
-  pointer-events: none;
+.exclusive-lock__stamp {
+  display: grid;
+  place-items: center;
+  width: 86px;
+  height: 86px;
+  border: 1px solid rgba(255, 255, 255, .26);
+  border-radius: 50%;
+  background: #000;
+  overflow: hidden;
 }
+.exclusive-lock__stamp img {
+  display: block;
+  width: 88%;
+  height: 88%;
+  object-fit: contain;
+}
+.exclusive-lock__copy { min-width: 0; }
 .exclusive-lock__kicker {
-  position: relative;
-  z-index: 1;
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 700;
-  letter-spacing: .28em;
+  letter-spacing: .3em;
+  line-height: 1.6;
   color: var(--gray);
 }
+.exclusive-lock__title {
+  margin: 7px 0 0;
+  font-size: clamp(17px, 2.2vw, 22px);
+  font-weight: 300;
+  letter-spacing: .3em;
+  line-height: 1.1;
+  color: var(--white);
+  text-indent: .3em;
+}
 .exclusive-lock__note {
-  position: relative;
-  z-index: 1;
   margin-top: 10px;
   font-size: 9px;
   font-weight: 600;
   line-height: 1.8;
-  letter-spacing: .16em;
+  letter-spacing: .15em;
   color: var(--gray);
+}
+.exclusive-lock__meta {
+  margin-top: 9px;
+  font-size: 6.5px;
+  font-weight: 700;
+  letter-spacing: .26em;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, .4);
 }
 .exclusive-lock--page {
   margin-bottom: 16px;
+  grid-template-columns: 74px minmax(0, 1fr);
   gap: 16px;
 }
-.exclusive-lock--page .exclusive-lock__note { margin-top: 0; }
-.catalog-tile--exclusive-locked { border-color: rgba(255, 255, 255, .26); }
+.exclusive-lock--page .exclusive-lock__stamp { width: 74px; height: 74px; }
+.exclusive-lock--page .exclusive-badge { margin-top: 12px; }
+.exclusive-lock--page .exclusive-locked-button { margin-top: 12px; }
+.catalog-tile--exclusive-locked {
+  border-color: rgba(255, 255, 255, .2);
+  background: #060606;
+}
 .catalog-tile--exclusive-locked .catalog-tile__actions { padding-top: 2px; }
+.catalog-tile--exclusive-owned { border-color: rgba(255, 255, 255, .34); }
+
+@media (max-width: 640px) {
+  .exclusive-lock { grid-template-columns: 62px minmax(0, 1fr); gap: 14px; padding: 18px; }
+  .exclusive-lock__stamp { width: 62px; height: 62px; }
+  .exclusive-lock--page { grid-template-columns: 58px minmax(0, 1fr); }
+  .exclusive-lock--page .exclusive-lock__stamp { width: 58px; height: 58px; }
+  .exclusive-lock__title { font-size: 16px; letter-spacing: .22em; text-indent: .22em; }
+  .exclusive-art__title { font-size: clamp(17px, 6vw, 25px); }
+  .exclusive-art--compact .exclusive-art__title { font-size: clamp(15px, 4.6vw, 20px); }
+}
 
 /* ---- The package drawer: part of the trigger, not a popup over the page ---- */
 /* The drawer is rendered inside the button's own container (see `openMenu`),

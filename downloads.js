@@ -1081,35 +1081,50 @@
      this gate was open, the flow is refused instead of handing over a second
      exclusive license. */
   function finalizeGate(beat, pack, onUnlocked, email, serial) {
-    if (pack.id === "exclusive") {
-      const h = helpers();
-      if (h && h.isExclusiveLocked && h.isExclusiveLocked(beat.id)) {
-        showToast("CLAIMED / SOLD OUT — THIS BEAT IS SECURED");
-        unlockPage();
-        return;
+    const finish = () => {
+      if (pack.id === "exclusive") {
+        const h = helpers();
+        if (h && h.isExclusiveLocked && h.isExclusiveLocked(beat.id)) {
+          showToast("CLAIMED / SOLD OUT — THIS BEAT IS SECURED");
+          unlockPage();
+          return;
+        }
       }
-    }
-    rememberGrant(beat.id, pack.id, email);
-    const sm = showSuccessModal();
-    /* The exclusive license is the one that takes the beat off the market. The
-       claim is recorded only after the success surface is up, so the grid's
-       in-place repaint cannot tear that hand-off out from under the visitor;
-       the storefront reads the claimed entry on its next render. */
-    if (pack.id === "exclusive") {
-      const h = helpers();
-      const claimed = h && h.lockExclusive ? h.lockExclusive(beat.id) : true;
-      if (!claimed) {
+      rememberGrant(beat.id, pack.id, email);
+      const sm = showSuccessModal();
+      /* The exclusive license is the one that takes the beat off the market.
+         The claim is recorded only after the success surface is up, so the
+         grid's in-place repaint cannot tear that hand-off out from under the
+         visitor; the storefront reads the claimed entry on its next render. */
+      if (pack.id === "exclusive") {
+        const h = helpers();
+        const claimed = h && h.lockExclusive ? h.lockExclusive(beat.id) : true;
+        if (!claimed) {
+          if (sm && sm.parentNode) sm.remove();
+          showToast("CLAIMED / SOLD OUT — THIS BEAT IS SECURED");
+          unlockPage();
+          return;
+        }
+      }
+      setTimeout(() => {
         if (sm && sm.parentNode) sm.remove();
-        showToast("CLAIMED / SOLD OUT — THIS BEAT IS SECURED");
         unlockPage();
+        if (onUnlocked) onUnlocked(beat, pack, email || "", serial || "");
+      }, 1400);
+    };
+    /* An exclusive claim is a global, first-writer-wins decision now, so the
+       local register is refreshed from the shared seed and the live bus before
+       the license is issued. If that check fails to reach the network, `finish`
+       still runs against the last known state — the storefront never blocks a
+       visitor because a bus is offline. */
+    if (pack.id === "exclusive") {
+      const h = helpers();
+      if (h && h.syncExclusiveClaims) {
+        h.syncExclusiveClaims({ force: true }).then(finish, finish);
         return;
       }
     }
-    setTimeout(() => {
-      if (sm && sm.parentNode) sm.remove();
-      unlockPage();
-      if (onUnlocked) onUnlocked(beat, pack, email || "", serial || "");
-    }, 1400);
+    finish();
   }
 
   /* ------------------------------------------------------------ gate errors */

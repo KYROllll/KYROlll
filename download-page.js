@@ -43,6 +43,10 @@
     return endpoint;
   }
   const escapeHTML = (value) => (helpers() ? helpers().escapeHTML(value) : String(value == null ? "" : value));
+  const SECURED_STAMP_ART = "assets/kyrolll-flower-rest.png";
+  const securedStampHTML = (className) =>
+    '<span class="' + className + '" aria-hidden="true"><img src="' + SECURED_STAMP_ART +
+    '" alt="" width="1040" height="1040" loading="lazy" decoding="async"></span>';
   /* The same rule the gate's REVIEW & SIGN stage enforces: a license is signed
      by a FULL name — first AND last. A re-sign here that is a single word never
      reaches the document; the previous signature is kept instead. */
@@ -407,16 +411,24 @@
     filesPanel.hidden = true;
     licensePanel.hidden = true;
     listEl.innerHTML = '<div class="exclusive-lock exclusive-lock--page" role="status" data-state="' + (owned ? "exclusive-owned" : "exclusive-locked") + '">' +
-        '<span class="exclusive-lock__scan" aria-hidden="true"></span>' +
-        '<span class="exclusive-badge' + (owned ? " exclusive-badge--owned" : "") + '" data-exclusive-lock="' + (owned ? "owned" : "sold-out") + '">' +
-          '<span class="exclusive-badge__tick" aria-hidden="true"></span>' +
-          '<span class="exclusive-badge__text">' + escapeHTML(label) + "</span>" +
-          (owned ? '<span class="exclusive-badge__owner" data-exclusive-owner>' + escapeHTML(ownedLabel) + "</span>" : "") +
-        "</span>" +
-        '<p class="exclusive-lock__note">' + escapeHTML(note) + "</p>" +
-        '<button type="button" class="exclusive-locked-button" data-exclusive-claim-disabled disabled aria-disabled="true">' +
-          '<span class="exclusive-locked-button__label">' + escapeHTML(button) + "</span>" +
-        "</button>" +
+        securedStampHTML("exclusive-lock__stamp") +
+        '<div class="exclusive-lock__copy">' +
+          '<p class="exclusive-lock__kicker">' + (owned ? "PRIVATE MASTER // YOURS" : "EXCLUSIVE RIGHTS // ARCHIVED") + "</p>" +
+          '<p class="exclusive-lock__title">' + (owned ? "OWNED / YOURS" : "CLAIMED / SOLD OUT") + "</p>" +
+          '<p class="exclusive-lock__note">' + escapeHTML(note) + "</p>" +
+          '<span class="exclusive-badge' + (owned ? " exclusive-badge--owned" : "") + '" data-exclusive-lock="' + (owned ? "owned" : "sold-out") + '">' +
+            '<span class="exclusive-badge__seal" aria-hidden="true"><img src="' + SECURED_STAMP_ART + '" alt="" width="1040" height="1040" loading="lazy" decoding="async"></span>' +
+            '<span class="exclusive-badge__body">' +
+              '<span class="exclusive-badge__kicker">' + (owned ? "PRIVATE MASTER // YOURS" : "EXCLUSIVE RIGHTS // ARCHIVED") + "</span>" +
+              '<span class="exclusive-badge__text">' + escapeHTML(label) + "</span>" +
+              (owned ? '<span class="exclusive-badge__owner" data-exclusive-owner>' + escapeHTML(ownedLabel) + "</span>" : "") +
+            "</span>" +
+          "</span>" +
+          '<button type="button" class="exclusive-locked-button" data-exclusive-claim-disabled disabled aria-disabled="true">' +
+            '<span class="exclusive-locked-button__mark" aria-hidden="true"></span>' +
+            '<span class="exclusive-locked-button__label">' + escapeHTML(button) + "</span>" +
+          "</button>" +
+        "</div>" +
       "</div>" +
       '<div class="download-list__empty"><a class="kyrolll-btn" href="index.html#catalog">BACK TO THE STORE</a></div>';
   }
@@ -463,6 +475,20 @@
       render();
     }
   }
+
+  /* A claim that lands while this page is open retires the beat here too — the
+     seed poll or the live bus repaints every other page, so this one joins in
+     instead of leaving files on screen until a reload. The buyer's own granted
+     exclusive page keeps its hand-off. */
+  function refreshExclusiveState() {
+    if (!beat || !exclusiveLocked()) return;
+    if (granted && pack && pack.id === "exclusive") return;
+    const d = downloads();
+    if (d && d.closeGate) d.closeGate();
+    showExclusiveLocked();
+  }
+  window.addEventListener("kyrolll:exclusive-claims", refreshExclusiveState);
+  window.addEventListener("kyrolll:exclusive-locked", refreshExclusiveState);
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
   else boot();

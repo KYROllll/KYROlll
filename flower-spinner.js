@@ -57,6 +57,11 @@
 
   function bind(img) {
     if (!img || bound.has(img) || img.tagName !== "IMG") return;
+    /* A decorative image inside a covered slot — the claimed card's flower seal
+       — must never drive the cover's loading state: the cover is the thing the
+       wait belongs to, and a lazy seal arriving late would otherwise hide an
+       already-painted cover behind a spinner. */
+    if (img.hasAttribute("data-flower-skip")) return;
     const container = img.closest(CONTAINER);
     if (!container) return;
     bound.add(img);

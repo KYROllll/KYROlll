@@ -358,16 +358,18 @@
   // preview and every lease are retired, and every page of the store paints the
   // secured status instead of a button.
   //
-  // The claim is GLOBAL and DURABLE inside this browser. It is written to
-  // localStorage under `kyrolll_exclusive_claims`, so every catalog, every beat
-  // page, every download page and every tab agree — across reloads, history
-  // walks and return visits. The same record carries an anonymous buyer id:
-  // the visitor who signed the exclusive license is recognised on return and
-  // sees `OWNED / YOURS`, while any other claim paints `CLAIMED / SOLD OUT`.
+  // The claim is GLOBAL. A browser publishes it to the store's claim bus (a
+  // public ntfy topic); every open page subscribes to that bus, and a scheduled
+  // GitHub Action merges the bus into `data/exclusive-claims.json`, the shared
+  // seed every page fetches. localStorage is now only a cache plus an outbox
+  // for claims made while offline — not the source of truth. `generation` is
+  // the reset signal: bumping it retires every older claim and every older bus
+  // message at once.
   //
   // The files are still public static assets, so this is a storefront record,
-  // not a server-side lock: it prevents duplicate claims and confusion in the
-  // UI, but it is not an access-control boundary.
+  // not server-side access control: it prevents duplicate claims and keeps the
+  // whole store honest in the UI, but it cannot stop someone from fetching a
+  // file directly.
   const EXCLUSIVE_LOCK_LABEL = "[CLAIMED / SOLD OUT]";
   const EXCLUSIVE_OWNED_LABEL = "[OWNED / YOURS]";
   const EXCLUSIVE_LOCK_NOTE = "THIS BEAT HAS BEEN SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE.";
@@ -375,18 +377,110 @@
   const EXCLUSIVE_LOCK_BUTTON = "SOLD OUT";
   const EXCLUSIVE_OWNED_BUTTON = "OWNED / YOURS";
   const EXCLUSIVE_CLAIMS_KEY = "kyrolll_exclusive_claims";
-  const EXCLUSIVE_CLAIMS_VERSION = 1;
+  const EXCLUSIVE_CLAIMS_VERSION = 2;
+  const EXCLUSIVE_CLAIMS_SEED = "data/exclusive-claims.json";
+  const EXCLUSIVE_BUS_ORIGIN = "https://ntfy.sh";
+  const EXCLUSIVE_BUS_FALLBACK_TOPIC = "kyroiii-claims-6f2a9d4c8b1e7f30";
+  const EXCLUSIVE_POLL_MS = 20000;
+  const EXCLUSIVE_SEED_MS = 300000;
 
-  /* localStorage is the only durable piece of storefront state. It can be
-     unavailable (private mode, a locked-down browser, a file:// page), so every
-     read and write is defensive: if it fails the store still works from the
-     in-memory catalog exactly as it did before claims were persisted. */
+  /* The live bus is off on a local preview by default, so the Playwright suite
+     never publishes test claims into the real store. Add `?globalsync=1` (or
+     set `window.KYROlll_EXCLUSIVE_SYNC = { enabled: true, topic: "..." }`)
+     before catalog.js loads to exercise it locally. */
+  function exclusiveSyncSettings() {
+    const configured = window.KYROlll_EXCLUSIVE_SYNC || {};
+    const loc = window.location || {};
+    const search = typeof loc.search === "string" ? loc.search : "";
+    const host = typeof loc.hostname === "string" ? loc.hostname : "";
+    const protocol = typeof loc.protocol === "string" ? loc.protocol : "";
+    const forced = configured.enabled === true || window.KYROlll_EXCLUSIVE_SYNC_FORCE === true ||
+      /(?:^|[?&])globalsync=1(?:&|$)/.test(search);
+    const local = !host || host === "localhost" || host === "127.0.0.1" || host === "::1" || protocol === "file:";
+    const topicMatch = /[?&]claimstopic=([^&]+)/.exec(search);
+    const explicitTopic = configured.topic || (topicMatch ? decodeURIComponent(topicMatch[1]) : "");
+    return {
+      enabled: configured.enabled === false ? false : (forced || !local),
+      seed: configured.seed || EXCLUSIVE_CLAIMS_SEED,
+      bus: String(configured.bus || EXCLUSIVE_BUS_ORIGIN).replace(/\/+$/, ""),
+      topic: explicitTopic || EXCLUSIVE_BUS_FALLBACK_TOPIC,
+      configuredTopic: explicitTopic || "",
+      pollMs: Math.max(5000, Number(configured.pollMs) || EXCLUSIVE_POLL_MS),
+      seedMs: Math.max(60000, Number(configured.seedMs) || EXCLUSIVE_SEED_MS)
+    };
+  }
+
+  const exclusiveSync = exclusiveSyncSettings();
+  const exclusiveBus = {
+    seed: exclusiveSync.seed,
+    bus: exclusiveSync.bus,
+    topic: exclusiveSync.topic,
+    configuredTopic: exclusiveSync.configuredTopic,
+    source: null,
+    cursor: 0,
+    seen: {},
+    seenCount: 0,
+    syncing: null,
+    flushing: null,
+    pollTimer: 0,
+    seedTimer: 0
+  };
+
+  /* A claim check must never hold a gate open on a slow or unreachable bus, so
+     every network call is bounded. The caller always falls back to the last
+     known state. */
+  function exclusiveFetch(url, options, ms) {
+    if (typeof window.fetch !== "function") return Promise.reject(new Error("fetch unavailable"));
+    if (typeof window.AbortController !== "function" || typeof window.setTimeout !== "function") {
+      return window.fetch(url, options);
+    }
+    const controller = new window.AbortController();
+    const timer = window.setTimeout(() => {
+      try { controller.abort(); } catch (err) { /* ignore */ }
+    }, Math.max(500, Number(ms) || 5000));
+    const request = Object.assign({}, options, { signal: controller.signal });
+    const done = () => {
+      try { window.clearTimeout(timer); } catch (err) { /* ignore */ }
+    };
+    return window.fetch(url, request).then((response) => { done(); return response; }, (err) => { done(); throw err; });
+  }
+
+  /* localStorage can be unavailable (private mode, a locked-down browser, a
+     file:// page), so every read and write is defensive: if it fails the store
+     still works from the in-memory catalog and the live bus. */
   function exclusiveStorage() {
     try {
       return window.localStorage || null;
     } catch (err) {
       return null;
     }
+  }
+  function mintToken(prefix, bytes) {
+    const buffer = new Uint8Array(bytes);
+    try {
+      if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(buffer);
+    } catch (err) { /* fall through to the non-crypto seed */ }
+    let token = "";
+    for (let i = 0; i < buffer.length; i += 1) {
+      // Math.random is enough for an ownership marker; this is never a
+      // security boundary, only a way to recognise the same browser.
+      const byte = buffer[i] || Math.floor(Math.random() * 256);
+      token += ("0" + byte.toString(16)).slice(-2);
+    }
+    return prefix + token;
+  }
+  function mintBuyerId() { return mintToken("buyer-", 16); }
+  function mintClaimNonce() { return mintToken("claim-", 8); }
+
+  function parseClaimRecord(record) {
+    if (!record || typeof record !== "object") return null;
+    if (typeof record.at !== "string" || Number.isNaN(Date.parse(record.at))) return null;
+    return {
+      at: record.at,
+      ownerId: typeof record.ownerId === "string" ? record.ownerId : "",
+      msgId: typeof record.msgId === "string" ? record.msgId : "",
+      nonce: typeof record.nonce === "string" ? record.nonce : ""
+    };
   }
   function parseExclusiveClaims(raw) {
     if (!raw) return null;
@@ -396,49 +490,55 @@
       if (!data.claims || typeof data.claims !== "object" || Array.isArray(data.claims)) return null;
       const claims = {};
       Object.keys(data.claims).forEach((id) => {
-        const record = data.claims[id];
-        if (!record || typeof record !== "object" || typeof record.at !== "string") return;
-        claims[id] = {
-          at: record.at,
-          ownerId: typeof record.ownerId === "string" ? record.ownerId : ""
-        };
+        const record = parseClaimRecord(data.claims[id]);
+        if (record) claims[id] = record;
       });
+      const outbox = Array.isArray(data.outbox) ? data.outbox.map((item) => {
+        if (!item || typeof item.beatId !== "string") return null;
+        const record = parseClaimRecord(item);
+        return record ? {
+          beatId: item.beatId,
+          at: record.at,
+          ownerId: record.ownerId,
+          nonce: record.nonce,
+          generation: typeof item.generation === "string" ? item.generation : ""
+        } : null;
+      }).filter(Boolean) : [];
       return {
         version: EXCLUSIVE_CLAIMS_VERSION,
+        generation: typeof data.generation === "string" ? data.generation : "",
         buyerId: typeof data.buyerId === "string" ? data.buyerId : "",
-        claims: claims
+        claims: claims,
+        outbox: outbox
       };
     } catch (err) {
       return null;
     }
   }
-  function mintBuyerId() {
-    const bytes = new Uint8Array(16);
-    try {
-      if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
-    } catch (err) { /* fall through to the non-crypto seed */ }
-    let token = "";
-    for (let i = 0; i < bytes.length; i += 1) {
-      // Math.random is enough for an ownership marker; this is never a
-      // security boundary, only a way to recognise the same browser.
-      const byte = bytes[i] || Math.floor(Math.random() * 256);
-      token += ("0" + byte.toString(16)).slice(-2);
-    }
-    return "buyer-" + token;
-  }
   function readExclusiveClaims() {
     const storage = exclusiveStorage();
     if (!storage) return null;
+    let raw = null;
     try {
-      return parseExclusiveClaims(storage.getItem(EXCLUSIVE_CLAIMS_KEY));
+      raw = storage.getItem(EXCLUSIVE_CLAIMS_KEY);
     } catch (err) {
       return null;
     }
+    if (!raw) return null;
+    const parsed = parseExclusiveClaims(raw);
+    /* A version-1 register is the old local-only test state. It is retired so
+       the freshly opened global register starts clean. */
+    if (!parsed) {
+      try { storage.removeItem(EXCLUSIVE_CLAIMS_KEY); } catch (err) { /* ignore */ }
+    }
+    return parsed;
   }
   let exclusiveClaims = readExclusiveClaims() || {
     version: EXCLUSIVE_CLAIMS_VERSION,
+    generation: "",
     buyerId: "",
-    claims: {}
+    claims: {},
+    outbox: []
   };
   if (!exclusiveClaims.buyerId) exclusiveClaims.buyerId = mintBuyerId();
   function saveExclusiveClaims() {
@@ -480,12 +580,231 @@
   }
   projectExclusiveClaims();
 
+  function announceExclusiveClaims() {
+    if (typeof window.dispatchEvent !== "function" || typeof window.CustomEvent !== "function") return;
+    window.dispatchEvent(new window.CustomEvent("kyrolll:exclusive-claims", {
+      detail: { claims: Object.keys(exclusiveClaims.claims) }
+    }));
+  }
   function announceExclusiveClaim(beat) {
     if (typeof window.dispatchEvent !== "function" || typeof window.CustomEvent !== "function") return;
     window.dispatchEvent(new window.CustomEvent("kyrolll:exclusive-locked", {
       detail: { beatId: beat.id, slug: beat.slug, owned: !!beat.exclusiveOwned }
     }));
   }
+
+  /* Earliest claim wins. `at` is the bus server time for a synced claim and the
+     client's clock only while it is still in the outbox; the message id breaks
+     a same-second tie deterministically. */
+  function earlierClaim(candidate, current) {
+    if (!current) return true;
+    const a = Date.parse(candidate.at) || 0;
+    const b = Date.parse(current.at) || 0;
+    if (a !== b) return a < b;
+    return String(candidate.msgId || candidate.nonce || "") < String(current.msgId || current.nonce || "");
+  }
+  function mergeExclusiveClaims(records, opts) {
+    let changed = false;
+    Object.keys(records || {}).forEach((id) => {
+      const record = parseClaimRecord(records[id]);
+      if (!record) return;
+      const beat = window.KYROlll_HELPERS && window.KYROlll_HELPERS.beatById ? window.KYROlll_HELPERS.beatById(id) : null;
+      if (!beat) return;
+      const current = exclusiveClaims.claims[beat.id];
+      if (earlierClaim(record, current)) {
+        exclusiveClaims.claims[beat.id] = record;
+        changed = true;
+      }
+    });
+    if (changed) {
+      saveExclusiveClaims();
+      projectExclusiveClaims();
+      if (!(opts && opts.silent)) announceExclusiveClaims();
+    }
+    return changed;
+  }
+  function applyExclusiveSeed(data) {
+    if (!data || data.version !== EXCLUSIVE_CLAIMS_VERSION) return false;
+    if (data.topic && !exclusiveBus.configuredTopic && String(data.topic) !== exclusiveBus.topic) {
+      exclusiveBus.topic = String(data.topic);
+      if (exclusiveBus.source) connectExclusiveBus();
+    }
+    const generation = typeof data.generation === "string" ? data.generation : "";
+    let reset = false;
+    if (generation && generation !== exclusiveClaims.generation) {
+      exclusiveClaims.generation = generation;
+      exclusiveClaims.claims = {};
+      exclusiveClaims.outbox = [];
+      reset = true;
+    }
+    const merged = mergeExclusiveClaims(data.claims, { silent: true });
+    if (reset || merged) {
+      saveExclusiveClaims();
+      projectExclusiveClaims();
+      announceExclusiveClaims();
+      return true;
+    }
+    return false;
+  }
+  function handleBusEvent(event) {
+    if (!event || event.event !== "message" || typeof event.message !== "string") return false;
+    const id = typeof event.id === "string" ? event.id : "";
+    if (id && exclusiveBus.seen[id]) return false;
+    if (id) {
+      exclusiveBus.seen[id] = true;
+      exclusiveBus.seenCount += 1;
+      if (exclusiveBus.seenCount > 4000) {
+        exclusiveBus.seen = {};
+        exclusiveBus.seenCount = 0;
+      }
+    }
+    if (Number.isFinite(event.time) && event.time > exclusiveBus.cursor) exclusiveBus.cursor = event.time;
+    let body;
+    try { body = JSON.parse(event.message); } catch (err) { return false; }
+    if (!body || body.type !== "claim") return false;
+    /* Generation is compared strictly: a claim from before the last store-wide
+       reset can never reopen a retired beat, and a client that has not loaded
+       the seed yet cannot publish a generation-less claim into the register. */
+    if (String(body.generation || "") !== String(exclusiveClaims.generation || "")) return false;
+    if (typeof body.beatId !== "string") return false;
+    const beat = window.KYROlll_HELPERS && window.KYROlll_HELPERS.beatById ? window.KYROlll_HELPERS.beatById(body.beatId) : null;
+    if (!beat) return false;
+    return mergeExclusiveClaims({
+      [beat.id]: {
+        at: new Date((Number.isFinite(event.time) ? event.time : Date.now() / 1000) * 1000).toISOString(),
+        ownerId: typeof body.ownerId === "string" ? body.ownerId : "",
+        msgId: id,
+        nonce: typeof body.nonce === "string" ? body.nonce : ""
+      }
+    });
+  }
+  function applyBusLines(text) {
+    let changed = false;
+    String(text || "").split("\n").forEach((line) => {
+      if (!line.trim()) return;
+      let event;
+      try { event = JSON.parse(line); } catch (err) { return; }
+      if (handleBusEvent(event)) changed = true;
+    });
+    return changed;
+  }
+  /* A claim made offline waits here and is published on the next connection.
+     The bus normalises the timestamp to its own clock, so a client with a
+     skewed clock cannot jump ahead of an earlier claim. */
+  function flushExclusiveOutbox() {
+    if (!exclusiveSync.enabled || !exclusiveBus.topic || !exclusiveClaims.outbox.length ||
+        typeof window.fetch !== "function") return Promise.resolve();
+    if (exclusiveBus.flushing) return exclusiveBus.flushing;
+    const pending = exclusiveClaims.outbox.slice();
+    const completed = {};
+    const run = pending.reduce((chain, item) => chain.then(() => {
+      const current = exclusiveClaims.claims[item.beatId];
+      if (!current || current.nonce !== item.nonce) {
+        completed[item.nonce] = true;
+        return null;
+      }
+      return exclusiveFetch(exclusiveBus.bus + "/" + encodeURIComponent(exclusiveBus.topic), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          type: "claim",
+          beatId: item.beatId,
+          at: item.at,
+          ownerId: item.ownerId,
+          nonce: item.nonce,
+          generation: item.generation || exclusiveClaims.generation
+        })
+      }, 6000).then((response) => {
+        if (!response.ok) throw new Error("claim publish failed");
+        return response.json().catch(() => null).then((info) => {
+          completed[item.nonce] = true;
+          if (info && info.id) {
+            const live = exclusiveClaims.claims[item.beatId];
+            if (live && live.nonce === item.nonce) {
+              live.msgId = String(info.id);
+              if (info.time) live.at = new Date(info.time * 1000).toISOString();
+              saveExclusiveClaims();
+              projectExclusiveClaims();
+            }
+          }
+        });
+      });
+    }).catch(() => null), Promise.resolve());
+    exclusiveBus.flushing = run.then(() => {
+      exclusiveClaims.outbox = exclusiveClaims.outbox.filter((item) => !completed[item.nonce]);
+      saveExclusiveClaims();
+    }).finally(() => { exclusiveBus.flushing = null; });
+    return exclusiveBus.flushing;
+  }
+  function syncExclusiveClaims(options) {
+    if (!exclusiveSync.enabled || typeof window.fetch !== "function") {
+      return Promise.resolve({ ok: false, disabled: true });
+    }
+    if (exclusiveBus.syncing && !(options && options.force)) return exclusiveBus.syncing;
+    /* The seed is applied FIRST: it carries the current generation, and the bus
+       messages are filtered against that generation. Reading both in parallel
+       let a first-time visitor drop a live claim because their generation was
+       still empty when the message arrived. */
+    const seedRun = exclusiveFetch(exclusiveSync.seed + "?v=" + Date.now(), {
+      cache: "no-store",
+      headers: { Accept: "application/json" }
+    }, 5000).then((response) => response.ok ? response.json() : null).then((data) => {
+      if (data) applyExclusiveSeed(data);
+      return !!data;
+    }).catch(() => false);
+    const run = seedRun.then((seedOk) => {
+      const busRun = exclusiveBus.topic ? exclusiveFetch(
+        exclusiveBus.bus + "/" + encodeURIComponent(exclusiveBus.topic) + "/json?poll=1&since=" +
+          (exclusiveBus.cursor > 0 ? String(exclusiveBus.cursor) : "all"),
+        { cache: "no-store", headers: { Accept: "application/json" } },
+        5000
+      ).then((response) => response.ok ? response.text() : "").then((text) => {
+        applyBusLines(text);
+        return !!text;
+      }).catch(() => false) : Promise.resolve(false);
+      return busRun.then((busOk) => {
+        flushExclusiveOutbox();
+        return { ok: seedOk || busOk, seed: seedOk, bus: busOk };
+      });
+    });
+    exclusiveBus.syncing = run.finally(() => { exclusiveBus.syncing = null; });
+    return exclusiveBus.syncing;
+  }
+  function connectExclusiveBus() {
+    if (!exclusiveBus.topic || typeof window.EventSource !== "function") return;
+    if (exclusiveBus.source) {
+      try { exclusiveBus.source.close(); } catch (err) { /* ignore */ }
+    }
+    const since = exclusiveBus.cursor > 0 ? String(exclusiveBus.cursor) : "1h";
+    const source = new window.EventSource(
+      exclusiveBus.bus + "/" + encodeURIComponent(exclusiveBus.topic) + "/sse?since=" + since
+    );
+    exclusiveBus.source = source;
+    source.addEventListener("message", (event) => {
+      try { handleBusEvent(JSON.parse(event.data)); } catch (err) { /* ignore */ }
+    });
+  }
+  function startExclusiveSync() {
+    if (!exclusiveSync.enabled) return;
+    exclusiveBus.topic = exclusiveSync.topic || EXCLUSIVE_BUS_FALLBACK_TOPIC;
+    syncExclusiveClaims({ force: true }).then(() => connectExclusiveBus());
+    if (typeof window.setInterval === "function") {
+      exclusiveBus.pollTimer = window.setInterval(() => {
+        if (typeof document === "undefined" || document.visibilityState !== "hidden") syncExclusiveClaims();
+      }, exclusiveSync.pollMs);
+      exclusiveBus.seedTimer = window.setInterval(() => syncExclusiveClaims({ force: true }), exclusiveSync.seedMs);
+    }
+    if (typeof window.addEventListener === "function") {
+      window.addEventListener("visibilitychange", () => {
+        if (typeof document !== "undefined" && document.visibilityState === "visible") {
+          syncExclusiveClaims({ force: true }).then(() => {
+            if (!exclusiveBus.source || exclusiveBus.source.readyState === 2) connectExclusiveBus();
+          });
+        }
+      });
+    }
+  }
+
   function isExclusiveLocked(beatId) {
     const beat = window.KYROlll_HELPERS.beatById(beatId);
     return !!(beat && beat.exclusiveLocked);
@@ -501,7 +820,8 @@
     if (record) {
       return {
         at: record.at,
-        owned: !!record.ownerId && record.ownerId === exclusiveClaims.buyerId
+        owned: !!record.ownerId && record.ownerId === exclusiveClaims.buyerId,
+        msgId: record.msgId || ""
       };
     }
     return beat.exclusiveLocked ? { at: beat.exclusiveLockedAt || "", owned: false } : null;
@@ -511,12 +831,38 @@
     if (!beat || beat.exclusiveLocked || exclusiveClaims.claims[beat.id]) return false;
     const ownerId = (meta && meta.ownerId) || exclusiveClaims.buyerId;
     const at = new Date(timeNow()).toISOString();
-    exclusiveClaims.claims[beat.id] = { at: at, ownerId: ownerId };
+    const nonce = mintClaimNonce();
+    const record = { at: at, ownerId: ownerId, msgId: "", nonce: nonce };
+    exclusiveClaims.claims[beat.id] = record;
+    exclusiveClaims.outbox.push({
+      beatId: beat.id,
+      at: at,
+      ownerId: ownerId,
+      nonce: nonce,
+      generation: exclusiveClaims.generation
+    });
     beat.exclusiveLocked = true;
     beat.exclusiveLockedAt = at;
     beat.exclusiveOwned = ownerId === exclusiveClaims.buyerId;
     saveExclusiveClaims();
     announceExclusiveClaim(beat);
+    flushExclusiveOutbox();
+    return true;
+  }
+  /* A local reset is a developer/test convenience: it clears this browser's
+     cache and pending outbox. The authoritative, store-wide reset is the
+     GitHub Action's `reset` input, which bumps the shared generation. */
+  function resetExclusiveClaims() {
+    exclusiveClaims.claims = {};
+    exclusiveClaims.outbox = [];
+    /* Forget how far the bus was read too, so the next sync replays the shared
+       register instead of resuming past the claim this reset just dropped. */
+    exclusiveBus.cursor = 0;
+    exclusiveBus.seen = {};
+    exclusiveBus.seenCount = 0;
+    saveExclusiveClaims();
+    projectExclusiveClaims();
+    announceExclusiveClaims();
     return true;
   }
   /* Another tab is the source of truth when it writes the claims record. The
@@ -527,18 +873,16 @@
       if (!event || event.key !== EXCLUSIVE_CLAIMS_KEY) return;
       const next = event.newValue ? parseExclusiveClaims(event.newValue) : {
         version: EXCLUSIVE_CLAIMS_VERSION,
+        generation: exclusiveClaims.generation,
         buyerId: exclusiveClaims.buyerId,
-        claims: {}
+        claims: {},
+        outbox: []
       };
       if (!next) return;
       if (!next.buyerId) next.buyerId = exclusiveClaims.buyerId;
       exclusiveClaims = next;
       projectExclusiveClaims();
-      if (typeof window.dispatchEvent === "function" && typeof window.CustomEvent === "function") {
-        window.dispatchEvent(new window.CustomEvent("kyrolll:exclusive-claims", {
-          detail: { claims: Object.keys(exclusiveClaims.claims) }
-        }));
-      }
+      announceExclusiveClaims();
     });
   }
   window.KYROlll_EXCLUSIVE_LOCK = {
@@ -548,7 +892,9 @@
     ownedNote: EXCLUSIVE_OWNED_NOTE,
     button: EXCLUSIVE_LOCK_BUTTON,
     ownedButton: EXCLUSIVE_OWNED_BUTTON,
-    storageKey: EXCLUSIVE_CLAIMS_KEY
+    storageKey: EXCLUSIVE_CLAIMS_KEY,
+    seed: EXCLUSIVE_CLAIMS_SEED,
+    topic: EXCLUSIVE_BUS_FALLBACK_TOPIC
   };
 
   window.KYROlll_HELPERS = {
@@ -613,6 +959,12 @@
     isExclusiveLocked(beatId) { return isExclusiveLocked(beatId); },
     isExclusiveOwned(beatId) { return isExclusiveOwned(beatId); },
     exclusiveClaim(beatId) { return exclusiveClaim(beatId); },
-    lockExclusive(beatId, meta) { return lockExclusive(beatId, meta); }
+    lockExclusive(beatId, meta) { return lockExclusive(beatId, meta); },
+    syncExclusiveClaims(options) { return syncExclusiveClaims(options); },
+    resetExclusiveClaims() { return resetExclusiveClaims(); }
   };
+
+  /* The bus starts after the helpers exist, so the seed and any cached bus
+     events can be projected through the same resolvers every render uses. */
+  startExclusiveSync();
 })();
