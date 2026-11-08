@@ -2,7 +2,14 @@
   "version": 2,
   "generation": "2026-11-08T10:25:38.000Z",
   "topic": "kyroiii-claims-6f2a9d4c8b1e7f30",
-  "updatedAt": "2026-11-08T10:25:38.000Z",
-  "cursor": 1794133538,
-  "claims": {}
+  "updatedAt": "2026-11-08T16:46:09.738Z",
+  "cursor": 1794156081,
+  "claims": {
+    "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af": {
+      "at": "2026-11-08T16:41:21.000Z",
+      "ownerId": "buyer-14841e47d4529c695153baccc6d60406",
+      "msgId": "rBGQ5o5M5Eat",
+      "nonce": "claim-63b02cebe0a55a41"
+    }
+  }
 }
