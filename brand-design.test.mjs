@@ -2535,6 +2535,37 @@ try {
   assert.equal(await adllLive.locator(`${ADLL_CARD} .beat-preview`).count(), 0, 'a claimed beat has no public player');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .vinyl-record`).count(), 0, 'a claimed beat hides the vinyl record completely');
   assert.equal(await adllLive.locator(`${ADLL_CARD}.beat-detail .vinyl-open`).count(), 0, 'a claimed beat never starts the record reveal');
+  const claimedGeometry = () => adllLive.evaluate((id) => {
+    const card = document.getElementById('card-' + id);
+    const wrap = card.querySelector('.beat-detail__artwork-wrap').getBoundingClientRect();
+    const cover = card.querySelector('.beat-detail__artwork').getBoundingClientRect();
+    const coverEl = card.querySelector('.beat-detail__artwork');
+    const style = getComputedStyle(coverEl);
+    return {
+      scrollY: Math.round(window.scrollY),
+      dx: Math.abs((cover.left + cover.width / 2) - (wrap.left + wrap.width / 2)),
+      dy: Math.abs((cover.top + cover.height / 2) - (wrap.top + wrap.height / 2)),
+      ratio: cover.width / wrap.width,
+      width: Math.round(cover.width),
+      height: Math.round(cover.height),
+      border: style.borderTopWidth + ' ' + style.borderTopStyle,
+      borderRadius: style.borderRadius,
+      boxShadow: style.boxShadow,
+      frameCount: card.querySelectorAll('.exclusive-art__frame').length,
+    };
+  }, ADLL_ID);
+  const claimedBefore = await claimedGeometry();
+  assert(claimedBefore.dx < 1, 'the archived cover is horizontally centered in its stage');
+  assert(claimedBefore.dy < 1, 'the archived cover is vertically centered in its stage');
+  assert(Math.abs(claimedBefore.ratio - 1) < 0.01, 'the archived cover fills the stage without vinyl remnants');
+  assert(claimedBefore.width >= 340, 'the archived cover stays large and dominant');
+  assert.equal(claimedBefore.border, '0px none', 'the archived cover has no border line');
+  assert.equal(claimedBefore.borderRadius, '0px', 'the archived cover has no rounded plate edge');
+  assert.equal(claimedBefore.boxShadow, 'none', 'the archived cover carries no bounding shadow');
+  assert.equal(claimedBefore.frameCount, 0, 'the archived cover has no inner hairline frame');
+  await adllLive.waitForTimeout(600);
+  const claimedAfter = await claimedGeometry();
+  assert.deepEqual(claimedAfter, claimedBefore, 'the archived cover does not drift or shake while settling');
   await adllLive.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), ADLL_ID);
   await adllLive.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), ADLL_ID);
   assert.equal(await adllLive.locator('.gate-modal').count(), 0, 'a claimed beat opens no gate');

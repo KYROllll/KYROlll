@@ -161,7 +161,6 @@ function exclusiveLockedButtonHTML(beat, compact, owned) {
    typography. It is decorative — the badge below carries the live status. */
 function exclusiveArtHTML(compact, owned) {
   return `<span class="exclusive-art${compact ? " exclusive-art--compact" : ""}${owned ? " exclusive-art--owned" : ""}" data-exclusive-art="${owned ? "owned" : "sold-out"}" aria-hidden="true">
-        <span class="exclusive-art__frame"></span>
         ${exclusiveStampHTML("exclusive-art__stamp")}
         <span class="exclusive-art__kicker">${owned ? "PRIVATE MASTER" : "EXCLUSIVE RIGHTS SECURED"}</span>
         <span class="exclusive-art__title">${owned ? "OWNED" : "CLAIMED"}</span>
@@ -297,9 +296,9 @@ function beatDetailInner(beat) {
       <div class="card__actions">
         ${actionsSlotHTML(beat, false)}
       </div>
-    </section>      <div class="beat-detail__artwork-wrap">
+    </section>      <div class="beat-detail__artwork-wrap${locked ? " beat-detail__artwork-wrap--soldout" : ""}" data-soldout="${locked ? "true" : "false"}">
       <figure class="beat-detail__artwork">
-        <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" decoding="async" fetchpriority="high">
+        <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" width="1024" height="1024" decoding="async" fetchpriority="high">
         ${locked ? exclusiveArtHTML(false, owned) : ""}
       </figure>
       ${locked ? "" : `<div class="vinyl-record" aria-hidden="true">
@@ -336,6 +335,10 @@ function scrollToBeatDetail() {
 function landOnBeatDetail() {
   scrollToBeatDetail();
   requestAnimationFrame(scrollToBeatDetail);
+  /* The archived stage is a reserved square: cover, seal and type are already
+     sized before the image reports, so re-aligning on later body resizes only
+     risks a visible shake. The two writes above are the whole landing. */
+  if (document.querySelector(".beat-detail .exclusive-art")) return;
   if ("ResizeObserver" in window) {
     // Artwork and fonts settle after the card is built, so the landing offset is
     // re-applied while the page grows. Coalesce a burst of body resizes into one
@@ -500,7 +503,15 @@ function rebuildCatalog() {
    The next render reads the claimed catalog entry. */
 function repaintExclusiveClaims() {
   if (document.documentElement.classList.contains("gate-open")) return;
+  /* A live claim must not yank a visitor away from where they already are:
+     repaint in place and hand the scroll back exactly as it was. */
+  const top = window.scrollY;
   rebuildCatalog();
+  if (document.documentElement.classList.contains("beat-page")) {
+    const restore = () => window.scrollTo({ top, behavior: "instant" });
+    restore();
+    requestAnimationFrame(restore);
+  }
 }
 window.addEventListener("kyrolll:exclusive-locked", repaintExclusiveClaims);
 /* Another tab, the shared seed or the live claim bus changed a claim:

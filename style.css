@@ -2047,12 +2047,54 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
   overflow: hidden;
   contain: layout style;
 }
-.exclusive-art__frame {
-  position: absolute;
-  inset: 12px;
-  border: 1px solid rgba(255, 255, 255, .17);
-  border-radius: 1px;
-  pointer-events: none;
+/* A claimed beat has no vinyl stage: the archived square is the whole page.
+   The cover is the sole object on the stage — no bounding frame, plate line or
+   jacket edge is drawn around it. The veil makes the original cover recede
+   beneath only the official flower seal and the ownership typography. */
+.beat-detail__artwork-wrap--soldout {
+  display: grid;
+  place-items: center;
+  width: min(100%, 620px);
+  max-width: 620px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  contain: layout style;
+}
+.beat-detail__artwork-wrap--soldout .beat-detail__artwork {
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 auto !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  overflow: hidden !important;
+  contain: layout style;
+  transform: none;
+}
+.beat-detail__artwork-wrap--soldout .beat-detail__artwork img {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  transform: none;
+}
+.beat-detail__artwork-wrap--soldout .exclusive-art {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+}
+.beat-detail__artwork-wrap--soldout .exclusive-art__stamp {
+  width: clamp(150px, 42%, 232px);
+  max-width: 232px;
+  filter: drop-shadow(0 16px 32px rgba(0, 0, 0, .72));
+}
+.beat-detail__artwork-wrap--soldout .exclusive-art__title {
+  font-size: clamp(24px, 3.1vw, 38px);
 }
 .exclusive-art__stamp {
   position: relative;
@@ -2106,7 +2148,7 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
   display: block;
   margin-top: 3px;
   padding: 5px 9px;
-  border: 1px solid rgba(255, 255, 255, .3);
+  border: 0;
   font-size: 6.5px;
   font-weight: 700;
   letter-spacing: .26em;
@@ -2118,7 +2160,6 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
   gap: 5px;
   padding: 13px;
 }
-.exclusive-art--compact .exclusive-art__frame { inset: 9px; }
 .exclusive-art--compact .exclusive-art__stamp { width: 39%; max-width: 112px; }
 .exclusive-art--compact .exclusive-art__kicker { font-size: 5.5px; letter-spacing: .26em; text-indent: .26em; }
 .exclusive-art--compact .exclusive-art__title { font-size: clamp(16px, 2.1vw, 23px); letter-spacing: .28em; text-indent: .28em; }
