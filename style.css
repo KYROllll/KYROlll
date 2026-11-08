@@ -139,7 +139,7 @@ button {
 /* The hero/preloader stage still hosts the live 3D flower (brand-logo.min.js);
    the still is its captured resting render and is swapped for the canvas on the
    very first frame, so the cross-fade is invisible. The download page keeps the
-   same stage but shows the brown X logo directly — no WebGL flower on that
+   same stage but shows the still logo directly — no WebGL flower on that
    surface any more. */
 .logo-stage canvas, .logo-fallback {
   position: absolute;
@@ -582,9 +582,9 @@ body > canvas {
   inset: 0;
   pointer-events: none;
   /* === THE BRAND WARM PALETTE START === */
-  /* The hero's warm bloom belongs to the same brown-gold family as the record
-     label, so it is marked as an authored colour exception and the monochrome
-     audit skips it. */
+  /* The hero's warm bloom belongs to the same brown family as the brush X marks,
+     so it is marked as an authored colour exception and the monochrome audit
+     skips it. */
   box-shadow: inset 0 0 60px rgba(122, 74, 46, 0.08);
   /* === THE BRAND WARM PALETTE END === */
   z-index: 0;
@@ -662,9 +662,8 @@ body > canvas {
   height: 100%;
   object-fit: cover;
   /* The cover art that ships with the beat is distinctive — do not desaturate or
-     recolour it. Each pressing paints the brown-gold / pearl / ice-silver / sage /
-     fire-red / graffiti palette behind the disc separately, so the photo stays
-     above that and is never touched by the cover's CSS colour block. */
+     recolour it. The record behind the beat page is one shared photographed
+     pressing, so the cover stays above it and is never touched by vinyl CSS. */
 }
 .catalog-tile__title { display: block; padding: 16px; font-size: 12px; font-weight: 700; line-height: 1.5; letter-spacing: .04em; }
 .catalog-tile__link:focus-visible, .beat-navigation a:focus-visible { outline: 2px solid var(--white); outline-offset: 3px; }
@@ -697,7 +696,7 @@ body > canvas {
   background: linear-gradient(180deg, rgba(11, 11, 11, 0.94) 0%, rgba(11, 11, 11, 0.72) 64%, rgba(11, 11, 11, 0) 100%);
   -webkit-backdrop-filter: blur(18px) saturate(130%);
   backdrop-filter: blur(18px) saturate(130%);
-  contain: layout;
+  contain: layout style;
 }
 .beat-navigation a {
   display: inline-flex;
@@ -906,7 +905,9 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
   display: inline-flex;
   will-change: transform;
   transform: translate3d(0, 0, 0);
-  contain: strict;
+  /* No containment here: `contain: strict` brings size containment, which makes
+     the track size as if it had no contents — the whole ticker collapsed to 0 × 0.
+     The banner owns the `contain: layout paint`; the track only needs its layer. */
   backface-visibility: hidden;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -1482,86 +1483,52 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
    centre label all come from the photograph itself. Nothing here generates a rim,
    a marbling plume, a flake field or a colour accent, so no beat can shift the
    pressing and no accent can drift over time.
-   The cut is centred on the photographed label (28% of the disc), which is what
-   lets the brown KYROIII X logo land dead centre on the label's own circle.
+   The cut is centred on the photographed label (27% of the disc), which is what
+   lets the label plate land dead centre on the label's own circle.
 
-   THE BRAND LABEL — one warm brown-gold circle, sampled from the brush X mark
-   (`assets/kyrolll-brown-x.png`). This is the store's second authored colour
-   exception (after the hero tagline): a branded warm tone, painted here as a
-   pure CSS radial gradient on the centre label behind the brown X mark, not as a
-   photo pixel and not as a per-beat hue. It is the only place on the record that
-   is not black-and-white, and it is isolated between the markers below so the
-   monochrome audit never sees it. */
-/* === THE BRAND LABEL PALETTE START === */
-.vinyl-record::before,
-.vinyl-record__logo-frame::before {
-  content: "";
+   THE CENTRE LABEL is the original KYROIII logo artwork itself —
+   `assets/kyrolll-flower-label.png`, the white flower on its own solid black
+   plate, pixel-for-pixel the mark that ships in `assets/kyrolll-flower.svg` and
+   `LOGO KYROlll.svg`. It is applied as a print: the plate is a plain static
+   circle that never rotates and takes no filter, no tint and no glow, so it
+   reads as ink on the record rather than as an animated logo. The artwork is
+   black and white, so the record stays inside the monochrome rule. */
+.vinyl-record__logo-frame {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 28%;
-  height: 28%;
+  /* 30% of the disc. The printed label in the photograph measures 28.06% of the
+     disc, so the plate clears it by ~1% all round — a real 12" label is about a
+     third of the disc, so 30% reads as a print with margin, and no tan sliver can
+     show through even with sub-pixel rounding on a phone. */
+  width: 30%;
+  height: 30%;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 42%, #7a4a2e 0%, #56382f 55%, #3a2418 100%);
+  overflow: hidden;
+  background: #000000;
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.55),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
-    inset 0 0 14px rgba(0, 0, 0, 0.55);
-  z-index: 1;
-}
-.vinyl-record__logo-frame {
-  z-index: 2;
-}
-
-/* The mark's shadow is warm for the same reason the label is: it has to sit on
-   the brown-gold pressing, not float over it as a grey glow. */
-.vinyl-record__logo {
-  filter: drop-shadow(0 0 4px rgba(122, 74, 46, 0.25));
-}
-/* === THE BRAND LABEL PALETTE END === */
-
-.vinyl-record__logo-frame {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  /* 27% of the disc: just inside the 28% photographed label, so a thin ring of
-     the tan label always frames the mark. */
-  width: 27%;
-  height: 27%;
-  transform: translate(-50%, -50%);
+    inset 0 0 14px rgba(0, 0, 0, 0.45);
   z-index: 2;
   pointer-events: none;
 }
-/* The mark itself: the brown KYROIII X logo on the centre label, spinning with
-   the record. No WebGL flower — the brown X is the signature mark on the brown-gold
-   label, painted as a crisp PNG with its own alpha channel, and it is the only
-   logo layer on this surface (the hero/preloader keep their own 3D flower stage). */
+/* The mark itself: the exact original logo art, cropped to the plate's circle
+   by the frame's own radius. No 3D stage, no rotation, no colour filter. */
 .vinyl-record__logo {
-  position: absolute;
-  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
+  object-fit: cover;
   border-radius: 50%;
-  overflow: hidden;
-  opacity: 1;
-  transition: opacity .4s ease;
-  /* The platter turn is in-plane only: the mark spins, the record box never
-     rotates, so a rotating square can never grow past the sleeve. */
-  transform-origin: 50% 50%;
-  animation: vinylCenterSpin 16s linear infinite;
-  image-rendering: crisp-edges;
-  will-change: transform;
-  backface-visibility: hidden;
   pointer-events: none;
 }
 /* The reveal. `vinyl-open` is added by script.js 1.35 s after the beat card is
    built (the card's own 0.8 s fade finishes first, so the title and player get
    the eye for a moment). The record starts *inside* the sleeve and rides out
    under the label frame, so the cover reads as a physical sleeve the record is
-   pulled out of: the disc eases horizontally from the sleeve, the label and the
-   X-logo come with it, and the pull-out lands with the label clear of the cover.
+   pulled out of: the disc eases horizontally from the sleeve, the label print
+   comes with it, and the pull-out lands with the label clear of the cover.
    Nothing is ever painted exposed first — the `:not()` rule is the element's very
    first computed state. */
 @media (prefers-reduced-motion: no-preference) {
@@ -1576,21 +1543,9 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
   }
 }
 
-@keyframes vinylCenterSpin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* Under reduced motion the vinyl record still reveals but the centre logo does
-   not spin — it shows the resting pose only, matching the hero's own behaviour. */
-@media (prefers-reduced-motion: reduce) {
-  .vinyl-record__logo {
-    animation: none !important;
-  }
-}
-
 /* The record rides out from behind the sleeve — see the base rule and the
-   `prefers-reduced-motion` reveal above. */
+   `prefers-reduced-motion` reveal above. Nothing on the disc animates: the
+   label is a static print, so the pull-out is the record's only motion. */
 
 /* ---------- 4. The Command Center — download button & audio-reactive player -- */
 
@@ -1667,7 +1622,7 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
 
 .beat-detail__info,
 .beat-detail__head {
-  contain: layout;
+  contain: layout style;
 }
 
 .beat-detail__title {
@@ -1973,7 +1928,7 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
 .drop-countdown[data-release-countdown] {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
-  contain: layout;
+  contain: layout style;
 }
 
 .drop-countdown[data-release-countdown] .drop-countdown__time {
@@ -2084,7 +2039,7 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
     inset 0 0 0 1px rgba(0, 0, 0, .72),
     inset 0 0 22px rgba(255, 255, 255, .08),
     0 0 26px rgba(255, 255, 255, .08);
-  contain: layout;
+  contain: layout style;
 }
 .exclusive-badge::before {
   content: "";
@@ -2138,7 +2093,7 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
   border-radius: 16px;
   background: linear-gradient(158deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .008));
   overflow: hidden;
-  contain: layout;
+  contain: layout style;
 }
 .exclusive-lock__scan {
   position: absolute;

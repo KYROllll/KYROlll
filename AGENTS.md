@@ -164,8 +164,9 @@ fails so one dead flower can never hold it back) plus a 450 ms hold; before that
 which is exactly the pose the still image shows. `paused` / `document.hidden` freeze the shared
 clock for every flower at once, and the drifting rim light only starts with the rotation, so the
 hand-off pixels do not move either. That shared clock belongs to the hero and the preloader
-only: a vinyl centre label is not a WebGL stage at all any more (see the vinyl section — it is
-the brown X logo image, spun by CSS), so nothing on the record joins `flowerLoop`.
+only: a vinyl centre label is not a WebGL stage at all (see the vinyl section — it is the
+original flower logo image, printed flat and static), so nothing on the record joins
+`flowerLoop`.
 A stage that shipped with the page joins the initial pass, which is why
 `stagePainted()` is gated on `initialHosts`. The
 veil's `logoBreathe` glow stays cancelled (`.preloader .logo-stage { animation: none }`)
@@ -286,6 +287,11 @@ Two scroll-time hitches have been fixed and must not come back:
   collapsing as you scroll fires `resize` with only the height changing, hundreds of times per
   scroll; rebuilding the track on each one (a synchronous re-layout plus a fresh animation) is
   what made the ticker stutter as the page scrolled. Only a real width change rebuilds.
+- **The track carries no containment.** `.marquee-banner` owns `contain: layout paint`; a
+  `contain: strict` on `.marquee-track` was tried and is a trap — `strict` includes *size*
+  containment, so the track sized as if it had no contents and the whole ticker measured
+  0 × 0 (an invisible strip under a 40px white banner) while every child still reported its
+  text. If containment is ever added to the track, `layout paint` is the most it may take.
   `brand-design.test.mjs` asserts both: the banner's computed opacity is `1` and a
   height-only resize leaves the track's children untouched (a width change replaces them).
 
@@ -319,7 +325,7 @@ sheen or shadow keyframes, the handle/track contract, samples the player and its
 frames of playback and requires zero drift, and then scrolls the open drawer to prove its seam
 never moves and its direction never flips.
 
-## The vinyl record is one photographed pressing — brown X mark dead centre, brown-gold label
+## The vinyl record is one photographed pressing — the original flower logo printed on its label
 
 Every beat plays the same record, and that record is a photograph. `.vinyl-record` paints
 `assets/vinyl-classic.png` as `background: url(...) center / contain no-repeat`. The asset is
@@ -334,42 +340,48 @@ written or read, and `data-vinyl` / `.vinyl-record--pressing` / `.vinyl-record__
 from both the markup and the stylesheet. The geometry vars (`--vinyl-art`,
 `--vinyl-record`, `--vinyl-top`, `--vinyl-slide`) are unrelated and still in use.
 
-**The only painted colour on the record is the centre label.** Behind the flower, the record
-carries one warm **brand brown-gold** circle — a CSS `::before` on `.vinyl-record` — sampled from
-the brush X mark (`assets/kyrolll-brown-x.png`): a `#56382f` core, burnished to `#7a4a2e` at the
-light side and deepened to `#3a2418` at the rim, with a 1px dark hairline and a faint inner
-silver hairline so the label reads as a real record label. It is a `radial-gradient(circle at
-50% 42%, ...)`, 28% of the disc, dead centre on the label. This is the store's second authored
-colour exception (after the hero tagline), isolated between the `THE BRAND LABEL PALETTE`
-markers in `style.css` and exempted from the monochrome audit — everything else on the record
-and the page stays equal-channel grey. The disc itself stays black-and-white from the
-photograph; only the label reads warm.
+**The centre label is the original logo artwork, printed flat.** There is no painted colour on
+the record at all: the label is `assets/kyrolll-flower-label.png`, the white KYROIII flower on
+its own solid black plate. That PNG is not a redraw and not a re-render — it is the raster
+`assets/kyrolll-flower.svg` (byte-identical to `LOGO KYROlll.svg`) embeds, extracted with its
+pixels untouched: 1024 × 1024, no alpha, black field, white flower. The record therefore stays
+inside the monochrome rule by construction (the plate is `#000000`, the mark is `#FFFFFF`), and
+the old brown-gold `radial-gradient` label, its `THE BRAND LABEL PALETTE` marker block and the
+warm drop shadow on the mark are all gone — the monochrome audit now needs no exception on the
+record whatsoever.
 
-**The brown X mark sits dead centre of the disc — it is a plain image, not a 3D stage.**
-The photographed label is a circle 28% of the disc across and the cut is centred on it, so the
-record's own centre *is* the label's centre. `.vinyl-record__logo-frame` is a 27% square at
-`top: 50%; left: 50%; transform: translate(-50%, -50%)` — just inside the label, leaving a thin
-ring of brown-gold around the mark. The record's DOM holds only that frame, and the mark inside
-it is `<img class="vinyl-record__logo" src="assets/kyrolll-x-logo.png" width="400" height="400"
-loading="lazy" decoding="async">`: the **authentic brush-X** from `assets/kyrolll-brown-x.png`,
-extracted, cut to a transparent square and centred. `script.js` holds that one path in
-`VINYL_LABEL_ART`, and the record no longer mounts `<div class="logo-stage
-vinyl-flower-stage">` / `brand-logo.js` at all — the live 3D flower now belongs to the hero and
-the preloader only. There is therefore no `.logo-stage` in the record's DOM, no canvas, no
-`is-ready` cross-fade and no SVG fallback: the PNG is the mark from the first frame, and it
-alone spins in-plane on the platter clock (`vinylCenterSpin`, 16 s linear,
-`will-change: transform`), so the record never tumbles about the world Y axis.
-`image-rendering: crisp-edges` keeps the mark hard-edged, and its drop shadow is warm brown
-(`0 0 4px rgba(122, 74, 46, .25)`) to sit on the brown-gold label rather than casting grey.
-Because the mark is a raster image it is exempt from CSS `text-transform`, exactly like the
-brush-X brand marks and the watermarks in the hero and footer.
+**The artwork sits dead centre of the disc — a plain image, not a 3D stage, and it never moves.**
+The photographed label is a circle `28.06%` of the disc across (measured off
+`assets/vinyl-classic.png`) and the cut is centred on it, so the record's own centre *is* the
+label's centre. `.vinyl-record__logo-frame` is a **30%** circle at `top: 50%; left: 50%;
+transform: translate(-50%, -50%)`, carrying `background: #000000`, `border-radius: 50%` and
+`overflow: hidden`: the plate clears the printed circle by ~1% all round, which is what keeps a
+tan sliver from ever showing through at phone sizes (the rendered record was sampled: zero tan
+pixels anywhere on the disc), and 30% is close to a real 12" label's third of the disc. The
+record's DOM holds only that frame, and the mark inside it is
+`<img class="vinyl-record__logo" src="assets/kyrolll-flower-label.png" width="1024" height="1024"
+loading="lazy" decoding="async">` at `width/height: 100%; object-fit: cover`, so the frame's own
+radius crops the artwork to the label's circle. `script.js` holds that one path in
+`VINYL_LABEL_ART`, and the record never mounts `<div class="logo-stage
+vinyl-flower-stage">` / `brand-logo.js` — the live 3D flower belongs to the hero and the
+preloader only. There is no `.logo-stage` in the record's DOM, no canvas, no `is-ready`
+cross-fade and no SVG fallback.
+
+**The label is a print, so nothing on it animates.** `.vinyl-record__logo` declares no
+`animation`, no `transform`, no `filter`, no `will-change` and no `image-rendering` override:
+`@keyframes vinylCenterSpin` and its reduced-motion override were removed with the brown X mark,
+so the flower holds one pose for the life of the page on every renderer and under either motion
+preference (asserted as `animationName: "none"` and an unchanged computed `transform` across
+frames). The disc's only motion is the sleeve pull-out. Because the mark is a raster image it is
+exempt from CSS `text-transform`, exactly like the brush-X brand marks and the watermarks in the
+hero and footer.
 
 **The reveal.** `script.js` adds `vinyl-open` **1.35 s** after the card is built (the card's
 own 0.8 s fade finishes well inside that delay), and `style.css` transitions the record out
 over **1 s** on `cubic-bezier(.16, 1, .3, 1)` with a short opacity fade alongside. The record
 starts **tucked inside the sleeve** and rides out under the label frame, so the cover reads as a
-physical sleeve the record is pulled out of — the disc, label and flower all move together and
-the brown-gold label clears the sleeve at the end. The tuck is the element's **first** computed
+physical sleeve the record is pulled out of — the disc and its label move together and the
+label plate clears the sleeve at the end. The tuck is the element's **first** computed
 state — `.beat-detail:not(.vinyl-open) .vinyl-record` sets `translateX(0)` and `opacity: 0` in
 the stylesheet — so the record is never briefly painted in the exposed position: no pre-render
 flash, no pop. Only `translateX` and `opacity` move; a 360° rotation is never reintroduced,
@@ -390,14 +402,13 @@ still wins over the record's `z-index: 3` only where they overlap, so the label 
 uncut and fully visible once the disc has slid clear of the jacket. The record overlaps the
 cover's right edge like a record pulled out of its jacket, and an occluded label
 would cut the flower in half. `brand-design.test.mjs` asserts the frame's centre against the
-disc's centre to within 1px, the 27% frame, the 92% inset diameter, the 60% sleeve, vertical
+disc's centre to within 1px, the 30% plate, the 92% inset diameter, the 60% sleeve, vertical
 containment, the large cover and zero horizontal overflow at 375, 390, 768 and 1440 px, the
-label is a brown-gold radial gradient (not black, not tan-from-photo), the brown X mark is a
-plain `<img>` from `assets/kyrolll-x-logo.png` spinning on `vinylCenterSpin`, no vinyl
+label is the original flower artwork (a plain `<img>` from `assets/kyrolll-flower-label.png`)
+on a solid black plate with no spin, no filter and no animation, no vinyl
 `logo-stage`/`data-vinyl-flower` host survives in the markup, no synthetic rim/conic-gradient
 survives, no per-beat modifier class is emitted, and the sleeve and stage never move while the
-record rides out. The label is nowhere described as black or as "the black centre label" in
-the test text.
+record rides out.
 
 ## Preview responsiveness in this sandbox
 
@@ -1019,10 +1030,10 @@ hidden on the home route — so entering the store never flashes a beat page bef
 homepage hero. That rule is **`display: none`, not `visibility: hidden`**: a
 visually-hidden card is still laid out, so the browser fetched its cover (93KB, at
 `fetchpriority="high"`), its `assets/vinyl-classic.png` record background (266KB) and its
-label mark (55KB) on every home visit — ~414KB, competing with the hero's own flower —
+label artwork (28KB) on every home visit — ~390KB, competing with the hero's own flower —
 only for `script.js` to discard the card a moment later. Measured on the home route, taking
-the card out of the render tree drops `vinyl-classic.png` and `kyrolll-x-logo.png` from the
-load entirely. Do not restore `visibility` here, and keep the pre-rendered cover
+the card out of the render tree drops `vinyl-classic.png` and `kyrolll-flower-label.png` from
+the load entirely. Do not restore `visibility` here, and keep the pre-rendered cover
 `loading="lazy"` for the same reason.
 
 ## `kyroiii-plugin/` is a separate product surface

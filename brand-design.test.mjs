@@ -207,9 +207,9 @@ const noCardBleed = async (page, label) => {
 // Every record is the same KYROIII record: one photographed 12" — the supplied
 // studio shot, cut to the disc and alpha-masked (`assets/vinyl-classic.png`) —
 // carries the grooves, both soft speculars, the lead-in band and the tan centre
-// label. The record holds only the flower frame, and the signature flower sits
-// dead centre on that label, spinning on the 16s platter clock. There is no rim,
-// no per-beat palette, no pasted cover and no generated artwork layer.
+// label. The record holds only the label plate, and the original flower logo sits
+// dead centre on it as a static print — no animation of any kind. There is no
+// rim, no per-beat palette, no pasted cover and no generated artwork layer.
 const assertPressing = async (page, card, label, options = {}) => {
   const record = page.locator(`${card} .vinyl-record`);
   await record.waitFor();
@@ -250,17 +250,14 @@ const assertPressing = async (page, card, label, options = {}) => {
   assert.deepEqual(pressing.children, ['vinyl-record__logo-frame'], `${label}: the record holds only the flower`);
   assert.equal(pressing.splashCount, 0, `${label}: no rim, splash, blob or artwork element is generated`);
   assert.equal(pressing.logo, true, `${label}: the signature flower is the label`);
-  assert.equal(pressing.src, 'assets/kyrolll-flower.svg', `${label}: the label is always the official flower`);
-  if (options.reducedMotion) {
-    assert.equal(pressing.logoAnimation, 'none', `${label}: reduced motion holds the platter still`);
-  } else {
-    assert.equal(pressing.logoAnimation, 'vinylCenterSpin', `${label}: the flower keeps its slow spin`);
-    assert.equal(pressing.logoDuration, '16s', `${label}: the flower keeps the 16s linear loop`);
-  }
+  assert.equal(pressing.src, 'assets/kyrolll-flower-label.png', `${label}: the label is the original flower logo artwork`);
+  // The label is a print, not an animation: the plate and its flower are still
+  // in every state, motion preference or not.
+  assert.equal(pressing.logoAnimation, 'none', `${label}: the centre label is static — it never spins`);
   // Dead centre of the disc — which is the photographed label's own centre.
   assert(Math.abs(pressing.frameOffset[0]) < 1, `${label}: the flower is horizontally centred on the label`);
   assert(Math.abs(pressing.frameOffset[1]) < 1, `${label}: the flower is vertically centred on the label`);
-  assert(Math.abs(pressing.frameRatio - 0.27) < 0.01, `${label}: the flower fits inside the photographed label`);
+  assert(Math.abs(pressing.frameRatio - 0.30) < 0.01, `${label}: the label plate covers the photographed label`);
   assert(Math.abs(pressing.diameterRatio - 0.92) < 0.01, `${label}: the record keeps its 92% inset diameter`);
   assert.equal(pressing.insideStage, true, `${label}: the record never breaches the artwork stage`);
   assert.equal(pressing.coverFilter, 'none', `${label}: the cover art keeps its original colour`);
@@ -294,12 +291,12 @@ const noHue = async (page, label) => {
   });
   assert(report.inspected > 50, `${label}: the audit really walked the page (${report.inspected} elements)`);
   assert.deepEqual(report.bad, [], `${label}: every non-tagline rendered colour is an equal-channel grey`);
-  // The brand-label block is the one warm exception. The audit excludes it, but the
-  // stylesheet itself must still describe the label as the sampled brown-gold radial
-  // (not as black and not as the tan photo-pixel) — so the label reads warm while the
-  // audit stays clean.
-  assert.match(cssText, /\.vinyl-record::before \{[\s\S]*?background: radial-gradient\(circle at 50% 42%, #7a4a2e 0%, #56382f 55%, #3a2418 100%\)/, 'the label is the brand brown-gold radial gradient, not black or photo-tan');
-  assert.match(cssText, /\.vinyl-record::before \{[\s\S]*?width: 28%;\s*height: 28%;\s*transform: translate\(-50%, -50%\);\s*border-radius: 50%;\s*z-index: 1;/, 'the brown-gold label is a centred 28% circle at z-index 1 under the flower frame');
+  // The centre label is the original KYROIII logo art — the white flower on its
+  // own solid black plate — so the record needs no colour exception at all: the
+  // plate is black and white and the artwork supplies it, not the stylesheet.
+  const cssText = await readFile(new URL('./style.css', import.meta.url), 'utf8');
+  assert.match(cssText, /\.vinyl-record__logo-frame \{[\s\S]*?background: #000000/, 'the label plate is the logo artwork\'s own solid black');
+  assert.doesNotMatch(cssText, /radial-gradient\(circle at 50% 42%/, 'no painted brown-gold label survives — the artwork is the label');
 };
 
 // The ALL-CAPS identity, checked on what actually renders: every text node that
@@ -352,12 +349,12 @@ const JUST_DO_IT_RELEASE = Date.parse('2026-10-27T23:00:00+02:00');
 const ADLL_ID = 'adll';
 const ADLL_CARD = '#card-adll';
 const ADLL_RELEASE = Date.parse('2026-11-02T19:00:00+02:00');
-// The seventh release, [FREE 100%] GUNNA TYPE BEAT - VVS MOTION, drops today at
-// 22:00 Israel time and is the first record whose centre label paints the beat's
-// own cover art instead of the official flower.
+// The seventh release, [FREE 100%] GUNNA TYPE BEAT - VVS MOTION, drops at 22:00
+// Israel time on 7 November 2026 — the instant `catalog.js` carries — and its
+// record carries the same original flower label as every other beat.
 const GUNNA_ID = '72f9b3e3-7d3a-490e-b8b5-5b1e9d8e3668';
 const GUNNA_CARD = '#card-' + GUNNA_ID;
-const GUNNA_RELEASE = Date.parse('2026-11-06T22:00:00+02:00');
+const GUNNA_RELEASE = Date.parse('2026-11-07T22:00:00+02:00');
 // The store runs seven beats. ALL_LIVE_NOW is a pinned instant just after the
 // newest release landed: every card is a live tile there, whatever the machine
 // clock says, so the catalog-wide checks stand on firm ground.
@@ -787,7 +784,7 @@ try {
   await railPage.close();
 
   // The reveal is deliberately bold, but it is still just a translate: the
-  // record must clear the sleeve enough to show the brown-gold centre label, stay
+  // record must clear the sleeve enough to show the centre label plate, stay
   // inside the stage, and leave the page with zero horizontal scroll on a phone
   // and a desktop. The sleeve and stage must not move when `vinyl-open` lands.
   const vinylPage = await setupPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'no-preference' });
@@ -798,14 +795,13 @@ try {
     const sleeve = document.querySelector('.beat-detail__artwork').getBoundingClientRect();
     const recordEl = document.querySelector('.vinyl-record');
     const record = recordEl.getBoundingClientRect();
-    // The frame is the un-rotated logo box; the image inside is what spins, so
-    // measuring the frame keeps the containment assertions stable at every angle.
+    // The plate is static, so its box is the label's box at every moment.
     const logoFrame = document.querySelector('.vinyl-record__logo-frame').getBoundingClientRect();
     const logoImage = document.querySelector('.vinyl-record__logo');
     const logoStyle = getComputedStyle(logoImage);
-    // The label is part of the photograph: 28% of the disc's diameter, which is
-    // what the flower frame (27%) is centred inside.
-    const labelDiameter = record.width * 0.28;
+    // The label plate covers the photographed label: it is 30% of the disc's
+    // diameter, a hair wider than the 28.06% printed circle underneath it.
+    const labelDiameter = record.width * 0.30;
     const label = {
       left: record.left + record.width / 2 - labelDiameter / 2,
       right: record.left + record.width / 2 + labelDiameter / 2,
@@ -853,8 +849,8 @@ try {
   const checkReveal = (sample, label) => {
     checkContained(sample, label);
     assert(sample.record.right - sample.sleeve.right > sample.stage.width * 0.3, `${label}: the disc clears the sleeve generously`);
-    assert(sample.label.right - sample.sleeve.right > 20, `${label}: the brown-gold centre label is exposed`);
-    // The complete logo is inside the brown-gold label and entirely to the right of
+    assert(sample.label.right - sample.sleeve.right > 20, `${label}: the centre label plate is exposed`);
+    // The complete logo is inside the label plate and entirely to the right of
     // the sleeve once the record has ridden out: no petal is cropped.
     assert(sample.logo.left >= sample.sleeve.right - 0.5, `${label}: the whole logo clears the sleeve edge`);
     assert(sample.logo.right <= sample.label.right + 0.5, `${label}: the whole logo stays on the exposed label`);
@@ -865,12 +861,12 @@ try {
   for (const sample of revealSamples) checkContained(sample, 'phone, mid-reveal');
   checkReveal(phoneReveal, 'phone, fully open');
   assert(Math.abs(phoneReveal.sleeve.width / phoneReveal.stage.width - 0.6) < 0.01, 'the phone cover sleeve is 60% of the stage');
-  assert.deepEqual(phoneReveal.logoAnimation, { name: 'vinylCenterSpin', duration: '16s', iteration: 'infinite', timing: 'linear' }, 'the centre logo has the slow, smooth 16s rotation');
+  assert.equal(phoneReveal.logoAnimation.name, 'none', 'the centre label carries no animation at all');
   const spinA = await vinylPage.locator('.vinyl-record__logo').evaluate(el => getComputedStyle(el).transform);
   await vinylPage.waitForTimeout(180);
   const spinB = await vinylPage.locator('.vinyl-record__logo').evaluate(el => getComputedStyle(el).transform);
-  assert.notEqual(spinA, 'none', 'the centre logo carries a live transform animation');
-  assert.notEqual(spinA, spinB, 'the centre logo is actually rotating');
+  assert.equal(spinA, 'none', 'the centre label carries no transform at all');
+  assert.equal(spinA, spinB, 'the centre label never rotates — it is a static print');
   assert(phoneReveal.record.left - tucked.record.left > phoneReveal.stage.width * 0.25, 'the phone reveal is a real slide, not a nudge');
   // The reveal only moves the record: the stage and sleeve keep their document
   // position and size through the whole 1.35 s delay + slide.
@@ -2054,7 +2050,7 @@ try {
   // The third official drop is scheduled for 23:00 Israel time. It follows the
   // same pre-release contract as THE FLOW — a countdown-only tile, a locked
   // detail page, and an in-page unlock — and it wears the identical
-  // photographed record with the complete spinning flower. The studio count
+  // photographed record with the complete flower logo printed on its label. The studio count
   // must stay at two releases until its clock lands, then become three.
   const greenPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await greenPre.goto(`${url}/?now=${GREEN_FLESH_RELEASE - 3600000}`);
@@ -2508,9 +2504,9 @@ try {
   await adllAfter.close();
 
   // ------------------------------------------- seventh release: GUNNA (22:00)
-  // Every record — the newest drop included — carries the signature 3D KYROIII
-  // flower on its centre label. There is no cover-art label: the label stage is
-  // a div so brand-logo.js can mount its own WebGL canvas inside it.
+  // Every record — the newest drop included — carries the original KYROIII
+  // flower logo on its centre label. There is no cover-art label and no 3D
+  // stage on the record: the label is one plain, static image.
   const gunnaLive = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'no-preference' });
   await gunnaLive.goto(`${url}/?beat=${GUNNA_ID}&now=${ALL_LIVE_NOW}`, { waitUntil: 'domcontentloaded' });
   await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record`).waitFor();
@@ -2519,10 +2515,10 @@ try {
   const gunnaVinyl = await assertPressing(gunnaLive, GUNNA_CARD, 'THE GUNNA DROP');
   assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record--cover`).count(), 0, 'the record never opts into a cover label');
   assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record__logo--cover`).count(), 0, 'the label image is never cover art');
-  assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-flower-stage`).evaluate(el => el.tagName), 'DIV', 'the 3D flower stage is a container, not a canvas');
-  assert.equal(gunnaVinyl.stageTag, 'DIV', 'the 3D flower has a div host');
-  assert(gunnaVinyl.frameSize[0] > 0 && gunnaVinyl.frameSize[1] > 0, 'the flower frame has a live box');
-  assert(gunnaVinyl.labelRatio > 0.36 && gunnaVinyl.labelRatio < 0.46, 'the derived label keeps its seeded size band');
+  assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-flower-stage`).count(), 0, 'the record mounts no 3D flower stage');
+  assert.equal(await gunnaLive.locator(`${GUNNA_CARD} .vinyl-record__logo`).evaluate(el => el.tagName), 'IMG', 'the label is a plain static image');
+  assert.equal(gunnaVinyl.src, 'assets/kyrolll-flower-label.png', 'the newest drop carries the original flower label too');
+  assert(gunnaVinyl.frameRatio > 0.29 && gunnaVinyl.frameRatio < 0.31, 'the plate keeps the photographed label\'s size');
   await gunnaLive.close();
 
   // The secured state is not an ADLL-only skin: every active beat paints the
@@ -2722,13 +2718,12 @@ try {
   assert.match(taglineCss, /#ff3ea5/i, 'the tagline keeps its original vivid-pink accent');
   assert.match(taglineCss, /#ff2e9a/i, 'the pixel heart keeps its original pink base');
   // Every beat plays one photographed pressing: `assets/vinyl-classic.png` is the
-  // disc, and the only layer painted on top of it is the centred flower frame. No
-  // rim, no metallic ring, no cover-derived palette, no per-beat block — so every
-  // colour literal that remains in the stylesheet is an equal-channel grey.
+  // disc, and the only layer painted on top of it is the static label plate. No
+  // rim, no metallic ring, no cover-derived palette, no per-beat block, and the
+  // plate itself is the artwork's own black-and-white — so every colour literal
+  // that remains in the stylesheet is an equal-channel grey.
   assert.match(cssText, /\.vinyl-record \{[^}]*url\("assets\/vinyl-classic\.png"\)/, 'the disc is the supplied photograph');
-  // The frame's measurement block is the one that positions it — the palette
-  // section above also declares `.vinyl-record__logo-frame`, but only its
-  // z-index, so the lookup anchors on the rule that carries `position`.
+  // The frame's measurement block is the rule that positions it.
   const discStart = cssText.indexOf('.vinyl-record__logo-frame {\n  position: absolute');
   const discEnd = cssText.indexOf('}', discStart);
   assert(discStart >= 0 && discEnd > discStart, 'the flower frame has its own stylesheet block');
@@ -2736,16 +2731,20 @@ try {
   assert.match(discCss, /top: 50%/, 'the flower frame is centred vertically on the label');
   assert.match(discCss, /left: 50%/, 'the flower frame is centred horizontally on the label');
   assert.match(discCss, /transform: translate\(-50%, -50%\)/, 'the flower frame is centred on the label');
-  assert.match(discCss, /width: 27%/, 'the flower fits inside the photographed label');
-  assert.match(cssText, /\.vinyl-record__logo \{[\s\S]*?animation: vinylCenterSpin 16s linear infinite/, 'the flower spins smoothly in place');
+  assert.match(discCss, /width: 30%/, 'the label plate covers the photographed label');
+  assert.match(discCss, /background: #000000/, 'the plate is the logo artwork\'s own solid black');
+  assert.match(discCss, /border-radius: 50%/, 'the plate is the label\'s circle');
+  assert.match(discCss, /overflow: hidden/, 'the frame crops the artwork to that circle');
+  assert.doesNotMatch(cssText, /vinylCenterSpin/, 'the label never spins — the artwork is a static print');
+  assert.doesNotMatch(cssText, /\.vinyl-record__logo \{[^}]*filter:/, 'the label takes no colour filter');
+  assert.doesNotMatch(cssText, /\.vinyl-record__logo \{[^}]*animation:/, 'the label declares no animation');
   assert.doesNotMatch(cssText, /conic-gradient/, 'no metallic rim ring is painted anywhere');
   assert.doesNotMatch(cssText, /--vinyl-(body|label|marble|vein|flake|groove|rim|sheen)-/, 'the record takes no cover-derived colour');
   assert.doesNotMatch(cssText, /\.vinyl-record__rim/, 'no synthetic rim element is styled');
   assert.doesNotMatch(cssText, /\.vinyl-record--(white|gold-rim|sage-white-rim|ice-silver-rim|rage-fire-rim|graffiti-splatter)/, 'no per-beat pressing block survives');
   assert.doesNotMatch(cssText, /\.vinyl-record__gold|gold-splatter|sage-blob/, 'the pressing generates no splash, blob or artwork layer');
-  assert.match(cssText, /\.vinyl-record::before \{[\s\S]*?background: radial-gradient\(circle at 50% 42%, #7a4a2e 0%, #56382f 55%, #3a2418 100%\)/, 'the label is the brand brown-gold radial gradient, not black or photo-tan');
-  assert.match(cssText, /\.vinyl-record::before \{[\s\S]*?width: 28%;\s*height: 28%;\s*transform: translate\(-50%, -50%\);\s*border-radius: 50%;\s*z-index: 1;/, 'the brown-gold label is a centred 28% circle at z-index 1 under the flower frame');
-  assert.doesNotMatch(cssText, /\.vinyl-record::(after|(before)(?!:))/, 'no other pseudo-element — ::after or a non-label ::before — is painted on the record');
+  assert.doesNotMatch(cssText, /radial-gradient\(circle at 50% 42%/, 'the painted brown-gold label is gone: the artwork supplies the plate');
+  assert.doesNotMatch(cssText, /\.vinyl-record::(after|(before)(?!:))/, 'no pseudo-element is painted on the record — the plate is a real layer');
   const indexHtml = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   assert.doesNotMatch(indexHtml, /vinyl-palette/, 'the retired cover-palette module is no longer loaded');
   assert.match(cssText, /\.social-icon \{[^}]*width:\s*52px/, 'the footer social badges are large icon tiles');
@@ -2757,8 +2756,8 @@ try {
   assert.match(cssText, /\.support-sheet \{[^}]*max-height:\s*90dvh/, 'the desk card is measured in dynamic viewport units');
   assert.match(cssText, /\.support-sheet \{[^}]*overflow-y:\s*auto/, 'the desk card scrolls inside itself');
   // Every authored colour exception is declared between `START`/`END` markers
-  // (the hero tagline, the hero's warm bloom, and the record's brown-gold
-  // label). Strip all of them, then insist that everything left is grey.
+  // (the hero tagline and the hero's warm bloom). Strip all of them, then
+  // insist that everything left is an equal-channel grey.
   const stripMarkedPalettes = (css) => {
     let out = '';
     let i = 0;
