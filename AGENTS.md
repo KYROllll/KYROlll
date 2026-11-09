@@ -445,14 +445,14 @@ falling-X canvas only adds ~2ms per frame, so it is not what needs trimming.
 
 `brand-logo.js` therefore detects a software rasteriser (`WEBGL_debug_renderer_info`
 matching `swiftshader|llvmpipe|softpipe|software`) and, only there, builds a lighter scene:
-`bevelSegments` 5→2, a 128px reflection cube, a ~30fps cadence, and a scene build split
-across frames so the page keeps answering while it is built. A GPU keeps every original
+a 128px reflection cube and a scene build split across frames so the page keeps answering
+while it is built. A GPU keeps every original
 value. After it: one ~1.1s block, ~44ms per frame, 2 long tasks — and the flower is
 unchanged (mean ink luminance 216 before and after).
 
 One more cut applies on every renderer, GPU included, and it does not change the flower: a
-stage narrower than 220px is built with the compact scene (`bevelSegments` 2, `curveSegments`
-8, the 128px reflection cube, `pixelRatio` capped at 1.25), which is invisible at that size.
+stage narrower than 220px is built with the compact scene (`curveSegments` 8, the 128px
+reflection cube, `pixelRatio` capped at 1.25), which is invisible at that size.
 The falling-X canvas is likewise capped
 to `dpr = 1`, 32 sprites and ~30 fps (see that section above).
 

@@ -190,9 +190,9 @@ async function init(host) {
   const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
   const wantsVinyl = host.dataset.vinylFlower === 'true';
   // A centre-label flower is only ~85–130px wide, so it is pointless to build it
-  // with the hero's full-resolution scene: a coarser bevel, a smaller reflection
-  // cube and a 1.25 pixel ratio are invisible at that size and cut the GPU/CPU
-  // cost of opening a beat. The hero and the preloader keep the full scene.
+  // with the hero's full-resolution scene: a coarser curve subdivision, a smaller
+  // reflection cube and a 1.25 pixel ratio are invisible at that size and cut the
+  // GPU/CPU cost of opening a beat. The hero and the preloader keep the full scene.
   const stageSize = Math.max(1, Math.round(host.getBoundingClientRect().width || host.clientWidth || 96));
   const compact = wantsVinyl || stageSize < 220;
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -200,8 +200,8 @@ async function init(host) {
   renderer.setPixelRatio(Math.min(devicePixelRatio, compact ? 1.25 : 1.5));
   // Software rasterisers (SwiftShader, llvmpipe — what a machine without a GPU
   // falls back to) spend far longer on this pearl material than a GPU does.
-  // There the flower is built from a slightly coarser bevel, a smaller
-  // environment map and a ~30fps cadence, and the shader compile skips three's
+  // There the flower is built with a smaller environment map, and the shader
+  // compile skips three's
   // error reporting: that reporting reads back every program's status and log,
   // which forces the driver's compile onto the main thread instead of letting
   // it finish in its own time. The silhouette, the material and the light are

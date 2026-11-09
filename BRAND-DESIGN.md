@@ -9,15 +9,17 @@ The narrow center traces use a slightly stronger simplification so their pixel
 steps cannot form an extra wedge in the extruded mesh. No circular backing is
 generated.
 
-`brand-logo.js` extrudes those contours with beveled edges using Three.js. A soft
-pearl-white physical material (low metalness, high roughness, gentle clearcoat)
-sits in a dim studio with large soft panels and a hemisphere fill, so the flower
-reads as the original clean artwork rather than harsh chrome. Quaternion-composed
-rotations turn slowly and fully around Y (26s), X (78s), and Z (156s) without
-snapping. Inset bevels keep the mesh within the source silhouette. The canvas is
-transparent, with no backing geometry or enclosing CSS decoration. The PNG
-fallback (soft pearl gradient) remains visible if WebGL or the geometry fails to
-load. Motion respects reduced-motion preferences, can be paused with the visible
+`brand-logo.js` extrudes those contours as flat, bevel-free petals using Three.js,
+so every petal edge and both center cutouts keep the imported silhouette as a
+crisp, clean edge instead of rolling into a rounded profile. The welded broad
+faces carry a subtle convex normal field and a polished physical material (mid
+metalness, low roughness, gentle clearcoat) under a bright multi-angle studio rig
+— key, fill, top and back lights plus three point lights and a wrap-around
+reflection room — so the metal stays vivid and readable from every rotation angle
+without a dark side. Quaternion-composed rotations turn slowly and fully around Y
+(24s), X (72s), and Z (144s) without snapping. The canvas is transparent, with no
+backing geometry or enclosing CSS decoration. The PNG fallback (the captured
+resting render) remains visible if WebGL or the geometry fails to load. Motion respects reduced-motion preferences, can be paused with the visible
 control, and skips rendering offscreen/in hidden tabs.
 
 Rebuild after changing the artwork or renderer:
