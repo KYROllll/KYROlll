@@ -85,7 +85,7 @@ const VINYL_LABEL_ART = "assets/kyrolll-flower-label.png";
 /* The claimed card's archive seal is the same captured resting flower the hero
    hands off from — a transparent render, so it can sit over the cover art as a
    stamp without a plate or a recolour. */
-const EXCLUSIVE_STAMP_ART = "assets/kyrolll-flower-rest.png";
+const EXCLUSIVE_STAMP_ART = "assets/kyrolll-flower-rest.png?v=5";
 
 /* The scheduled-release clock lives in catalog.js: a beat with a future
    `releaseAt` is a *scheduled drop*. Until it lands the store paints the tile

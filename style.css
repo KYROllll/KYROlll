@@ -2,11 +2,11 @@
    neon-green / pink glitch accents as its only authored color exception. */
 :root {
   color-scheme: dark;
-  --black: #0b0b0b;
+  --black: #000000;
   --white: #ffffff;
   --gray: #888888;
-  --ground: #0b0b0b;
-  --paper: #111111;
+  --ground: #000000;
+  --paper: #040404;
   --hairline: #2e2e2e;
   --accent: #888888;
   --layout-max: 1440px;
@@ -36,7 +36,7 @@ html {
 body {
   position: relative;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  background: radial-gradient(ellipse at 80% 18%, rgba(255, 255, 255, 0.06), transparent 44%), var(--ground);
+  background: var(--ground);
   color: var(--white);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -287,7 +287,7 @@ button {
   height: 44px;
   border: 1px solid #666;
   border-radius: 50%;
-  background: #0d0d0d;
+  background: #040404;
   color: var(--white);
 }
 
@@ -407,7 +407,7 @@ button {
 /* Support contact: a solid dark button with clean white text rather than a
    bare hyperlink, so the footer's one call to action reads as a deliberate
    control against the dark page. It sits on a slightly lifted surface
-   (#171717) because the footer ground is already --black, so a same-colour
+   (#080808) because the footer ground is already --black, so a same-colour
    fill would only ever show its border. */
 .footer__support {
   display: inline-flex;
@@ -417,7 +417,7 @@ button {
   min-height: 38px;
   margin-top: 16px;
   padding: 11px 22px;
-  background: #171717;
+  background: #080808;
   color: var(--white);
   border: 1px solid #4a4a4a;
   border-radius: 4px;
@@ -430,23 +430,20 @@ button {
   transition: background .15s ease, border-color .15s ease, color .15s ease;
 }
 .footer__support:hover {
-  background: #242424;
+  background: #101010;
   border-color: var(--white);
 }
 
-/* The official profiles: the platforms' own full-colour marks on neutral glass
-   tiles, sized as real tap targets rather than a row of text links. The colour
-   lives entirely in the inline SVG each anchor carries — the tile, its border
-   and the hover glow are equal-channel greys, so the footer keeps the store's
-   monochrome paint while the badges stay recognisably the brands'. The glow is
-   a static `drop-shadow` (it arrives in one frame, like every other hover in
-   the storefront): a tweened shadow on a dark tile is what read as jitter. */
+/* The official profiles as pure black-and-white marks: each anchor is nothing
+   but a monochrome inline SVG painted in `currentColor`, with no tile, border,
+   fill or glow, so the icon sits directly in the footer's black field. The
+   anchor keeps a real 52px tap target even though only the mark is drawn. */
 .footer__social {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: clamp(18px, 3.6vw, 30px);
   margin-top: 22px;
 }
 .social-icon {
@@ -455,31 +452,36 @@ button {
   justify-content: center;
   width: 52px;
   height: 52px;
-  border: 1px solid #3a3a3a;
-  border-radius: 14px;
-  background: #141414;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--white);
+  opacity: .78;
   text-decoration: none;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: border-color .15s ease, background-color .15s ease;
+  transition: opacity .15s ease;
 }
 .social-icon svg {
   display: block;
-  width: 28px;
-  height: 28px;
+  width: 27px;
+  height: 27px;
   pointer-events: none;
 }
+.social-icon svg [fill="none"] { fill: none; }
 .social-icon:hover,
 .social-icon:focus-visible {
-  border-color: var(--white);
-  background: #1f1f1f;
-  filter: drop-shadow(0 0 12px rgba(255, 255, 255, .55));
+  opacity: 1;
+  color: var(--white);
   outline: none;
 }
+.social-icon:focus-visible {
+  outline: 1px solid rgba(255, 255, 255, .55);
+  outline-offset: 5px;
+}
 @media (max-width: 480px) {
-  .social-icon { width: 48px; height: 48px; border-radius: 12px; }
-  .social-icon svg { width: 26px; height: 26px; }
+  .social-icon { width: 48px; height: 48px; }
+  .social-icon svg { width: 25px; height: 25px; }
 }
 
 @media (max-width: 768px) {
@@ -606,7 +608,7 @@ body > canvas {
 }
 .catalog-heading { scroll-margin-top: 20px; display: flex; align-items: center; justify-content: flex-end; }
 .catalog-heading.catalog-heading--empty { padding-block: 0; }
-.grid-closed { min-height: 240px; display: grid; place-items: center; background: repeating-linear-gradient(125deg, transparent 0 18px, #ffffff03 18px 19px), #0d0d0d; }
+.grid-closed { min-height: 240px; display: grid; place-items: center; background: repeating-linear-gradient(125deg, transparent 0 18px, #ffffff03 18px 19px), #040404; }
 .grid-closed__title { font-size: clamp(20px, 3vw, 36px); letter-spacing: -.04em; }
 .grid-closed__box p { font-size: 10px; line-height: 1.7; }
 .footer { border-top: 1px solid var(--hairline); padding-top: 48px; }
@@ -698,7 +700,7 @@ body > canvas {
   margin: 0;
   padding: 12px clamp(16px, 4vw, 40px) 16px;
   box-sizing: border-box;
-  background: linear-gradient(180deg, rgba(11, 11, 11, 0.94) 0%, rgba(11, 11, 11, 0.72) 64%, rgba(11, 11, 11, 0) 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.94) 0%, rgba(0, 0, 0, 0.72) 64%, rgba(0, 0, 0, 0) 100%);
   -webkit-backdrop-filter: blur(18px) saturate(130%);
   backdrop-filter: blur(18px) saturate(130%);
   contain: layout style;
@@ -1940,7 +1942,7 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
   border-radius: 4px;
   background:
     radial-gradient(130% 150% at 50% 0%, rgba(255, 255, 255, .09), rgba(255, 255, 255, .015) 70%),
-    rgba(11, 11, 11, .72);
+    rgba(0, 0, 0, .72);
   color: var(--white);
   font-size: 9px;
   font-weight: 700;
@@ -2384,7 +2386,7 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
 .exclusive-lock--page .exclusive-locked-button { margin-top: 12px; }
 .catalog-tile--exclusive-locked {
   border-color: rgba(255, 255, 255, .2);
-  background: #060606;
+  background: #000000;
 }
 .catalog-tile--exclusive-locked .catalog-tile__actions { padding-top: 2px; }
 .catalog-tile--exclusive-owned { border-color: rgba(255, 255, 255, .34); }
@@ -2460,7 +2462,7 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
      blur does all the work, per the storefront's monochrome rule. */
   background:
     radial-gradient(120% 100% at 50% 0%, rgba(255, 255, 255, .1), rgba(255, 255, 255, .02) 58%),
-    rgba(11, 11, 11, .84);
+    rgba(0, 0, 0, .84);
   backdrop-filter: blur(12px) saturate(1.15);
   -webkit-backdrop-filter: blur(12px) saturate(1.15);
   /* Crisp silver edges with the pure-white seam along the button's own edge. */
@@ -2664,7 +2666,7 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
   scrollbar-width: thin;
   scrollbar-color: #4a4a4a transparent;
   -webkit-overflow-scrolling: touch;
-  background: #101010;
+  background: #050505;
   border: 1px solid #484848;
   box-shadow: 0 40px 100px rgba(0, 0, 0, .7);
   padding: 28px 24px 32px;
@@ -2717,7 +2719,7 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
   width: 100%;
   background: #ffffff;
   border: 1px solid #ffffff;
-  color: #0b0b0b;
+  color: #000000;
   font-family: inherit;
   font-size: 13px;
   letter-spacing: .04em;
@@ -2888,7 +2890,7 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
   display: block;
   width: 100%;
   height: auto;
-  background: #0b0b0b;
+  background: #000000;
   border: 1px solid rgba(255, 255, 255, .3);
   cursor: crosshair;
   /* The pad owns the gesture completely: no page scroll, no double-tap zoom, no
@@ -3355,7 +3357,7 @@ html.support-open { overflow: hidden; }
   padding: 13px 14px;
   border: 1px solid #3a3a3a;
   border-radius: 3px;
-  background: #101010;
+  background: #050505;
   color: var(--white);
   font: inherit;
   font-size: 11px;
@@ -3365,7 +3367,7 @@ html.support-open { overflow: hidden; }
   transition: border-color .15s ease, background-color .15s ease;
 }
 .support-input::placeholder { color: #6c6c6c; text-transform: uppercase; }
-.support-input:focus { outline: none; border-color: var(--white); background: #161616; }
+.support-input:focus { outline: none; border-color: var(--white); background: #0a0a0a; }
 .support-input.is-valid { border-color: #a1a1a1; }
 .support-textarea { resize: vertical; min-height: 132px; }
 
@@ -3456,7 +3458,7 @@ html.preloader-armed { overflow-y: hidden; }
   z-index: 400;
   display: none; /* armed by the inline head script when JS runs */
   place-items: center;
-  background: radial-gradient(120% 90% at 50% 38%, #171717 0%, #0b0b0b 52%, #080808 100%);
+  background: radial-gradient(120% 90% at 50% 38%, #0a0a0a 0%, #000000 52%, #000000 100%);
   opacity: 1;
   pointer-events: auto;
   transition: opacity .55s ease;
@@ -3559,7 +3561,7 @@ html.preloader-armed { overflow-y: hidden; }
   position: relative;
   width: clamp(46px, 28%, 104px);
   aspect-ratio: 1;
-  background: url("assets/kyrolll-flower-rest.png?v=4") center / contain no-repeat;
+  background: url("assets/kyrolll-flower-rest.png?v=5") center / contain no-repeat;
   filter: drop-shadow(0 0 16px rgba(255, 255, 255, .28));
   transform-style: preserve-3d;
   backface-visibility: visible;
@@ -3589,7 +3591,7 @@ html.preloader-armed { overflow-y: hidden; }
   position: absolute;
   inset: 9px;
   border-radius: 50%;
-  background: url("assets/kyrolll-flower-rest.png?v=4") center / contain no-repeat;
+  background: url("assets/kyrolll-flower-rest.png?v=5") center / contain no-repeat;
   filter: drop-shadow(0 0 7px rgba(255, 255, 255, .34));
   opacity: 0;
   visibility: hidden;
@@ -3599,7 +3601,7 @@ html.preloader-armed { overflow-y: hidden; }
   transition: opacity .18s ease;
 }
 .beat-preview[data-state="loading"] .beat-preview__toggle {
-  background: #0d0d0d;
+  background: #040404;
   color: var(--white);
   border-color: #666;
 }

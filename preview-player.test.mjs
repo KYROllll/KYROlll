@@ -416,20 +416,20 @@ test("the built-in support desk is wired on every page and posts only the three 
     .forEach(field => assert(support.includes(field), `the desk renders the ${field} field`));
 });
 
-test("the footer carries the four official social marks as large SVG badges", () => {
+test("the footer carries the four official social marks as monochrome SVG icons", () => {
   ["index.html", "download.html", "support.html"].forEach((name) => {
     const html = readFileSync(new URL(`./${name}`, import.meta.url), "utf8");
     const anchors = html.match(/<a class="social-icon social-icon--[a-z]+"[\s\S]*?<\/a>/g) || [];
     assert.equal(anchors.length, 4, `${name}: four official profiles are linked`);
     ["youtube", "instagram", "tiktok", "x"].forEach((network) => {
-      assert(anchors.some(anchor => anchor.includes(`social-icon--${network}`)), `${name}: the ${network} badge is present`);
-      assert(anchors.some(anchor => anchor.includes(`social-icon--${network}`) && anchor.includes('aria-label="KYROIII on ')), `${name}: the ${network} badge is labelled`);
+      assert(anchors.some(anchor => anchor.includes(`social-icon--${network}`)), `${name}: the ${network} icon is present`);
+      assert(anchors.some(anchor => anchor.includes(`social-icon--${network}`) && anchor.includes('aria-label="KYROIII on ')), `${name}: the ${network} icon is labelled`);
     });
-    anchors.forEach(anchor => assert.match(anchor, /<svg viewBox="0 0 24 24"/, `${name}: every badge is a real SVG mark`));
-    assert.match(html, /social-icon--youtube[\s\S]*?fill="#ff0033"/, `${name}: YouTube keeps its red play badge`);
-    assert.match(html, /social-icon--instagram[\s\S]*?kyro-ig-gradient/, `${name}: Instagram keeps its gradient mark`);
-    assert.match(html, /social-icon--tiktok[\s\S]*?fill="#25f4ee"/, `${name}: TikTok keeps its cyan offset`);
-    assert.match(html, /social-icon--x[\s\S]*?fill="#fff"/, `${name}: X keeps its minimalist logo`);
+    anchors.forEach(anchor => {
+      assert.match(anchor, /<svg viewBox="0 0 24 24"/, `${name}: every icon is a real SVG mark`);
+      assert.match(anchor, /currentColor/, `${name}: every mark paints in the footer's own white`);
+      assert.doesNotMatch(anchor, /#ff0033|#25f4ee|#fe2c55|kyro-ig-gradient|fill="#fff"/, `${name}: no brand colour survives in a footer mark`);
+    });
     assert.match(html, /social-icon--instagram" href="https:\/\/www\.instagram\.com\/kyrolll00\/"/, `${name}: Instagram opens @kyrolll00`);
     assert.match(html, /social-icon--tiktok" href="https:\/\/www\.tiktok\.com\/@kyrolll00"/, `${name}: TikTok opens @kyrolll00`);
     assert.match(html, /social-icon--x" href="https:\/\/x\.com\/KYROlll00"/, `${name}: X opens @KYROlll00`);

@@ -265,12 +265,9 @@ const assertPressing = async (page, card, label, options = {}) => {
 };
 
 // Every rendered colour except the hero tagline's green / pink glitch palette
-// and the footer's official social marks must be an equal-channel grey. (A
-// vinyl disc is a photograph of the pressing;
-// which this computed-style sweep does not read; the social badges are the
-// platforms' own brand colours inside their inline SVGs, and the CSS text audit
-// below exempts only the tagline's scoped stylesheet section — the icon tiles
-// themselves are greys.)
+// must be an equal-channel grey. (A vinyl disc is a photograph of the pressing,
+// which this computed-style sweep does not read; the footer's social marks are
+// now monochrome `currentColor` SVG, so they need no exemption either.)
 const noHue = async (page, label) => {
   const report = await page.evaluate(() => {
     const plain = ['color', 'backgroundColor', 'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor', 'outlineColor', 'textDecorationColor', 'caretColor', 'fill', 'stroke', 'columnRuleColor', 'boxShadow', 'textShadow'];
@@ -280,7 +277,7 @@ const noHue = async (page, label) => {
     const bad = [];
     let inspected = 0;
     document.querySelectorAll('*').forEach(el => {
-      if (el.closest('.brand-tagline, .footer__social')) return;
+      if (el.closest('.brand-tagline')) return;
       const cs = getComputedStyle(el);
       inspected += 1;
       plain.forEach(prop => runs(cs[prop]).forEach(rgb => {
@@ -501,10 +498,9 @@ try {
   await noOverflow(desktop);
   await noHue(desktop, 'the storefront');
   await noLowercase(desktop, 'the storefront');
-  // The footer's four profiles are large official brand badges, not text
-  // links: each anchor carries the platform's own inline SVG mark, a label for
-  // assistive tech, and a real tap target. The tiles stay neutral greys; the
-  // colour lives in the artwork (the noHue sweep exempts this subtree).
+  // The footer's four profiles are pure black-and-white marks, not coloured
+  // boxes: each anchor is a transparent 52px tap target whose inline SVG is
+  // painted in `currentColor`, so the icon sits directly in the black field.
   const social = await desktop.locator('.footer__social a').evaluateAll(nodes => nodes.map(node => {
     const svg = node.querySelector('svg');
     const rect = node.getBoundingClientRect();
@@ -522,6 +518,8 @@ try {
       width: Math.round(rect.width),
       height: Math.round(rect.height),
       radius: parseFloat(style.borderTopLeftRadius),
+      background: style.backgroundColor,
+      borderWidth: style.borderTopWidth,
       touchAction: style.touchAction,
     };
   }));
@@ -537,17 +535,20 @@ try {
     assert.equal(item.viewBox, '0 0 24 24', `${item.label} uses the square brand viewBox`);
     assert.equal(item.rel, 'noopener noreferrer', `${item.label} opens safely in a new tab`);
     assert(item.width >= 44 && item.height >= 44, `${item.label} is a ${item.width}x${item.height} tap target`);
-    assert(item.radius >= 10, `${item.label} is a rounded badge tile`);
+    assert.equal(item.radius, 0, `${item.label} sits on no rounded tile`);
+    assert.equal(item.background, 'rgba(0, 0, 0, 0)', `${item.label} has no background box`);
+    assert.equal(item.borderWidth, '0px', `${item.label} draws no border box`);
+    assert(item.fills.length >= 1 && item.fills.every(fill => fill === 'currentColor' || fill === 'none'), `${item.label} is a monochrome currentColor mark`);
     assert.equal(item.touchAction, 'manipulation', `${item.label} answers the first tap`);
   });
   assert.match(social[0].className, /social-icon--youtube/, 'the YouTube badge carries its own modifier');
-  assert.deepEqual(social[0].fills.sort(), ['#ff0033', '#fff'], 'the YouTube badge is the official red play mark');
+  assert.deepEqual(social[0].fills.sort(), ['currentColor', 'none'], 'the YouTube mark is a white outline and play');
   assert.match(social[1].className, /social-icon--instagram/, 'the Instagram badge carries its own modifier');
-  assert(social[1].fills.includes('url(#kyro-ig-gradient)'), 'the Instagram badge paints its official gradient');
+  assert.deepEqual(social[1].fills.sort(), ['currentColor', 'none', 'none'], 'the Instagram mark is a white line icon');
   assert.match(social[2].className, /social-icon--tiktok/, 'the TikTok badge carries its own modifier');
-  assert(social[2].fills.includes('#25f4ee') && social[2].fills.includes('#fe2c55'), 'the TikTok badge carries its cyan/red offset marks');
+  assert.deepEqual(social[2].fills, ['currentColor'], 'the TikTok mark is one white silhouette');
   assert.match(social[3].className, /social-icon--x/, 'the X badge carries its own modifier');
-  assert.deepEqual(social[3].fills, ['#fff'], 'the X badge is the minimalist white logo');
+  assert.deepEqual(social[3].fills, ['currentColor'], 'the X mark is one white silhouette');
   assert.equal(await desktop.locator('.footer a[href^="mailto:"]').count(), 0, 'the footer no longer hands anyone to a mail client');
   assert.equal(await desktop.locator('.footer__support[data-support-open]').count(), 1, 'the footer SUPPORT control opens the built-in desk');
   assert.equal(await desktop.locator('.brand-tagline__text').textContent(), 'THAT MY FAVORITE');
@@ -2611,8 +2612,8 @@ try {
   assert.match(await adllLive.locator(`${ADLL_CARD} .card__specs`).innerText(), /OWNED \/ YOURS/, 'the specs announce the ownership state');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .exclusive-art`).count(), 1, 'the claimed cover wears the archive overlay');
   assert.equal((await adllLive.locator(`${ADLL_CARD} .exclusive-art__title`).innerText()).trim(), 'OWNED', 'the owner overlay names the private master');
-  assert.equal(await adllLive.locator(`${ADLL_CARD} .exclusive-art__stamp img`).getAttribute('src'), 'assets/kyrolll-flower-rest.png', 'the archive overlay prints the official flower seal');
-  assert.equal(await adllLive.locator(`${ADLL_CARD} .exclusive-lock__stamp img`).getAttribute('src'), 'assets/kyrolll-flower-rest.png', 'the secured panel carries the same seal');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .exclusive-art__stamp img`).getAttribute('src'), 'assets/kyrolll-flower-rest.png?v=5', 'the archive overlay prints the official flower seal');
+  assert.equal(await adllLive.locator(`${ADLL_CARD} .exclusive-lock__stamp img`).getAttribute('src'), 'assets/kyrolll-flower-rest.png?v=5', 'the secured panel carries the same seal');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .download-trigger`).count(), 0, 'a claimed beat offers no lease button');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .exclusive-locked-button`).isDisabled(), true, 'a claimed beat keeps a disabled control');
   assert.equal(await adllLive.locator(`${ADLL_CARD} .beat-preview`).count(), 0, 'a claimed beat has no public player');
@@ -2997,10 +2998,11 @@ try {
   assert.doesNotMatch(cssText, /\.vinyl-record::(after|(before)(?!:))/, 'no pseudo-element is painted on the record — the plate is a real layer');
   const indexHtml = await readFile(new URL('./index.html', import.meta.url), 'utf8');
   assert.doesNotMatch(indexHtml, /vinyl-palette/, 'the retired cover-palette module is no longer loaded');
-  assert.match(cssText, /\.social-icon \{[^}]*width:\s*52px/, 'the footer social badges are large icon tiles');
-  assert.match(cssText, /\.social-icon \{[^}]*border-radius:\s*14px/, 'the badges are rounded tiles');
-  assert.match(cssText, /\.social-icon:hover,\s*\n\.social-icon:focus-visible \{[^}]*filter:\s*drop-shadow/, 'the badges take a static cyberpunk glow on hover');
-  assert.doesNotMatch(cssText, /\.social-icon[^{}]*\{[^}]*box-shadow[^}]*transition/, 'the badge glow never tweens a shadow');
+  assert.match(cssText, /\.social-icon \{[^}]*width:\s*52px/, 'the footer social icons keep a real tap target');
+  assert.match(cssText, /\.social-icon \{[^}]*background:\s*transparent/, 'the social icons have no tile behind them');
+  assert.match(cssText, /\.social-icon \{[^}]*border:\s*0/, 'the social icons draw no box');
+  assert.doesNotMatch(cssText, /\.social-icon[^{}]*\{[^}]*filter:\s*drop-shadow/, 'the social icons carry no glow');
+  assert.doesNotMatch(indexHtml, /#ff0033|#25f4ee|#fe2c55|kyro-ig-gradient/, 'the footer marks are black and white, not brand colours');
   assert.match(cssText, /\.support-modal \{[^}]*position:\s*fixed/, 'the support desk is a full-screen in-page dialog');
   assert.match(cssText, /\.support-modal \{[^}]*z-index:\s*1000000/, 'the desk paints above the package drawer');
   assert.match(cssText, /\.support-sheet \{[^}]*max-height:\s*90dvh/, 'the desk card is measured in dynamic viewport units');

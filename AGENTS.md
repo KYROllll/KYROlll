@@ -43,19 +43,18 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   survives only as an API name (`window.KYROlll_*`), an asset path (`assets/kyrolll-*.png`)
   and the YouTube handle.
 - **One palette for the store's own paint — with one isolated colour exception.** The
-  storefront is deep matte black `#0B0B0B`, pure white `#FFFFFF` and silver `#888888`, with the
+  storefront is pitch black `#000000` / `#040404`, pure white `#FFFFFF` and silver `#888888`, with the
   original neon-green / vivid-pink glitch palette isolated to the hero tagline and heart. Every
   colour literal outside **one** deliberately marked section — the hero tagline — is an
-  equal-channel grey, and the `theme-color` metas are `#0b0b0b`. The beat cover art is **not** filtered: the catalog tiles and the beat detail show
+  equal-channel grey, and the `theme-color` metas are `#000000`. The beat cover art is **not** filtered: the catalog tiles and the beat detail show
   the supplied covers in their original colour. The same is true of the brand marks:
   `body > canvas` (the falling brush X), `.footer__logo`, `.brand-wordmark__mark`,
   `.vinyl-record__logo` and both watermark images paint in the colour they were drawn in — the
   warm brown of the brush marks included — so no `grayscale()`/`saturate()` belongs in any of
-  their chains. The footer's social badges are the one colour exception outside CSS: each anchor carries the
-platform's own inline SVG mark (YouTube red, Instagram's gradient, TikTok's cyan/red offsets,
-X's white logo), so the colour lives in markup the stylesheet never paints. The tile, its
-border and its static hover glow are equal-channel greys, and the computed-style hue audit
-exempts only that `.footer__social` subtree. The vinyl disc is the one other coloured
+  their chains. The footer's social marks are **pure black-and-white**: each anchor is a
+  transparent tap target whose inline SVG is painted entirely in `currentColor` (white), with
+  no tile, border, fill or glow behind it, so the icon sits directly in the footer's black
+  field and the computed-style hue audit needs no `.footer__social` exemption. The vinyl disc is the one other coloured
   surface, and it keeps the stylesheet neutral too: `.vinyl-record` paints the supplied studio
   photograph (`assets/vinyl-classic.png`), so the tan centre label and the disc's real
   speculars are image pixels, never colour literals in `style.css`. One asset serves every
@@ -627,22 +626,28 @@ never arrive half-empty:
   inside the card — is the whole point: a fixed element is only viewport-anchored while no
   ancestor is a containing block for it, and the glass detail card (`backdrop-filter`) and the
   catalog tiles (`transform`) would otherwise anchor it to the card.
-  **It unfolds downwards by default**, off the button's bottom edge, and is only turned over —
-  `.download-menu--up`, `transform-origin: bottom center` — when the room below the button is
-  smaller than the room above, so a button near the foot of the page still shows all three
-  tiers. Its width is the button's own width, pulled back inside the visible viewport when the
-  button hugs an edge, and its height is capped to the space actually available, so the panel is
-  never taller than the screen: an oversized list scrolls internally rather than running off the
+  **A beat page always unfolds downwards**, off the button's bottom edge. When the room below
+  the button is short, `downloads.js` gives the drawer room with a short eased page scroll
+  (`autoScrollForMenu`) instead of turning the panel over, so the header and player are never
+  covered by an upward drawer and the whole tier list stays below the trigger. On a catalog
+  tile it is still turned over — `.download-menu--up`, `transform-origin: bottom center` —
+  when the room below the button is smaller than the room above, so a card near the foot of a
+  long grid still shows all three tiers. Its width is the button's own width, pulled back
+  inside the visible viewport when the button hugs an edge, and its height is capped to the
+  space actually available (plus the scroll a beat page can give it), so the panel is never
+  taller than the screen: an oversized list scrolls internally rather than running off the
   bottom. There is no framing scroll any more (the old `frameDrawer` is gone) — a fixed drawer
-  that flips and clamps is already whole, so the page never moves under the visitor. Because the
-  drawer does not travel with the page, `positionMenu` freezes the drawer's geometry against the
-  button when it opens — width, capped height, unfold direction and base `top`/`left` — and a
-  `scroll` then does **nothing but write a compositor `transform`** (`trackMenuScroll`: the
-  negation of the viewport's scroll delta) so the sheet glides along with its button. It used to
-  call `positionMenu` on every `scroll` frame, which re-measured the available space, forced a
-  reflow and **flipped the drawer from above the button to below it mid-flick** — the wobble on a
-  fast scroll. Only a `resize` / `visualViewport` change recomputes the box (`scheduleMenuRefresh`);
-  a scroll never re-measures, re-sizes or flips it. The reveal therefore lives on the standalone
+  that flips and clamps is already whole, so the page never moves under the visitor except for
+  that one deliberate auto-scroll. Because the drawer does not travel with the page,
+  `positionMenu` freezes the drawer's geometry against the button when it opens — width, capped
+  height, unfold direction and base `top`/`left` — and a `scroll` then does **nothing but write
+  a compositor `transform`** (`trackMenuScroll`: the negation of the viewport's scroll delta) so
+  the sheet glides along with its button. It used to call `positionMenu` on every `scroll`
+  frame, which re-measured the available space, forced a reflow and **flipped the drawer from
+  above the button to below it mid-flick** — the wobble on a fast scroll. Only a `resize` /
+  `visualViewport` change recomputes the box (`scheduleMenuRefresh`); a scroll never
+  re-measures, re-sizes or flips it. The one intentional re-measure is the end of the beat-page
+  auto-scroll (and only once), after the page has settled at its new offset. The reveal therefore lives on the standalone
   `translate` property (`.download-menu { translate: 0 -6px }` → `.is-open { translate: 0 0 }`) so
   the `transform` slot stays free for the scroll tracking; the two compose. The drawer keeps
   `transform: translateZ(0)` + `will-change: transform` so that per-scroll write is a compositor

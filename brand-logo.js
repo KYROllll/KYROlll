@@ -216,19 +216,20 @@ async function init(host) {
   let renderedSize = stageSize;
   renderer.setSize(stageSize, stageSize, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
+  renderer.toneMappingExposure = 1.05;
   renderer.domElement.setAttribute('aria-hidden', 'true');
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(33, 1, .1, 50);
   camera.position.z = 6.4;
   const pmrem = new THREE.PMREMGenerator(renderer);
-  // Soft studio: large dim panels plus gentle ambient fill for a pearl-white
-  // finish. These are reflection sources, never visible backings.
+  // Soft studio: large bright panels wrap the flower on every side so the
+  // polished faces always have something to reflect — no angle goes dead. These
+  // are reflection sources, never visible backings.
   const room = new THREE.Scene();
-  room.background = new THREE.Color(0x2a2c33);
+  room.background = new THREE.Color(0x33363e);
   for (const [x, y, z, width, height, intensity] of [
-    [-4, 3, 4, 6, 10, 1.6], [4, 1, 3, 4, 9, 2.2],
-    [0, 6, -2, 10, 4, 1.4], [-3, -3, -4, 6, 8, 1.0], [3, 0, -5, 3, 10, 1.8]
+    [-4, 3, 4, 6, 10, 2.4], [4, 1, 3, 4, 9, 3.0],
+    [0, 6, -2, 10, 4, 2.0], [-3, -3, -4, 6, 8, 1.6], [3, 0, -5, 3, 10, 2.6]
   ]) {
     const panel = new THREE.Mesh(new THREE.PlaneGeometry(width, height), new THREE.MeshBasicMaterial({ color: new THREE.Color().setScalar(intensity), side: THREE.DoubleSide }));
     panel.position.set(x, y, z); panel.lookAt(0, 0, 0); room.add(panel);
@@ -242,14 +243,14 @@ async function init(host) {
   scene.environment = environment.texture;
   room.traverse(child => { child.geometry?.dispose(); child.material?.dispose(); });
   pmrem.dispose();
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x30343c, .55));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x3b3f48, .6));
   // Everything below is split across frames on purpose: this scene is heavy to
   // build on a software rasteriser, and the page has to stay answerable while
   // it is built. Each await hands the browser a frame to do that in, and the
   // crossfade only starts once the whole flower has painted.
   await nextFrame();
-  // Build the flower from the traced contours: each positive contour becomes an
-  // extruded, beveled petal mesh; negative contours (the two center cutouts)
+  // Build the flower from the traced contours: each positive contour becomes a
+  // clean, flat extruded petal mesh; negative contours (the two center cutouts)
   // become holes. The contour JSON is fetched once and shared by every stage.
   const object = new THREE.Group();
   const point = ([x, y]) => new THREE.Vector2((x / size - .5) * 3, (.5 - y / size) * 3);
@@ -261,13 +262,14 @@ async function init(host) {
     }
     return inside;
   }
-  const material = new THREE.MeshPhysicalMaterial({ color: 0xf4f4f2, metalness: .12, roughness: .52, clearcoat: .35, clearcoatRoughness: .45, envMapIntensity: .55 });
+  const material = new THREE.MeshPhysicalMaterial({ color: 0xe9e9e7, metalness: .6, roughness: .22, clearcoat: .4, clearcoatRoughness: .18, envMapIntensity: 1.25 });
   for (const contour of contours.filter(c => c.area > 0)) {
     const shape = new THREE.Shape(contour.points.map(point));
     for (const hole of contours.filter(c => c.area < 0 && contains(contour.points, c.points[0]))) shape.holes.push(new THREE.Path(hole.points.map(point)));
-    // Inset the bevel: its widest edge stays on the imported silhouette.
-    const raw = new THREE.ExtrudeGeometry(shape, { depth: .13, bevelEnabled: true, bevelSegments: (softwareRasteriser || compact) ? 2 : 5, steps: 1, bevelSize: .009, bevelOffset: -.009, bevelThickness: .024, curveSegments: compact ? 8 : 12 });
-    // Weld the traced segments so the bevel reads as polished metal rather
+    // A flat extrusion, no bevel: the petal keeps the imported silhouette as a
+    // crisp, clean edge instead of rolling it into a rounded profile.
+    const raw = new THREE.ExtrudeGeometry(shape, { depth: .13, bevelEnabled: false, steps: 1, curveSegments: compact ? 8 : 12 });
+    // Weld the traced segments so the broad faces read as polished metal rather
     // than hundreds of disconnected, flat-shaded pixel-edge facets.
     raw.deleteAttribute('normal'); raw.deleteAttribute('uv');
     const geometry = mergeVertices(raw, .0001);
@@ -278,9 +280,10 @@ async function init(host) {
     const center = geometry.boundingBox.getCenter(new THREE.Vector3());
     const positions = geometry.getAttribute('position'), normals = geometry.getAttribute('normal');
     // A subtle convex normal field mimics the broad face of stamped silver,
-    // keeping every source outline and cutout in its original position.
+    // keeping every source outline and cutout in its original position. With no
+    // bevel the two caps sit exactly on ±.065, so that is the plane to catch.
     for (let i = 0; i < normals.count; i++) {
-      if (Math.abs(positions.getZ(i)) < .0889) continue;
+      if (Math.abs(Math.abs(positions.getZ(i)) - .065) > .0005) continue;
       const n = new THREE.Vector3((positions.getX(i) - center.x) * .85, (positions.getY(i) - center.y) * .85, Math.sign(positions.getZ(i))).normalize();
       normals.setXYZ(i, n.x, n.y, n.z);
     }
@@ -312,12 +315,23 @@ async function init(host) {
   object.rotation.set(.15, -.22, -.12);
   const restingPose = object.quaternion.clone();
   scene.add(object);
-  const key = new THREE.DirectionalLight(0xe4edff, 1.4);
-  key.position.set(-3, 4, 5); scene.add(key);
-  const rim = new THREE.PointLight(0xffffff, 16, 20);
+  // A full studio rig: key, fill, top and back lights wrap the flower so its
+  // polished faces read from every rotation angle, with two white rims and a
+  // cool low fill to keep the silhouette crisp and fill the last dark corner.
+  const key = new THREE.DirectionalLight(0xffffff, 1.9);
+  key.position.set(-3.5, 4.6, 5.2); scene.add(key);
+  const fill = new THREE.DirectionalLight(0xeaf0ff, 1.05);
+  fill.position.set(4.2, 2.2, 3.4); scene.add(fill);
+  const top = new THREE.DirectionalLight(0xffffff, .85);
+  top.position.set(.4, 6.5, 1.2); scene.add(top);
+  const back = new THREE.DirectionalLight(0xffffff, 1.5);
+  back.position.set(.6, 2.4, -5.4); scene.add(back);
+  const rim = new THREE.PointLight(0xffffff, 18, 24);
   rim.position.set(3, 1, 3); scene.add(rim);
-  const warm = new THREE.PointLight(0xc19785, 6, 20);
-  warm.position.set(-3, -2, -2); scene.add(warm);
+  const rim2 = new THREE.PointLight(0xffffff, 11, 24);
+  rim2.position.set(-3.4, -.6, -2.8); scene.add(rim2);
+  const warm = new THREE.PointLight(0xdde6f2, 7, 24);
+  warm.position.set(-3.2, -2.2, 2.4); scene.add(warm);
   const resize = new ResizeObserver(([entry]) => {
     const width = entry.contentRect.width;
     if (!width || Math.abs(width - renderedSize) < .5) return;

@@ -43,7 +43,7 @@
     return endpoint;
   }
   const escapeHTML = (value) => (helpers() ? helpers().escapeHTML(value) : String(value == null ? "" : value));
-  const SECURED_STAMP_ART = "assets/kyrolll-flower-rest.png";
+  const SECURED_STAMP_ART = "assets/kyrolll-flower-rest.png?v=5";
   const securedStampHTML = (className) =>
     '<span class="' + className + '" aria-hidden="true"><img src="' + SECURED_STAMP_ART +
     '" alt="" width="1040" height="1040" loading="lazy" decoding="async"></span>';
