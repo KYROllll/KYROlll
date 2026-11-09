@@ -355,10 +355,15 @@ const ADLL_RELEASE = Date.parse('2026-11-02T19:00:00+02:00');
 const GUNNA_ID = '72f9b3e3-7d3a-490e-b8b5-5b1e9d8e3668';
 const GUNNA_CARD = '#card-' + GUNNA_ID;
 const GUNNA_RELEASE = Date.parse('2026-11-07T22:00:00+02:00');
-// The store runs seven beats. ALL_LIVE_NOW is a pinned instant just after the
+// The eighth release, [FREE 100%] FUTURE TYPE BEAT - WHITE NIGHT, drops at 20:00
+// Israel time on 9 November 2026 — the instant `catalog.js` carries.
+const WHITE_NIGHT_ID = 'white-night';
+const WHITE_NIGHT_CARD = '#card-white-night';
+const WHITE_NIGHT_RELEASE = Date.parse('2026-11-09T20:00:00+02:00');
+// The store runs eight beats. ALL_LIVE_NOW is a pinned instant just after the
 // newest release landed: every card is a live tile there, whatever the machine
 // clock says, so the catalog-wide checks stand on firm ground.
-const ALL_LIVE_NOW = GUNNA_RELEASE + 3600000;
+const ALL_LIVE_NOW = WHITE_NIGHT_RELEASE + 3600000;
 
 // The store's one durable record is the global exclusive-claims register: it is
 // what retires a claimed beat on every page and what remembers the buyer. Gate
@@ -551,9 +556,10 @@ try {
     green: getComputedStyle(el, '::before').color,
     pink: getComputedStyle(el, '::after').color,
   })), { green: 'rgb(57, 255, 139)', pink: 'rgb(255, 62, 165)' });
-  assert.equal(await desktop.locator('#grid .catalog-tile').count(), 7);
-  assert.equal(await desktop.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-' + GUNNA_ID, 'the newest release leads the grid');
+  assert.equal(await desktop.locator('#grid .catalog-tile').count(), 8);
+  assert.equal(await desktop.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-' + WHITE_NIGHT_ID, 'the newest release leads the grid');
   assert.equal(await desktop.evaluate(() => window.KYROlll_HELPERS.beatById('adll').title), '[FREE 100%] YEAT TYPE BEAT - A.D.L', 'ADLL is live in the catalog');
+  assert.equal(await desktop.evaluate(() => window.KYROlll_HELPERS.beatById('white-night').title), '[FREE 100%] FUTURE TYPE BEAT - WHITE NIGHT', 'WHITE NIGHT is live in the catalog');
   assert.equal(await desktop.locator('.catalog-tile__art img').first().evaluate(el => getComputedStyle(el).filter), 'none', 'catalog cover art keeps its original colour');
   assert.match(await desktop.locator(CARD).innerText(), /\[FREE 100%\] DON TOLIVER TYPE BEAT - FLESH/i);
   assert.match(await desktop.locator(GREEN_FLESH_CARD).innerText(), /\[FREE 100%\] LIL BABY TYPE BEAT - GREEN FLESH/i);
@@ -562,7 +568,8 @@ try {
   assert.match(await desktop.locator(ADLL_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - A\.D\.L/i);
   assert.match(await desktop.locator('.marquee-track').innerText(), /YEAT TYPE BEAT - A\.D\.L/i, 'the ticker announces the newest drop');
   assert.match(await desktop.locator('.marquee-track').innerText(), /YEAT TYPE BEAT - JUST D0 IT/i, 'the ticker announces the fifth drop');
-  assert.match(await desktop.locator('.marquee-track').innerText(), /7 RELEASES LIVE/, 'the studio count is the seven live releases');
+  assert.match(await desktop.locator('.marquee-track').innerText(), /8 RELEASES LIVE/, 'the studio count is the eight live releases');
+  assert.match(await desktop.locator('.marquee-track').innerText(), /FUTURE TYPE BEAT - WHITE NIGHT/i, 'the ticker announces the newest drop');
   assert.match(await desktop.locator('.marquee-track').innerText(), /LIL GOTIT TYPE BEAT - SQUISH!/i, 'the ticker announces the fourth drop');
   assert.match(await desktop.locator('.marquee-track').innerText(), /LIL BABY TYPE BEAT - GREEN FLESH/i, 'the ticker announces the renamed third drop');
   await shot(desktop, 'desktop');
@@ -1901,7 +1908,7 @@ try {
   await noOverflow(preDrop);
   await noHue(preDrop, 'the storefront before the drop');
   await noLowercase(preDrop, 'the storefront before the drop');
-  assert.equal(await preDrop.locator('#grid .catalog-tile').count(), 7, 'all seven releases sit in the catalog');
+  assert.equal(await preDrop.locator('#grid .catalog-tile').count(), 8, 'all eight releases sit in the catalog');
   assert.match(await preDrop.locator(`${FLOW_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'the scheduled drop carries its countdown pill');
   assert.doesNotMatch(await preDrop.locator(`${FLOW_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
   assert.match(await preDrop.locator(`${FLOW_CARD} [data-countdown="${FLOW_ID}"]`).innerText(), /^\d{2}:\d{2}:\d{2}$/, 'the pill shows a live HH:MM:SS clock');
@@ -1927,6 +1934,19 @@ try {
   assert.equal(await preDrop.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), FLOW_ID), 'https://www.youtube.com/@KYROlll00?sub_confirmation=1', 'the helper withholds the unreleased video URL');
   await shot(preDrop, 'store-before-drop');
   await preDrop.close();
+
+  // A cold download link to a drop that has not landed shows the same countdown
+  // in the files card (the card must stay visible — hiding it hid the clock) and
+  // offers no file rows or license until the clock reaches zero.
+  const lockedDownload = await setupPage({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
+  await lockedDownload.goto(`${url}/download.html?beat=${WHITE_NIGHT_ID}&package=exclusive&now=${WHITE_NIGHT_RELEASE - 3600000}`, { waitUntil: 'domcontentloaded' });
+  await lockedDownload.locator('.drop-locked').waitFor();
+  assert.equal(await lockedDownload.locator('.drop-locked').isVisible(), true, 'the cold download page paints the scheduled-drop panel');
+  assert.match(await lockedDownload.locator('.drop-locked .drop-countdown').innerText(), /DROPPING SOON/, 'the cold download page carries the countdown label');
+  assert.match(await lockedDownload.locator('.drop-locked [data-countdown="' + WHITE_NIGHT_ID + '"]').innerText(), /^\d{2}:\d{2}:\d{2}$/, 'the cold download page ticks a live clock');
+  assert.equal(await lockedDownload.locator('.download-item').count(), 0, 'a scheduled drop hands over no files early');
+  assert.equal(await lockedDownload.locator('#license-panel').isVisible(), false, 'a scheduled drop issues no license early');
+  await lockedDownload.close();
 
   // On a phone the drops stack in one column, so the scheduled card's countdown
   // pill must clear the beat beneath it entirely — that is exactly where the
@@ -2189,7 +2209,7 @@ try {
   const greenPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await greenPre.goto(`${url}/?now=${GREEN_FLESH_RELEASE - 3600000}`);
   await greenPre.locator(`[data-countdown="${GREEN_FLESH_ID}"]`).waitFor();
-  assert.equal(await greenPre.locator('#grid .catalog-tile').count(), 7, 'the third release is in the seven-card catalog');
+  assert.equal(await greenPre.locator('#grid .catalog-tile').count(), 8, 'the third release is in the eight-card catalog');
   assert.equal(await greenPre.locator(`${GREEN_FLESH_CARD} .catalog-tile__link`).count(), 1, 'the GREEN FLESH catalog card renders in the catalog');
   assert.match(await greenPre.locator(`${GREEN_FLESH_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'GREEN FLESH carries its countdown pill');
   assert.doesNotMatch(await greenPre.locator(`${GREEN_FLESH_CARD} .drop-countdown__label`).innerText(), /\d/, 'the drop label carries no clock hour');
@@ -2292,11 +2312,12 @@ try {
   const squishPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await squishPre.goto(`${url}/?now=${SQUISH_RELEASE - 3600000}`);
   await squishPre.locator(`[data-countdown="${SQUISH_ID}"]`).waitFor();
-  assert.equal(await squishPre.locator('#grid .catalog-tile').count(), 7, 'the fourth release is in the seven-card catalog');
-  assert.equal(await squishPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-' + GUNNA_ID, 'the GUNNA drop leads the catalog as the newest scheduled drop');
-  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-adll', 'ADLL follows the newest drop');
-  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(2).getAttribute('id'), 'card-just-d0-it', 'JUST D0 IT follows ADLL');
-  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(3).getAttribute('id'), 'card-squish', 'SQUISH! follows JUST D0 IT');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').count(), 8, 'the fourth release is in the eight-card catalog');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-' + WHITE_NIGHT_ID, 'the WHITE NIGHT drop leads the catalog as the newest scheduled drop');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-' + GUNNA_ID, 'GUNNA follows the newest drop');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(2).getAttribute('id'), 'card-adll', 'ADLL follows GUNNA');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(3).getAttribute('id'), 'card-just-d0-it', 'JUST D0 IT follows ADLL');
+  assert.equal(await squishPre.locator('#grid .catalog-tile').nth(4).getAttribute('id'), 'card-squish', 'SQUISH! follows JUST D0 IT');
   assert.equal(await squishPre.locator(`${SQUISH_CARD} .catalog-tile__link`).count(), 1, 'the SQUISH! catalog card renders in the catalog');
   assert.match(await squishPre.locator(SQUISH_CARD).innerText(), /\[FREE 100%\] LIL GOTIT TYPE BEAT - SQUISH!/i);
   assert.match(await squishPre.locator(`${SQUISH_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'SQUISH! carries its countdown pill');
@@ -2393,10 +2414,11 @@ try {
   const justDoItPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await justDoItPre.goto(`${url}/?now=${JUST_DO_IT_RELEASE - 3600000}`);
   await justDoItPre.locator(`[data-countdown="${JUST_DO_IT_ID}"]`).waitFor();
-  assert.equal(await justDoItPre.locator('#grid .catalog-tile').count(), 7, 'the fifth release is in the seven-card catalog');
-  assert.equal(await justDoItPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-' + GUNNA_ID, 'the GUNNA drop leads the catalog as the newest drop');
-  assert.equal(await justDoItPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-adll', 'ADLL follows the newest drop');
-  assert.equal(await justDoItPre.locator('#grid .catalog-tile').nth(2).getAttribute('id'), 'card-just-d0-it', 'JUST D0 IT follows ADLL');
+  assert.equal(await justDoItPre.locator('#grid .catalog-tile').count(), 8, 'the fifth release is in the eight-card catalog');
+  assert.equal(await justDoItPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-' + WHITE_NIGHT_ID, 'the WHITE NIGHT drop leads the catalog as the newest drop');
+  assert.equal(await justDoItPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-' + GUNNA_ID, 'GUNNA follows the newest drop');
+  assert.equal(await justDoItPre.locator('#grid .catalog-tile').nth(2).getAttribute('id'), 'card-adll', 'ADLL follows GUNNA');
+  assert.equal(await justDoItPre.locator('#grid .catalog-tile').nth(3).getAttribute('id'), 'card-just-d0-it', 'JUST D0 IT follows ADLL');
   assert.equal(await justDoItPre.locator(`${JUST_DO_IT_CARD} .catalog-tile__link`).count(), 1, 'the JUST D0 IT catalog card renders in the catalog');
   assert.match(await justDoItPre.locator(JUST_DO_IT_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - JUST D0 IT/i);
   assert.match(await justDoItPre.locator(`${JUST_DO_IT_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'JUST D0 IT carries its countdown pill');
@@ -2509,9 +2531,10 @@ try {
   const adllPre = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await adllPre.goto(`${url}/?now=${ADLL_RELEASE - 3600000}`);
   await adllPre.locator(`[data-countdown="${ADLL_ID}"]`).waitFor();
-  assert.equal(await adllPre.locator('#grid .catalog-tile').count(), 7, 'the sixth release is in the seven-card catalog');
-  assert.equal(await adllPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-' + GUNNA_ID, 'the GUNNA drop leads the catalog as the newest drop');
-  assert.equal(await adllPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-adll', 'ADLL follows the newest drop');
+  assert.equal(await adllPre.locator('#grid .catalog-tile').count(), 8, 'the sixth release is in the eight-card catalog');
+  assert.equal(await adllPre.locator('#grid .catalog-tile').first().getAttribute('id'), 'card-' + WHITE_NIGHT_ID, 'the WHITE NIGHT drop leads the catalog as the newest drop');
+  assert.equal(await adllPre.locator('#grid .catalog-tile').nth(1).getAttribute('id'), 'card-' + GUNNA_ID, 'GUNNA follows the newest drop');
+  assert.equal(await adllPre.locator('#grid .catalog-tile').nth(2).getAttribute('id'), 'card-adll', 'ADLL follows GUNNA');
   assert.equal(await adllPre.locator(`${ADLL_CARD} .catalog-tile__link`).count(), 1, 'the ADLL catalog card renders in the catalog');
   assert.match(await adllPre.locator(ADLL_CARD).innerText(), /\[FREE 100%\] YEAT TYPE BEAT - A\.D\.L/i);
   assert.match(await adllPre.locator(`${ADLL_CARD} .drop-countdown__label`).innerText(), /DROPPING SOON/, 'ADLL carries its countdown pill');
@@ -2705,7 +2728,7 @@ try {
   const lockAll = await setupPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   await lockAll.goto(`${url}/?now=${ALL_LIVE_NOW}`, { waitUntil: 'domcontentloaded' });
   await lockAll.locator('#grid .catalog-tile').first().waitFor();
-  const securedIds = ['flesh', 'the-flow', 'green-flesh', 'squish', 'just-d0-it', 'adll', GUNNA_ID];
+  const securedIds = ['flesh', 'the-flow', 'green-flesh', 'squish', 'just-d0-it', 'adll', GUNNA_ID, WHITE_NIGHT_ID];
   for (const id of securedIds) {
     assert.equal(await lockAll.evaluate((beatId) => window.KYROlll_HELPERS.lockExclusive(beatId), id), true,
       `${id}: the exclusive tier claims the beat`);
@@ -2728,7 +2751,7 @@ try {
       buttonText: button ? button.textContent.trim() : '',
     };
   }));
-  assert.equal(securedTiles.length, 7, 'all seven beats are painted after their claims');
+  assert.equal(securedTiles.length, 8, 'all eight beats are painted after their claims');
   securedTiles.forEach(tile => {
     assert.equal(tile.badge, '[CLAIMED / SOLD OUT]', `${tile.id}: every tile carries the same sold-out copy`);
     assert.equal(tile.owner, '[OWNED / YOURS]', `${tile.id}: the buyer sees the ownership marker`);
@@ -2770,7 +2793,7 @@ try {
     window.dispatchEvent(new PopStateEvent('popstate'));
   });
   await lockAll.locator('#grid .catalog-tile .exclusive-badge').first().waitFor();
-  assert.equal(await lockAll.locator('#grid .catalog-tile .exclusive-badge').count(), 7, 'the catalog keeps every claim after the round trip');
+  assert.equal(await lockAll.locator('#grid .catalog-tile .exclusive-badge').count(), 8, 'the catalog keeps every claim after the round trip');
   await lockAll.close();
 
   // A claim made by someone else — seeded into the store's global register — is

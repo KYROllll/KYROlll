@@ -296,6 +296,34 @@
           { file: "assets/previews/gunna-type-stems.zip", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
       }
+    },
+    // FUTURE TYPE BEAT - WHITE NIGHT.
+    {
+      id: "white-night",
+      slug: "white-night",
+      title: "[FREE 100%] FUTURE TYPE BEAT - WHITE NIGHT",
+      shortTitle: "WHITE NIGHT",
+      img: "assets/white-night.jpg",
+      bpm: 142,
+      key: "A",
+      preview: "assets/previews/white-night.mp3",
+      youtube: "https://www.youtube.com/@KYROlll00",
+      // Schedule the drop for today at exactly 20:00 (Israel time).
+      releaseAt: "2026-11-09T20:00:00+02:00",
+      deliverables: {
+        mp3: [
+          { file: "assets/previews/white-night.mp3", name: "KYROIII - WHITE NIGHT (142 BPM - A).mp3", label: "TAGGED MP3" }
+        ],
+        wav: [
+          { file: "assets/previews/white-night.mp3", name: "KYROIII - WHITE NIGHT (142 BPM - A).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/white-night.wav", name: "KYROIII - WHITE NIGHT (142 BPM - A).wav", label: "HIGH-QUALITY WAV" }
+        ],
+        exclusive: [
+          { file: "assets/previews/white-night.mp3", name: "KYROIII - WHITE NIGHT (142 BPM - A).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/white-night.wav", name: "KYROIII - WHITE NIGHT (142 BPM - A).wav", label: "HIGH-QUALITY WAV" },
+          { file: "assets/previews/white-night-stems.zip", name: "KYROIII - WHITE NIGHT (142 BPM - A) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
+        ]
+      }
     }
   ];
 

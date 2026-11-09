@@ -374,7 +374,7 @@
     subEl.textContent = "THE PLAYER, EVERY FREE PACKAGE AND THE LICENSE UNLOCK AUTOMATICALLY AT DROP TIME.";
     if (metaEl) metaEl.innerHTML = [beat.bpm + " BPM", String(beat.key).toUpperCase(), "FREE DOWNLOAD"]
       .map((chip) => '<span class="dl-meta__chip">' + escapeHTML(chip) + "</span>").join("");
-    filesPanel.hidden = true;
+    filesPanel.hidden = false;
     licensePanel.hidden = true;
     listEl.innerHTML = '<div class="drop-locked drop-locked--page">' + dropCountdownHTML() +
       '<p class="drop-locked__note">THIS PAGE UNLOCKS ITSELF THE SECOND THE CLOCK HITS ZERO.</p></div>' +
@@ -408,7 +408,7 @@
     subEl.textContent = note;
     if (metaEl) metaEl.innerHTML = [beat.bpm + " BPM", String(beat.key).toUpperCase(), owned ? "OWNED / YOURS" : "SOLD OUT"]
       .map((chip) => '<span class="dl-meta__chip">' + escapeHTML(chip) + "</span>").join("");
-    filesPanel.hidden = true;
+    filesPanel.hidden = false;
     licensePanel.hidden = true;
     listEl.innerHTML = '<div class="exclusive-lock exclusive-lock--page" role="status" data-state="' + (owned ? "exclusive-owned" : "exclusive-locked") + '">' +
         securedStampHTML("exclusive-lock__stamp") +
