@@ -312,11 +312,26 @@ and no repaint can nudge the mobile player mid-playback. It is `layout` containm
 `paint`**, so the static playing glow is never clipped.
 
 The frame itself never animates: there is **no sheen pseudo-element, no rotating border and no
-pulsing shadow**. The old masked conic ring rotated its whole (wide) rectangle, so its long edges
-swept diagonally across the player's face and out past the box — the "spinning indicator" breach —
-and the old `playerPulse` / `togglePulse` keyframes repainted a `box-shadow` inside a
-`backdrop-filter`ed surface every frame (the documented cause of shimmer/jitter). The playing state
-is now a static border colour and a static glow only. The time readout is fixed-width: `13ch`
+animated shadow on the box**. The old masked conic ring rotated its whole (wide) rectangle, so its
+long edges swept diagonally across the player's face and out past the box — the "spinning
+indicator" breach — and the old `playerPulse` / `togglePulse` keyframes repainted a `box-shadow`
+inside a `backdrop-filter`ed surface every frame (the documented cause of shimmer/jitter). The
+playing state keeps a static border colour and a static box glow.
+
+The luxe bloom that remains is **the one beat-reactive layer, and it is not the frame**. A single
+out-of-flow `.beat-preview::after` — a blurred, equal-channel white radial halo, `inset: -22px`,
+`z-index: -1` inside the player's own stacking context — carries the light. While a preview plays,
+`preview-player.js` reads the track through one shared `AudioContext` + `AnalyserNode` (cached per
+element, because `createMediaElementSource` may only be called once) and writes the smoothed
+**spectral flux** of the first 24 bins — the positive frame-to-frame rise, which spikes on kicks
+and snares, rather than a loudness average that sat at ~0.85 and never moved — into the player's
+`--beat-level` custom property; the halo's `opacity`
+and `scale` are `calc()`-ed from it, so the pulse is the music, not a CSS clock. Only `opacity` and
+`transform` change, there are no shadow keyframes, the halo is out of flow (so the 60-frame drift
+sample cannot see it), and `will-change` is claimed only while the player actually plays. Under
+`prefers-reduced-motion` the rAF loop never starts and the halo holds `0.5`; with Web Audio
+unavailable it rests at `0.34`; the `.motion-paused` class freezes the loop. Nothing is required for
+playback — the audio element is never gated on the analyser. The time readout is fixed-width: `13ch`
 (`width` + `min-width`), `white-space: nowrap`, `tabular-nums` + `font-feature-settings: "tnum"`,
 and `update()` only writes it when the string actually changed — so a ticking second or a duration
 arriving can never change its measured width and move the player. Nothing here listens to `scroll`
@@ -626,19 +641,18 @@ never arrive half-empty:
   inside the card — is the whole point: a fixed element is only viewport-anchored while no
   ancestor is a containing block for it, and the glass detail card (`backdrop-filter`) and the
   catalog tiles (`transform`) would otherwise anchor it to the card.
-  **A beat page always unfolds downwards**, off the button's bottom edge. When the room below
-  the button is short, `downloads.js` gives the drawer room with a short eased page scroll
-  (`autoScrollForMenu`) instead of turning the panel over, so the header and player are never
-  covered by an upward drawer and the whole tier list stays below the trigger. On a catalog
-  tile it is still turned over — `.download-menu--up`, `transform-origin: bottom center` —
-  when the room below the button is smaller than the room above, so a card near the foot of a
-  long grid still shows all three tiers. Its width is the button's own width, pulled back
+  **Every drawer unfolds downwards**, off the button's bottom edge — on a beat page and on a
+  catalog tile alike. When the room below the button is short, `downloads.js` gives the drawer
+  room with a short eased page scroll (`autoScrollForMenu`), exactly the beat-page motion, so
+  the control never turns over and never covers the artwork, the header or the player. The old
+  catalog-tile flip (`.download-menu--up`) is gone; a card near the foot of a long grid slides
+  its own room in instead. Its width is the button's own width, pulled back
   inside the visible viewport when the button hugs an edge, and its height is capped to the
   space actually available (plus the scroll a beat page can give it), so the panel is never
   taller than the screen: an oversized list scrolls internally rather than running off the
   bottom. There is no framing scroll any more (the old `frameDrawer` is gone) — a fixed drawer
-  that flips and clamps is already whole, so the page never moves under the visitor except for
-  that one deliberate auto-scroll. Because the drawer does not travel with the page,
+  that clamps is already whole, so the page never moves under the visitor except for that one
+  deliberate auto-scroll. Because the drawer does not travel with the page,
   `positionMenu` freezes the drawer's geometry against the button when it opens — width, capped
   height, unfold direction and base `top`/`left` — and a `scroll` then does **nothing but write
   a compositor `transform`** (`trackMenuScroll`: the negation of the viewport's scroll delta) so
@@ -705,6 +719,12 @@ never arrive half-empty:
   after — is gone in both states: `.beat-detail__head` is the title and `.card__specs` only, and
   `style.css` carries no `.card__youtube-link` rule. No gate step links the video any more:
   the gate is the email form and the license only.
+- **On a phone the artwork leads.** At `max-width: 768px` the single-column beat page orders
+  `.beat-detail__artwork-wrap` (the sleeve and its record) first (`order: 1`) and the glass
+  `.beat-detail__content` card second (`order: 2`), so the cover and vinyl sit above the player
+  and the package drawer. The drawer itself always unfolds downwards from the button, so it can
+  never open over the artwork on a beat page — the reason this order is deliberate and not a
+  cosmetic swap.
 - `start(beatId, packageId)` resolves the beat + package, then opens that package's gate and
   continues on success (`gate: "instant"` short-circuits straight to the download page). There is
   **no grant shortcut**: even a package this view already passed opens the gate from scratch and

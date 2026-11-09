@@ -541,10 +541,12 @@
     document.removeEventListener("keydown", handleMenuKey);
     document.removeEventListener("click", handleMenuOutside, true);
   }
-  /* On a beat page the drawer may only open downwards, so when the button sits
-     low the page itself gives it room: a short, eased scroll moves the trigger
-     up just enough for the whole panel to sit below it. The scroll is driven
-     frame by frame (not native smooth) so it stays gentle, can be cancelled by
+  /* Every drawer opens downwards, so when the button sits low the page itself
+     gives it room: a short, eased scroll moves the trigger up just enough for
+     the whole panel to sit below it. That is the same motion on a beat page and
+     on a catalog tile — a card near the foot of the grid slides its own room in
+     rather than flipping the panel over its artwork. The scroll is driven frame
+     by frame (not native smooth) so it stays gentle, can be cancelled by
      closing the drawer, and is instant under reduced motion. `positionMenu` is
      re-run once on arrival — the single intentional re-measure on this path. */
   function autoScrollForMenu(delta) {
@@ -571,18 +573,16 @@
      Because the drawer is `position: fixed` and its containing block is the
      viewport, no ancestor can clip it: an `overflow` guard on a card, the grid or
      the page does not apply to a fixed box. It spans exactly the button's width
-     (nudged back inside the viewport if the button hugs an edge), unfolds
-     downwards off the button's bottom edge. A catalog tile may be turned over
-     when the room below is smaller than the room above, so a card near the foot
-     of a long grid still shows the whole list. A beat page never turns it over:
-     it keeps the drawer below the trigger and scrolls the page just enough
-     instead (see `autoScrollForMenu`), so the control never flips up over the
-     header or the player. Its height is capped to the space actually available
-     and the panel scrolls internally, so it can never be taller than the screen
-     and never cut off. */
+     (nudged back inside the viewport if the button hugs an edge) and unfolds
+     downwards off the button's bottom edge — on every surface, a beat page and a
+     catalog tile alike. It never turns over: when the room below is short it
+     scrolls the page just enough instead (see `autoScrollForMenu`), so the
+     control can never flip up over the artwork, the header or the player. Its
+     height is capped to the space actually available and the panel scrolls
+     internally, so it can never be taller than the screen and never cut off. */
   function positionMenu() {
     if (!activeMenu) return;
-    const { el, anchor, stage } = activeMenu;
+    const { el, anchor } = activeMenu;
     const box = viewportBox();
     const rect = anchor.getBoundingClientRect();
     const edge = MENU_EDGE;
@@ -596,30 +596,26 @@
     el.style.maxHeight = "none";
     const natural = el.getBoundingClientRect().height;
     const below = Math.max(0, box.bottom - edge - rect.bottom);
-    const above = Math.max(0, rect.top - box.top - edge);
     /* How far the page itself can still scroll, which is exactly the extra room
        a beat-page drawer may claim below the button. */
     const pageRoom = Math.max(0, (document.documentElement.scrollHeight || 0) - (window.scrollY + box.height));
-    const downOnly = !!stage;
-    /* Downwards by preference — the drawer hangs off the button's bottom edge —
-       turned over only on a catalog tile when the room below is smaller than the
-       room above. A beat page is always downward. */
-    const up = downOnly ? false : (natural > below && above > below);
-    const maxHeight = downOnly
-      ? Math.min(natural, below + pageRoom)
-      : Math.min(natural, up ? above : below);
+    /* Downwards, always — the drawer hangs off the button's bottom edge on a
+       catalog tile exactly as it does on a beat page. The panel is never turned
+       over, because an upward drawer is what covered the artwork and the header
+       on a card near the foot of the grid. */
+    const maxHeight = Math.min(natural, below + pageRoom);
     el.style.maxHeight = maxHeight + "px";
-    el.style.top = (up ? rect.top - maxHeight : rect.bottom) + "px";
-    el.classList.toggle("download-menu--up", up);
+    el.style.top = rect.bottom + "px";
+    el.classList.remove("download-menu--up");
     /* Freeze the anchor right here. `trackMenuScroll` always measures from this
        base, and nothing on the scroll path recomputes the geometry above — so a
        flick can move the drawer but can never re-size it or flip it over. */
     el.style.transform = "";
     activeMenu.base = { x: window.scrollX, y: window.scrollY };
-    /* A beat page gives the drawer its room by moving the page, once, before the
-       visitor has to scroll at all. */
+    /* The drawer takes its room by moving the page, once, before the visitor
+       has to scroll at all — on a beat page and on a catalog tile alike. */
     const need = natural - below;
-    if (downOnly && !activeMenu.autoScrolled && !activeMenu.autoScrolling && need > .5 && pageRoom > .5) {
+    if (!activeMenu.autoScrolled && !activeMenu.autoScrolling && need > .5 && pageRoom > .5) {
       autoScrollForMenu(Math.min(need, pageRoom));
     }
   }

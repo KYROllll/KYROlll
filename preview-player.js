@@ -1,9 +1,21 @@
 // One controller for the entire grid, including cards added by later renders.
+//
+// While a preview plays, the player's soft white halo breathes with the track:
+// one shared AudioContext feeds an analyser on the playing element, and a rAF
+// loop writes the smoothed low-band spectral flux into the player's
+// `--beat-level` custom property (the halo's opacity/scale are calc()-ed from
+// it in style.css). It is opt-out, never required: if Web Audio is unavailable
+// the halo simply holds one gentle static bloom, and under reduced motion the
+// loop never starts.
 class BeatPreviewPlayer {
   constructor(root) {
     this.root = root;
     this.active = null;
     this.request = 0;
+    this.audioContext = undefined;  // undefined = not built yet, null = unsupported
+    this.glowFrame = 0;
+    this.glowPlayer = null;
+    this.level = 0;
     root.addEventListener("click", (event) => {
       const button = event.target.closest(".beat-preview__toggle");
       if (button) this.toggle(button.closest(".beat-preview").querySelector("audio"));
@@ -31,12 +43,16 @@ class BeatPreviewPlayer {
           return;
         }
         if (type === "waiting" && this.active === audio) player.dataset.state = "loading";
-        if (type === "playing") player.dataset.state = "playing";
+        if (type === "playing") {
+          player.dataset.state = "playing";
+          this.startGlow(audio);
+        }
         if (type === "ended" || (type === "pause" && audio.paused)) {
           if (this.active === audio) {
             this.active = null;
             this.request++;
           }
+          this.stopGlow();
           if (player.dataset.state !== "error") player.dataset.state = "idle";
         }
         this.update(audio);
@@ -46,6 +62,7 @@ class BeatPreviewPlayer {
 
   stop() {
     this.request++;
+    this.stopGlow();
     const audio = this.active;
     this.active = null;
     if (!audio) return;
@@ -66,6 +83,9 @@ class BeatPreviewPlayer {
     const player = audio.closest(".beat-preview");
     if (player) player.dataset.state = "loading";
     this.update(audio);
+    // Warm the analyser inside the click gesture, so the shared AudioContext
+    // starts running before the first `playing` frame needs it.
+    this.audioGraph(audio);
     try {
       if (audio.error) audio.load();
       if (audio.ended) audio.currentTime = 0;
@@ -84,10 +104,94 @@ class BeatPreviewPlayer {
   }
 
   fail(audio) {
+    this.stopGlow();
     if (this.active === audio) this.stop();
     const player = audio.closest(".beat-preview");
     if (player) player.dataset.state = "error";
     this.update(audio);
+  }
+
+  /* ---------------------------------------------------------- the halo clock
+     One AudioContext for the whole grid. `createMediaElementSource` may only be
+     called once per element, so the graph (and its analyser) is cached on the
+     element itself; a browser that refuses Web Audio simply leaves the halo at
+     its resting level. `resume()` is safe to call repeatedly and is what makes
+     the context start from the play tap on iOS. */
+  audioGraph(audio) {
+    if (this.audioContext === null || typeof window === "undefined") return null;
+    if (!this.audioContext) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) { this.audioContext = null; return null; }
+      try { this.audioContext = new Ctx(); } catch { this.audioContext = null; return null; }
+    }
+    if (this.audioContext.state === "suspended") this.audioContext.resume().catch(() => {});
+    if (audio.__kyrolllAnalyser) return audio.__kyrolllAnalyser;
+    try {
+      const source = this.audioContext.createMediaElementSource(audio);
+      const analyser = this.audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      // Light smoothing: the halo wants the transient, not a loudness average.
+      analyser.smoothingTimeConstant = 0.6;
+      source.connect(analyser);
+      analyser.connect(this.audioContext.destination);
+      audio.__kyrolllAnalyser = analyser;
+      return analyser;
+    } catch {
+      return null;
+    }
+  }
+
+  startGlow(audio) {
+    const player = audio.closest(".beat-preview");
+    if (!player || !player.style || typeof player.style.setProperty !== "function") return;
+    this.stopGlow();
+    this.glowPlayer = player;
+    const analyser = this.audioGraph(audio);
+    const reduced = typeof window !== "undefined" && window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!analyser || reduced) {
+      // No analyser, or motion is off: one soft, static bloom — no clock.
+      player.style.setProperty("--beat-level", analyser ? "0.5" : "0.34");
+      return;
+    }
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    let prev = null;
+    this.level = 0;
+    const tick = () => {
+      if (this.glowPlayer !== player || this.active !== audio) return;
+      this.glowFrame = requestAnimationFrame(tick);
+      if (typeof document === "undefined" || document.hidden) return;
+      if (document.documentElement.classList.contains("motion-paused")) return;
+      analyser.getByteFrequencyData(data);
+      if (!prev) prev = new Uint8Array(data.length);
+      /* Spectral flux, not loudness: the first bins carry the kick, the snare
+         and the low end of the melody, and the positive frame-to-frame rise in
+         them is the beat itself. A plain energy average sat at ~0.85 for a
+         whole track and never visibly moved; flux spikes on each hit and the
+         slow release makes the halo breathe back out between them. */
+      const bins = Math.min(24, data.length);
+      let flux = 0;
+      for (let i = 0; i < bins; i += 1) {
+        const delta = data[i] - prev[i];
+        if (delta > 0) flux += delta;
+        prev[i] = data[i];
+      }
+      const target = Math.min(1, flux / 340);
+      this.level += (target - this.level) * (target > this.level ? 0.5 : 0.08);
+      player.style.setProperty("--beat-level", this.level.toFixed(3));
+    };
+    this.glowFrame = requestAnimationFrame(tick);
+  }
+
+  stopGlow() {
+    if (this.glowFrame) {
+      cancelAnimationFrame(this.glowFrame);
+      this.glowFrame = 0;
+    }
+    this.level = 0;
+    if (!this.glowPlayer) return;
+    this.glowPlayer.style.setProperty("--beat-level", "0");
+    this.glowPlayer = null;
   }
 
   update(audio) {
