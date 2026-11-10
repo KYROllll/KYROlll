@@ -97,10 +97,10 @@ test('a beat cover turns the branded flower while its artwork loads', async () =
     await route.fulfill({ path: join(rootPath, 'assets/beat-cover.png'), contentType: 'image/png' });
   });
 
-  await open(page);
-  const art = page.locator('.catalog-tile__art').first();
+  await open(page, '/?beat=gunna-type');
+  const art = page.locator('.beat-detail__artwork').first();
   await art.waitFor();
-  await page.waitForFunction(() => document.querySelector('.catalog-tile__art')?.classList.contains('is-loading'));
+  await page.waitForFunction(() => document.querySelector('.beat-detail__artwork')?.classList.contains('is-loading'));
   await page.waitForTimeout(450); // let the cover fade behind the indicator
 
   const loading = await readArtLoading(art);
@@ -113,8 +113,8 @@ test('a beat cover turns the branded flower while its artwork loads', async () =
   assert.match(loading.background, /kyrolll-flower-rest\.png/, 'the indicator is the official flower render');
 
   gate.resolve();
-  await page.waitForFunction(() => document.querySelector('.catalog-tile__art')?.classList.contains('is-loaded'));
-  await page.waitForFunction(() => !document.querySelector('.catalog-tile__art .flower-spinner'));
+  await page.waitForFunction(() => document.querySelector('.beat-detail__artwork')?.classList.contains('is-loaded'));
+  await page.waitForFunction(() => !document.querySelector('.beat-detail__artwork .flower-spinner'));
   const settled = await readArtLoading(art);
   assert.equal(settled.loading, false, 'the loading state clears when the cover arrives');
   assert.equal(settled.spinner, false, 'a settled card carries no idle animation');
@@ -182,9 +182,9 @@ test('reduced motion freezes the indicator instead of spinning it', async () => 
     await route.fulfill({ path: join(rootPath, 'assets/beat-cover.png'), contentType: 'image/png' });
   });
 
-  await open(page);
-  await page.waitForFunction(() => document.querySelector('.catalog-tile__art')?.classList.contains('is-loading'));
-  const animation = await page.locator('.catalog-tile__art').first()
+  await open(page, '/?beat=gunna-type');
+  await page.waitForFunction(() => document.querySelector('.beat-detail__artwork')?.classList.contains('is-loading'));
+  const animation = await page.locator('.beat-detail__artwork').first()
     .locator('.flower-spinner__flower').evaluate((el) => getComputedStyle(el).animationName);
   assert.equal(animation, 'none', 'the flower holds its resting pose under reduced motion');
   gate.resolve();

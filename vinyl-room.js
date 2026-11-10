@@ -2,10 +2,14 @@
  *
  * The storefront's first screen: a dark listening room with a physical record
  * shelf and a turntable. Every beat is a sleeve on the shelf; the newest one is
- * still sealed in shrink-wrap, which peels when it is chosen. Choosing a record
- * raises two paths — LISTEN cues it on the 3D deck, FREE DOWNLOAD opens the
- * packages — and the deck's own chassis control strip carries the download
- * buttons, the pitch fader and the transport.
+ * still sealed in shrink-wrap, which tears open when it is chosen (a drag on
+ * the seal scrubs the tear). Choosing a record raises two paths — LISTEN cues
+ * it on the 3D deck, FREE DOWNLOAD slides the package drawer in — and the deck's
+ * own chassis control strip carries the transport and the package buttons.
+ *
+ * The room is the store's only home surface: browsing, streaming, the free /
+ * exclusive package hand-off and the support/profile links all live here. There
+ * is no catalog document below it.
  *
  * Everything visual is neutral (black, white, silver): the only colour in the
  * room comes from the supplied cover art and the photographed vinyl label.
@@ -44,11 +48,12 @@ import * as THREE from "three";
   const deckPlay = room.querySelector("[data-deck-play]");
   const deckBar = room.querySelector("[data-deck-bar]");
   const deckTime = room.querySelector("[data-deck-time]");
-  const deckPitch = room.querySelector("[data-deck-pitch]");
-  const deckPitchOut = room.querySelector("[data-deck-pitch-out]");
   const deckPacks = room.querySelector("[data-deck-packs]");
   const deckEject = room.querySelector("[data-deck-eject]");
   const fallbackLink = room.querySelector("[data-room-fallback]");
+  const cardStatus = room.querySelector("[data-card-status]");
+  const traySpecs = room.querySelector("[data-room-tray-specs]");
+  const scrim = room.querySelector("[data-room-scrim]");
 
   const HELPERS = window.KYROlll_HELPERS || {};
   const PACKAGES = Array.isArray(window.KYROlll_PACKAGES) ? window.KYROlll_PACKAGES : [];
@@ -75,8 +80,12 @@ import * as THREE from "three";
 
   const isReleased = (beat) => !HELPERS.isReleased || HELPERS.isReleased(beat);
   const isLocked = (beatId) => !!(HELPERS.isExclusiveLocked && HELPERS.isExclusiveLocked(beatId));
+  const isOwned = (beatId) => !!(HELPERS.isExclusiveOwned && HELPERS.isExclusiveOwned(beatId));
   const shortTitle = (beat) => beat.shortTitle || String(beat.title || "").replace(/^\[FREE 100%\]\s*/i, "");
   const specLine = (beat) => `${beat.bpm} BPM // ${String(beat.key || "").toUpperCase()} // TAGGED AUDIO`;
+  const countdown = (beat) => (HELPERS.msUntilRelease && HELPERS.formatCountdown)
+    ? HELPERS.formatCountdown(HELPERS.msUntilRelease(beat))
+    : "";
 
   /* ------------------------------------------------------------------ state */
   const state = {
@@ -91,6 +100,10 @@ import * as THREE from "three";
     booted: false,
     fps: 0,
     frames: 0,
+    tearDrag: false,
+    tearStartX: 0,
+    tearStartY: 0,
+    tearStartT: 0,
   };
 
   let renderer = null;
@@ -136,6 +149,87 @@ import * as THREE from "three";
         x += widths[i] + tracking;
       });
     });
+  }
+
+  /* ------------------------------------------------------- surface detail maps
+     The room never ships a flat sleeve or a painted record. Every gloss surface
+     gets a real tangent-space normal map generated here (grooves for the disc,
+     a fine paper tooth for the jacket) plus a physical clearcoat layer, so the
+     highlight travels across the object as it turns instead of sitting on a
+     flat raster. The maps are data, never colour: the store stays monochrome. */
+  function heightToNormal(size, height, strength) {
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    const image = ctx.createImageData(size, size);
+    for (let y = 0; y < size; y += 1) {
+      for (let x = 0; x < size; x += 1) {
+        const dx = height(x + 1, y) - height(x - 1, y);
+        const dy = height(x, y + 1) - height(x, y - 1);
+        const nx = -dx * strength;
+        const ny = -dy * strength;
+        const nz = 1;
+        const len = Math.hypot(nx, ny, nz) || 1;
+        const i = (y * size + x) * 4;
+        image.data[i] = Math.round((nx / len * 0.5 + 0.5) * 255);
+        image.data[i + 1] = Math.round((ny / len * 0.5 + 0.5) * 255);
+        image.data[i + 2] = Math.round((nz / len * 0.5 + 0.5) * 255);
+        image.data[i + 3] = 255;
+      }
+    }
+    ctx.putImageData(image, 0, 0);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.NoColorSpace;
+    texture.anisotropy = 8;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    return texture;
+  }
+
+  /* Concentric micro-grooves, denser toward the rim, plus the fine lathe haze
+     a real pressing carries between tracks. */
+  function makeGrooveNormal(size) {
+    const half = size / 2;
+    return heightToNormal(size, (x, y) => {
+      const nx = (x - half) / half;
+      const ny = (y - half) / half;
+      const r = Math.min(1, Math.hypot(nx, ny));
+      const groove = Math.sin(r * size * 0.62) * 0.5;
+      const lathe = Math.sin(r * size * 0.11 + 1.7) * 0.35;
+      const fringe = Math.sin((x * 0.9 + y * 0.6) * 0.55) * 0.18;
+      return (groove + lathe) * (0.25 + r * 0.75) + fringe;
+    }, 0.55);
+  }
+
+  function makePaperNormal(size) {
+    return heightToNormal(size, (x, y) => {
+      const a = Math.sin(x * 1.7 + Math.cos(y * 0.11) * 3);
+      const b = Math.sin(y * 2.3 + Math.cos(x * 0.13) * 2);
+      const c = Math.sin((x + y) * 0.37);
+      return (a + b + c) * 0.09;
+    }, 0.4);
+  }
+
+  /* One material factory for every glossy surface in the room. A software
+     rasteriser gets the Standard fallback (same lighting, no clearcoat cost);
+     a GPU gets the layered Physical response. */
+  function glossMaterial(options) {
+    const base = Object.assign({
+      color: 0xffffff,
+      metalness: 0.04,
+      roughness: 0.46,
+      envMapIntensity: 0.9,
+    }, options || {});
+    const clearcoat = base.clearcoat;
+    const clearcoatRoughness = base.clearcoatRoughness;
+    delete base.clearcoat;
+    delete base.clearcoatRoughness;
+    if (lowPower) return new THREE.MeshStandardMaterial(base);
+    return new THREE.MeshPhysicalMaterial(Object.assign({}, base, {
+      clearcoat: clearcoat === undefined ? 0.75 : clearcoat,
+      clearcoatRoughness: clearcoatRoughness === undefined ? 0.18 : clearcoatRoughness,
+    }));
   }
 
   /* --------------------------------------------------------------- boot gate */
@@ -194,12 +288,13 @@ import * as THREE from "three";
   let spinGroup = null;
   let platterDisc = null;
   let armPivot = null;
-  let pitchCap = null;
   let wrap = null;
   let wallDecal = null;
   let flowerTexture = null;
   let vinylTexture = null;
   let labelTexture = null;
+  let grooveNormal = null;
+  let paperNormal = null;
   let ringLevel = 0;
   let levelTarget = 0;
 
@@ -248,6 +343,9 @@ import * as THREE from "three";
     labelTexture = loader.load("assets/kyrolll-flower-label.png?v=3");
     labelTexture.colorSpace = THREE.SRGBColorSpace;
     labelTexture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+
+    grooveNormal = makeGrooveNormal(lowPower ? 256 : 512);
+    paperNormal = makePaperNormal(lowPower ? 128 : 256);
 
     buildRoom();
     buildShelf();
@@ -463,25 +561,44 @@ import * as THREE from "three";
   }
 
   function buildRecords(loader) {
-    const coverGeo = new THREE.BoxGeometry(0.66, 0.66, 0.022);
-    const discGeo = new THREE.CylinderGeometry(0.315, 0.315, 0.006, 48);
-    const edgeMat = new THREE.MeshStandardMaterial({ color: 0x0c0c0c, roughness: 0.54, metalness: 0.2 });
+    const coverGeo = new THREE.BoxGeometry(0.66, 0.66, 0.026);
+    const edgeMat = new THREE.MeshStandardMaterial({ color: 0x070707, roughness: 0.5, metalness: 0.34 });
+    const backMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.62, metalness: 0.12 });
 
     records = BEATS.map((beat, index) => {
       const group = new THREE.Group();
       group.userData.index = index;
 
-      const coverMat = new THREE.MeshStandardMaterial({ color: 0x101010, roughness: 0.84, metalness: 0.02, emissive: 0x000000, envMapIntensity: 0.3 });
-      const cover = new THREE.Mesh(coverGeo, [edgeMat, edgeMat, edgeMat, edgeMat, coverMat, edgeMat]);
+      /* The jacket is laminated card stock: a physical clearcoat over the cover
+         print, with a fine paper tooth normal map underneath. The behaviour is
+         the same on every sleeve — only the supplied art differs. */
+      const coverMat = glossMaterial({
+        color: 0x101010,
+        roughness: 0.42,
+        metalness: 0.02,
+        envMapIntensity: 0.8,
+        clearcoat: 0.9,
+        clearcoatRoughness: 0.2,
+        normalMap: paperNormal,
+        normalScale: new THREE.Vector2(0.22, 0.22),
+      });
+      const cover = new THREE.Mesh(coverGeo, [edgeMat, edgeMat, edgeMat, edgeMat, coverMat, backMat]);
       group.add(cover);
 
-      const discMat = new THREE.MeshStandardMaterial({ map: vinylTexture, transparent: true, alphaTest: 0.5, roughness: 0.5, metalness: 0.08 });
-      const disc = new THREE.Mesh(discGeo, [edgeMat, discMat, discMat]);
-      disc.rotation.x = Math.PI / 2;
-      disc.position.set(0.165, 0, -0.026);
+      /* A thin machined edge catches the key light and separates the sleeve
+         from the black shelf behind it. */
+      const rim = new THREE.Mesh(
+        new THREE.BoxGeometry(0.668, 0.668, 0.006),
+        new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.28, metalness: 0.85 })
+      );
+      rim.position.z = 0.002;
+      group.add(rim);
+
+      const disc = makeVinylDisc(0.315);
+      disc.position.set(0.17, 0, -0.036);
       group.add(disc);
 
-      const edge = new THREE.LineSegments(new THREE.EdgesGeometry(coverGeo), new THREE.LineBasicMaterial({ color: 0x565656, transparent: true, opacity: 0.5 }));
+      const edge = new THREE.LineSegments(new THREE.EdgesGeometry(coverGeo), new THREE.LineBasicMaterial({ color: 0x6a6a6a, transparent: true, opacity: 0.4 }));
       group.add(edge);
 
       shelfRoot.add(group);
@@ -492,9 +609,6 @@ import * as THREE from "three";
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
         coverMat.map = texture;
-        coverMat.emissiveMap = texture;
-        coverMat.emissive = new THREE.Color(0xffffff);
-        coverMat.emissiveIntensity = 0.05;
         coverMat.needsUpdate = true;
       }, undefined, () => { /* a missing cover stays a black sleeve */ });
 
@@ -502,136 +616,231 @@ import * as THREE from "three";
     });
   }
 
-  /* ---------------------------------------------------------------- shrink */
-  function buildWrap() {
-    if (!records.length) return;
-    const group = new THREE.Group();
-    group.position.set(0, 0, 0.024);
-
-    /* A faint crinkle map is what separates shrink-wrap from a flat plastic
-       sheet under the key light; it is data, not colour, so the film stays
-       equal-channel. */
-    const wrinkles = canvasTexture(256, 256, (ctx, w, h) => {
-      ctx.fillStyle = "#808080";
+  /* ---------------------------------------------------------------- shrink
+     A premium shrink-wrap is a stack, not one translucent box: a clearcoat
+     film with a crinkle normal map, a crimped seam around the perimeter, a
+     printed seal and a pull tab. The film is split down a jagged tear line
+     into two halves, so the peel opens from the middle like a real sealed
+     sleeve instead of fading a single sheet away. */
+  function tearMask(side) {
+    return canvasTexture(256, 256, (ctx, w, h) => {
+      ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, w, h);
-      for (let i = 0; i < 46; i += 1) {
-        const x = (i * 61) % w;
-        const y = (i * 97) % h;
-        const grad = ctx.createLinearGradient(x, y, x + 90, y + 46);
-        grad.addColorStop(0, "rgba(255,255,255,0)");
-        grad.addColorStop(0.5, i % 2 ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.18)");
-        grad.addColorStop(1, "rgba(255,255,255,0)");
-        ctx.fillStyle = grad;
-        ctx.fillRect(x - 40, y - 20, 150, 80);
-      }
-    });
-    wrinkles.colorSpace = THREE.NoColorSpace;
-    wrinkles.wrapS = THREE.RepeatWrapping;
-    wrinkles.wrapT = THREE.RepeatWrapping;
-
-    const filmMat = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff,
-      metalness: 0,
-      roughness: 0.09,
-      transparent: true,
-      opacity: 0.19,
-      clearcoat: 1,
-      clearcoatRoughness: 0.06,
-      envMapIntensity: 2.4,
-      bumpMap: wrinkles,
-      bumpScale: 0.012,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    });
-    const film = new THREE.Mesh(new THREE.BoxGeometry(0.694, 0.694, 0.05), filmMat);
-    film.renderOrder = 3;
-    group.add(film);
-
-    const seamMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, toneMapped: false });
-    const seam = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.68, 0.056), seamMat);
-    seam.position.set(-0.344, 0, 0);
-    group.add(seam);
-    const seamTop = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.004, 0.056), seamMat);
-    seamTop.position.set(0, 0.344, 0);
-    group.add(seamTop);
-
-    const flapTexture = canvasTexture(256, 256, (ctx, w, h) => {
-      const grad = ctx.createLinearGradient(0, 0, w, h);
-      grad.addColorStop(0, "rgba(255,255,255,0.5)");
-      grad.addColorStop(0.5, "rgba(255,255,255,0.18)");
-      grad.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = grad;
+      ctx.fillStyle = "#ffffff";
       ctx.beginPath();
-      ctx.moveTo(w, 0);
-      ctx.lineTo(w * 0.12, h * 0.88);
-      ctx.lineTo(w, h);
+      ctx.moveTo(w / 2, 0);
+      for (let y = 0; y <= h; y += 6) {
+        const x = w / 2 + Math.sin(y * 0.11) * 6 + Math.sin(y * 0.37) * 2.5;
+        ctx.lineTo(x, y);
+      }
+      if (side === "left") {
+        ctx.lineTo(0, h);
+        ctx.lineTo(0, 0);
+      } else {
+        ctx.lineTo(w, h);
+        ctx.lineTo(w, 0);
+      }
       ctx.closePath();
       ctx.fill();
     });
-    const flap = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.2), new THREE.MeshBasicMaterial({ map: flapTexture, transparent: true, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
-    flap.geometry.translate(-0.1, -0.1, 0);
-    flap.position.set(0.247, 0.247, 0.03);
-    group.add(flap);
+  }
 
-    const stickerTexture = canvasTexture(256, 128, (ctx, w, h) => {
-      ctx.fillStyle = "rgba(12,12,12,0.86)";
+  function buildWrap() {
+    if (!records.length) return;
+    const group = new THREE.Group();
+    group.position.set(0, 0, 0.026);
+
+    const crinkle = heightToNormal(256, (x, y) => {
+      const a = Math.sin(x * 0.19 + y * 0.13) * 0.5;
+      const b = Math.sin(x * 0.06 - y * 0.27) * 0.4;
+      const c = Math.sin(x * 0.41 + y * 0.05) * 0.16;
+      const d = Math.cos(x * 0.03 + y * 0.09) * 0.35;
+      return a + b + c + d;
+    }, 0.85);
+
+    const filmOptions = (mask) => ({
+      color: 0xffffff,
+      metalness: 0,
+      roughness: 0.045,
+      transparent: true,
+      opacity: 0.3,
+      clearcoat: 1,
+      clearcoatRoughness: 0.015,
+      envMapIntensity: 3.1,
+      normalMap: crinkle,
+      normalScale: new THREE.Vector2(0.4, 0.4),
+      alphaMap: mask,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+
+    const leftGeo = new THREE.PlaneGeometry(0.696, 0.696);
+    leftGeo.translate(0.348, 0, 0);
+    const rightGeo = new THREE.PlaneGeometry(0.696, 0.696);
+    rightGeo.translate(-0.348, 0, 0);
+
+    const leftMat = glossMaterial(filmOptions(tearMask("left")));
+    const rightMat = glossMaterial(filmOptions(tearMask("right")));
+    const filmL = new THREE.Mesh(leftGeo, leftMat);
+    filmL.position.set(-0.348, 0, 0);
+    filmL.renderOrder = 3;
+    group.add(filmL);
+    const filmR = new THREE.Mesh(rightGeo, rightMat);
+    filmR.position.set(0.348, 0, 0);
+    filmR.renderOrder = 3;
+    group.add(filmR);
+
+    const tearLine = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.004, 0.69),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, toneMapped: false, depthWrite: false })
+    );
+    tearLine.position.z = 0.004;
+    group.add(tearLine);
+
+    const seams = [];
+    const addSeam = (w, h, x, y) => {
+      const seam = new THREE.Mesh(
+        new THREE.BoxGeometry(w, h, 0.06),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.46, toneMapped: false })
+      );
+      seam.position.set(x, y, 0);
+      group.add(seam);
+      seams.push(seam);
+    };
+    addSeam(0.006, 0.692, -0.346, 0);
+    addSeam(0.006, 0.692, 0.346, 0);
+    addSeam(0.692, 0.006, 0, 0.346);
+    addSeam(0.692, 0.006, 0, -0.346);
+
+    const stickerTexture = canvasTexture(320, 176, (ctx, w, h) => {
+      ctx.fillStyle = "rgba(10,10,10,0.9)";
       ctx.fillRect(0, 0, w, h);
-      ctx.strokeStyle = "rgba(255,255,255,0.55)";
+      ctx.strokeStyle = "rgba(255,255,255,0.6)";
       ctx.lineWidth = 3;
-      ctx.strokeRect(6, 6, w - 12, h - 12);
+      ctx.strokeRect(7, 7, w - 14, h - 14);
       ctx.fillStyle = "#ffffff";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = "700 30px 'Helvetica Neue', Helvetica, Arial, sans-serif";
-      ctx.fillText("SEALED", w / 2, h * 0.39);
-      ctx.font = "700 18px 'Helvetica Neue', Helvetica, Arial, sans-serif";
-      ctx.fillStyle = "rgba(255,255,255,0.6)";
-      ctx.fillText("KYROIII", w / 2, h * 0.68);
+      ctx.font = "700 36px 'Helvetica Neue', Helvetica, Arial, sans-serif";
+      ctx.fillText("SEALED", w / 2, h * 0.36);
+      ctx.font = "700 20px 'Helvetica Neue', Helvetica, Arial, sans-serif";
+      ctx.fillStyle = "rgba(255,255,255,0.62)";
+      ctx.fillText("KYROIII", w / 2, h * 0.6);
+      ctx.font = "700 13px 'Helvetica Neue', Helvetica, Arial, sans-serif";
+      ctx.fillText("PULL TO OPEN", w / 2, h * 0.8);
     });
-    const sticker = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.1), new THREE.MeshBasicMaterial({ map: stickerTexture, transparent: true, toneMapped: false }));
-    sticker.position.set(0.2, -0.26, 0.032);
+    const sticker = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.23, 0.127),
+      new THREE.MeshBasicMaterial({ map: stickerTexture, transparent: true, toneMapped: false })
+    );
+    sticker.position.set(0.19, -0.255, 0.034);
     group.add(sticker);
+
+    const tabTexture = canvasTexture(160, 64, (ctx, w, h) => {
+      ctx.fillStyle = "rgba(245,245,245,0.94)";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#000000";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "700 22px 'Helvetica Neue', Helvetica, Arial, sans-serif";
+      ctx.fillText("PULL", w / 2, h / 2);
+    });
+    const tab = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.13, 0.052),
+      new THREE.MeshBasicMaterial({ map: tabTexture, toneMapped: false, side: THREE.DoubleSide })
+    );
+    tab.position.set(0.27, 0.3, 0.036);
+    tab.rotation.z = -0.12;
+    group.add(tab);
 
     /* Parented to the newest sleeve so the seal lifts and leans with it. */
     records[0].group.add(group);
-    wrap = { group, film, filmMat, flap, sticker, seam, seamTop, t: 0, peeling: false };
+    wrap = {
+      group, filmL, filmR, leftMat, rightMat, tearLine, seams, sticker, tab,
+      t: 0, peeling: false, started: 0,
+    };
   }
 
   function peel() {
     if (!wrap || wrap.peeling || state.peeled) return;
     wrap.peeling = true;
     wrap.started = performance.now();
+    room.classList.add("is-tearing");
     if (reduced) { finishPeel(); return; }
   }
 
   function finishPeel() {
     if (!wrap) return;
     wrap.peeling = false;
-    wrap.film.visible = false;
-    wrap.seam.visible = false;
-    wrap.seamTop.visible = false;
-    wrap.flap.visible = false;
-    wrap.sticker.visible = false;
+    state.tearDrag = false;
+    wrap.group.visible = false;
     state.peeled = true;
+    room.classList.remove("is-tearing");
     room.classList.add("is-unsealed");
-    if (cardKicker && state.selected === 0 && !card.hidden) cardKicker.textContent = "LATEST DROP — UNSEALED";
+    if (state.selected === 0 && !card.hidden) {
+      if (cardKicker) cardKicker.textContent = "LATEST DROP — UNSEALED";
+      paintStatus(BEATS[0], 0);
+    }
   }
 
   /* One disc = the photographed pressing + the original flower label plate,
-     exactly the record the beat page shows. */
-  function makeVinylFace(radius) {
+     exactly the record the beat page shows. The realism comes from three
+     stacked layers rather than a flat raster: a physical vinyl base carrying
+     the photographed surface, a generated micro-groove normal map that lets
+     the environment slide across the playing surface, a machined rim torus for
+     the edge specular, and the printed label plate on top. */
+  function makeVinylDisc(radius) {
     const group = new THREE.Group();
-    const disc = new THREE.Mesh(
-      new THREE.CircleGeometry(radius, 64),
-      new THREE.MeshStandardMaterial({ map: vinylTexture, transparent: true, alphaTest: 0.5, roughness: 0.4, metalness: 0.1, side: THREE.DoubleSide })
-    );
+
+    const discMat = glossMaterial({
+      map: vinylTexture,
+      transparent: true,
+      alphaTest: 0.5,
+      roughness: 0.26,
+      metalness: 0.08,
+      envMapIntensity: 1.5,
+      clearcoat: 1,
+      clearcoatRoughness: 0.06,
+      normalMap: grooveNormal,
+      normalScale: new THREE.Vector2(0.4, 0.4),
+      side: THREE.DoubleSide,
+    });
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(radius, 96), discMat);
     group.add(disc);
-    const label = new THREE.Mesh(
-      new THREE.CircleGeometry(radius * 0.28, 48),
-      new THREE.MeshBasicMaterial({ map: labelTexture, toneMapped: false })
+
+    /* A second, purely specular pass: the wet-looking sheen that sits over a
+       black pressing under a hard light. It is additive and never writes depth,
+       so it can only brighten the record, never tint it. */
+    const sheen = canvasTexture(256, 256, (ctx, w, h) => {
+      const grad = ctx.createRadialGradient(w * 0.5, h * 0.42, w * 0.05, w * 0.5, h * 0.5, w * 0.5);
+      grad.addColorStop(0, "rgba(255,255,255,0)");
+      grad.addColorStop(0.38, "rgba(255,255,255,0.02)");
+      grad.addColorStop(0.58, "rgba(255,255,255,0.2)");
+      grad.addColorStop(0.63, "rgba(255,255,255,0.03)");
+      grad.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+    });
+    const sheenMesh = new THREE.Mesh(
+      new THREE.CircleGeometry(radius * 0.995, 96),
+      new THREE.MeshBasicMaterial({ map: sheen, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, opacity: 0.7 })
     );
-    label.position.z = 0.0012;
+    sheenMesh.position.z = 0.0008;
+    group.add(sheenMesh);
+
+    const rim = new THREE.Mesh(
+      new THREE.TorusGeometry(radius * 0.988, radius * 0.011, 8, 96),
+      new THREE.MeshStandardMaterial({ color: 0x9a9a9a, roughness: 0.22, metalness: 0.95 })
+    );
+    group.add(rim);
+
+    const label = new THREE.Mesh(
+      new THREE.CircleGeometry(radius * 0.3, 64),
+      glossMaterial({ map: labelTexture, roughness: 0.42, metalness: 0.05, clearcoat: 0.5, clearcoatRoughness: 0.3, envMapIntensity: 0.6 })
+    );
+    label.position.z = 0.0014;
     group.add(label);
+
     return group;
   }
 
@@ -679,7 +888,7 @@ import * as THREE from "three";
     spinGroup.position.y = 0.907;
     spinGroup.rotation.x = -Math.PI / 2;
     deckGroup.add(spinGroup);
-    platterDisc = makeVinylFace(0.4);
+    platterDisc = makeVinylDisc(0.4);
     platterDisc.rotation.z = 0.4;
     spinGroup.add(platterDisc);
     platterDisc.visible = false;
@@ -705,12 +914,14 @@ import * as THREE from "three";
     frontMark.position.set(0, 0.81, 0.526);
     deckGroup.add(frontMark);
 
-    const faderSlot = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.008, 0.38), new THREE.MeshStandardMaterial({ color: 0x030303, roughness: 0.8, metalness: 0.1 }));
-    faderSlot.position.set(-0.55, 0.872, 0.3);
-    deckGroup.add(faderSlot);
-    pitchCap = new THREE.Mesh(new THREE.BoxGeometry(0.072, 0.02, 0.046), silverMat());
-    pitchCap.position.set(-0.55, 0.88, 0.3);
-    deckGroup.add(pitchCap);
+    /* The chassis is a fixed 33 RPM deck: no pitch fader. A machined blank
+       plate keeps the deck's face balanced where the fader used to sit. */
+    const plate = new THREE.Mesh(
+      new THREE.BoxGeometry(0.3, 0.006, 0.06),
+      new THREE.MeshStandardMaterial({ color: 0x1d1d1d, roughness: 0.32, metalness: 0.9 })
+    );
+    plate.position.set(-0.52, 0.873, 0.14);
+    deckGroup.add(plate);
 
     /* Tonearm: base, pillar, counterweight, tube and headshell. */
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.082, 0.09, 0.03, 32), metalMat());
@@ -869,22 +1080,45 @@ import * as THREE from "three";
 
   function updateWrap() {
     if (!wrap || !wrap.peeling) return;
-    /* Wall-clock progress: a slow renderer must not turn the peel into a
-       slideshow, so the clock is the clock, not the frame budget. */
-    wrap.t = clamp((performance.now() - wrap.started) / 900, 0, 1);
+    /* Wall-clock progress, unless a finger is scrubbing the tear: then the
+       pointer drives `t` directly and the clock is re-based on release. A slow
+       renderer must never turn the peel into a slideshow. */
+    if (!state.tearDrag) {
+      wrap.t = clamp((performance.now() - wrap.started) / 1600, 0, 1);
+    }
     const t = easeInOut(wrap.t);
-    wrap.film.rotation.z = -0.34 * t;
-    wrap.film.rotation.y = -0.65 * t;
-    wrap.film.position.x = -0.34 * t;
-    wrap.film.position.y = 0.22 * t;
-    wrap.filmMat.opacity = 0.19 * (1 - t);
-    wrap.flap.rotation.z = -1.15 * t;
-    wrap.flap.rotation.x = -0.5 * t;
-    wrap.flap.scale.setScalar(1 + 0.75 * t);
-    wrap.sticker.rotation.z = -0.5 * t;
-    wrap.sticker.position.y = -0.26 + 0.12 * t;
-    wrap.seam.material.opacity = 0.5 * (1 - t);
-    wrap.seamTop.material.opacity = 0.5 * (1 - t);
+
+    /* The two halves tear apart and curl away from the middle seam. */
+    wrap.filmL.rotation.y = -1.25 * t;
+    wrap.filmL.rotation.z = 0.24 * t;
+    wrap.filmL.position.x = -0.348 - 0.3 * t;
+    wrap.filmL.position.y = 0.16 * t;
+    wrap.filmL.position.z = 0.12 * t;
+    wrap.filmR.rotation.y = 1.25 * t;
+    wrap.filmR.rotation.z = -0.24 * t;
+    wrap.filmR.position.x = 0.348 + 0.3 * t;
+    wrap.filmR.position.y = 0.16 * t;
+    wrap.filmR.position.z = 0.12 * t;
+
+    const fade = 1 - Math.max(0, (t - 0.35) / 0.65);
+    wrap.leftMat.opacity = 0.3 * fade;
+    wrap.rightMat.opacity = 0.3 * fade;
+
+    /* The tear itself catches the light first, then vanishes with the film. */
+    wrap.tearLine.material.opacity = Math.sin(Math.min(1, wrap.t * 1.8) * Math.PI) * 0.95;
+    wrap.tearLine.scale.y = 1 + t * 0.12;
+
+    wrap.sticker.rotation.z = -0.6 * t;
+    wrap.sticker.rotation.x = 0.5 * t;
+    wrap.sticker.position.y = -0.255 + 0.2 * t;
+    wrap.sticker.position.z = 0.034 + 0.14 * t;
+    wrap.tab.rotation.z = -0.12 - 0.8 * t;
+    wrap.tab.position.x = 0.27 + 0.12 * t;
+    wrap.tab.position.y = 0.3 + 0.16 * t;
+    wrap.seams.forEach((seam) => {
+      seam.material.opacity = 0.46 * fade;
+      seam.position.z = 0.02 * t;
+    });
     if (wrap.t >= 1) finishPeel();
   }
 
@@ -904,12 +1138,10 @@ import * as THREE from "three";
       if (t >= 1) deck.arm = deck.armTarget;
     }
     if (armPivot) armPivot.rotation.y = REST_ARM + deck.arm * (PLAY_ARM - REST_ARM);
-    if (pitchCap) {
-      const p = clamp(Number(deckPitch.value) || 0, -8, 8);
-      pitchCap.position.z = 0.3 + (p / 8) * 0.14;
-    }
     if (state.playing && spinGroup && !deck.flying && !reduced && !manualPaused) {
-      spinGroup.rotation.z -= dt * 3.49 * (audio ? audio.playbackRate : 1);
+      /* A fixed 33⅓ RPM platter. The audio is never resampled: the record turns
+         at the deck's speed and the preview plays at its native rate. */
+      spinGroup.rotation.z -= dt * 3.491;
     } else if (spinGroup && !reduced && !manualPaused) {
       spinGroup.rotation.z -= dt * 0.06;
     }
@@ -959,65 +1191,116 @@ import * as THREE from "three";
   }
 
   /* ------------------------------------------------------------------ audio */
+  /* One media element for the whole room, created once. The Web Audio graph
+     only does gain and analysis: the preview is never resampled, never
+     restarted and never re-fetched mid-play, so placing a record on the deck is
+     a single buffered start with a click-free gain ramp instead of a cold
+     range request. If Web Audio is unavailable the element still plays at a
+     fixed volume — audio is never gated on the graph. */
   let audio = null;
   let audioContext = null;
+  let gainNode = null;
+  let pauseTimer = 0;
+  let lastBarPercent = -1;
+  let lastTimeText = "";
 
   function ensureAudio() {
     if (!audio) {
       audio = new Audio();
-      audio.preload = "metadata";
+      audio.preload = "auto";
       audio.loop = true;
+      audio.setAttribute("playsinline", "");
       audio.addEventListener("timeupdate", updateDeckProgress);
+      audio.addEventListener("progress", updateDeckProgress);
       audio.addEventListener("play", () => { state.playing = true; updatePlayGlyph(); });
       audio.addEventListener("pause", () => { state.playing = false; updatePlayGlyph(); });
       audio.addEventListener("loadedmetadata", updateDeckProgress);
+      audio.addEventListener("canplay", updateDeckProgress);
     }
     return audio;
   }
 
-  function ensureAnalyser() {
-    if (analyser || !audio) return;
+  function ensureGraph() {
+    if (audioContext || !audio) return;
     try {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
-      audioContext = new Ctx();
-      const source = audioContext.createMediaElementSource(audio);
+      audioContext = new Ctx({ latencyHint: "interactive" });
+      gainNode = audioContext.createGain();
+      gainNode.gain.value = 0;
       analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
       analyser.smoothingTimeConstant = 0.82;
-      source.connect(analyser);
-      analyser.connect(audioContext.destination);
       analyserData = new Uint8Array(analyser.frequencyBinCount);
+      /* Create the element source last: it may only ever be created once. */
+      const source = audioContext.createMediaElementSource(audio);
+      source.connect(analyser);
+      analyser.connect(gainNode);
+      gainNode.connect(audioContext.destination);
     } catch (error) {
+      /* No graph means the element plays directly at its own volume. */
       analyser = null;
+      gainNode = null;
     }
+  }
+
+  function setPreviewSource(beat) {
+    const el = ensureAudio();
+    if (!beat || !beat.preview) return el;
+    if (el.dataset.src === beat.preview) return el;
+    el.dataset.src = beat.preview;
+    el.src = beat.preview;
+    el.preload = "auto";
+    try { el.load(); } catch (error) { /* the play() call will report it */ }
+    return el;
+  }
+
+  /* Selection warms the preview without playing it, so the first tap on LISTEN
+     opens from buffered bytes rather than a cold fetch. Never called while a
+     record is playing (that would abort the stream). */
+  function warmPreview(beat) {
+    if (state.playing || !state.ready) return;
+    setPreviewSource(beat);
   }
 
   function playAudio() {
     const el = ensureAudio();
-    ensureAnalyser();
-    if (audioContext && audioContext.state === "suspended") audioContext.resume().catch(() => {});
-    el.volume = 0.0001;
+    ensureGraph();
+    window.clearTimeout(pauseTimer);
+    if (audioContext && audioContext.state === "suspended") {
+      audioContext.resume().catch(() => {});
+    }
+    try { el.volume = 1; } catch (error) { /* iOS volume is read-only */ }
+    if (gainNode && audioContext) {
+      const now = audioContext.currentTime;
+      const gain = gainNode.gain;
+      gain.cancelScheduledValues(now);
+      gain.setValueAtTime(Math.max(0.0001, gain.value || 0.0001), now);
+      gain.linearRampToValueAtTime(0.92, now + 0.35);
+    }
     const started = el.play();
-    if (started && started.catch) started.catch(() => { state.playing = false; updatePlayGlyph(); });
-    fadeVolume(el, 0.9, 900);
-  }
-
-  function fadeVolume(el, to, ms) {
-    const from = el.volume;
-    const start = performance.now();
-    const tick = (now) => {
-      const t = clamp((now - start) / ms, 0, 1);
-      try { el.volume = from + (to - from) * t; } catch (error) { /* iOS volume is read-only */ }
-      if (t < 1 && !el.paused) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
+    if (started && started.catch) {
+      started.catch(() => { state.playing = false; updatePlayGlyph(); });
+    }
   }
 
   function pauseAudio() {
-    if (audio && !audio.paused) audio.pause();
     state.playing = false;
     updatePlayGlyph();
+    if (!audio || audio.paused) return;
+    if (gainNode && audioContext) {
+      const now = audioContext.currentTime;
+      const gain = gainNode.gain;
+      gain.cancelScheduledValues(now);
+      gain.setValueAtTime(gain.value, now);
+      gain.linearRampToValueAtTime(0.0001, now + 0.12);
+      /* Let the ramp land before the element stops, so the stop is silent. */
+      pauseTimer = window.setTimeout(() => {
+        if (audio && !audio.paused) audio.pause();
+      }, 140);
+      return;
+    }
+    audio.pause();
   }
 
   function toggleAudio() {
@@ -1031,8 +1314,17 @@ import * as THREE from "three";
     const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
     const current = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
     const percent = duration ? clamp(current / duration, 0, 1) * 100 : 0;
-    deckBar.style.width = percent.toFixed(2) + "%";
-    deckTime.textContent = formatTime(current) + " / " + (duration ? formatTime(duration) : "--:--");
+    /* `timeupdate` fires several times a second; only touch the DOM when a
+       frame would actually look different. */
+    if (Math.abs(percent - lastBarPercent) > 0.12) {
+      lastBarPercent = percent;
+      deckBar.style.width = percent.toFixed(2) + "%";
+    }
+    const text = formatTime(current) + " / " + (duration ? formatTime(duration) : "--:--");
+    if (text !== lastTimeText) {
+      lastTimeText = text;
+      deckTime.textContent = text;
+    }
   }
 
   function formatTime(value) {
@@ -1048,6 +1340,28 @@ import * as THREE from "three";
   }
 
   /* -------------------------------------------------------------- selection */
+  function statusFor(beat, index) {
+    if (isLocked(beat.id)) {
+      return isOwned(beat.id)
+        ? "EXCLUSIVE RIGHTS // PRIVATE MASTER — THIS PRESSING AND EVERY FILE ARE YOURS."
+        : "EXCLUSIVE RIGHTS // ARCHIVED — THE ONE LICENSE FOR THIS BEAT HAS BEEN ISSUED.";
+    }
+    if (!isReleased(beat)) {
+      return "DROPPING SOON — THE DECK AND THE FILES UNLOCK IN " + countdown(beat) + ".";
+    }
+    if (index === 0 && !state.peeled && wrap) {
+      return "SEALED PRESSING — SELECT IT (OR DRAG THE FILM) TO TEAR THE SHRINK-WRAP.";
+    }
+    return "";
+  }
+
+  function paintStatus(beat, index) {
+    if (!cardStatus) return;
+    const text = statusFor(beat, index);
+    cardStatus.textContent = text;
+    cardStatus.hidden = !text;
+  }
+
   function showCard(index) {
     const beat = BEATS[index];
     if (!beat) return;
@@ -1060,14 +1374,21 @@ import * as THREE from "three";
     }
     if (cardTitle) cardTitle.textContent = shortTitle(beat);
     if (cardSpecs) cardSpecs.textContent = specLine(beat);
+    if (cardKicker && !isReleased(beat)) cardKicker.textContent = "DROPPING SOON — LOCKED";
+    if (cardKicker && isLocked(beat.id)) cardKicker.textContent = isOwned(beat.id) ? "PRIVATE MASTER // YOURS" : "EXCLUSIVE RIGHTS // ARCHIVED";
+    paintStatus(beat, index);
     card.hidden = false;
     room.classList.add("has-card");
     if (index === 0 && !state.peeled) peel();
     if (listenBtn) listenBtn.disabled = !isReleased(beat);
-    if (downloadBtn) downloadBtn.disabled = !isReleased(beat) || isLocked(beat.id);
-    if (!isReleased(beat) && cardKicker) cardKicker.textContent = "DROPPING SOON — LOCKED";
+    if (downloadBtn) {
+      downloadBtn.disabled = !isReleased(beat) || isLocked(beat.id);
+      const label = downloadBtn.querySelector(".room-path__label");
+      if (label) label.textContent = isLocked(beat.id) ? "ARCHIVED" : "FREE DOWNLOAD";
+    }
     if (hintEl) hintEl.textContent = "LISTEN ON THE DECK OR TAKE THE FILES";
     records.forEach((record, i) => { record.targetLift = i === index ? 1 : 0; });
+    warmPreview(beat);
   }
 
   function hideCard() {
@@ -1095,12 +1416,12 @@ import * as THREE from "three";
   }
 
   /* ------------------------------------------------------------------- tray */
-  function packageRow(pack, locked) {
+  function packageRow(pack, disabled, note) {
     const row = document.createElement("button");
     row.type = "button";
     row.className = "room-tray__tier";
     row.dataset.roomPack = pack.id;
-    if (locked) {
+    if (disabled) {
       row.disabled = true;
       row.classList.add("is-locked");
     }
@@ -1109,7 +1430,7 @@ import * as THREE from "three";
     name.textContent = pack.name;
     const tag = document.createElement("span");
     tag.className = "room-tray__tag";
-    tag.textContent = locked ? "CLAIMED / SOLD OUT" : (pack.tag || "FREE");
+    tag.textContent = note || pack.tag || "FREE";
     const blurb = document.createElement("span");
     blurb.className = "room-tray__blurb";
     blurb.textContent = pack.blurb || "";
@@ -1121,20 +1442,21 @@ import * as THREE from "three";
     return row;
   }
 
-  /* The tray prints the full package rows; the chassis strip stays compact. */
+  /* The drawer prints the full package rows; the chassis strip stays compact. */
   function renderDeckPacks() {
     if (!deckPacks) return;
     deckPacks.textContent = "";
     const beat = BEATS[state.selected];
     if (!beat) return;
     const locked = isLocked(beat.id);
+    const pending = !isReleased(beat);
     PACKAGES.forEach((pack) => {
       const button = document.createElement("button");
       button.type = "button";
       button.dataset.roomPack = pack.id;
       button.textContent = pack.id === "exclusive" ? "EXCLUSIVE" : String(pack.id).toUpperCase();
-      button.title = pack.name;
-      if (locked) button.disabled = true;
+      button.title = pending ? "DROPPING SOON" : pack.name;
+      if (locked || pending) button.disabled = true;
       deckPacks.appendChild(button);
     });
   }
@@ -1145,32 +1467,79 @@ import * as THREE from "three";
     const beat = BEATS[state.selected];
     if (!beat) return;
     const locked = isLocked(beat.id);
+    const pending = !isReleased(beat);
+    if (locked) {
+      const note = document.createElement("p");
+      note.className = "room-tray__note";
+      note.textContent = isOwned(beat.id)
+        ? "PRIVATE MASTER // YOURS — THE EXCLUSIVE LICENSE IS ON FILE. THE LEASES ARE RETIRED."
+        : "EXCLUSIVE RIGHTS // ARCHIVED — THIS BEAT HAS LEFT THE STORE.";
+      container.appendChild(note);
+      return;
+    }
     PACKAGES.forEach((pack) => {
-      container.appendChild(packageRow(pack, locked && pack.id === "exclusive"));
+      container.appendChild(packageRow(
+        pack,
+        pending,
+        pending ? "DROPPING SOON" : (locked && pack.id === "exclusive" ? "CLAIMED / SOLD OUT" : "")
+      ));
     });
   }
+
+  function setScrim(open) {
+    if (!scrim) return;
+    if (open) {
+      scrim.hidden = false;
+      requestAnimationFrame(() => scrim.classList.add("is-open"));
+    } else {
+      scrim.classList.remove("is-open");
+      scrim.hidden = true;
+    }
+  }
+
+  let trayTimer = 0;
 
   function openTray() {
     const beat = BEATS[state.selected];
     if (!beat) return;
-    card.hidden = true;
-    room.classList.add("has-tray");
-    if (trayKicker) trayKicker.textContent = "FREE DOWNLOAD — " + (beat.bpm || "") + " BPM";
+    hideCard();
+    window.clearTimeout(trayTimer);
+    if (trayKicker) {
+      trayKicker.textContent = isLocked(beat.id)
+        ? "EXCLUSIVE RIGHTS"
+        : !isReleased(beat)
+          ? "DROPPING SOON"
+          : "FREE DOWNLOAD — " + (beat.bpm || "") + " BPM";
+    }
     if (trayTitle) trayTitle.textContent = shortTitle(beat);
+    if (traySpecs) traySpecs.textContent = specLine(beat);
     renderPacks(trayList);
+    setScrim(true);
     tray.hidden = false;
+    requestAnimationFrame(() => tray.classList.add("is-open"));
+    room.classList.add("has-tray");
   }
 
-  function hideTray() {
+  function hideTray(immediate) {
     if (!tray) return;
-    tray.hidden = true;
+    window.clearTimeout(trayTimer);
+    tray.classList.remove("is-open");
+    setScrim(false);
     room.classList.remove("has-tray");
+    if (immediate || reduced) {
+      tray.hidden = true;
+      return;
+    }
+    trayTimer = window.setTimeout(() => {
+      if (!tray.classList.contains("is-open")) tray.hidden = true;
+    }, 560);
   }
 
   function downloadPack(packId) {
     const beat = BEATS[state.selected];
     const api = window.KYROlll_DOWNLOADS;
     if (!beat || !api || typeof api.start !== "function") return;
+    if (!isReleased(beat) || isLocked(beat.id)) return;
     api.start(beat.id, packId);
   }
 
@@ -1195,8 +1564,7 @@ import * as THREE from "three";
     record.disc.visible = false;
 
     ensureAudio();
-    audio.src = record.beat.preview;
-    audio.playbackRate = 1 + (Number(deckPitch.value) || 0) / 100;
+    setPreviewSource(record.beat);
     playAudio();
 
     showDeck(record.beat);
@@ -1212,7 +1580,7 @@ import * as THREE from "three";
     mid.z += 0.5;
     const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
 
-    const group = makeVinylFace(0.315);
+    const group = makeVinylDisc(0.315);
     group.rotation.x = -Math.PI / 2;
     group.position.copy(start);
     scene.add(group);
@@ -1240,7 +1608,6 @@ import * as THREE from "three";
     room.classList.add("is-listening");
     updatePlayGlyph();
     updateDeckProgress();
-    if (deckPitchOut) deckPitchOut.textContent = (Number(deckPitch.value) || 0).toFixed(1) + "%";
   }
 
   function eject() {
@@ -1317,12 +1684,37 @@ import * as THREE from "three";
       if (event.button !== undefined && event.button !== 0) return;
       pointer = { down: true, x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY, moved: false, id: event.pointerId };
       canvas.setPointerCapture && canvas.setPointerCapture(event.pointerId);
+      /* The seal is a physical object: pressing the still-sealed sleeve lets the
+         visitor scrub the tear with the pointer, not just watch it play. */
+      if (!state.peeled && wrap && state.ready) {
+        const hit = pick(event.clientX, event.clientY);
+        if (hit === 0) {
+          state.tearDrag = true;
+          state.tearStartX = event.clientX;
+          state.tearStartY = event.clientY;
+          state.tearStartT = wrap.t;
+          if (!wrap.peeling) {
+            wrap.peeling = true;
+            wrap.started = performance.now();
+            room.classList.add("is-tearing");
+          }
+        }
+      }
     });
 
     canvas.addEventListener("pointermove", (event) => {
       const rect = canvas.getBoundingClientRect();
       cameraState.wantX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       cameraState.wantY = ((event.clientY - rect.top) / rect.height) * 2 - 1;
+      if (state.tearDrag && wrap) {
+        if (Math.abs(event.clientX - pointer.startX) > 4 || Math.abs(event.clientY - pointer.startY) > 4) pointer.moved = true;
+        /* Down OR right pulls the film open — a phone's pan-y gesture still
+           reaches the tear without trapping the page scroll. */
+        const pull = (event.clientY - state.tearStartY) + (event.clientX - state.tearStartX) * 0.6;
+        wrap.t = clamp(state.tearStartT + pull / 210, 0, 1);
+        wrap.started = performance.now() - wrap.t * 1600;
+        return;
+      }
       if (pointer.down) {
         if (Math.abs(event.clientX - pointer.startX) > 7 || Math.abs(event.clientY - pointer.startY) > 7) pointer.moved = true;
         if (pointer.moved && !state.listening) {
@@ -1348,6 +1740,13 @@ import * as THREE from "three";
       if (!pointer.down) return;
       const wasMoved = pointer.moved;
       pointer.down = false;
+      if (state.tearDrag) {
+        state.tearDrag = false;
+        if (wrap && wrap.peeling) {
+          if (wrap.t >= 0.995) finishPeel();
+          else wrap.started = performance.now() - wrap.t * 1600;
+        }
+      }
       if (pointer.moved) applyCamera(state.view);
       if (!wasMoved && event) {
         const index = pick(event.clientX, event.clientY);
@@ -1357,7 +1756,7 @@ import * as THREE from "three";
       }
     };
     canvas.addEventListener("pointerup", endPointer);
-    canvas.addEventListener("pointercancel", () => { pointer.down = false; });
+    canvas.addEventListener("pointercancel", () => { pointer.down = false; state.tearDrag = false; });
     canvas.addEventListener("pointerleave", () => {
       cameraState.wantX = 0;
       cameraState.wantY = 0;
@@ -1385,15 +1784,16 @@ import * as THREE from "three";
     listenBtn && listenBtn.addEventListener("click", () => listen(state.selected));
     downloadBtn && downloadBtn.addEventListener("click", openTray);
     closeBtn && closeBtn.addEventListener("click", close);
-    trayClose && trayClose.addEventListener("click", () => { hideTray(); showCard(state.selected); });
+    const closeDrawer = () => {
+      hideTray();
+      if (state.selected >= 0 && !state.listening) showCard(state.selected);
+    };
+    room.querySelectorAll("[data-room-tray-close]").forEach((button) => {
+      button.addEventListener("click", closeDrawer);
+    });
+    scrim && scrim.addEventListener("click", closeDrawer);
     deckEject && deckEject.addEventListener("click", eject);
     deckPlay && deckPlay.addEventListener("click", toggleAudio);
-
-    deckPitch && deckPitch.addEventListener("input", () => {
-      const value = Number(deckPitch.value) || 0;
-      if (audio) audio.playbackRate = 1 + value / 100;
-      if (deckPitchOut) deckPitchOut.textContent = value.toFixed(1) + "%";
-    });
 
     deckEl && deckEl.addEventListener("click", (event) => {
       const button = event.target.closest && event.target.closest("[data-room-pack]");
@@ -1405,8 +1805,18 @@ import * as THREE from "three";
        playing — the deck is dismissed only by its own RETURN TO SHELF control. */
     room.addEventListener("click", (event) => {
       if (state.listening) return;
-      if (event.target.closest(".room__card, .room__tray, .room__hud a, .room__hud button, canvas, .room__fallback")) return;
+      if (event.target.closest(".room__card, .room__tray, .room__scrim, .room__hud a, .room__hud button, canvas, .room__fallback")) return;
       close();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      if (tray && !tray.hidden) {
+        hideTray();
+        if (state.selected >= 0 && !state.listening) showCard(state.selected);
+      } else if (!card.hidden) {
+        close();
+      }
     });
 
     window.addEventListener("resize", onResize);
@@ -1475,6 +1885,28 @@ import * as THREE from "three";
       reduced,
     };
   }
+
+  /* A claim (here or on another device) or a scheduled drop landing repaints the
+     selected record in place. The room keeps no copy of the catalog: every read
+     goes back through the shared helpers. */
+  function refreshSelected() {
+    const beat = BEATS[state.selected];
+    if (!beat || !state.ready) return;
+    if (!card.hidden) {
+      paintStatus(beat, state.selected);
+      if (listenBtn) listenBtn.disabled = !isReleased(beat);
+      if (downloadBtn) downloadBtn.disabled = !isReleased(beat) || isLocked(beat.id);
+    }
+    if (!tray.hidden) renderPacks(trayList);
+    renderDeckPacks();
+  }
+  window.addEventListener("kyrolll:exclusive-claims", refreshSelected);
+  window.addEventListener("kyrolll:exclusive-locked", refreshSelected);
+  setInterval(() => {
+    const beat = BEATS[state.selected];
+    if (!beat || card.hidden) return;
+    if (!isReleased(beat) || isLocked(beat.id)) refreshSelected();
+  }, 1000);
 
   /* One-second frame sampler, exposed for the smoke test. */
   setInterval(() => {

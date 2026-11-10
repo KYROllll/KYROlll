@@ -491,10 +491,13 @@ drops the spring and settles instantly.
 
 ## The vinyl room (`vinyl-room.js` → `assets/vinyl-room.min.js`)
 
-The home route's first screen is a WebGL listening room, not the catalogue grid. The
-room builds a dark shelf, the photographed record and a working turntable; the catalogue,
-hero and footer stay below it as the archive and the no-WebGL fallback, and beat pages
-are untouched (`.beat-page .room { display: none }`).
+The home route **is** the WebGL listening room: browsing, selecting, streaming, the free /
+exclusive package hand-off and the support/profile links all happen there. The legacy hero,
+ticker and catalogue grid are not rendered on the home route (an inline guard in
+`index.html` removes the hero and ticker before brand-logo scans stages, and
+`html:not(.beat-page)` hides `main`/`.drawer-stage`), so the room is the sole primary
+interface. The footer stays below it. A beat route keeps the compact hero and the grid for
+its card and is otherwise untouched (`.beat-page .room { display: none }`).
 
 - **Bundle.** `vinyl-room.js` imports `three` (the root dependency, r186) and is bundled
   by esbuild; the file is never loaded unbundled:
@@ -505,8 +508,8 @@ are untouched (`.beat-page .room { display: none }`).
   Bump `assets/vinyl-room.min.js?v=N` in `index.html` after every build. The module is
   home-only, so no other page loads it.
 - **Boot order.** The room does **not** initialise while the preloader is up: that veil
-  waits on the hero's flower, which is the page's first WebGL job, and a second scene
-  compiling beside it starves both. `vinyl-room.js` waits for the
+  waits on the flower (its own stage on the home route), which is the page's first WebGL
+  job, and a second scene compiling beside it starves both. `vinyl-room.js` waits for the
   `kyrolll:preloader-done` event and for the section to intersect, then builds. A direct
   beat link never boots it; returning to the home route through the SPA makes the
   IntersectionObserver boot it then. The loop pauses whenever the section is off-screen
@@ -515,27 +518,35 @@ are untouched (`.beat-page .room { display: none }`).
   covers stay large. A breakpoint flip rebuilds only the frame group — the record groups
   and the seal are re-parented, never disposed. Picking is a **projected-cover hit test**
   (`projectRecord`), not a raycast: the bevel edge lines could win a ray at a cover's seam
-  and select its neighbour. The canvas is keyboard-operable (arrows/Enter/Escape) and the
-  catalogue below remains the accessible list.
-- **The sealed latest drop.** The newest sleeve carries a transparent physical film with
-  clearcoat, a crinkle bump map, edge seams and a `SEALED / KYROIII` sticker. Choosing it
-  runs a wall-clock peel (film rotates and lifts away, opacity to zero) and the card's
-  kicker moves from `SEALED` to `UNSEALED`. Nothing about the peel is stored: a reload
-  seals it again, exactly like the rest of the store's page-view state.
+  and select its neighbour. The canvas is keyboard-operable (arrows/Enter/Escape), and the
+  card/DOWNLOAD FREE path is the accessible route to each beat — there is no catalogue
+  list below the room any more.
+- **The sealed latest drop.** The newest sleeve carries a layered shrink-wrap: a clearcoat
+  film split into two halves down a jagged tear line, a crinkle normal map, crimped edge
+  seams, a `SEALED / KYROIII / PULL TO OPEN` sticker and a pull tab. Choosing it tears the
+  halves apart and lifts them away over a wall-clock 1.6 s; pressing the sealed sleeve and
+  dragging down/right scrubs `wrap.t` directly, so the visitor can pull the film open
+  themselves. The card's kicker moves from `SEALED` to `UNSEALED`. Nothing about the peel is
+  stored: a reload seals it again.
 - **Two paths.** Choosing a sleeve raises the card: LISTEN on the left, FREE DOWNLOAD on
-  the right. Download slides out the room's package tray; each tier calls
+  the right. Download slides the package drawer in from the right (a fixed-height glass
+  sheet with a scrim, three tiers, SUPPORT and the profile links); each tier calls
   `KYROlll_DOWNLOADS.start(beat.id, pack.id)`, so the email gate, REVIEW & SIGN, PDF and
   every persistence rule are the store's own — the room never re-implements commerce. A
-  locked/claimed beat disables the tier and the whole download path, as the catalogue does.
+  locked/claimed beat replaces the tiers with its ownership/archive status, and a scheduled
+  drop shows its countdown and disables the path.
 - **The deck.** LISTEN starts the public preview inside the click (so mobile autoplay
   allows it), flies a disc along a bezier from the sleeve to the platter, eases the camera
   to the deck preset, drops the tonearm and spins the platter. Every disc is the
   photographed pressing **plus** `assets/kyrolll-flower-label.png` on its label — the raw
   photograph's own tan label must never show. The chassis carries the flower print, the
-  `KYROIII` wordmark, a moving pitch cap (±8%, also `audio.playbackRate`), a transport,
-  a progress bar and the three package buttons. All transitions use `performance.now()`, not
-  accumulated frame time, so a software rasteriser still lands the record in a second.
-  `RETURN TO SHELF` stops playback and restores the shelf disc.
+  `KYROIII` wordmark, a transport, a progress bar and the three package buttons. **There is
+  no pitch control**: the platter is a fixed 33 RPM and the preview is never resampled.
+  Playback uses one media element with `preload="auto"` and a Web Audio gain ramp (no
+  per-frame `volume` writes, no `playbackRate`), so a placed record starts from buffered
+  bytes and stops silently. All transitions use `performance.now()`, not accumulated frame
+  time, so a software rasteriser still lands the record in a second. `RETURN TO SHELF`
+  stops playback and restores the shelf disc.
 - **Palette and motion.** The room is black / white / silver only; the supplied cover art
   and the photographed record are the only colour. `prefers-reduced-motion` snaps the camera,
   peel and flight and stops the platter; the shared `motion-toggle` event stops the platter
@@ -1166,6 +1177,15 @@ only clears the cache/outbox. To exercise the live bus on `localhost`, load the 
 Tests that ship with the repo:
 - `preview-player.test.mjs` is `node:test` based and needs no browser:
   `node --test preview-player.test.mjs`
+- `vinyl-room.test.mjs` is Playwright-based and covers the room-only home route: no hero,
+  ticker or catalogue below it, the seal tear (including a pointer-drag scrub), the sliding
+  package drawer and its links, the deck's playback and the absence of a pitch control, and
+  the phone layout with no sideways scroll. Run it with `node --test vinyl-room.test.mjs`.
+- `brand-design.test.mjs` predates the room-only home: its opening home-route assertions
+  still expect the legacy hero, ticker and catalogue grid below the room and therefore fail
+  before the beat-page/gate sections run. Its beat-page gate, signature, PDF and claim
+  checks remain the reference for those surfaces; `vinyl-room.test.mjs` is the reference for
+  the home route.
 - `brand-design.test.mjs` is Playwright-based and checks the storefront layout, the
   tagged audio preview, the "DOWNLOAD FREE" package menu and all three gated paths,
   each of which is the same clean two-step gate. The test asserts that no gate renders a

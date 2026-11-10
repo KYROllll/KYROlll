@@ -3937,17 +3937,39 @@ html.preloader-armed { overflow-y: hidden; }
    photographed record, exactly as the catalog's does.
    ========================================================================== */
 
+/* The home route IS the room: no hero, no ticker and no catalog document
+   below it. The beat route keeps all three (`.beat-page`), and the room steps
+   aside there. The inline guard in index.html also removes the hero before
+   brand-logo scans stages, so no second flower is compiled behind the room. */
+html:not(.beat-page) .brand-hero,
+html:not(.beat-page) .marquee-banner,
+html:not(.beat-page) main,
+html:not(.beat-page) .drawer-stage { display: none; }
+html:not(.beat-page) .header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  padding: 16px clamp(16px, 3vw, 40px);
+  border-bottom: 0;
+  justify-content: flex-end;
+}
+html:not(.beat-page) .room__hud { padding-top: calc(clamp(18px, 3vw, 40px) + 34px); }
+
 .room {
   position: relative;
-  height: clamp(560px, calc(100svh - 80px), 1020px);
+  height: 100svh;
+  min-height: 560px;
   background: #000000;
   border-bottom: 1px solid var(--hairline);
   overflow: hidden;
   isolation: isolate;
 }
+html:not(.beat-page) .room { border-bottom: 0; }
 .beat-page .room { display: none; }
 @media (max-width: 768px) {
-  .room { height: clamp(540px, calc(100svh - 62px), 880px); }
+  .room { height: 100svh; min-height: 540px; }
 }
 
 .room__stage { position: absolute; inset: 0; }
@@ -3972,6 +3994,9 @@ html.preloader-armed { overflow-y: hidden; }
   outline: none;
 }
 .room__stage canvas:active { cursor: grabbing; }
+/* On the home route the room owns the screen, so a touch drag is the seal tear
+   or a look-around rather than a page scroll. */
+html:not(.beat-page) .room__stage canvas { touch-action: none; }
 .room__stage canvas:focus-visible { outline: 1px solid rgba(255, 255, 255, 0.55); outline-offset: -6px; }
 
 .room__poster {
@@ -4022,6 +4047,7 @@ html.preloader-armed { overflow-y: hidden; }
 .room__hud a,
 .room__card,
 .room__tray,
+.room__scrim,
 .room__deck { pointer-events: auto; }
 
 .room__top {
@@ -4049,6 +4075,13 @@ html.preloader-armed { overflow-y: hidden; }
   line-height: 1;
   color: var(--white);
 }
+.room__top-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  text-align: right;
+}
 .room__meta {
   margin: 0;
   display: flex;
@@ -4062,6 +4095,37 @@ html.preloader-armed { overflow-y: hidden; }
   color: var(--gray);
 }
 .room__hint { color: var(--white); opacity: 0.75; }
+
+/* The room carries its own way to the desk and the profiles: the store no
+   longer offers a footer-scroll as the only route to them. */
+.room__utilities {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.room__utilities button,
+.room__utilities a {
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: var(--gray);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-decoration: none;
+  touch-action: manipulation;
+  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+.room__utilities button:hover,
+.room__utilities button:focus-visible,
+.room__utilities a:hover,
+.room__utilities a:focus-visible {
+  color: #000000;
+  background: var(--white);
+  border-color: var(--white);
+}
 
 .room__bottom {
   display: flex;
@@ -4082,8 +4146,7 @@ html.preloader-armed { overflow-y: hidden; }
 .room.is-listening .room__scroll { opacity: 0; }
 
 /* ---------- the two paths ------------------------------------------------ */
-.room__card,
-.room__tray {
+.room__card {
   width: min(430px, 100%);
   margin-left: auto;
   display: flex;
@@ -4099,7 +4162,111 @@ html.preloader-armed { overflow-y: hidden; }
 }
 .room__card[hidden],
 .room__tray[hidden],
-.room__deck[hidden] { display: none; }
+.room__deck[hidden],
+.room__scrim[hidden] { display: none; }
+
+/* ---------- the package drawer ------------------------------------------- */
+.room__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(7px) saturate(0);
+  -webkit-backdrop-filter: blur(7px) saturate(0);
+  opacity: 0;
+  transition: opacity 0.42s ease;
+}
+.room__scrim.is-open { opacity: 1; }
+
+.room__tray {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  width: min(440px, 100%);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: clamp(20px, 3vw, 34px);
+  /* Clear the fixed motion control in the home header, which shares the
+     top-right corner with the drawer's CLOSE. */
+  padding-top: calc(clamp(20px, 3vw, 34px) + 34px);
+  padding-bottom: calc(clamp(20px, 3vw, 34px) + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(13, 13, 13, 0.96), rgba(3, 3, 3, 0.985));
+  border-left: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: -46px 0 100px rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(28px) saturate(0);
+  -webkit-backdrop-filter: blur(28px) saturate(0);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  transform: translateX(102%);
+  transition: transform 0.52s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+.room__tray.is-open { transform: none; }
+.room-tray__topline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.room-tray__specs {
+  margin: 0;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  color: var(--gray);
+}
+.room-tray__note {
+  margin: 0;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  line-height: 1.7;
+  color: var(--gray);
+}
+.room-tray__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+.room-tray__links button,
+.room-tray__links a {
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: var(--gray);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-decoration: none;
+  touch-action: manipulation;
+  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+.room-tray__links button:hover,
+.room-tray__links button:focus-visible,
+.room-tray__links a:hover,
+.room-tray__links a:focus-visible {
+  color: #000000;
+  background: var(--white);
+  border-color: var(--white);
+}
+.room-tray__back {
+  margin-top: auto;
+  align-self: flex-start;
+  padding: 12px 16px;
+  border: 1px solid var(--white);
+  background: var(--white);
+  color: #000000;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  touch-action: manipulation;
+}
 
 @keyframes room-panel-in {
   from { opacity: 0; transform: translateY(16px); }
@@ -4128,6 +4295,16 @@ html.preloader-armed { overflow-y: hidden; }
   font-weight: 800;
   letter-spacing: 0.24em;
   color: var(--gray);
+}
+.room-card__status {
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  line-height: 1.65;
+  color: var(--white);
 }
 
 .room-card__paths {
@@ -4187,8 +4364,8 @@ html.preloader-armed { overflow-y: hidden; }
 .room-card__close:hover,
 .room-tray__close:hover { color: var(--white); border-color: var(--white); }
 
-/* ---------- the package tray --------------------------------------------- */
-.room-tray__head { display: flex; flex-direction: column; gap: 5px; }
+/* ---------- the package drawer content ----------------------------------- */
+.room-tray__head { display: flex; flex-direction: column; gap: 7px; }
 .room-tray__kicker {
   margin: 0;
   font-size: 8px;
@@ -4346,49 +4523,16 @@ html.preloader-armed { overflow-y: hidden; }
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }
-
-.room-deck__pitch {
-  display: flex;
-  align-items: center;
-  gap: 9px;
+.room-deck__rpm {
+  margin-left: auto;
   font-size: 7px;
   font-weight: 800;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.24em;
   color: var(--gray);
   white-space: nowrap;
 }
-.room-deck__pitch input {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 86px;
-  height: 18px;
-  background: transparent;
-  cursor: pointer;
-}
-.room-deck__pitch input::-webkit-slider-runnable-track { height: 1px; background: rgba(255, 255, 255, 0.38); }
-.room-deck__pitch input::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 9px;
-  height: 15px;
-  margin-top: -7px;
-  border: 0;
-  border-radius: 0;
-  background: var(--white);
-}
-.room-deck__pitch input::-moz-range-track { height: 1px; background: rgba(255, 255, 255, 0.38); }
-.room-deck__pitch input::-moz-range-thumb {
-  width: 9px;
-  height: 15px;
-  border: 0;
-  border-radius: 0;
-  background: var(--white);
-}
-.room-deck__pitch output {
-  min-width: 42px;
-  text-align: right;
-  color: var(--white);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
+.room-deck__rpm + .room-deck__eject {
+  margin-left: 12px;
 }
 
 .room-deck__licence {
@@ -4450,10 +4594,9 @@ html.preloader-armed { overflow-y: hidden; }
   .room__hint { display: none; }
   .room__card,
   .room__tray { width: 100%; margin-left: 0; }
+  .room__tray { border-left: 0; }
   .room-card__title { font-size: 21px; }
   .room-deck__body { grid-template-columns: auto minmax(0, 1fr); gap: 10px 12px; }
-  .room-deck__pitch { grid-column: 1 / -1; justify-content: space-between; }
-  .room-deck__pitch input { flex: 1 1 auto; width: auto; }
   .room-deck__licence { gap: 8px; }
   .room-deck__packs { width: 100%; margin-left: 0; }
   .room-deck__packs button { flex: 1 1 0; }
@@ -4466,8 +4609,9 @@ html.preloader-armed { overflow-y: hidden; }
   .room__top,
   .room__scroll { transition: none; }
   .room__card,
-  .room__tray,
   .room__deck { animation: none; }
+  .room__tray,
+  .room__scrim { transition: none; }
   .room-path,
   .room-deck__play,
   .room-deck__packs button { transition: none; }

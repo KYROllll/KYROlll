@@ -21,6 +21,9 @@
 
   function paintHero() {
     frame = 0;
+    // The home route is the vinyl room: the hero is removed there, and a
+    // motion-toggle can still schedule a paint, so bail instead of throwing.
+    if (!hero) return;
     const progress = paused || page.classList.contains("beat-page")
       ? 0
       : Math.min(1, Math.max(0, window.scrollY / (hero.offsetHeight || 1)));

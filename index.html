@@ -26,7 +26,7 @@
     document.documentElement.classList.add("js");
   </script>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg?v=5">
-  <link rel="stylesheet" href="style.css?v=194">
+  <link rel="stylesheet" href="style.css?v=195">
 </head>
 <!-- The `beat-page` state lives on <html> only (set in the head for a direct beat
      link and re-synced by script.js), so the homepage hero renders in its full
@@ -61,15 +61,23 @@
     <div class="room__hud" data-room-hud>
       <div class="room__top">
         <p class="room__title" id="room-title"><span class="room__kicker">THE VINYL ROOM</span><span class="room__word">KYROIII</span></p>
-        <p class="room__meta"><span data-room-count>08 RELEASES ON THE SHELF</span><span class="room__hint" data-room-hint>DRAG TO LOOK · SELECT A RECORD</span></p>
+        <div class="room__top-right">
+          <p class="room__meta"><span data-room-count>08 RELEASES ON THE SHELF</span><span class="room__hint" data-room-hint>DRAG TO LOOK · SELECT A RECORD</span></p>
+          <nav class="room__utilities" aria-label="KYROIII links">
+            <button type="button" data-support-open>SUPPORT</button>
+            <a href="https://www.youtube.com/@KYROlll00" target="_blank" rel="noopener noreferrer">YOUTUBE</a>
+            <a href="https://www.instagram.com/kyrolll00/" target="_blank" rel="noopener noreferrer">INSTAGRAM</a>
+          </nav>
+        </div>
       </div>
       <div class="room__bottom">
-        <p class="room__scroll">SCROLL FOR THE FLOWER &amp; THE ARCHIVE</p>
+        <p class="room__scroll">EVERY RELEASE IS ON THE SHELF · DRAG TO LOOK, SELECT TO PLAY</p>
 
         <div class="room__card" data-room-card hidden>
           <p class="room-card__kicker" data-card-kicker>LATEST DROP — SEALED</p>
           <h2 class="room-card__title" data-card-title></h2>
           <p class="room-card__specs" data-card-specs></p>
+          <p class="room-card__status" data-card-status hidden></p>
           <div class="room-card__paths">
             <button class="room-path room-path--listen" type="button" data-room-listen>
               <span class="room-path__label">LISTEN</span>
@@ -83,19 +91,34 @@
           <button class="room-card__close" type="button" data-room-close>CLOSE</button>
         </div>
 
-        <div class="room__tray" data-room-tray hidden role="dialog" aria-label="Free download packages">
+        <div class="room__scrim" data-room-scrim hidden></div>
+
+        <div class="room__tray" data-room-tray hidden role="dialog" aria-modal="true" aria-label="Free download packages">
           <div class="room-tray__head">
-            <p class="room-tray__kicker" data-room-tray-kicker>FREE DOWNLOAD</p>
+            <div class="room-tray__topline">
+              <p class="room-tray__kicker" data-room-tray-kicker>FREE DOWNLOAD</p>
+              <button class="room-tray__close" type="button" data-room-tray-close aria-label="Close packages">CLOSE</button>
+            </div>
             <p class="room-tray__title" data-room-tray-title></p>
+            <p class="room-tray__specs" data-room-tray-specs></p>
           </div>
           <div class="room-tray__list" data-room-tray-list></div>
-          <button class="room-tray__close" type="button" data-room-tray-close>BACK</button>
+          <p class="room-tray__note">EVERY PACKAGE IS FREE · LEAVE AN EMAIL + SIGN THE LICENSE</p>
+          <div class="room-tray__links" aria-label="Store links">
+            <button type="button" data-support-open>SUPPORT</button>
+            <a href="https://www.youtube.com/@KYROlll00" target="_blank" rel="noopener noreferrer">YOUTUBE</a>
+            <a href="https://www.instagram.com/kyrolll00/" target="_blank" rel="noopener noreferrer">INSTAGRAM</a>
+            <a href="https://www.tiktok.com/@kyrolll00" target="_blank" rel="noopener noreferrer">TIKTOK</a>
+            <a href="https://x.com/KYROlll00" target="_blank" rel="noopener noreferrer">X</a>
+          </div>
+          <button class="room-tray__back" type="button" data-room-tray-close>BACK TO THE RECORD</button>
         </div>
 
         <div class="room__deck" data-room-deck hidden aria-label="KYROIII turntable deck">
           <div class="room-deck__head">
             <span class="room-deck__kicker">ON THE DECK</span>
             <span class="room-deck__title" data-deck-title></span>
+            <span class="room-deck__rpm" aria-hidden="true">33 RPM</span>
             <button class="room-deck__eject" type="button" data-deck-eject>RETURN TO SHELF</button>
           </div>
           <div class="room-deck__body">
@@ -107,11 +130,6 @@
               <div class="room-deck__meter" aria-hidden="true"><span data-deck-bar></span></div>
               <span class="room-deck__time" data-deck-time>0:00 / --:--</span>
             </div>
-            <label class="room-deck__pitch">
-              <span>PITCH</span>
-              <input type="range" min="-8" max="8" step="0.1" value="0" data-deck-pitch aria-label="Pitch control">
-              <output data-deck-pitch-out>0.0%</output>
-            </label>
           </div>
           <div class="room-deck__licence">
             <span class="room-deck__licence-label">FREE DOWNLOAD / LICENSE</span>
@@ -239,6 +257,18 @@
   </footer>
   </div>
 
+  <script>
+    // Home is the vinyl room and nothing else. Drop the legacy hero and ticker
+    // before brand-logo scans for `.logo-stage` hosts, so the room never pays
+    // for a second, invisible WebGL flower behind the fold. A beat link keeps
+    // them (its compact brand header is still part of that route).
+    if (!document.documentElement.classList.contains("beat-page")) {
+      var legacyHero = document.querySelector(".brand-hero");
+      if (legacyHero) legacyHero.remove();
+      var legacyTicker = document.querySelector(".marquee-banner");
+      if (legacyTicker) legacyTicker.remove();
+    }
+  </script>
   <script src="catalog.js?v=43"></script>
   <script src="flower-spinner.js?v=2"></script>
   <script src="marquee-items.js?v=19"></script>
@@ -255,7 +285,7 @@
       window.KYROlll_loadRoom = function () {
         if (window.KYROlll_ROOM || document.querySelector("script[data-vinyl-room]")) return;
         var script = document.createElement("script");
-        script.src = "assets/vinyl-room.min.js?v=1";
+        script.src = "assets/vinyl-room.min.js?v=2";
         script.defer = true;
         script.dataset.vinylRoom = "1";
         document.body.appendChild(script);
@@ -266,7 +296,7 @@
   <script src="support.js?v=6"></script>
   <script type="module" src="assets/brand-logo.min.js?v=27"></script>
   <script type="module" src="assets/background-x.min.js?v=8"></script>
-  <script src="hero-intro.js?v=8"></script>
+  <script src="hero-intro.js?v=9"></script>
   <script src="preloader.js?v=13"></script>
 </body>
 </html>
