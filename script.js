@@ -170,12 +170,19 @@ function previewHTML(beat) {
   const title = attr(beat.title);
   return `<div class="beat-preview" data-title="${title}" data-state="idle">
     <audio class="beat-preview__audio" src="${attr(beat.preview)}" preload="auto"></audio>
+    <span class="beat-preview__tonearm" aria-hidden="true">
+      <svg viewBox="0 0 30 30" focusable="false"><circle cx="24" cy="6" r="4.2"/><circle cx="24" cy="6" r="1.4" fill="currentColor" stroke="none"/><path d="M24 6 14 17l-4.5 3.5"/><rect x="6.6" y="18.6" width="5.2" height="3.4" rx="0.8" fill="currentColor" stroke="none" transform="rotate(-38 9.2 20.3)"/></svg>
+    </span>
     <button type="button" class="beat-preview__toggle" aria-label="Play preview: ${title}" aria-pressed="false">
+      <span class="beat-preview__platter" aria-hidden="true"><span class="beat-preview__platter-disc"></span><span class="beat-preview__platter-label"></span></span>
       <svg class="beat-preview__play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
       <svg class="beat-preview__pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
     </button>
     <div class="beat-preview__details">
-      <input class="beat-preview__seek" type="range" min="0" max="100" step="0.1" value="0" disabled aria-label="Seek preview: ${title}">
+      <span class="beat-preview__track">
+        <input class="beat-preview__seek" type="range" min="0" max="100" step="0.1" value="0" disabled aria-label="Seek preview: ${title}">
+        <span class="beat-preview__seek-glow" aria-hidden="true"></span>
+      </span>
       <span class="beat-preview__time">0:00 / --:--</span>
     </div>
     <span class="beat-preview__status" role="status">AUDIO PREVIEW</span>
@@ -232,6 +239,9 @@ function beatDetailInner(beat) {
   const locked = exclusiveLocked(beat);
   const owned = locked && exclusiveOwned(beat);
   const pending = !locked && releasePending(beat);
+  const deckHint = !pending && beat.preview
+    ? '<p class="vinyl-hint" aria-hidden="true">DRAG THE RECORD ONTO THE PLAYER</p>'
+    : "";
   const meta = locked
     ? `<div class="card__specs">${specLine(beat)} // ${owned ? "OWNED / YOURS" : "CLAIMED / SOLD OUT"}</div>`
     : pending
@@ -251,7 +261,8 @@ function beatDetailInner(beat) {
       <div class="card__actions">
         ${actionsSlotHTML(beat, false)}
       </div>
-    </section>      <div class="beat-detail__artwork-wrap">
+    </section>
+    <div class="beat-detail__artwork-wrap">
       <figure class="beat-detail__artwork">
         <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" width="1024" height="1024" decoding="async" fetchpriority="high">
       </figure>
@@ -260,6 +271,7 @@ function beatDetailInner(beat) {
           <img class="vinyl-record__logo" src="${attr(VINYL_LABEL_ART)}" alt="" width="1024" height="1024" fetchpriority="high" decoding="sync">
         </span>
       </div>
+      ${deckHint}
     </div>`;
 }
 

@@ -334,9 +334,13 @@ element, because `createMediaElementSource` may only be called once) and writes 
 **spectral flux** of the first 24 bins — the positive frame-to-frame rise, which spikes on kicks
 and snares, rather than a loudness average that sat at ~0.85 and never moved — into the player's
 `--beat-level` custom property; the ring's `opacity` is `calc()`-ed from it, so the pulse is the
-music, not a CSS clock. Only `opacity` changes, there are no shadow keyframes, the ring is out of
-flow (so the 60-frame drift sample cannot see it), and `will-change` is claimed only while the
-player actually plays. Under `prefers-reduced-motion` the rAF loop never starts and the ring holds
+music, not a CSS clock. The same level also lights the progress line itself:
+`.beat-preview__seek-glow` is a sibling of the range, sized from the one
+`--preview-progress` value `writeProgress` puts on `.beat-preview__details` (so the light ends
+exactly where the range's painted fill ends), and its opacity and the head dot's `transform`
+are `calc()`-ed from `--beat-level`. Only `opacity` and a compositor `transform` change, there
+are no shadow keyframes, both layers are out of flow (so the 60-frame drift sample cannot see
+them), and `will-change` is claimed only while the player actually plays. Under `prefers-reduced-motion` the rAF loop never starts and the ring holds
 `0.5`; with Web Audio unavailable it rests at `0.34`; the `.motion-paused` class freezes the loop.
 Nothing is required for playback — the audio element is never gated on the analyser. The time
 readout is fixed-width: `13ch`
@@ -465,6 +469,22 @@ on a solid black plate with no spin, no filter and no animation, no vinyl
 `logo-stage`/`data-vinyl-flower` host survives in the markup, no synthetic rim/conic-gradient
 survives, no per-beat modifier class is emitted, and the sleeve and stage never move while the
 record rides out.
+
+**The record can be carried onto the player (`vinyl-deck.js`).** Once the sleeve is open the
+exposed disc is a grab target (`cursor: grab`, `touch-action: none`); a pointer drag past 6px
+lifts a fixed-position `.vinyl-ghost` — the same photographed pressing and flower plate, cut to
+the record's measured box — while the sleeve's own disc is dimmed, and the ghost follows the
+pointer on a small damped spring with a velocity tilt. Dropping it on `.beat-preview` (or letting
+go elsewhere) settles it on the brand's `cubic-bezier(.16, 1, .3, 1)` curve; a drop on the player
+docks the deck: the toggle keeps its black field and wears a `.beat-preview__platter` (the same
+record, spinning while `data-state="playing"`, with the flower print static on top), a silver
+tonearm lowers from its top-right pivot, and the drop itself is the play gesture (`toggle.click()`
+inside pointerup, so the browser still counts it as user-initiated). The play/pause glyph becomes
+a white chip on the platter's lower rim so it stays legible over the dark disc; pausing lifts the
+arm and stops the spin. The control remains the button, so keyboard and non-drag visitors lose
+nothing, and nothing about the sleeve's layout, the reveal geometry or the label print changes.
+The ghost is pointer-only and disappears completely after the drop; `prefers-reduced-motion`
+drops the spring and settles instantly.
 
 ## Preview responsiveness in this sandbox
 
@@ -670,11 +690,13 @@ never arrive half-empty:
   taller than the screen: an oversized list scrolls internally rather than running off the
   bottom. **The footer's separator line is a hard floor.** `positionMenu` measures the footer
   and keeps an 18px band above it; when the drawer is opened from a card in the last row — where
-  the document gap to the footer is only a few dozen pixels — `downloads.js` inserts a
-  temporary `.drawer-safe-zone` before the footer for the length of the open drawer, pushing the
-  footer down just enough for the full sheet. The band is removed on close, so the catalog keeps
-  its normal length at rest, and the sheet still unfolds downwards and stays welded to its
-  trigger. There is no framing scroll any more (the old `frameDrawer` is gone) — a fixed drawer
+  the document gap to the footer is only a few dozen pixels — `downloads.js` grows the
+  `.drawer-stage` band that sits before the footer (`reserveDrawerRoom`). The stage rests at
+  `height: 0`, so the catalog keeps its normal length at rest, and eases open by exactly the
+  missing room; the footer therefore glides down as one block instead of a temporary band
+  being inserted and removed in a single frame, and the sheet still unfolds downwards and
+  stays welded to its trigger. The reservation is measured once per open (its own current
+  height is added back on a resize, or the band would count itself as free room and collapse). There is no framing scroll any more (the old `frameDrawer` is gone) — a fixed drawer
   that clamps is already whole, so the page never moves under the visitor except for that one
   deliberate auto-scroll. Because the drawer does not travel with the page,
   `positionMenu` freezes the drawer's geometry against the button when it opens — width, capped

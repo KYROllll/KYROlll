@@ -281,6 +281,7 @@ button {
 .beat-preview__audio { display: none; }
 
 .beat-preview__toggle {
+  position: relative;
   display: grid;
   place-items: center;
   width: 44px;
@@ -289,6 +290,10 @@ button {
   border-radius: 50%;
   background: #040404;
   color: var(--white);
+  /* The docked platter and its tonearm live inside this button; the arm may
+     overhang the rim, so nothing here clips. */
+  overflow: visible;
+  isolation: isolate;
 }
 
 .beat-preview__toggle:hover,
@@ -303,16 +308,224 @@ button {
 .beat-preview__toggle[aria-pressed="true"] .beat-preview__play { display: none; }
 .beat-preview__toggle[aria-pressed="true"] .beat-preview__pause { display: block; }
 
+/* ---------- The deck: a docked platter, a static label and a tonearm --------- */
+/* The record can be dragged from its sleeve onto the player (vinyl-deck.js).
+   On drop the player becomes a miniature turntable: the photographed disc spins
+   inside the play button, the original flower plate sits on it as a static print
+   (the brand mark never rotates), and a silver tonearm lowers onto the record
+   while the track plays. All of it is painted inside the existing 44px toggle,
+   so docking never changes the player's layout or the card around it. */
+.beat-preview__platter {
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  opacity: 0;
+  transform: scale(0.72);
+  pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.beat-preview.is-vinyl-docked .beat-preview__platter {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.beat-preview__platter-disc {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: url("assets/vinyl-classic.png") center / cover no-repeat;
+  animation: deckSpin 7s linear infinite;
+  animation-play-state: paused;
+  will-change: transform;
+}
+
+.beat-preview.is-vinyl-docked[data-state="playing"] .beat-preview__platter-disc {
+  animation-play-state: running;
+}
+
+/* The flower is a print, exactly as it is on the full-size record: it is painted
+   over the spinning photograph and never moves with it. */
+.beat-preview__platter-label {
+  position: absolute;
+  inset: 35%;
+  border-radius: 50%;
+  background: url("assets/kyrolll-flower-label.png") center / cover no-repeat;
+  pointer-events: none;
+}
+
+@keyframes deckSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Once the deck is docked the button is the record, so it keeps its black field
+   even while `aria-pressed` would otherwise invert it — a white plate behind a
+   spinning disc read as a gap around the grooves. */
+.beat-preview.is-vinyl-docked .beat-preview__toggle,
+.beat-preview.is-vinyl-docked .beat-preview__toggle[aria-pressed="true"] {
+  background: #040404;
+  color: var(--white);
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+/* The glyph is a real control, so on a docked deck it leaves the label alone and
+   becomes a tiny white chip on the platter's lower-right rim. Black on a black
+   disc (or white on the white flower) was unreadable; the chip is legible over
+   every pixel of the pressing while the flower stays whole. */
+.beat-preview__toggle svg {
+  position: relative;
+  z-index: 2;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.9));
+}
+
+.beat-preview.is-vinyl-docked .beat-preview__toggle svg {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  z-index: 4;
+  width: 11px;
+  height: 11px;
+  padding: 3px;
+  box-sizing: content-box;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 50%;
+  background: #040404;
+  color: var(--white);
+  fill: var(--white);
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.9));
+}
+
+/* The tonearm pivots from the deck's top-right and sweeps onto the record when
+   playback starts, lifting clear when it pauses. The easing has a touch of
+   overshoot — the arm settles into the groove instead of snapping. */
+.beat-preview__tonearm {
+  position: absolute;
+  left: 22px;
+  top: -2px;
+  z-index: 3;
+  width: 42px;
+  height: 42px;
+  color: var(--white);
+  opacity: 0;
+  transform: rotate(-24deg);
+  transform-origin: 80% 20%;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.75s cubic-bezier(0.22, 1.15, 0.36, 1);
+}
+
+.beat-preview__tonearm svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.85));
+}
+
+.beat-preview.is-vinyl-docked .beat-preview__tonearm {
+  opacity: 1;
+}
+
+.beat-preview.is-vinyl-docked[data-state="playing"] .beat-preview__tonearm {
+  transform: rotate(2deg);
+}
+
+/* The player is a live drop target while a record is in the air: a crisp white
+   hairline and a quiet spill, never a geometry change. */
+.beat-preview.is-vinyl-target {
+  border-color: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.42), 0 0 34px rgba(255, 255, 255, 0.2);
+}
+
+/* The docked deck keeps a silver rim even between tracks, so the player reads as
+   a turntable the record now lives on. */
+.beat-preview.is-vinyl-docked {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beat-preview__platter-disc { animation: none; }
+  .beat-preview__tonearm { transition: opacity 0.2s ease; }
+}
+
+.motion-paused .beat-preview__platter-disc { animation-play-state: paused !important; }
+
 .beat-preview__toggle:focus-visible,
 .beat-preview__seek:focus-visible {
   outline: 2px solid var(--white);
   outline-offset: 4px;
 }
 
-.beat-preview__details { min-width: 0; padding: 0 4px; }
+/* `--preview-progress` lives on the details column so both the range's painted
+   fill and the out-of-flow glow line that traces it read the same value. */
+.beat-preview__details {
+  --preview-progress: 0%;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+/* The progress line and its light. The range owns the interaction and the hard
+   white fill; this wrapper owns the halo that traces that exact fill. The glow
+   is a sibling of the input (an `<input type=range>` cannot carry a reliable
+   pseudo-element), absolutely placed over the 3px track, with its width bound to
+   `--preview-progress` — so it ends exactly where the fill ends at every seek
+   position. Only `opacity` and the head dot's `transform` follow the analyser's
+   `--beat-level`; the box-shadow stays static, so the `backdrop-filter`ed player
+   never re-composes its blur on a beat. */
+.beat-preview__track {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.beat-preview__seek-glow {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: var(--preview-progress, 0%);
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: 999px;
+  background: var(--white);
+  box-shadow:
+    0 0 6px rgba(255, 255, 255, 0.9),
+    0 0 14px rgba(255, 255, 255, 0.5),
+    0 0 26px rgba(255, 255, 255, 0.22);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.24s ease;
+}
+
+/* The head of the line: a tiny white jewel that swells on each transient while
+   the line brightens. A `transform` pulse is compositor-only, so the glow can
+   breathe at audio rate without repainting the player's glass. */
+.beat-preview__seek-glow::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin-top: -2.5px;
+  border-radius: 50%;
+  background: var(--white);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.95);
+  transform: scale(0.55);
+  will-change: transform;
+}
+
+.beat-preview[data-state="playing"] .beat-preview__seek-glow {
+  opacity: calc(0.3 + var(--beat-level, 0) * 0.7);
+  will-change: opacity;
+}
+
+.beat-preview[data-state="playing"] .beat-preview__seek-glow::after {
+  transform: scale(calc(0.55 + var(--beat-level, 0) * 0.9));
+}
 
 .beat-preview__seek {
-  --preview-progress: 0%;
   display: block;
   width: 100%;
   height: 24px;
@@ -1581,6 +1794,91 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
    `prefers-reduced-motion` reveal above. Nothing on the disc animates: the
    label is a static print, so the pull-out is the record's only motion. */
 
+/* ---------- The drag-to-deck affordance ------------------------------------ */
+/* Once the record is exposed, it is a physical object the visitor can pick up:
+   a grab cursor on a fine pointer, `touch-action: none` so a finger owns the
+   gesture, and one quiet instruction in the empty strip under the sleeve. The
+   hint is decorative only (the play button remains the accessible control) and
+   it retires once the record has been docked. */
+.beat-detail.vinyl-open .vinyl-record {
+  cursor: grab;
+  touch-action: none;
+}
+
+.beat-detail.vinyl-open .vinyl-record:active { cursor: grabbing; }
+
+/* While the ghost is in the air the sleeve's own disc is dimmed to a quiet
+   impression — no transition, so picking it up is instantaneous and the only
+   moving thing is the ghost. */
+.vinyl-record.is-lifted {
+  opacity: 0.18;
+}
+
+html.vinyl-dragging,
+html.vinyl-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.vinyl-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 5;
+  width: max-content;
+  max-width: 100%;
+  margin: 0;
+  transform: translateX(-50%);
+  text-align: center;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.24em;
+  color: var(--gray);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease 0.15s;
+}
+
+.vinyl-hint::before {
+  content: "";
+  display: block;
+  width: 28px;
+  height: 1px;
+  margin: 0 auto 6px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.beat-detail.vinyl-open .vinyl-hint { opacity: 0.72; }
+.beat-detail.is-vinyl-docked .vinyl-hint { opacity: 0; }
+
+/* The record in the visitor's hand. It is the same photographed disc and the
+   same static flower plate, cut to the record's measured box and lifted onto
+   its own fixed layer, so the sleeve never has to move. `transform-origin:
+   center` lets the drop animate it into the 44px platter with one scale. */
+.vinyl-ghost {
+  position: fixed;
+  z-index: 1000002;
+  border-radius: 50%;
+  background: url("assets/vinyl-classic.png") center / contain no-repeat;
+  box-shadow:
+    0 34px 80px rgba(0, 0, 0, 0.82),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+  transform-origin: center;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.vinyl-ghost__label {
+  position: absolute;
+  inset: 35%;
+  border-radius: 50%;
+  background: url("assets/kyrolll-flower-label.png") center / cover no-repeat;
+  pointer-events: none;
+}
+
 /* ---------- 4. The Command Center — download button & audio-reactive player -- */
 
 /* Glass player surface. The frame is deliberately inert: no rotating sheen, no
@@ -2327,16 +2625,26 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
   overflow: visible;
 }
 
-/* The temporary band `downloads.js` inserts before the footer while a drawer
-   is open in the last row. It reserves document height so the sheet can unfold
-   at full size above the footer separator instead of collapsing into a short
-   scroller; it is removed the moment the drawer closes, so the catalog keeps
-   its normal length at rest. */
-.drawer-safe-zone {
+/* The reserved drawer stage: the smooth container between the storefront and the
+   footer that gives a package sheet its document room. It rests at zero height —
+   the page keeps its normal length — and `downloads.js` expands it to exactly the
+   room a sheet needs when one opens on a card whose footer is close. Because the
+   room lives in one reserved box whose height eases, the footer's separator line
+   glides with the expansion rather than jumping when a temporary band is inserted
+   or removed. `overflow: hidden` keeps the empty band from ever painting a child;
+   `contain: layout` keeps the growth from invalidating the catalog above it. */
+.drawer-stage {
   flex: 0 0 auto;
   width: 100%;
   height: 0;
+  overflow: hidden;
+  contain: layout;
   pointer-events: none;
+  transition: height 0.46s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer-stage { transition: none; }
 }
 
 /* A scrollable flex column (JS sets `max-height`), so its children must refuse

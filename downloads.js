@@ -416,28 +416,47 @@
     return box.height > 0 ? box.top : Infinity;
   }
   /* A drawer opened on a card in the last row has almost no document room
-     between its button and the footer. Rather than squeeze the sheet into a
-     60px scroller, reserve the missing height with a temporary, invisible band
-     inserted before the footer. It exists only while the drawer is open, so the
-     catalog keeps its normal length at rest, and it is removed on close. */
-  let menuRoom = null;
-  function setMenuRoom(height) {
-    const footer = document.querySelector(".footer");
-    if (!footer) return;
-    if (height <= 0) {
-      if (menuRoom) { menuRoom.remove(); menuRoom = null; }
-      return;
-    }
-    if (!menuRoom) {
-      menuRoom = document.createElement("div");
-      menuRoom.className = "drawer-safe-zone";
-      menuRoom.setAttribute("aria-hidden", "true");
-      footer.parentNode.insertBefore(menuRoom, footer);
-    }
-    menuRoom.style.height = Math.ceil(height) + "px";
+     between its button and the footer. The `.drawer-stage` band before the
+     footer provides it: it rests at zero height and grows by exactly the missing
+     room, eased by CSS, so the footer glides down as one block instead of a
+     temporary band being inserted (and removed) in a single frame. The final
+     footer position is computed before the growth starts, so the fixed drawer
+     freezes its geometry against where the footer will settle. */
+  function drawerStage() {
+    return document.querySelector(".drawer-stage");
   }
-  function clearMenuRoom() {
-    if (menuRoom) { menuRoom.remove(); menuRoom = null; }
+  function reserveDrawerRoom(trigger, natural) {
+    const stage = drawerStage();
+    if (!stage) return null;
+    const rect = trigger.getBoundingClientRect();
+    const footer = document.querySelector(".footer");
+    const stageNow = stage.getBoundingClientRect().height;
+    const footerDocTop = footer
+      ? window.scrollY + footer.getBoundingClientRect().top
+      : (document.documentElement.scrollHeight || 0);
+    const triggerDocBottom = window.scrollY + rect.bottom;
+    const room = Math.max(0, footerDocTop - MENU_FOOTER_GAP - triggerDocBottom);
+    const viewport = viewportBox();
+    const cap = Math.max(0, viewport.height - 2 * MENU_EDGE);
+    /* `room` already contains whatever the stage is currently contributing. A
+       resize re-measures while the old band is still applied, so its height is
+       added back before solving for the new one — otherwise the band would
+       count itself as free room and collapse to zero. */
+    const height = Math.min(Math.max(0, natural + 1 - room + stageNow), cap);
+    stage.style.height = height + "px";
+    return {
+      height: height,
+      /* Where the footer will sit once the stage has finished easing; the
+         drawer's hard floor in document space. */
+      footerDocTop: footerDocTop + height - stageNow,
+      /* The document height the page is heading to, so a sheet clamped to the
+         page can never read the mid-transition (shorter) scroll range. */
+      scrollHeight: (document.documentElement.scrollHeight || 0) + height - stageNow,
+    };
+  }
+  function clearDrawerRoom() {
+    const stage = drawerStage();
+    if (stage) stage.style.height = "0px";
   }
   /* The viewport the drawer must fit inside. On a phone the visual viewport is
      the honest measurement — it shrinks with the keyboard and moves with the
@@ -550,13 +569,20 @@
      the frozen geometry, so it recomputes the box and re-anchors it. */
   function scheduleMenuRefresh() {
     if (menuFrame) return;
-    menuFrame = requestAnimationFrame(() => { menuFrame = 0; positionMenu(); });
+    menuFrame = requestAnimationFrame(() => {
+      menuFrame = 0;
+      /* A real resize invalidates the reserved band too: the viewport and the
+         footer distance have both moved, so the room is measured again. */
+      if (activeMenu) activeMenu.reserved = null;
+      positionMenu();
+    });
   }
   function handleMenuOutside(e) {
     if (activeMenu && !activeMenu.el.contains(e.target) && !activeMenu.anchor.contains(e.target)) closeMenu();
   }
   function handleMenuKey(e) { if (e.key === "Escape") closeMenu(); }
   function closeMenu() {
+    clearDrawerRoom();
     if (!activeMenu) return;
     const { el, anchor, host, tile, stage } = activeMenu;
     if (anchor) anchor.setAttribute("aria-expanded", "false");
@@ -574,11 +600,6 @@
     window.removeEventListener("scroll", trackMenuScroll);
     document.removeEventListener("keydown", handleMenuKey);
     document.removeEventListener("click", handleMenuOutside, true);
-    clearMenuRoom();
-    /* Removing the reserved band shortens the page; if the visitor had been
-       scrolled into it, let the browser settle on the new last offset. */
-    const maxScroll = Math.max(0, (document.documentElement.scrollHeight || 0) - window.innerHeight);
-    if (window.scrollY > maxScroll) window.scrollTo(0, maxScroll);
   }
   /* Every drawer opens downwards, so when the button sits low the page itself
      gives it room: a short, eased scroll moves the trigger up just enough for
@@ -634,24 +655,20 @@
     /* Measure the panel's own height before capping it. */
     el.style.maxHeight = "none";
     const natural = el.getBoundingClientRect().height;
+    /* Grow the reserved stage once per open, never on the later passes: the
+       measured target is what the footer is heading to, and re-measuring it on
+       every scroll/resize pass would chase the easing band instead of holding
+       the drawer still. */
+    if (!activeMenu.reserved) activeMenu.reserved = reserveDrawerRoom(anchor, natural);
+    const reserved = activeMenu.reserved;
     /* The drawer may never cross the footer's separator line. When the footer
-       is already inside the visible viewport its top edge is the real floor;
-       the gap keeps a clean band of black between the sheet and the social /
-       copyright boundary. When the footer is still below the fold the viewport
-       edge is the floor, exactly as before. */
-    let footerEdge = footerTop();
-    /* Reserve the missing document room for a drawer opened in the last row.
-       The comparison is made against the *unreserved* footer position, so an
-       existing safe-zone never makes the next pass think the room is free and
-       remove itself in a loop. */
-    if (Number.isFinite(footerEdge) && footerEdge > rect.bottom) {
-      const reserved = menuRoom ? menuRoom.offsetHeight : 0;
-      const baseRoom = Math.max(0, footerEdge - MENU_FOOTER_GAP - rect.bottom - reserved);
-      setMenuRoom(natural > baseRoom ? natural - baseRoom + 1 : 0);
-      footerEdge = footerTop();
-    } else {
-      setMenuRoom(0);
-    }
+       is already inside the visible viewport its settled top edge is the real
+       floor; the gap keeps a clean band of black between the sheet and the social
+       / copyright boundary. When the footer is still below the fold the viewport
+       edge is the floor. The reserved stage is what guarantees the room. */
+    const footerEdge = reserved
+      ? reserved.footerDocTop - window.scrollY
+      : footerTop();
     const visibleFloor = box.bottom - edge;
     const floor = Number.isFinite(footerEdge) && footerEdge > rect.bottom
       ? Math.min(visibleFloor, footerEdge - MENU_FOOTER_GAP)
@@ -659,7 +676,7 @@
     const below = Math.max(0, floor - rect.bottom);
     /* How far the page itself can still scroll, which is exactly the extra room
        a beat-page drawer may claim below the button. */
-    const pageRoom = Math.max(0, (document.documentElement.scrollHeight || 0) - (window.scrollY + box.height));
+    const pageRoom = Math.max(0, (reserved ? reserved.scrollHeight : (document.documentElement.scrollHeight || 0)) - (window.scrollY + box.height));
     /* The footer is a hard ceiling in document space too: even when it is still
        below the fold, the drawer must stop short of it, so the auto-scroll can
        never pull the sheet over the separator line. */

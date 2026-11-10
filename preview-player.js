@@ -34,7 +34,7 @@ class BeatPreviewPlayer {
          to a frame made the first scrub feel detached. */
       audio.__kyrolllScrubbing = true;
       if (Math.abs(audio.currentTime - target) > 0.01) audio.currentTime = target;
-      event.target.style.setProperty("--preview-progress", percent + "%");
+      this.writeProgress(player, event.target, percent);
       this.scheduleScrubUpdate(audio);
     });
     /* Releasing the thumb ends the scrub and settles the readout on the frame
@@ -106,6 +106,17 @@ class BeatPreviewPlayer {
       if (audio.preload !== "auto") audio.preload = "auto";
       audio.load();
     } catch (error) { /* a warm-up is optional; play() still retries */ }
+  }
+
+  /* One progress value drives both the range's painted fill and the glow line
+     that traces it. The value is written on the details column (the glow's
+     parent) as well as the range itself, so the halo and the fill can never
+     disagree by a frame. */
+  writeProgress(player, seek, percent) {
+    const value = percent + "%";
+    if (seek && seek.style && seek.style.setProperty) seek.style.setProperty("--preview-progress", value);
+    const details = player && player.querySelector ? player.querySelector(".beat-preview__details") : null;
+    if (details && details.style && details.style.setProperty) details.style.setProperty("--preview-progress", value);
   }
 
   /* The scrub UI is coalesced to one write per frame, so a fast drag does not
@@ -281,7 +292,7 @@ class BeatPreviewPlayer {
       const scrubbing = !!audio.__kyrolllScrubbing && !(options && options.forceSeek);
       if (!scrubbing) {
         seek.value = progress;
-        seek.style.setProperty("--preview-progress", `${progress}%`);
+        this.writeProgress(player, seek, progress);
       }
       seek.setAttribute("aria-valuetext", `${time(current)} of ${time(duration)}`);
     }

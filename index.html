@@ -26,7 +26,7 @@
     document.documentElement.classList.add("js");
   </script>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg?v=5">
-  <link rel="stylesheet" href="style.css?v=192">
+  <link rel="stylesheet" href="style.css?v=193">
 </head>
 <!-- The `beat-page` state lives on <html> only (set in the head for a direct beat
      link and re-synced by script.js), so the homepage hero renders in its full
@@ -100,12 +100,19 @@
           </div>
           <div class="beat-preview" data-title="[FREE 100%] DON TOLIVER TYPE BEAT - FLESH" data-state="idle">
             <audio class="beat-preview__audio" src="assets/previews/flesh.mp3" preload="metadata"></audio>
+            <span class="beat-preview__tonearm" aria-hidden="true">
+              <svg viewBox="0 0 30 30" focusable="false"><circle cx="24" cy="6" r="4.2"/><circle cx="24" cy="6" r="1.4" fill="currentColor" stroke="none"/><path d="M24 6 14 17l-4.5 3.5"/><rect x="6.6" y="18.6" width="5.2" height="3.4" rx="0.8" fill="currentColor" stroke="none" transform="rotate(-38 9.2 20.3)"/></svg>
+            </span>
             <button type="button" class="beat-preview__toggle" aria-label="Play preview: [FREE 100%] DON TOLIVER TYPE BEAT - FLESH" aria-pressed="false">
+              <span class="beat-preview__platter" aria-hidden="true"><span class="beat-preview__platter-disc"></span><span class="beat-preview__platter-label"></span></span>
               <svg class="beat-preview__play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
               <svg class="beat-preview__pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
             </button>
             <div class="beat-preview__details">
-              <input class="beat-preview__seek" type="range" min="0" max="100" step="0.1" value="0" disabled aria-label="Seek preview: [FREE 100%] DON TOLIVER TYPE BEAT - FLESH">
+              <span class="beat-preview__track">
+                <input class="beat-preview__seek" type="range" min="0" max="100" step="0.1" value="0" disabled aria-label="Seek preview: [FREE 100%] DON TOLIVER TYPE BEAT - FLESH">
+                <span class="beat-preview__seek-glow" aria-hidden="true"></span>
+              </span>
               <span class="beat-preview__time">0:00 / --:--</span>
             </div>
             <span class="beat-preview__status" role="status">AUDIO PREVIEW</span>
@@ -127,10 +134,17 @@
               <img class="vinyl-record__logo" src="assets/kyrolll-flower-label.png" alt="" width="1024" height="1024" fetchpriority="high" decoding="sync">
             </span>
           </div>
+          <p class="vinyl-hint" aria-hidden="true">DRAG THE RECORD ONTO THE PLAYER</p>
         </div>
       </article>
     </section>
   </main>
+
+  <!-- The reserved drawer stage: the smooth container that gives a package sheet
+       its document room. It rests at zero height and eases open by exactly what
+       the sheet needs, so the footer's separator line glides with it rather than
+       jumping when a band is inserted. See `.drawer-stage` in style.css. -->
+  <div class="drawer-stage" aria-hidden="true"></div>
 
   <footer class="footer">
     <img class="footer__logo" src="assets/kyrolll-secondary.png?v=2" alt="KYROIII WITH ITS BRUSH X" width="1490" height="453" loading="lazy" decoding="async">
@@ -157,9 +171,10 @@
   <script src="flower-spinner.js?v=2"></script>
   <script src="marquee-items.js?v=19"></script>
   <script src="marquee.js?v=11"></script>
-  <script src="downloads.js?v=41"></script>
-  <script src="preview-player.js?v=10"></script>
-  <script src="script.js?v=87"></script>
+  <script src="downloads.js?v=42"></script>
+  <script src="preview-player.js?v=11"></script>
+  <script src="script.js?v=88"></script>
+  <script src="vinyl-deck.js?v=1"></script>
   <script src="support.js?v=6"></script>
   <script type="module" src="assets/brand-logo.min.js?v=27"></script>
   <script type="module" src="assets/background-x.min.js?v=8"></script>
