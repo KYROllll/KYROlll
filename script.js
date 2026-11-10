@@ -118,69 +118,25 @@ function exclusiveOwned(beat) {
   const h = window.KYROlll_HELPERS;
   return !!(beat && h && h.isExclusiveOwned && h.isExclusiveOwned(beat.id));
 }
-function exclusiveLockCopy() {
-  return window.KYROlll_EXCLUSIVE_LOCK || {
-    label: "[CLAIMED / SOLD OUT]",
-    ownedLabel: "[OWNED / YOURS]",
-    note: "THIS BEAT HAS BEEN SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE.",
-    ownedNote: "YOU HOLD THE EXCLUSIVE RIGHTS TO THIS BEAT. IT IS ARCHIVED FROM PUBLIC RELEASE AND CANNOT BE CLAIMED AGAIN.",
-    button: "SOLD OUT",
-    ownedButton: "OWNED / YOURS"
-  };
-}
 function exclusiveStampHTML(className) {
-  /* `data-flower-skip` keeps `flower-spinner.js` from treating the seal as the
-     cover's own load: the cover is what the wait belongs to, and the seal must
-     never hide it. */
+  /* `data-flower-skip` keeps `flower-spinner.js` from treating the badge mark as
+     the cover's own load: the cover is what the wait belongs to, and the mark
+     must never hide it. */
   return `<span class="${className}" aria-hidden="true"><img src="${EXCLUSIVE_STAMP_ART}" alt="" width="1040" height="1040" loading="lazy" decoding="async" data-flower-skip></span>`;
 }
+/* The signature badge is the whole download area of a claimed beat: no button,
+   no package menu, no drawer. One small flower mark and two quiet lines on a
+   hairline plate — the ownership is the object, not a disabled control. */
 function exclusiveBadgeHTML(compact, owned) {
-  const copy = exclusiveLockCopy();
-  return `<span class="exclusive-badge${compact ? " exclusive-badge--compact" : ""}${owned ? " exclusive-badge--owned" : ""}" data-exclusive-lock="${owned ? "owned" : "sold-out"}" role="status">
+  const kicker = owned ? "PRIVATE MASTER // YOURS" : "EXCLUSIVE RIGHTS // ARCHIVED";
+  const label = owned ? "OWNED" : "CLAIMED / SOLD OUT";
+  return `<span class="exclusive-badge${compact ? " exclusive-badge--compact" : ""}${owned ? " exclusive-badge--owned" : ""}" data-exclusive-lock="${owned ? "owned" : "sold-out"}" role="status" aria-label="${attr(kicker)} - ${attr(label)}">
           ${exclusiveStampHTML("exclusive-badge__seal")}
           <span class="exclusive-badge__body">
-            <span class="exclusive-badge__kicker">${owned ? "PRIVATE MASTER // YOURS" : "EXCLUSIVE RIGHTS // ARCHIVED"}</span>
-            <span class="exclusive-badge__text">${attr(copy.label)}</span>
-            ${owned ? `<span class="exclusive-badge__owner" data-exclusive-owner>${attr(copy.ownedLabel)}</span>` : ""}
+            <span class="exclusive-badge__kicker">${kicker}</span>
+            <span class="exclusive-badge__text">${attr(label)}</span>
           </span>
         </span>`;
-}
-/* The claim is closed to everyone: the action slot keeps a disabled control so
-   the beat reads as sold out rather than as a card that lost its button. It is
-   deliberately NOT `.download-trigger`, because no tap may open the drawer. */
-function exclusiveLockedButtonHTML(beat, compact, owned) {
-  const copy = exclusiveLockCopy();
-  const label = owned ? (copy.ownedButton || "OWNED / YOURS") : (copy.button || "SOLD OUT");
-  return `<button type="button" class="exclusive-locked-button${compact ? " exclusive-locked-button--compact" : ""}" data-exclusive-claim-disabled data-beat-id="${attr(beat.id)}" aria-disabled="true" disabled>
-        <span class="exclusive-locked-button__mark" aria-hidden="true"></span>
-        <span class="exclusive-locked-button__label">${attr(label)}</span>
-      </button>`;
-}
-/* The dark archive overlay that sits on the cover art: the captured flower as a
-   clean embossed seal, a hairline plate, and the label-grade CLAIMED / SOLD OUT
-   typography. It is decorative — the badge below carries the live status. */
-function exclusiveArtHTML(compact, owned) {
-  return `<span class="exclusive-art${compact ? " exclusive-art--compact" : ""}${owned ? " exclusive-art--owned" : ""}" data-exclusive-art="${owned ? "owned" : "sold-out"}" aria-hidden="true">
-        ${exclusiveStampHTML("exclusive-art__stamp")}
-        <span class="exclusive-art__kicker">${owned ? "PRIVATE MASTER" : "EXCLUSIVE RIGHTS SECURED"}</span>
-        <span class="exclusive-art__title">${owned ? "OWNED" : "CLAIMED"}</span>
-        <span class="exclusive-art__sub">${owned ? "YOURS" : "SOLD OUT"}</span>
-        ${owned ? `<span class="exclusive-art__owned">${attr(exclusiveLockCopy().ownedLabel)}</span>` : ""}
-      </span>`;
-}
-/* The claimed beat's own page keeps its artwork and specs but loses the player:
-   there is no public master once the exclusive rights are secured. */
-function exclusiveLockedHTML(owned) {
-  const copy = exclusiveLockCopy();
-  return `<div class="exclusive-lock" data-state="${owned ? "exclusive-owned" : "exclusive-locked"}" role="status">
-        ${exclusiveStampHTML("exclusive-lock__stamp")}
-        <div class="exclusive-lock__copy">
-          <p class="exclusive-lock__kicker">${owned ? "PRIVATE MASTER // YOURS" : "EXCLUSIVE RIGHTS // ARCHIVED"}</p>
-          <p class="exclusive-lock__title">${owned ? "OWNED / YOURS" : "CLAIMED / SOLD OUT"}</p>
-          <p class="exclusive-lock__note">${attr(owned ? copy.ownedNote : copy.note)}</p>
-          <p class="exclusive-lock__meta">${owned ? "ONE-OF-ONE LICENSE // YOURS" : "ONE-OF-ONE LICENSE // NO LONGER AVAILABLE"}</p>
-        </div>
-      </div>`;
 }
 /* The countdown pill: one universal label plus a timer that ticks in place.
    The label never carries a clock hour — the live HH:MM:SS beside it is the only
@@ -256,12 +212,10 @@ function downloadActionsHTML(beat, compact) {
    lands the slot becomes the live trigger. */
 function actionsSlotHTML(beat, compact) {
   if (exclusiveLocked(beat)) {
-    const owned = exclusiveOwned(beat);
-    const badge = exclusiveBadgeHTML(!!compact, owned);
-    const disabled = exclusiveLockedButtonHTML(beat, !!compact, owned);
+    const badge = exclusiveBadgeHTML(!!compact, exclusiveOwned(beat));
     return compact
-      ? `<div class="catalog-tile__actions catalog-tile__actions--exclusive-locked">${badge}${disabled}</div>`
-      : `<div class="download-actions download-actions--secured">${badge}${disabled}</div>`;
+      ? `<div class="catalog-tile__actions catalog-tile__actions--exclusive-locked">${badge}</div>`
+      : `<div class="download-actions download-actions--secured">${badge}</div>`;
   }
   if (releasePending(beat)) {
     const pill = countdownBadgeHTML(beat, !compact);
@@ -292,20 +246,19 @@ function beatDetailInner(beat) {
         </div>
         ${meta}
       </div>
-      ${locked ? exclusiveLockedHTML(owned) : pending ? dropLockedHTML() : previewHTML(beat)}
+      ${pending ? dropLockedHTML() : previewHTML(beat)}
       <div class="card__actions">
         ${actionsSlotHTML(beat, false)}
       </div>
-    </section>      <div class="beat-detail__artwork-wrap${locked ? " beat-detail__artwork-wrap--soldout" : ""}" data-soldout="${locked ? "true" : "false"}">
+    </section>      <div class="beat-detail__artwork-wrap">
       <figure class="beat-detail__artwork">
         <img src="${attr(beat.img)}" alt="${attr(beat.title)} cover art" width="1024" height="1024" decoding="async" fetchpriority="high">
-        ${locked ? exclusiveArtHTML(false, owned) : ""}
       </figure>
-      ${locked ? "" : `<div class="vinyl-record" aria-hidden="true">
+      <div class="vinyl-record" aria-hidden="true">
         <span class="vinyl-record__logo-frame" aria-hidden="true">
           <img class="vinyl-record__logo" src="${attr(VINYL_LABEL_ART)}" alt="" width="1024" height="1024" fetchpriority="high" decoding="sync">
         </span>
-      </div>`}
+      </div>
     </div>`;
 }
 
@@ -414,7 +367,7 @@ function buildGrid() {
         ? " catalog-tile--exclusive-locked" + (owned ? " catalog-tile--exclusive-owned" : "")
         : pending ? " catalog-tile--pending" : "");
       card.innerHTML = `<a class="catalog-tile__link" href="index.html?beat=${encodeURIComponent(beat.id)}" aria-label="View ${attr(beat.title)}">
-        <span class="catalog-tile__art"><img src="${attr(beat.img)}" alt="" width="1024" height="1024" loading="lazy" decoding="async">${locked ? exclusiveArtHTML(true, owned) : ""}</span>
+        <span class="catalog-tile__art"><img src="${attr(beat.img)}" alt="" width="1024" height="1024" loading="lazy" decoding="async"></span>
         <span class="catalog-tile__title">${beat.title}</span>
       </a>
       ${actionsSlotHTML(beat, true)}`;
@@ -429,8 +382,7 @@ function buildGrid() {
     // The card fades in first; a beat later the record slides out from behind
     // the sleeve. The class only ever *adds* the exposed state — the tucked
     // state is the element's initial one, so there is no pre-render flash.
-    // A claimed beat is an archived pressing: it has no public record, so the
-    // reveal timer never runs and the stage keeps the veiled cover alone.
+    // A claimed beat keeps its record, so the reveal runs there too.
     const detailCard = grid.querySelector('.beat-detail');
     if (detailCard && detailCard.querySelector('.vinyl-record')) {
       clearTimeout(vinylTimer);

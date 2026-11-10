@@ -571,15 +571,14 @@ payment gateway.
   `kyrolll:exclusive-locked`, and the shared register announces `kyrolll:exclusive-claims`;
   `script.js` repaints the tile/beat page from either.
   The register carries an anonymous `buyerId`: the buyer's own record projects
-  `exclusiveOwned: true` and paints `[OWNED / YOURS]` alongside the public
-  `[CLAIMED / SOLD OUT]` plate, while any other claim paints the sold-out plate alone.
-  A claimed beat offers no lease menu and no public player — the action slot and the page carry
-  the `[CLAIMED / SOLD OUT]` plate, a **disabled** `SOLD OUT` / `OWNED / YOURS` control (never a
-  `.download-trigger`), and the
-  `THIS BEAT HAS BEEN SECURED WITH EXCLUSIVE RIGHTS AND ARCHIVED FROM PUBLIC RELEASE.`
-  disclaimer, its specs read `// CLAIMED / SOLD OUT` (or `// OWNED / YOURS` for the buyer), and
+  `exclusiveOwned: true` and paints the `PRIVATE MASTER // YOURS` signature badge, while any
+  other claim paints the public `CLAIMED / SOLD OUT` badge alone.
+  A claimed beat offers no lease menu and no package drawer — the whole download area is one
+  signature badge (never a `.download-trigger`), and its specs read `// CLAIMED / SOLD OUT` (or
+  `// OWNED / YOURS` for the buyer). The cover, the vinyl reveal and the player stay exactly as
+  they are on an unclaimed beat; the claim only replaces the way the beat is acquired.
   `start`/`openMenu` refuse it with a toast even when called directly; a cold `download.html`
-  link to a claimed beat shows the same secured archive view instead of the files or a gate.
+  link to a claimed beat shows the secured archive view instead of the files or a gate.
   `isExclusiveLocked(beatId)` answers the register, `isExclusiveOwned(beatId)` answers the
   buyer and `KYROlll_EXCLUSIVE_LOCK` holds the label/note/button copy. The files stay public, so
   this is a storefront lock and a duplicate-claim guard, not server-side access control. An
@@ -593,17 +592,19 @@ payment gateway.
   `KYROlll_HELPERS.syncExclusiveClaims()` and ``.resetExclusiveClaims()` are exposed for
   diagnostics and tests; the latter only clears the local cache/outbox (the authoritative reset
   is the Action's `reset` input).
-  **The claimed card is an archived pressing, not a disabled button.** The cover keeps its
-  original colour under a deep neutral veil (`.exclusive-art`), prints the captured resting
-  flower (`assets/kyrolll-flower-rest.png`) as a clean white seal, and sets
-  `CLAIMED / SOLD OUT` in wide, light display type with an `EXCLUSIVE RIGHTS SECURED` kicker; the
-  buyer's version reads `OWNED / YOURS` over `PRIVATE MASTER`. A claimed beat's page renders **no
-  `.vinyl-record` at all** — `script.js` omits it from `beatDetailInner` and never starts the reveal
-  timer — so the pristine archived cover stands alone against the dark stage. The live status plate
-  (`.exclusive-badge`) is a seal-and-copy banner, and `.exclusive-lock` is the same treatment on
-  the beat page and the download page. **Everything in that treatment is static** — no scan,
-  sheen or keyframe — so a claimed card can never flicker or move. It is equal-channel greys
-  only; the overlay's `noHue` audit is part of `brand-design.test.mjs`.
+  **The claimed card's download area is a signature badge, not a disabled button.** The action
+  slot renders `.exclusive-badge` — a hairline plate with a small captured-flower mark
+  (`assets/kyrolll-flower-rest.png`, no ring or tile), a silver `PRIVATE MASTER // YOURS` kicker
+  and the white `OWNED` line; a claim by someone else reads `EXCLUSIVE RIGHTS // ARCHIVED` /
+  `CLAIMED / SOLD OUT`. There is no `.download-trigger`, no package drawer and no
+  `.exclusive-locked-button` on the beat page or the tile — the badge *is* the acquisition area,
+  and the catalog tile wears its compact variant. The beat's `beat-detail__artwork-wrap` keeps
+  its cover art, its photographed vinyl and its reveal, and the page keeps its player; the badge
+  is placed in `.card__actions` where the trigger used to be. The download page still renders
+  `.exclusive-lock` (with the same badge) as the end of the hand-off. **Everything in that
+  treatment is static** — no scan, sheen or keyframe — so a claimed card can never flicker or
+  move. It is equal-channel greys only; the badge's `noHue` audit is part of
+  `brand-design.test.mjs`.
 - `window.KYROlll_SITE` — `{ formspreeEndpoint, paidFormspreeEndpoint }`. `formspreeEndpoint`
   is the authoritative **KYROIII — FREE DOWNLOADS** form (`https://formspree.io/f/mvkkkoew`)
   for every `[FREE 100%]` beat, while `paidFormspreeEndpoint` is an intentionally empty slot for
@@ -1102,14 +1103,14 @@ Tests that ship with the repo:
   nothing is re-posted until submit, and the in-page grant is gone after a reload), and that gate
   input is never written to `localStorage`/`sessionStorage` (only the exclusive-claims cache
   and the catalog scroll key may appear). It proves the exclusive claim is durable: after a
-  reload the buyer still sees `[OWNED / YOURS]` beside `[CLAIMED / SOLD OUT]`, and a version-2
-  claim seeded for another buyer paints the sold-out plate with no ownership line. It
+  reload the buyer still sees the `PRIVATE MASTER // YOURS` / `OWNED` signature badge, and a
+  version-2 claim seeded for another buyer paints the public `CLAIMED / SOLD OUT` badge. It
   drives the six-card catalog, walks each scheduled drop's countdown and in-page unlock
   (A.D.L is the newest — 19:00 Israel time, 2 November 2026 — and wears its own
   cover-pressed record), then claims ADLL's exclusive tier and proves the beat
-  retires in place: the archive veil and flower seal on the cover, the sold-out plate, the
-  ownership marker, the disclaimer, no player, no
-  menu, no cold-link hand-off, disabled `SOLD OUT` / `OWNED / YOURS` controls, and the same
+  retires in place: the signature badge in the action slot, the intact cover, vinyl and player,
+  no download trigger, no
+  menu, no cold-link hand-off, no disabled control, and the same
   state on the catalog tile after a history walk without a reload. (The local preview keeps the
   live bus off, so the suite exercises the same seed/cache path the store uses without
   publishing into production.) It
@@ -1141,7 +1142,8 @@ asked from scratch. The
 email is the one thing that can leave the browser: with `KYROlll_NEWSLETTER` configured, the gate
 posts the address to that provider (the opt-in box is a required part of every gate). The
 exclusive claim is the one piece of state the store persists on purpose: it retires a beat's
-leases and player across every page, every tab and every device (seed + live bus), and it
+leases (and its whole download area) across every page, every tab and every device (seed + live
+bus), and it
 survives a reload so the buyer keeps the `OWNED / YOURS` marker and nobody can claim the same
 rights twice. It is still a storefront record, not a server-side lock — the files stay public
 and the ntfy topic is public — so a rights sale made outside the browser should ship with

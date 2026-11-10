@@ -218,19 +218,20 @@ test("the exclusive license claims the beat globally and retires its public leas
   assert.match(downloads, /pack\.id === "exclusive"[\s\S]*?lockExclusive\(beat\.id\)/, "SIGN & UNLOCK claims the exclusive beat only once");
   assert.match(downloads, /holdExclusiveClaim\(beat\)/, "the download layer refuses a claimed beat");
   const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
-  assert.match(script, /data-exclusive-lock/, "the storefront renders the secured badge");
-  assert.match(script, /data-exclusive-art/, "the claimed cover wears the archive overlay");
-  assert.match(script, /exclusive-art__stamp/, "the archive overlay prints the flower seal");
+  assert.match(script, /data-exclusive-lock/, "the storefront renders the signature badge");
+  assert.match(script, /PRIVATE MASTER \/\/ YOURS/, "the buyer's badge names the private master");
   assert.match(script, /CLAIMED \/ SOLD OUT/, "the beat page names the sold-out state");
-  assert.match(script, /OWNED \/ YOURS/, "the buyer gets an ownership marker");
-  assert.match(script, /exclusive-locked-button/, "a claimed beat renders an inert control");
+  assert.match(script, /const label = owned \? "OWNED" :/, "the buyer gets an ownership line");
+  assert.doesNotMatch(script, /exclusive-art/, "the cover art is never veiled by an archive overlay");
+  assert.doesNotMatch(script, /exclusive-locked-button/, "a claimed beat renders no inert control");
   assert.match(script, /kyrolll:exclusive-locked/, "the grid repaints when a claim lands");
   assert.match(script, /kyrolll:exclusive-claims/, "the grid repaints when the shared register changes");
   const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
-  assert.match(css, /\.exclusive-art \{[\s\S]*?radial-gradient[\s\S]*?pointer-events: none/, "the claimed cover wears a dark archive veil");
-  assert.match(css, /\.exclusive-art__stamp \{[\s\S]*?object-fit: contain/, "the flower seal is printed on the veil");
-  assert.match(css, /\.exclusive-badge \{[\s\S]*?grid-template-columns[\s\S]*?exclusive-badge__seal/, "the secured plate is a seal-and-copy banner");
-  assert.match(css, /\.exclusive-locked-button \{[\s\S]*?cursor: not-allowed/, "the claimed control is visibly inert");
+  assert.doesNotMatch(css, /\.exclusive-art\s*\{/, "the claimed cover carries no archive veil");
+  assert.match(css, /\.exclusive-badge \{[\s\S]*?display: flex[\s\S]*?exclusive-badge__seal/, "the badge is a flower-and-copy signature plate");
+  assert.match(css, /\.exclusive-badge__seal \{[\s\S]*?object-fit: contain/, "the signature plate carries the small flower mark");
+  assert.match(css, /\.download-actions--secured \.exclusive-badge \{[\s\S]*?justify-content: center/, "the beat page centers its signature badge");
+  assert.match(css, /\.exclusive-locked-button \{[\s\S]*?cursor: not-allowed/, "the download page's secured control is visibly inert");
   const page = readFileSync(new URL("./download-page.js", import.meta.url), "utf8");
   assert.match(page, /showExclusiveLocked/, "a cold link to a claimed beat shows the secured archive");
   assert.match(page, /isExclusiveOwned/, "a returning buyer sees the ownership marker");
@@ -317,15 +318,11 @@ test("every beat is audited for one uniform license, package set and secured loc
   // The secured state is painted from one place on both surfaces.
   const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
   assert.match(script, /function exclusiveBadgeHTML\(compact, owned\)[\s\S]*?exclusive-badge--compact/, "the compact tile badge is one renderer");
-  assert.match(script, /if \(exclusiveLocked\(beat\)\) \{[\s\S]*?exclusiveBadgeHTML/, "the action slot paints the secured plate for every locked beat");
-  assert.match(script, /const locked = exclusiveLocked\(beat\);[\s\S]*?locked \? exclusiveLockedHTML\(owned\)/, "the beat page replaces the player with the secured notice");
-  assert.match(script, /exclusive-locked-button/, "the action slot keeps a disabled control");
-  assert.match(script, /exclusive-badge__owner/, "the buyer's ownership marker is painted");
-  assert.match(script, /\$\{locked \? "" : `<div class="vinyl-record"/, "a claimed beat renders no vinyl record at all");
-  assert.match(script, /detailCard\.querySelector\('\.vinyl-record'\)/, "the record reveal never runs without a record");
+  assert.match(script, /if \(exclusiveLocked\(beat\)\) \{[\s\S]*?exclusiveBadgeHTML/, "the action slot paints the signature badge for every locked beat");
+  assert.match(script, /const pending = !locked && releasePending\(beat\);[\s\S]*?\$\{pending \? dropLockedHTML\(\) : previewHTML\(beat\)\}/, "a claimed beat keeps its player");
+  assert.match(script, /<div class="vinyl-record" aria-hidden="true">/, "a claimed beat keeps its vinyl record");
+  assert.match(script, /detailCard\.querySelector\('\.vinyl-record'\)/, "the record reveal runs on every beat page");
   assert.match(script, /catalog-tile--exclusive-locked/, "the catalog tile carries its own secured modifier");
-  assert.match(script, /exclusive-lock__note/, "the secured notice carries the archive disclaimer");
-  assert.match(script, /KYROlll_EXCLUSIVE_LOCK/, "the storefront reads the shared lock copy");
 });
 
 test("the catalog remembers the visitor's scroll position for the trip back", () => {

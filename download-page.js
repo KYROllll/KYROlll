@@ -399,7 +399,6 @@
       ownedButton: "OWNED / YOURS"
     };
     const label = copy.label || "[CLAIMED / SOLD OUT]";
-    const ownedLabel = copy.ownedLabel || "[OWNED / YOURS]";
     const note = owned ? (copy.ownedNote || copy.note) : copy.note;
     const button = owned ? (copy.ownedButton || "OWNED / YOURS") : (copy.button || "SOLD OUT");
     document.title = (owned ? "OWNED / YOURS — " : "CLAIMED / SOLD OUT — ") + beat.title + " — KYROIII";
@@ -420,8 +419,7 @@
             '<span class="exclusive-badge__seal" aria-hidden="true"><img src="' + SECURED_STAMP_ART + '" alt="" width="1040" height="1040" loading="lazy" decoding="async"></span>' +
             '<span class="exclusive-badge__body">' +
               '<span class="exclusive-badge__kicker">' + (owned ? "PRIVATE MASTER // YOURS" : "EXCLUSIVE RIGHTS // ARCHIVED") + "</span>" +
-              '<span class="exclusive-badge__text">' + escapeHTML(label) + "</span>" +
-              (owned ? '<span class="exclusive-badge__owner" data-exclusive-owner>' + escapeHTML(ownedLabel) + "</span>" : "") +
+              '<span class="exclusive-badge__text">' + (owned ? "OWNED" : "CLAIMED / SOLD OUT") + "</span>" +
             "</span>" +
           "</span>" +
           '<button type="button" class="exclusive-locked-button" data-exclusive-claim-disabled disabled aria-disabled="true">' +
