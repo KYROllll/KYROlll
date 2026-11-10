@@ -398,8 +398,23 @@ function buildGrid() {
     // A claimed beat keeps its record, so the reveal runs there too.
     const detailCard = grid.querySelector('.beat-detail');
     if (detailCard && detailCard.querySelector('.vinyl-record')) {
+      /* The reveal is timed from the moment the visitor can actually see the
+         card: the loading veil first (it waits on the hero's flower), then the
+         card's own fade. Timing it from card build made the slide play behind
+         the veil on a cold load, and the ~1.35 s window started while the main
+         thread was still compiling the flower. */
       clearTimeout(vinylTimer);
-      vinylTimer = setTimeout(() => detailCard.classList.add('vinyl-open'), VINYL_REVEAL_DELAY_MS);
+      let armed = false;
+      const reveal = () => {
+        if (armed) return;
+        armed = true;
+        vinylTimer = setTimeout(() => detailCard.classList.add("vinyl-open"), VINYL_REVEAL_DELAY_MS);
+      };
+      if (document.documentElement.classList.contains("preloader-armed")) {
+        document.addEventListener("kyrolll:preloader-done", reveal, { once: true });
+      } else {
+        reveal();
+      }
     }
     // Land directly on the beat card instead of the top of the page.
     landOnBeatDetail();
@@ -465,6 +480,10 @@ function rebuildCatalog() {
   const isHome = !params.has("beat");
   if (isHome) {
     unlockScroll();
+    /* The 3D room's bundle is only fetched for the home route (see
+       `KYROlll_loadRoom` in index.html), including when the SPA comes back
+       from a beat detail. On a beat link the 568 KB never leaves the host. */
+    if (typeof window.KYROlll_loadRoom === "function") window.KYROlll_loadRoom();
   }
   buildGrid();
 }

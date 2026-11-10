@@ -1883,9 +1883,12 @@ try {
   const frames = [];
   for (let i = 0; i < 24; i++) {
     await drawerScroll.evaluate(() => window.scrollBy(0, 40));
-    // Give the scroll handler a frame's worth of headroom before sampling; the
-    // transform is still asserted to track every step exactly.
-    await drawerScroll.waitForTimeout(40);
+    // Sample after the scroll handler's own frame has run. A fixed 40 ms wait is
+    // shorter than a software-rendered frame, so the drawer's compositor
+    // transform could still be one step behind when the seam was measured.
+    // The transform is still asserted to track every step exactly.
+    await drawerScroll.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await drawerScroll.waitForTimeout(20);
     frames.push(await drawerProbe());
   }
   assert(frames.every(f => f.up === opened.up), 'a fast scroll never flips the drawer over mid-gesture');

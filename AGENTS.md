@@ -7,7 +7,7 @@ about *running* the app in this sandbox, not about the app's own behaviour.
 
 - **Storefront** — plain static files (`index.html`, `download.html`, `style.css`,
   `script.js`, `catalog.js`, `downloads.js`, `download-page.js`, `preview-player.js`,
-  `marquee.js`, `hero-intro.js`, `preloader.js`, `assets/*.min.js`) served by `server.mjs`
+  `marquee.js`, `hero-intro.js`, `preloader.js`, `vinyl-room.js`, `assets/*.min.js`) served by `server.mjs`
   on port 8080. No bundler, no runtime dependencies: `server.mjs` is pure Node `http`, so
   edits to HTML/CSS/JS show up on a browser reload with no rebuild.
 - **No backend and no secrets.** Every beat is 100% free: there is no cart, no
@@ -417,8 +417,11 @@ frames). The disc's only motion is the sleeve pull-out. Because the mark is a ra
 exempt from CSS `text-transform`, exactly like the brush-X brand marks and the watermarks in the
 hero and footer.
 
-**The reveal.** `script.js` adds `vinyl-open` **1.35 s** after the card is built (the card's
-own 0.8 s fade finishes well inside that delay), and `style.css` transitions the record out
+**The reveal.** `script.js` adds `vinyl-open` **1.35 s** after the visitor can actually see
+the card: after the `kyrolll:preloader-done` event on a cold load (the veil waits on the
+hero's flower, and the reveal used to play behind it), or immediately on an in-page route
+change. That also puts the timer after the flower's compile block instead of inside it.
+`style.css` transitions the record out
 over **1 s** on `cubic-bezier(.16, 1, .3, 1)`. The record
 starts **tucked inside the sleeve** and rides out under the label frame, so the cover reads as a
 physical sleeve the record is pulled out of — the disc and its label move together and the
@@ -485,6 +488,62 @@ arm and stops the spin. The control remains the button, so keyboard and non-drag
 nothing, and nothing about the sleeve's layout, the reveal geometry or the label print changes.
 The ghost is pointer-only and disappears completely after the drop; `prefers-reduced-motion`
 drops the spring and settles instantly.
+
+## The vinyl room (`vinyl-room.js` → `assets/vinyl-room.min.js`)
+
+The home route's first screen is a WebGL listening room, not the catalogue grid. The
+room builds a dark shelf, the photographed record and a working turntable; the catalogue,
+hero and footer stay below it as the archive and the no-WebGL fallback, and beat pages
+are untouched (`.beat-page .room { display: none }`).
+
+- **Bundle.** `vinyl-room.js` imports `three` (the root dependency, r186) and is bundled
+  by esbuild; the file is never loaded unbundled:
+  ```bash
+  npx esbuild vinyl-room.js --bundle --minify --format=iife --target=es2020 \
+    --legal-comments=eof --outfile=assets/vinyl-room.min.js
+  ```
+  Bump `assets/vinyl-room.min.js?v=N` in `index.html` after every build. The module is
+  home-only, so no other page loads it.
+- **Boot order.** The room does **not** initialise while the preloader is up: that veil
+  waits on the hero's flower, which is the page's first WebGL job, and a second scene
+  compiling beside it starves both. `vinyl-room.js` waits for the
+  `kyrolll:preloader-done` event and for the section to intersect, then builds. A direct
+  beat link never boots it; returning to the home route through the SPA makes the
+  IntersectionObserver boot it then. The loop pauses whenever the section is off-screen
+  or the tab is hidden, and playback pauses when the room leaves view or the tab is hidden.
+- **Shelf.** Wide screens get 4 columns × 2 rows; narrow/portrait screens get 2 × 4 so the
+  covers stay large. A breakpoint flip rebuilds only the frame group — the record groups
+  and the seal are re-parented, never disposed. Picking is a **projected-cover hit test**
+  (`projectRecord`), not a raycast: the bevel edge lines could win a ray at a cover's seam
+  and select its neighbour. The canvas is keyboard-operable (arrows/Enter/Escape) and the
+  catalogue below remains the accessible list.
+- **The sealed latest drop.** The newest sleeve carries a transparent physical film with
+  clearcoat, a crinkle bump map, edge seams and a `SEALED / KYROIII` sticker. Choosing it
+  runs a wall-clock peel (film rotates and lifts away, opacity to zero) and the card's
+  kicker moves from `SEALED` to `UNSEALED`. Nothing about the peel is stored: a reload
+  seals it again, exactly like the rest of the store's page-view state.
+- **Two paths.** Choosing a sleeve raises the card: LISTEN on the left, FREE DOWNLOAD on
+  the right. Download slides out the room's package tray; each tier calls
+  `KYROlll_DOWNLOADS.start(beat.id, pack.id)`, so the email gate, REVIEW & SIGN, PDF and
+  every persistence rule are the store's own — the room never re-implements commerce. A
+  locked/claimed beat disables the tier and the whole download path, as the catalogue does.
+- **The deck.** LISTEN starts the public preview inside the click (so mobile autoplay
+  allows it), flies a disc along a bezier from the sleeve to the platter, eases the camera
+  to the deck preset, drops the tonearm and spins the platter. Every disc is the
+  photographed pressing **plus** `assets/kyrolll-flower-label.png` on its label — the raw
+  photograph's own tan label must never show. The chassis carries the flower print, the
+  `KYROIII` wordmark, a moving pitch cap (±8%, also `audio.playbackRate`), a transport,
+  a progress bar and the three package buttons. All transitions use `performance.now()`, not
+  accumulated frame time, so a software rasteriser still lands the record in a second.
+  `RETURN TO SHELF` stops playback and restores the shelf disc.
+- **Palette and motion.** The room is black / white / silver only; the supplied cover art
+  and the photographed record are the only colour. `prefers-reduced-motion` snaps the camera,
+  peel and flight and stops the platter; the shared `motion-toggle` event stops the platter
+  and idle drift without freezing the explicit peel/listen animations.
+- **Budget.** No shadows, no post-processing, no transmission. Software renderers are
+  detected and get antialias off, a 0.75 MP drawing budget and every-other-frame rendering;
+  the pixel ratio is otherwise capped by a 2.4 MP budget. On a GPU the room sits beside the
+  hero flower, so the off-screen pause is what keeps the scroll cheap.
 
 ## Preview responsiveness in this sandbox
 

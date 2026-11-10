@@ -26,7 +26,7 @@
     document.documentElement.classList.add("js");
   </script>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg?v=5">
-  <link rel="stylesheet" href="style.css?v=193">
+  <link rel="stylesheet" href="style.css?v=194">
 </head>
 <!-- The `beat-page` state lives on <html> only (set in the head for a direct beat
      link and re-synced by script.js), so the homepage hero renders in its full
@@ -50,6 +50,78 @@
   <header class="header">
     <button class="motion-toggle" type="button" aria-pressed="false">PAUSE MOTION −</button>
   </header>
+
+  <section class="room" data-room aria-labelledby="room-title">
+    <div class="room__stage" data-room-stage>
+      <div class="room__poster" aria-hidden="true">
+        <span class="room__poster-word">KYROIII</span>
+        <span class="room__poster-note">THE VINYL ROOM</span>
+      </div>
+    </div>
+    <div class="room__hud" data-room-hud>
+      <div class="room__top">
+        <p class="room__title" id="room-title"><span class="room__kicker">THE VINYL ROOM</span><span class="room__word">KYROIII</span></p>
+        <p class="room__meta"><span data-room-count>08 RELEASES ON THE SHELF</span><span class="room__hint" data-room-hint>DRAG TO LOOK · SELECT A RECORD</span></p>
+      </div>
+      <div class="room__bottom">
+        <p class="room__scroll">SCROLL FOR THE FLOWER &amp; THE ARCHIVE</p>
+
+        <div class="room__card" data-room-card hidden>
+          <p class="room-card__kicker" data-card-kicker>LATEST DROP — SEALED</p>
+          <h2 class="room-card__title" data-card-title></h2>
+          <p class="room-card__specs" data-card-specs></p>
+          <div class="room-card__paths">
+            <button class="room-path room-path--listen" type="button" data-room-listen>
+              <span class="room-path__label">LISTEN</span>
+              <span class="room-path__note">CUE IT ON THE DECK</span>
+            </button>
+            <button class="room-path room-path--download" type="button" data-room-download>
+              <span class="room-path__label">FREE DOWNLOAD</span>
+              <span class="room-path__note">MP3 · WAV · STEMS</span>
+            </button>
+          </div>
+          <button class="room-card__close" type="button" data-room-close>CLOSE</button>
+        </div>
+
+        <div class="room__tray" data-room-tray hidden role="dialog" aria-label="Free download packages">
+          <div class="room-tray__head">
+            <p class="room-tray__kicker" data-room-tray-kicker>FREE DOWNLOAD</p>
+            <p class="room-tray__title" data-room-tray-title></p>
+          </div>
+          <div class="room-tray__list" data-room-tray-list></div>
+          <button class="room-tray__close" type="button" data-room-tray-close>BACK</button>
+        </div>
+
+        <div class="room__deck" data-room-deck hidden aria-label="KYROIII turntable deck">
+          <div class="room-deck__head">
+            <span class="room-deck__kicker">ON THE DECK</span>
+            <span class="room-deck__title" data-deck-title></span>
+            <button class="room-deck__eject" type="button" data-deck-eject>RETURN TO SHELF</button>
+          </div>
+          <div class="room-deck__body">
+            <button class="room-deck__play" type="button" data-deck-play data-playing="false" aria-pressed="false" aria-label="Play the record">
+              <svg class="room-deck__icon room-deck__icon--play" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7z"/></svg>
+              <svg class="room-deck__icon room-deck__icon--pause" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
+            </button>
+            <div class="room-deck__center">
+              <div class="room-deck__meter" aria-hidden="true"><span data-deck-bar></span></div>
+              <span class="room-deck__time" data-deck-time>0:00 / --:--</span>
+            </div>
+            <label class="room-deck__pitch">
+              <span>PITCH</span>
+              <input type="range" min="-8" max="8" step="0.1" value="0" data-deck-pitch aria-label="Pitch control">
+              <output data-deck-pitch-out>0.0%</output>
+            </label>
+          </div>
+          <div class="room-deck__licence">
+            <span class="room-deck__licence-label">FREE DOWNLOAD / LICENSE</span>
+            <div class="room-deck__packs" data-deck-packs></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <a class="room__fallback" href="#grid" data-room-fallback hidden>WEBGL UNAVAILABLE — BROWSE THE ARCHIVE</a>
+  </section>
 
   <section class="brand-hero" aria-labelledby="brand-title">
     <div class="signature-section">
@@ -173,8 +245,24 @@
   <script src="marquee.js?v=11"></script>
   <script src="downloads.js?v=42"></script>
   <script src="preview-player.js?v=11"></script>
-  <script src="script.js?v=88"></script>
+  <script src="script.js?v=90"></script>
   <script src="vinyl-deck.js?v=1"></script>
+  <script>
+    // The room is a home-only surface. A direct beat link must not pay for its
+    // 568 KB WebGL bundle; the SPA loads it the moment it returns to the home
+    // route, and the room itself boots only when its section is on screen.
+    (function () {
+      window.KYROlll_loadRoom = function () {
+        if (window.KYROlll_ROOM || document.querySelector("script[data-vinyl-room]")) return;
+        var script = document.createElement("script");
+        script.src = "assets/vinyl-room.min.js?v=1";
+        script.defer = true;
+        script.dataset.vinylRoom = "1";
+        document.body.appendChild(script);
+      };
+      if (!new URLSearchParams(location.search).has("beat")) window.KYROlll_loadRoom();
+    })();
+  </script>
   <script src="support.js?v=6"></script>
   <script type="module" src="assets/brand-logo.min.js?v=27"></script>
   <script type="module" src="assets/background-x.min.js?v=8"></script>
