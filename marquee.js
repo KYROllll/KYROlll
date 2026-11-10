@@ -33,17 +33,28 @@
   }[char]));
 
   // Newest catalog beat first; older releases follow in reverse catalog order.
-  // A scheduled drop is announced as "DROPPING SOON" rather than as a crate
-  // item, and the studio count only includes beats whose clock has landed.
+  // The wording is curated from the catalog itself — a small, rotating voice
+  // bank keeps the feed feeling written rather than generated, while every
+  // line still names a real beat, its tempo and its key. A scheduled drop is
+  // announced as "DROPPING SOON" rather than as a crate item, and the studio
+  // count only includes beats whose clock has landed.
+  const DROP_VOICE = [
+    { lead: "NEW DROP", note: "THE LATEST CUT — FREE DOWNLOAD LIVE" },
+    { lead: "FRESH PRESSING", note: "MASTERED THIS WEEK — STEMS IN THE VAULT" },
+    { lead: "NEW TO THE CRATE", note: "A CLEAN CUT — READY FOR THE SESSION" },
+    { lead: "FROM THE VAULT", note: "ORIGINAL PRODUCTION — FREE MP3, WAV & STEMS" },
+    { lead: "IN THE CRATE", note: "PRESSED IN-HOUSE — FREE FOR THE TAKING" }
+  ];
   function headlineItems() {
     const catalog = window.KYROlll_CATALOG || [];
     const helpers = window.KYROlll_HELPERS;
     const released = (beat) => !helpers || !helpers.isReleased || helpers.isReleased(beat);
-    const drops = catalog.slice().reverse().map((beat) => {
+    const drops = catalog.slice().reverse().map((beat, index) => {
       const live = released(beat);
-      return (live ? "NEW DROP" : "DROPPING SOON") +
+      const voice = DROP_VOICE[index % DROP_VOICE.length];
+      return (live ? voice.lead : "DROPPING SOON") +
         " — " + beat.title + " — " + beat.bpm + " BPM // " + String(beat.key).toUpperCase() +
-        (live ? " — IN THE CRATE" : " — IN THE WORKSHOP");
+        " — " + (live ? voice.note : "LOCKED IN THE WORKSHOP");
     });
     // Studio intelligence, computed from the catalog so the ticker never drifts
     // from what the shop actually holds: the live release count plus the single
@@ -58,7 +69,10 @@
       );
       const newest = liveCatalog[liveCatalog.length - 1];
       if (newest) {
-        studio.push("FRESHEST OUT THE STUDIO — " + newest.title + " — " + newest.bpm + " BPM // " + String(newest.key).toUpperCase());
+        studio.push(
+          "THE SELECTION — " + newest.title + " — " + newest.bpm + " BPM // " + String(newest.key).toUpperCase() +
+          " — FRESH OUT THE STUDIO"
+        );
       }
     }
     const news = (window.KYROlll_MARQUEE || []).filter((item) => item && item.trim());

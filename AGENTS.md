@@ -281,6 +281,12 @@ animation itself is a Web Animations `translate3d` keyframe at a constant px/s s
 touches layout. Nothing in `marquee.js` listens for `scroll`, and nothing syncs the strip to
 scroll position — it runs on its own timeline, independent of the page.
 
+The headline set is curated from the catalog, not hand-maintained: `marquee.js` walks the
+catalog newest-first, gives each live beat a voice from a small `DROP_VOICE` bank (lead line,
+studio note, tempo and key), announces a scheduled drop as `DROPPING SOON`, and derives the
+live release count and `THE SELECTION` line from the same data. `marquee-items.js` holds only
+the evergreen studio notes; adding a beat to `catalog.js` is the whole edit.
+
 Two scroll-time hitches have been fixed and must not come back:
 
 - **The banner is exempt from the section reveal** (`.marquee-banner.reveal` is forced
@@ -318,24 +324,35 @@ indicator" breach — and the old `playerPulse` / `togglePulse` keyframes repain
 inside a `backdrop-filter`ed surface every frame (the documented cause of shimmer/jitter). The
 playing state keeps a static border colour and a static box glow.
 
-The luxe bloom that remains is **the one beat-reactive layer, and it is not the frame**. A single
-out-of-flow `.beat-preview::after` — a blurred, equal-channel white radial halo, `inset: -22px`,
-`z-index: -1` inside the player's own stacking context — carries the light. While a preview plays,
+The luxe glow that remains is **the one beat-reactive layer, and it is not the frame**. A single
+out-of-flow `.beat-preview::after` — an equal-channel white hairline ring, `inset: -1px` so its
+border box lands exactly on the player's outer border box, `border-radius: inherit` so it stays
+concentric at every breakpoint, with a static outer shadow for the ambient spill — carries the
+light. While a preview plays,
 `preview-player.js` reads the track through one shared `AudioContext` + `AnalyserNode` (cached per
 element, because `createMediaElementSource` may only be called once) and writes the smoothed
 **spectral flux** of the first 24 bins — the positive frame-to-frame rise, which spikes on kicks
 and snares, rather than a loudness average that sat at ~0.85 and never moved — into the player's
-`--beat-level` custom property; the halo's `opacity`
-and `scale` are `calc()`-ed from it, so the pulse is the music, not a CSS clock. Only `opacity` and
-`transform` change, there are no shadow keyframes, the halo is out of flow (so the 60-frame drift
-sample cannot see it), and `will-change` is claimed only while the player actually plays. Under
-`prefers-reduced-motion` the rAF loop never starts and the halo holds `0.5`; with Web Audio
-unavailable it rests at `0.34`; the `.motion-paused` class freezes the loop. Nothing is required for
-playback — the audio element is never gated on the analyser. The time readout is fixed-width: `13ch`
+`--beat-level` custom property; the ring's `opacity` is `calc()`-ed from it, so the pulse is the
+music, not a CSS clock. Only `opacity` changes, there are no shadow keyframes, the ring is out of
+flow (so the 60-frame drift sample cannot see it), and `will-change` is claimed only while the
+player actually plays. Under `prefers-reduced-motion` the rAF loop never starts and the ring holds
+`0.5`; with Web Audio unavailable it rests at `0.34`; the `.motion-paused` class freezes the loop.
+Nothing is required for playback — the audio element is never gated on the analyser. The time
+readout is fixed-width: `13ch`
 (`width` + `min-width`), `white-space: nowrap`, `tabular-nums` + `font-feature-settings: "tnum"`,
 and `update()` only writes it when the string actually changed — so a ticking second or a duration
 arriving can never change its measured width and move the player. Nothing here listens to `scroll`
 — playback is driven entirely by the media element's own events.
+
+The player's first tap is warmed ahead of the gesture: the beat page ships
+`preload="auto"` (the home route's pre-rendered card stays on `metadata` and is removed
+before it can fetch), and `preview-player.js` also starts the fetch on hover, focus or touch
+(skipped on save-data and 2G), so `play()` opens from a buffered track rather than a cold
+range request. Scrubbing writes `currentTime` synchronously — deferring it made the handle
+feel detached — while the readout update is coalesced to one write per frame and
+`__kyrolllScrubbing` stops `timeupdate` from snapping the thumb back under the finger until
+`change` settles the frame.
 
 The scrub handle is 8px inside a `border-radius: 999px` + `overflow: hidden` track, and
 `.beat-preview__details` insets that track 4px from the player's chrome, so at 0 % and 100 % the dot
@@ -651,7 +668,13 @@ never arrive half-empty:
   inside the visible viewport when the button hugs an edge, and its height is capped to the
   space actually available (plus the scroll a beat page can give it), so the panel is never
   taller than the screen: an oversized list scrolls internally rather than running off the
-  bottom. There is no framing scroll any more (the old `frameDrawer` is gone) — a fixed drawer
+  bottom. **The footer's separator line is a hard floor.** `positionMenu` measures the footer
+  and keeps an 18px band above it; when the drawer is opened from a card in the last row — where
+  the document gap to the footer is only a few dozen pixels — `downloads.js` inserts a
+  temporary `.drawer-safe-zone` before the footer for the length of the open drawer, pushing the
+  footer down just enough for the full sheet. The band is removed on close, so the catalog keeps
+  its normal length at rest, and the sheet still unfolds downwards and stays welded to its
+  trigger. There is no framing scroll any more (the old `frameDrawer` is gone) — a fixed drawer
   that clamps is already whole, so the page never moves under the visitor except for that one
   deliberate auto-scroll. Because the drawer does not travel with the page,
   `positionMenu` freezes the drawer's geometry against the button when it opens — width, capped

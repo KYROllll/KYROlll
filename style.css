@@ -1618,27 +1618,33 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
   box-shadow: 0 0 1px rgba(255, 255, 255, 0.45), 0 0 28px rgba(255, 255, 255, 0.16);
 }
 
-/* ---------- The luxe beat-reactive halo ----------------------------------- */
-/* A soft white ambient bloom around the playing player, painted by an
-   out-of-flow pseudo-element so the frame itself never moves, re-sizes or takes
-   an animation. `preview-player.js` reads the live track through a Web Audio
-   analyser while it plays and writes the smoothed low-band energy into
-   `--beat-level`; the halo's opacity and scale are calc()-ed from it, so the
-   light breathes with the music instead of on an arbitrary CSS clock. Only
-   `opacity` and `transform` change — a compositor-only layer with no shadow
-   keyframes, so the `backdrop-filter`ed surface is never re-composed. Under
-   reduced motion (or with no analyser at all) the level rests and the halo
-   holds one soft, static value. */
+/* ---------- The luxe beat-reactive border glow ---------------------------- */
+/* The light is a hairline ring, not a loose bloom: `inset: -1px` expands the
+   absolutely-positioned pseudo past the player's padding box by exactly the
+   frame's 1px border, so the ring's border box lands on the player's outer
+   border box. `border-radius: inherit` keeps the ring concentric at every
+   breakpoint (the phone frame changes radius), and the ring's own border traces
+   the exact geometry rather than approximating it with a blurred disc.
+   `preview-player.js` reads the live track through a Web Audio analyser while it
+   plays and writes the smoothed low-band spectral flux into `--beat-level`; only
+   the ring's `opacity` is calc()-ed from it, so the light pulses with the music
+   without ever moving, re-sizing or re-composing the `backdrop-filter`ed frame.
+   The outer shadow supplies the ambient spill; the inset shadow keeps the glow
+   hugging the inside edge. Under reduced motion (or with no analyser at all) the
+   level rests and the ring holds one soft, static value. */
 .beat-preview::after {
   content: "";
   position: absolute;
-  inset: -22px;
-  z-index: -1;
-  border-radius: 28px;
-  background: radial-gradient(closest-side, rgba(255, 255, 255, 0) 46%, rgba(255, 255, 255, 0.18) 70%, rgba(255, 255, 255, 0) 100%);
-  filter: blur(12px);
+  inset: -1px;
+  z-index: 1;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: inherit;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.38),
+    0 0 16px rgba(255, 255, 255, 0.42),
+    0 0 34px rgba(255, 255, 255, 0.18),
+    inset 0 0 12px rgba(255, 255, 255, 0.14);
   opacity: 0;
-  transform: scale(1);
   pointer-events: none;
   /* No transition: the level itself is already smoothed frame by frame, and a
      tween here would low-pass every beat out of the pulse. `will-change` is
@@ -1647,9 +1653,8 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
 }
 
 .beat-preview[data-state="playing"]::after {
-  opacity: calc(0.16 + var(--beat-level, 0) * 0.8);
-  transform: scale(calc(1 + var(--beat-level, 0) * 0.05));
-  will-change: opacity, transform;
+  opacity: calc(0.18 + var(--beat-level, 0) * 0.82);
+  will-change: opacity;
 }
 
 .beat-preview[data-state="playing"] .beat-preview__seek {
@@ -2320,6 +2325,18 @@ html:not(.beat-page) #grid > .beat-detail { display: none; contain: content;
      `overflow-x: clip` guards stay exactly as they are; they keep the page from
      scrolling sideways and no longer have any say over the drawer. */
   overflow: visible;
+}
+
+/* The temporary band `downloads.js` inserts before the footer while a drawer
+   is open in the last row. It reserves document height so the sheet can unfold
+   at full size above the footer separator instead of collapsing into a short
+   scroller; it is removed the moment the drawer closes, so the catalog keeps
+   its normal length at rest. */
+.drawer-safe-zone {
+  flex: 0 0 auto;
+  width: 100%;
+  height: 0;
+  pointer-events: none;
 }
 
 /* A scrollable flex column (JS sets `max-height`), so its children must refuse

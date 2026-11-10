@@ -405,6 +405,40 @@
      Both the positioner and the scroll that makes room for the drawer measure
      with it, so the two can never disagree. */
   const MENU_EDGE = 12;
+  /* The drawer's own safe margin above the footer's separator line. The footer
+     border is a hard boundary — the package sheet must never spill over the
+     social marks or the copyright band, however little room is left. */
+  const MENU_FOOTER_GAP = 18;
+  function footerTop() {
+    const footer = document.querySelector(".footer");
+    if (!footer) return Infinity;
+    const box = footer.getBoundingClientRect();
+    return box.height > 0 ? box.top : Infinity;
+  }
+  /* A drawer opened on a card in the last row has almost no document room
+     between its button and the footer. Rather than squeeze the sheet into a
+     60px scroller, reserve the missing height with a temporary, invisible band
+     inserted before the footer. It exists only while the drawer is open, so the
+     catalog keeps its normal length at rest, and it is removed on close. */
+  let menuRoom = null;
+  function setMenuRoom(height) {
+    const footer = document.querySelector(".footer");
+    if (!footer) return;
+    if (height <= 0) {
+      if (menuRoom) { menuRoom.remove(); menuRoom = null; }
+      return;
+    }
+    if (!menuRoom) {
+      menuRoom = document.createElement("div");
+      menuRoom.className = "drawer-safe-zone";
+      menuRoom.setAttribute("aria-hidden", "true");
+      footer.parentNode.insertBefore(menuRoom, footer);
+    }
+    menuRoom.style.height = Math.ceil(height) + "px";
+  }
+  function clearMenuRoom() {
+    if (menuRoom) { menuRoom.remove(); menuRoom = null; }
+  }
   /* The viewport the drawer must fit inside. On a phone the visual viewport is
      the honest measurement — it shrinks with the keyboard and moves with the
      pinch — so the drawer is only ever clamped to what the visitor can see. The
@@ -540,6 +574,11 @@
     window.removeEventListener("scroll", trackMenuScroll);
     document.removeEventListener("keydown", handleMenuKey);
     document.removeEventListener("click", handleMenuOutside, true);
+    clearMenuRoom();
+    /* Removing the reserved band shortens the page; if the visitor had been
+       scrolled into it, let the browser settle on the new last offset. */
+    const maxScroll = Math.max(0, (document.documentElement.scrollHeight || 0) - window.innerHeight);
+    if (window.scrollY > maxScroll) window.scrollTo(0, maxScroll);
   }
   /* Every drawer opens downwards, so when the button sits low the page itself
      gives it room: a short, eased scroll moves the trigger up just enough for
@@ -595,15 +634,43 @@
     /* Measure the panel's own height before capping it. */
     el.style.maxHeight = "none";
     const natural = el.getBoundingClientRect().height;
-    const below = Math.max(0, box.bottom - edge - rect.bottom);
+    /* The drawer may never cross the footer's separator line. When the footer
+       is already inside the visible viewport its top edge is the real floor;
+       the gap keeps a clean band of black between the sheet and the social /
+       copyright boundary. When the footer is still below the fold the viewport
+       edge is the floor, exactly as before. */
+    let footerEdge = footerTop();
+    /* Reserve the missing document room for a drawer opened in the last row.
+       The comparison is made against the *unreserved* footer position, so an
+       existing safe-zone never makes the next pass think the room is free and
+       remove itself in a loop. */
+    if (Number.isFinite(footerEdge) && footerEdge > rect.bottom) {
+      const reserved = menuRoom ? menuRoom.offsetHeight : 0;
+      const baseRoom = Math.max(0, footerEdge - MENU_FOOTER_GAP - rect.bottom - reserved);
+      setMenuRoom(natural > baseRoom ? natural - baseRoom + 1 : 0);
+      footerEdge = footerTop();
+    } else {
+      setMenuRoom(0);
+    }
+    const visibleFloor = box.bottom - edge;
+    const floor = Number.isFinite(footerEdge) && footerEdge > rect.bottom
+      ? Math.min(visibleFloor, footerEdge - MENU_FOOTER_GAP)
+      : visibleFloor;
+    const below = Math.max(0, floor - rect.bottom);
     /* How far the page itself can still scroll, which is exactly the extra room
        a beat-page drawer may claim below the button. */
     const pageRoom = Math.max(0, (document.documentElement.scrollHeight || 0) - (window.scrollY + box.height));
+    /* The footer is a hard ceiling in document space too: even when it is still
+       below the fold, the drawer must stop short of it, so the auto-scroll can
+       never pull the sheet over the separator line. */
+    const footerRoom = Number.isFinite(footerEdge) && footerEdge > rect.bottom
+      ? Math.max(0, footerEdge - MENU_FOOTER_GAP - rect.bottom)
+      : Infinity;
     /* Downwards, always — the drawer hangs off the button's bottom edge on a
        catalog tile exactly as it does on a beat page. The panel is never turned
        over, because an upward drawer is what covered the artwork and the header
        on a card near the foot of the grid. */
-    const maxHeight = Math.min(natural, below + pageRoom);
+    const maxHeight = Math.min(natural, below + pageRoom, footerRoom);
     el.style.maxHeight = maxHeight + "px";
     el.style.top = rect.bottom + "px";
     el.classList.remove("download-menu--up");
@@ -613,8 +680,10 @@
     el.style.transform = "";
     activeMenu.base = { x: window.scrollX, y: window.scrollY };
     /* The drawer takes its room by moving the page, once, before the visitor
-       has to scroll at all — on a beat page and on a catalog tile alike. */
-    const need = natural - below;
+       has to scroll at all — on a beat page and on a catalog tile alike. The
+       travel is measured against the capped height, so a footer-clamped sheet
+       never scrolls past its own floor. */
+    const need = maxHeight - below;
     if (!activeMenu.autoScrolled && !activeMenu.autoScrolling && need > .5 && pageRoom > .5) {
       autoScrollForMenu(Math.min(need, pageRoom));
     }

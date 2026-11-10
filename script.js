@@ -159,16 +159,17 @@ function dropLockedHTML() {
       </div>`;
 }
 
-/* `preload="metadata"` (not "none") so the duration and the seek bar are ready
-   before the first tap: the preview server answers media with byte ranges, so
-   the browser reads only the header, and a tap starts playback instead of a
-   cold fetch. A 404 or an unsupported codec still lands on the player's own
-   retry/error state, which is why the path lives in `catalog.js`. */
+/* `preload="auto"` on a beat page so the preview is buffered before the first
+   tap — a cold range request was the initial play stutter. The home route's
+   pre-rendered card stays on `metadata` (see index.html) and is removed before
+   it can fetch, so only the beat a visitor is actually looking at warms. A 404
+   or an unsupported codec still lands on the player's own retry/error state,
+   which is why the path lives in `catalog.js`. */
 function previewHTML(beat) {
   if (!beat.preview) return '<p class="beat-preview__unavailable">PREVIEW COMING SOON</p>';
   const title = attr(beat.title);
   return `<div class="beat-preview" data-title="${title}" data-state="idle">
-    <audio class="beat-preview__audio" src="${attr(beat.preview)}" preload="metadata"></audio>
+    <audio class="beat-preview__audio" src="${attr(beat.preview)}" preload="auto"></audio>
     <button type="button" class="beat-preview__toggle" aria-label="Play preview: ${title}" aria-pressed="false">
       <svg class="beat-preview__play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
       <svg class="beat-preview__pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>

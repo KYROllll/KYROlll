@@ -22,12 +22,42 @@ class BeatPreviewPlayer {
     });
     root.addEventListener("input", (event) => {
       if (!event.target.matches(".beat-preview__seek")) return;
-      const audio = event.target.closest(".beat-preview").querySelector("audio");
-      if (Number.isFinite(audio.duration) && audio.duration > 0) {
-        audio.currentTime = Number(event.target.value) / 100 * audio.duration;
-        this.update(audio);
-      }
+      const player = event.target.closest(".beat-preview");
+      const audio = player && player.querySelector("audio");
+      if (!audio || !(Number.isFinite(audio.duration) && audio.duration > 0)) return;
+      const percent = Number(event.target.value);
+      const target = Math.min(audio.duration, Math.max(0, percent / 100 * audio.duration));
+      /* The thumb is already where the visitor put it; keep the range's own
+         value (and its painted fill) while the audio catches up, so a
+         `timeupdate` in the same frame can never snap it backwards under the
+         finger. The actual seek is still written synchronously — deferring it
+         to a frame made the first scrub feel detached. */
+      audio.__kyrolllScrubbing = true;
+      if (Math.abs(audio.currentTime - target) > 0.01) audio.currentTime = target;
+      event.target.style.setProperty("--preview-progress", percent + "%");
+      this.scheduleScrubUpdate(audio);
     });
+    /* Releasing the thumb ends the scrub and settles the readout on the frame
+       the browser actually landed on. */
+    root.addEventListener("change", (event) => {
+      if (!event.target.matches(".beat-preview__seek")) return;
+      const player = event.target.closest(".beat-preview");
+      const audio = player && player.querySelector("audio");
+      if (!audio) return;
+      audio.__kyrolllScrubbing = false;
+      this.update(audio, { forceSeek: true });
+    });
+    /* Warm the file inside the visitor's first intent — hover, focus or touch —
+       so the click's `play()` starts from a buffered track instead of a cold
+       range request. It never downloads on a metered/save-data connection. */
+    const warm = (event) => {
+      const target = event.target;
+      const player = target && target.closest && target.closest(".beat-preview");
+      if (player) this.warm(player.querySelector("audio"));
+    };
+    root.addEventListener("pointerover", warm, true);
+    root.addEventListener("focusin", warm, true);
+    root.addEventListener("touchstart", warm, { capture: true, passive: true });
     for (const type of ["play", "playing", "pause", "ended", "waiting", "error", "timeupdate", "loadedmetadata", "durationchange"]) {
       root.addEventListener(type, (event) => {
         const audio = event.target;
@@ -52,6 +82,7 @@ class BeatPreviewPlayer {
             this.active = null;
             this.request++;
           }
+          audio.__kyrolllScrubbing = false;
           this.stopGlow();
           if (player.dataset.state !== "error") player.dataset.state = "idle";
         }
@@ -60,12 +91,43 @@ class BeatPreviewPlayer {
     }
   }
 
+  /* Start the file's fetch before the play tap. `preload="metadata"` only reads
+     the header, so the first tap used to pay for the rest of the range request;
+     warming on hover/focus/touch moves that cost ahead of the gesture. The file
+     is not fetched again on a metered connection or when the visitor has asked
+     the browser to save data. */
+  warm(audio) {
+    if (!audio || audio.__kyrolllWarmed || !audio.paused || audio.currentTime > 0) return;
+    audio.__kyrolllWarmed = true;
+    const connection = typeof navigator !== "undefined" && (navigator.connection || navigator.mozConnection || navigator.webkitConnection);
+    if (connection && (connection.saveData || /(^|-)2g$/.test(connection.effectiveType || ""))) return;
+    if (audio.readyState >= 2) return;
+    try {
+      if (audio.preload !== "auto") audio.preload = "auto";
+      audio.load();
+    } catch (error) { /* a warm-up is optional; play() still retries */ }
+  }
+
+  /* The scrub UI is coalesced to one write per frame, so a fast drag does not
+     force a layout/readout write for every pointer sample. The seek itself is
+     already applied synchronously in the input handler. */
+  scheduleScrubUpdate(audio) {
+    if (audio.__kyrolllScrubFrame) return;
+    const run = () => {
+      audio.__kyrolllScrubFrame = 0;
+      this.update(audio);
+    };
+    if (typeof requestAnimationFrame === "function") audio.__kyrolllScrubFrame = requestAnimationFrame(run);
+    else run();
+  }
+
   stop() {
     this.request++;
     this.stopGlow();
     const audio = this.active;
     this.active = null;
     if (!audio) return;
+    audio.__kyrolllScrubbing = false;
     audio.pause();
     const player = audio.closest(".beat-preview");
     if (player) player.dataset.state = "idle";
@@ -84,7 +146,9 @@ class BeatPreviewPlayer {
     if (player) player.dataset.state = "loading";
     this.update(audio);
     // Warm the analyser inside the click gesture, so the shared AudioContext
-    // starts running before the first `playing` frame needs it.
+    // starts running before the first `playing` frame needs it. The media file
+    // itself was already warmed on hover/focus/touch where possible.
+    this.warm(audio);
     this.audioGraph(audio);
     try {
       if (audio.error) audio.load();
@@ -194,7 +258,7 @@ class BeatPreviewPlayer {
     this.glowPlayer = null;
   }
 
-  update(audio) {
+  update(audio, options) {
     const player = audio.closest(".beat-preview");
     if (!player) return;
     const button = player.querySelector(".beat-preview__toggle");
@@ -210,8 +274,15 @@ class BeatPreviewPlayer {
     }
     if (seek) {
       seek.disabled = !duration;
-      seek.value = progress;
-      seek.style.setProperty("--preview-progress", `${progress}%`);
+      /* While the thumb is being dragged the range owns its own value and
+         painted fill; writing `currentTime`'s progress back here is what made
+         the handle fight the finger. The `change` handler clears the flag and
+         writes the settled frame. */
+      const scrubbing = !!audio.__kyrolllScrubbing && !(options && options.forceSeek);
+      if (!scrubbing) {
+        seek.value = progress;
+        seek.style.setProperty("--preview-progress", `${progress}%`);
+      }
       seek.setAttribute("aria-valuetext", `${time(current)} of ${time(duration)}`);
     }
     const timeEl = player.querySelector(".beat-preview__time");
