@@ -358,7 +358,9 @@ test("every beat is pressed from its own cover, and the beat page keeps a sticky
   const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
   assert.match(html, /id="all-beats-link"[^>]*aria-label="Back to all beats"/, "the beat page carries a labelled ALL BEATS control");
   assert.doesNotMatch(html, /vinyl-palette/, "the retired palette module is no longer loaded");
-  assert.match(html, /class="yx-focus__flower"[^>]*src="assets\/kyrolll-flower-rest\.png(?:\?v=\d+)?"/, "the focused record is crowned by the captured flower");
+  assert.match(html, /class="site-header__flower"[^>]*>[\s\S]{0,160}?kyrolll-flower-rest\.png/, "the site header carries the spinning flower");
+  assert.doesNotMatch(html, /class="yx-focus__flower/, "the focused record adds no second flower");
+  assert.doesNotMatch(html, /petals\.js|yx-petals/, "the ambient petal canvas is gone");
   assert.doesNotMatch(html, /class="logo-stage"/, "the archive no longer mounts a second WebGL flower");
   assert.doesNotMatch(html, /<div class="logo-stage[^>]*data-vinyl-flower="true"/, "the centre label no longer mounts the live 3D flower");
   assert.match(html, /<img class="vinyl-record__logo"[^>]*src="assets\/kyrolll-flower-label\.png"/, "the beat card's record shows the original flower logo as a plain image");

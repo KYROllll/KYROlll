@@ -18,6 +18,7 @@
   const grid = document.getElementById("yx-grid");
   const home = document.querySelector(".yx-home");
   const focus = document.getElementById("yx-focus");
+  const header = document.querySelector(".site-header");
   const countNode = document.querySelector("[data-yx-count]");
   if (!grid || !focus) return;
 
@@ -28,7 +29,8 @@
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
   const state = {
     beat: null,
-    opening: false,
+    zoomTimer: 0,
+    zoomSeq: 0,
     releaseTimer: 0,
     audio: focus.querySelector("[data-yx-audio]"),
     play: focus.querySelector("[data-yx-play]"),
@@ -37,6 +39,7 @@
   };
 
   const focusArt = focus.querySelector("[data-yx-focus-art]");
+  const focusArtFrame = focus.querySelector(".yx-focus__art");
   const focusIndex = focus.querySelector("[data-yx-focus-index]");
   const focusTitle = focus.querySelector("[data-yx-focus-title]");
   const focusType = focus.querySelector("[data-yx-focus-type]");
@@ -149,28 +152,61 @@
     watchCountdowns();
   }
 
+  /* The focused record is a sheet pinned under the header, and the cover is a
+     FLIP layer: it starts on the chosen tile's box and settles into the sheet,
+     so the record zooms open in place. Nothing is navigated, nothing fades the
+     page away, and the player and package rows are already rendered underneath. */
+
+  function syncFocusTop() {
+    if (!header) return;
+    const height = Math.round(header.getBoundingClientRect().height);
+    document.documentElement.style.setProperty("--yx-header-h", `${height}px`);
+  }
+
+  function cardMedia(beat) {
+    const card = grid.querySelector(`[data-yx-beat="${CSS.escape(beat.id)}"]`);
+    const media = card && card.querySelector(".yx-card__media");
+    return media ? { card, media, rect: media.getBoundingClientRect() } : null;
+  }
+
+  function zoomIn(from, seq) {
+    if (!focusArtFrame || !from.rect.width) return;
+    const to = focusArtFrame.getBoundingClientRect();
+    if (!to.width || !to.height) return;
+    focus.classList.add("is-zooming");
+    focusArtFrame.style.transition = "none";
+    focusArtFrame.style.transform = `translate(${from.rect.left - to.left}px, ${from.rect.top - to.top}px)`
+      + ` scale(${from.rect.width / to.width}, ${from.rect.height / to.height})`;
+    // Commit the start pose for one frame, then let the CSS curve carry it in.
+    void focusArtFrame.offsetWidth;
+    requestAnimationFrame(() => {
+      if (seq !== state.zoomSeq || !state.beat || focus.hidden) return;
+      focusArtFrame.style.transition = "";
+      focusArtFrame.style.transform = "translate(0, 0) scale(1, 1)";
+      window.clearTimeout(state.zoomTimer);
+      state.zoomTimer = window.setTimeout(() => {
+        if (seq === state.zoomSeq) focus.classList.remove("is-zooming");
+      }, 520);
+    });
+  }
+
   function showFocus(beat) {
+    const from = cardMedia(beat);
+    const seq = ++state.zoomSeq;
     state.beat = beat;
     renderFocus(beat);
-    const card = grid.querySelector(`[data-yx-beat="${CSS.escape(beat.id)}"]`);
-    if (card) card.classList.add("is-selected");
-    if (reduced.matches) {
-      home.hidden = true;
-      focus.hidden = false;
-      focus.classList.add("is-open");
-      focus.focus({ preventScroll: true });
-      return;
-    }
-    state.opening = true;
-    grid.classList.add("is-fading");
-    window.setTimeout(() => {
-      if (!state.beat) return;
-      home.hidden = true;
-      focus.hidden = false;
-      focus.classList.add("is-open");
-      state.opening = false;
-      focus.focus({ preventScroll: true });
-    }, 320);
+    if (from && from.card) from.card.classList.add("is-selected");
+    window.clearTimeout(state.zoomTimer);
+    syncFocusTop();
+    // Lay the archive out but take it out of sight: keeping its height means the
+    // page never re-scrolls behind the sheet, so the zoom lands back on the tile.
+    home.classList.add("is-behind");
+    home.inert = true;
+    focus.hidden = false;
+    focus.scrollTop = 0;
+    focus.classList.add("is-open");
+    focus.focus({ preventScroll: true });
+    if (from && !reduced.matches) zoomIn(from, seq);
   }
 
   function openBeat(id, push) {
@@ -182,33 +218,50 @@
       url.searchParams.set("focus", id);
       history.pushState({ focus: id }, "", url.pathname + url.search);
     }
-    window.scrollTo({ top: 0, behavior: "instant" });
     showFocus(beat);
   }
 
   function closeFocus(push) {
     if (!state.beat) return;
     const last = state.beat;
+    const seq = ++state.zoomSeq;
     state.beat = null;
-    state.opening = false;
+    window.clearTimeout(state.zoomTimer);
     pauseAudio();
-    home.hidden = false;
+    home.classList.remove("is-behind");
+    home.inert = false;
     grid.hidden = false;
     grid.classList.remove("is-fading");
     grid.inert = false;
-    grid.querySelectorAll(".is-selected").forEach((card) => card.classList.remove("is-selected"));
-    focus.hidden = true;
-    focus.classList.remove("is-open");
+    const from = cardMedia(last);
     if (push) {
       const url = new URL(location.href);
       url.searchParams.delete("focus");
       history.replaceState(null, "", url.pathname + url.search);
     }
-    const card = grid.querySelector(`[data-yx-beat="${CSS.escape(last.id)}"]`);
-    if (card) {
-      card.focus({ preventScroll: true });
-      card.scrollIntoView({ block: "center", behavior: reduced.matches ? "auto" : "smooth" });
+    const finish = () => {
+      if (seq !== state.zoomSeq) return;
+      window.clearTimeout(state.zoomTimer);
+      focus.hidden = true;
+      focus.classList.remove("is-open", "is-zooming");
+      if (focusArtFrame) {
+        focusArtFrame.style.transition = "";
+        focusArtFrame.style.transform = "";
+      }
+      grid.querySelectorAll(".is-selected").forEach((card) => card.classList.remove("is-selected"));
+      if (from && from.card) from.card.focus({ preventScroll: true });
+    };
+    if (!focusArtFrame || !from || reduced.matches) {
+      finish();
+      return;
     }
+    // Zoom back onto the tile, which never moved while the sheet was up.
+    const to = focusArtFrame.getBoundingClientRect();
+    focus.classList.add("is-zooming");
+    focusArtFrame.style.transition = "transform .46s cubic-bezier(.4, 0, .2, 1)";
+    focusArtFrame.style.transform = `translate(${from.rect.left - to.left}px, ${from.rect.top - to.top}px)`
+      + ` scale(${from.rect.width / to.width}, ${from.rect.height / to.height})`;
+    state.zoomTimer = window.setTimeout(finish, 470);
   }
 
   function syncFromUrl() {
@@ -374,6 +427,9 @@
   });
 
   window.addEventListener("popstate", () => syncFromUrl(false));
+
+  syncFocusTop();
+  window.addEventListener("resize", syncFocusTop);
 
   renderGrid();
   if (params.get("focus")) openBeat(params.get("focus"), false);

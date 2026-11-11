@@ -1,10 +1,10 @@
 // The archive home: a Yeezy-minimal grid, a focused record and its packages.
 //
-// These checks prove the new home shape end to end: a pitch-black grid with the
-// category menu, falling petals, a focus transition that leaves one record on
-// screen with a turning flower, the three free packages wired into the real
-// email + license gate, a preview player, and no sideways scroll on a phone.
-// A direct `?beat=` link still renders the detailed beat card.
+// These checks prove the home shape end to end: a solid pitch-black page with
+// a compact grid and the category menu, a fixed spinning flower in the header,
+// an in-place zoom focus sheet carrying the preview player and the three free
+// packages wired into the real email + license gate, and no sideways scroll on
+// a phone. A direct `?beat=` link still renders the detailed beat card.
 import assert from 'node:assert/strict';
 import test, { after, before } from 'node:test';
 import { chromium } from '@playwright/test';
@@ -68,17 +68,12 @@ async function openHome(options = {}) {
   return { context, page, errors };
 }
 
-test('the home is a quiet grid with the category menu and falling petals', async () => {
+test('the home is a solid black compact grid with the category menu', async () => {
   const { context, page, errors } = await openHome({ viewport: { width: 1440, height: 900 } });
   const home = await page.evaluate(() => {
     const grid = document.querySelector('#yx-grid');
     const cards = [...grid.querySelectorAll('.yx-card')];
-    const canvas = document.querySelector('#yx-petals');
-    let ink = 0;
-    try {
-      const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-      for (let i = 3; i < data.length; i += 4) if (data[i]) { ink += 1; if (ink > 20) break; }
-    } catch { ink = -1; }
+    const flower = document.querySelector('.site-header__flower img');
     return {
       cards: cards.length,
       columns: getComputedStyle(grid).gridTemplateColumns.split(' ').length,
@@ -91,13 +86,21 @@ test('the home is a quiet grid with the category menu and falling petals', async
         disabled: node.getAttribute('aria-disabled') === 'true',
       })),
       active: document.querySelector('.site-nav__link.is-active').textContent.trim(),
-      petals: { w: canvas.width, h: canvas.height, ink },
+      canvas: document.querySelectorAll('canvas').length,
+      flower: flower && {
+        animation: getComputedStyle(flower).animationName,
+        box: flower.parentElement.getBoundingClientRect(),
+        src: flower.getAttribute('src'),
+      },
+      bg: getComputedStyle(document.body).backgroundColor,
       overflow: document.documentElement.scrollWidth - window.innerWidth,
     };
   });
   assert.equal(home.cards, 8, 'all eight releases are in the grid');
   assert.equal(home.count, '08', 'the release count is derived from the catalog');
-  assert.equal(home.columns, 3, 'the desktop grid is three columns');
+  assert.equal(home.columns, 4, 'the desktop grid is four compact columns');
+  assert.equal(home.canvas, 0, 'the falling-petal canvas is gone');
+  assert.equal(home.bg, 'rgb(0, 0, 0)', 'the page sits on solid pitch black');
   assert.match(home.first, /^01 \| WHITE NIGHT \| 142 BPM \/ A/, 'the newest release leads the grid');
   assert.equal(home.main, 'none', 'the old catalog document is not below the archive');
   assert.equal(home.room, 0, 'the vinyl room is gone from the home route');
@@ -108,48 +111,61 @@ test('the home is a quiet grid with the category menu and falling petals', async
     { text: 'COMMERCIAL 2028', disabled: true },
     { text: 'PLUGINS SOON', disabled: true },
   ], 'COMMERCIAL and PLUGINS are visibly disabled');
-  assert(home.petals.ink > 0, 'the petal canvas is painting');
+  assert.match(home.flower.src, /kyrolll-flower-rest\.png/, 'the header wears the flower mark');
+  assert(home.flower.box.right > 1300, 'the flower sits in the top-right corner');
+  assert(home.flower.box.width <= 26, 'the header flower stays a small mark');
+  assert.equal(home.flower.animation, 'yxFlowerSpin', 'the header flower turns');
   for (const failure of errors) assert.fail(`page error: ${failure}`);
   await context.close();
 });
 
-test('choosing a record focuses it, fades the archive and offers the packages', async () => {
+test('choosing a record zooms it open in place and offers the packages', async () => {
   const { context, page } = await openHome({ viewport: { width: 1440, height: 900 } });
+  const cover = await page.locator('#yx-grid .yx-card__media').first().boundingBox();
   await page.locator('#yx-grid .yx-card').first().click();
   await page.waitForFunction(() => {
     const focus = document.querySelector('#yx-focus');
     return focus && !focus.hidden;
   });
-  const focus = await page.evaluate(() => ({
-    homeHidden: document.querySelector('.yx-home').hidden,
-    archiveCards: [...document.querySelectorAll('#yx-grid .yx-card')].filter((card) => card.getBoundingClientRect().height > 0).length,
-    title: document.querySelector('[data-yx-focus-title]').textContent,
-    type: document.querySelector('[data-yx-focus-type]').textContent,
-    specs: document.querySelector('[data-yx-focus-specs]').textContent,
-    packs: [...document.querySelectorAll('[data-yx-pack] .yx-pack__name')].map((node) => node.textContent),
-    flower: getComputedStyle(document.querySelector('.yx-focus__flower')).animationName,
-    flowerWidth: Math.round(document.querySelector('.yx-focus__flower-wrap').getBoundingClientRect().width),
-    url: location.search,
-  }));
-  assert.equal(focus.homeHidden, true, 'the rest of the archive is gone while one record is focused');
-  assert.equal(focus.archiveCards, 0, 'no other catalog item remains on screen');
+  const focus = await page.evaluate(() => {
+    const sheet = document.querySelector('#yx-focus');
+    const art = document.querySelector('.yx-focus__art');
+    return {
+      homeHidden: document.querySelector('.yx-home').classList.contains('is-behind'),
+      homeVisibility: getComputedStyle(document.querySelector('.yx-home')).visibility,
+      title: document.querySelector('[data-yx-focus-title]').textContent,
+      type: document.querySelector('[data-yx-focus-type]').textContent,
+      specs: document.querySelector('[data-yx-focus-specs]').textContent,
+      packs: [...document.querySelectorAll('[data-yx-pack] .yx-pack__name')].map((node) => node.textContent),
+      flower: document.querySelectorAll('.yx-focus__flower, .yx-focus__flower-wrap').length,
+      sheet: { position: getComputedStyle(sheet).position, top: Math.round(sheet.getBoundingClientRect().top) },
+      zooming: sheet.classList.contains('is-zooming'),
+      artTransition: getComputedStyle(art).transitionProperty,
+      artBox: Math.round(art.getBoundingClientRect().width),
+      url: location.search,
+    };
+  });
+  assert.equal(focus.homeHidden, true, 'the archive is out of the way while one record is focused');
+  assert.equal(focus.homeVisibility, 'hidden', 'the archive is unseen but keeps its place in the page');
   assert.equal(focus.title, 'WHITE NIGHT', 'the focused record is the one that was chosen');
   assert.equal(focus.type, 'FUTURE TYPE BEAT', 'the type line is split from the title');
   assert.equal(focus.specs, '142 BPM / A', 'the specs stay minimal');
   assert.deepEqual(focus.packs, ['MP3 LEASE', 'STANDARD WAV LEASE', 'EXCLUSIVE / PRO PACKAGE']);
-  assert.equal(focus.flower, 'yxFlowerSpin', 'the flower turns above the focused card');
-  assert(focus.flowerWidth > 0 && focus.flowerWidth <= 80, 'the flower stays a small mark');
+  assert.equal(focus.flower, 0, 'the focus view carries no extra flower');
+  assert.equal(focus.sheet.position, 'fixed', 'the focused record is an in-place sheet, not a page');
+  assert(focus.sheet.top > 0, 'the sheet starts under the sticky header');
+  assert.equal(focus.zooming, true, 'the cover arrives by zooming from the chosen tile');
+  assert.match(focus.artTransition, /transform/, 'the cover owns the zoom transition');
+  assert(focus.artBox > cover.width, 'the focused cover is larger than the grid tile');
   assert.match(focus.url, /focus=white-night/, 'the focused record is addressable');
   await page.locator('[data-yx-close]').first().click();
-  await page.waitForTimeout(450);
+  await page.waitForFunction(() => document.querySelector('#yx-focus').hidden);
   const back = await page.evaluate(() => ({
-    homeHidden: document.querySelector('.yx-home').hidden,
-    focusHidden: document.querySelector('#yx-focus').hidden,
+    homeHidden: document.querySelector('.yx-home').classList.contains('is-behind'),
     url: location.search,
     cards: document.querySelectorAll('#yx-grid .yx-card').length,
   }));
   assert.equal(back.homeHidden, false, 'ALL BEATS restores the archive');
-  assert.equal(back.focusHidden, true, 'the focused view closes');
   assert.equal(back.cards, 8, 'every record is back in the grid');
   assert(!back.url.includes('focus='), 'closing clears the focus parameter');
   await context.close();
@@ -204,7 +220,7 @@ test('focus deep links work and a beat link still opens the detailed card', asyn
   });
   const deep = await page.evaluate(() => ({
     title: document.querySelector('[data-yx-focus-title]').textContent,
-    home: document.querySelector('.yx-home').hidden,
+    home: document.querySelector('.yx-home').classList.contains('is-behind'),
   }));
   assert.equal(deep.title, 'VVS MOTION', 'a focus link lands on its record');
   assert.equal(deep.home, true, 'the archive is out of the way');
@@ -215,14 +231,16 @@ test('focus deep links work and a beat link still opens the detailed card', asyn
     home: getComputedStyle(document.querySelector('.yx-home')).display,
     detail: !!document.querySelector('.beat-detail'),
     title: document.querySelector('.beat-detail__title')?.textContent.trim(),
-    petals: !!document.querySelector('.yx-petals'),
+    canvas: document.querySelectorAll('canvas').length,
     header: !!document.querySelector('.site-header'),
+    flower: !!document.querySelector('.site-header__flower img'),
   }));
   assert.equal(beat.home, 'none', 'the archive is not rendered on a beat route');
   assert.equal(beat.detail, true, 'a direct beat link keeps the detailed card');
   assert.match(beat.title, /WHITE NIGHT/, 'the beat card is the requested record');
-  assert.equal(beat.petals, false, 'the petal canvas is removed on a beat route');
+  assert.equal(beat.canvas, 0, 'the falling-petal canvas is gone from every route');
   assert.equal(beat.header, true, 'the category menu remains available');
+  assert.equal(beat.flower, true, 'the spinning flower persists across the whole site');
   await context.close();
 });
 
@@ -234,10 +252,10 @@ test('a phone fits the grid and the focused packages without sideways scroll', a
     nav: document.querySelector('.site-nav').getBoundingClientRect(),
     card: Math.round(document.querySelector('.yx-card').getBoundingClientRect().width),
   }));
-  assert.equal(phone.columns, 1, 'phones get one clean column');
+  assert.equal(phone.columns, 2, 'phones get two compact columns');
   assert.equal(phone.overflow, 0, 'the archive never scrolls sideways on a phone');
   assert(phone.nav.left >= 0 && phone.nav.right <= 390, 'the category menu stays on screen');
-  assert(phone.card > 300, 'the artwork uses the phone width');
+  assert(phone.card > 150 && phone.card < 200, 'the covers stay compact on a phone');
 
   await page.locator('#yx-grid .yx-card').first().click();
   await page.waitForFunction(() => !document.querySelector('#yx-focus').hidden);
@@ -260,7 +278,7 @@ test('a phone fits the grid and the focused packages without sideways scroll', a
   await context.close();
 });
 
-test('reduced motion stops the flower and freezes the petal loop', async () => {
+test('reduced motion holds the flower and skips the zoom', async () => {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
   const page = await context.newPage();
   await page.goto(homeUrl, { waitUntil: 'domcontentloaded' });
@@ -268,10 +286,14 @@ test('reduced motion stops the flower and freezes the petal loop', async () => {
   await page.locator('#yx-grid .yx-card').first().click();
   await page.waitForFunction(() => !document.querySelector('#yx-focus').hidden);
   const motion = await page.evaluate(() => ({
-    flower: getComputedStyle(document.querySelector('.yx-focus__flower')).animationName,
+    flower: getComputedStyle(document.querySelector('.site-header__flower img')).animationName,
+    zoom: document.querySelector('#yx-focus').classList.contains('is-zooming'),
+    artTransition: getComputedStyle(document.querySelector('.yx-focus__art')).transitionDuration,
     transition: getComputedStyle(document.querySelector('.yx-card')).transitionDuration,
   }));
   assert.equal(motion.flower, 'none', 'the flower holds its pose under reduced motion');
+  assert.equal(motion.zoom, false, 'the cover does not zoom under reduced motion');
+  assert.equal(motion.artTransition, '0s', 'the cover never animates under reduced motion');
   assert.equal(motion.transition, '0s', 'the archive does not fade under reduced motion');
   await context.close();
 });

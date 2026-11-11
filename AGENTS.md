@@ -6,7 +6,7 @@ about *running* the app in this sandbox, not about the app's own behaviour.
 ## Shape of the app
 
 - **Storefront** — plain static files (`index.html`, `download.html`, `support.html`,
-  `style.css`, `storefront.js`, `petals.js`, `script.js`, `catalog.js`, `downloads.js`,
+  `style.css`, `storefront.js`, `script.js`, `catalog.js`, `downloads.js`,
   `download-page.js`, `preview-player.js`, `assets/*.min.js`) served by `server.mjs` on
   port 8080. The home is the archive grid; beat links keep the detailed card. No bundler,
   no runtime dependencies: `server.mjs` is pure Node `http`, so edits to HTML/CSS/JS show
@@ -490,39 +490,47 @@ nothing, and nothing about the sleeve's layout, the reveal geometry or the label
 The ghost is pointer-only and disappears completely after the drop; `prefers-reduced-motion`
 drops the spring and settles instantly.
 
-## The archive home (`storefront.js` → `petals.js`)
+## The archive home (`storefront.js`)
 
 The home route is the storefront, not a document below it. `index.html` renders a
-Yeezy-minimal archive in pitch black: a sticky category bar (`FREE BEATS` active;
-`COMMERCIAL` and `PLUGINS` present but disabled), one airy grid, and a focused
-record. There is no vinyl room, hero, marquee, preloader or live 3D flower on this
-route — `storefront.js` and `petals.js` load as plain hand-written scripts, so a
-change is a reload and a `?v=N` bump, not an esbuild step.
+Yeezy-minimal archive on a solid pitch-black field: a sticky category bar
+(`FREE BEATS` active; `COMMERCIAL` and `PLUGINS` present but disabled), one
+compact grid, and a focused record. There is no vinyl room, hero, marquee,
+preloader, live 3D flower or ambient canvas on this route — `storefront.js` loads
+as a plain hand-written script, so a change is a reload and a `?v=N` bump, not an
+esbuild step. The page carries no decorative canvas at all: the only animated
+mark is the spinning flower in the header.
 
 - **Grid.** `storefront.js` sorts `KYROlll_CATALOG` newest-first and renders one
   `<button class="yx-card">` per beat: cover, index, beat name, type line and
-  BPM/key. Three columns at desktop, two under 900 px, one on a phone; spacing
-  comes from the grid gap, and the cover is never filtered or recoloured.
-  Scheduled drops show `DROPPING SOON` + a live `HH:MM:SS`; a claimed beat dims
-  its cover and reads `CLAIMED / SOLD OUT` (or `OWNED / YOURS` for the buyer).
-- **Focus.** Choosing a card fades the other cards (`is-fading`) and then hides
-  the whole archive, leaving one record with its preview, the captured flower
-  turning above it (`assets/kyrolll-flower-rest.png`, a 2D print, never a second
-  WebGL stage) and the three package rows below. `ALL BEATS`, Escape and Back
-  restore the grid and return focus to the chosen card. The focused record is
-  addressable as `?focus=<id-or-slug>`; a direct `?beat=` link still renders the
-  full beat card through `script.js`, so old links and the download hand-off keep
-  working. Focus mode does not push a new page or scroll away from the archive.
+  BPM/key. Four compact columns at desktop, three under 1100 px, two under
+  760 px and two on a phone; spacing comes from the grid gap, and the cover is
+  never filtered or recoloured. Scheduled drops show `DROPPING SOON` + a live
+  `HH:MM:SS`; a claimed beat dims its cover and reads `CLAIMED / SOLD OUT`
+  (or `OWNED / YOURS` for the buyer).
+- **Focus.** Choosing a card opens a sheet that is `position: fixed` under the
+  sticky header, so the record is focused in place rather than on a new page.
+  The cover is a FLIP layer: `storefront.js` measures the chosen tile's media box,
+  pins `.yx-focus__art` onto it with a `transform`, then releases it to the sheet's
+  own frame on the CSS curve (`.62s cubic-bezier(.16,1,.3,1)`); the body fades in
+  once the cover lands (`is-zooming`). The sheet already holds the preview player
+  and the three package rows, so they are there the moment it opens. The archive
+  stays laid out and is only hidden visually (`.yx-home.is-behind`, `inert`), so
+  the page never re-scrolls behind the sheet and the reverse zoom lands back on
+  the same tile. `ALL BEATS`, Escape and Back close it and return focus to the
+  card. The focused record is addressable as `?focus=<id-or-slug>`; a direct
+  `?beat=` link still renders the full beat card through `script.js`, so old
+  links and the download hand-off keep working.
+- **Header flower.** `.site-header__end` carries the captured flower
+  (`assets/kyrolll-flower-rest.png`, a 2D print) at the top-right on every page —
+  home, beat route, download and support — turning on `yxFlowerSpin` (16s linear),
+  frozen under `prefers-reduced-motion`. It is the site's only flower mark; the
+  focus view adds none.
 - **Packages.** Every package row calls `KYROlll_DOWNLOADS.start(beat.id,
   pack.id)`. The email gate, REVIEW & SIGN, PDF and exclusive-claim register are
   never re-implemented in the archive; a locked or not-yet-released record renders
   its status note instead of package rows. `downloads.js`'s footer floor reads
   `.footer, .site-footer`, so the drawer still knows where the minimal footer is.
-- **Petals.** `petals.js` paints one fixed, pointer-transparent canvas behind the
-  page at DPR 1: 12–34 white/silver petals at a 30 fps cap, no shadows or filters.
-  It stops when the tab is hidden, freezes under `prefers-reduced-motion`, and
-  removes itself on a beat route. The home canvas is the only ambient layer; the
-  old falling-X canvas is not loaded here.
 - **Shared chrome.** `download.html` and `support.html` mount the same
   `.site-header` and `.site-footer`; the footer can no longer be `.footer`, and
   `.site-footer__support` is still a `data-support-open` button. The old
@@ -1154,11 +1162,12 @@ only clears the cache/outbox. To exercise the live bus on `localhost`, load the 
 Tests that ship with the repo:
 - `preview-player.test.mjs` is `node:test` based and needs no browser:
   `node --test preview-player.test.mjs`
-- `storefront.test.mjs` is Playwright-based and covers the archive home: the eight-card
-  grid, the category menu, the petal canvas, the focus transition with its turning flower,
-  the three package rows opening the real gate, the preview player, `?focus=` deep links,
-  the untouched `?beat=` card, the phone layout and reduced motion. Run it with
-  `node --test storefront.test.mjs` (or `npm run test:store`).
+- `storefront.test.mjs` is Playwright-based and covers the archive home: the
+  eight-card compact grid, the solid black background, the category menu, the
+  header flower, the in-place zoom sheet with its player and three package rows
+  opening the real gate, `?focus=` deep links, the untouched `?beat=` card, the
+  phone layout and reduced motion. Run it with `node --test storefront.test.mjs`
+  (or `npm run test:store`).
 - `brand-design.test.mjs` predates the archive home: its opening home-route assertions
   still expect the legacy hero, ticker and catalogue grid and therefore fail before the
   beat-page/gate sections run. Its beat-page gate, signature, PDF and claim checks remain

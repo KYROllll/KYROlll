@@ -4633,18 +4633,7 @@ html:not(.beat-page) .viewport { z-index: 1; }
 html:not(.beat-page) body:not(.page-body) main,
 html:not(.beat-page) body:not(.page-body) .drawer-stage { display: none; }
 html.beat-page .yx-home,
-html.beat-page .yx-focus,
-html.beat-page .yx-petals { display: none; }
-
-.yx-petals {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
+html.beat-page .yx-focus { display: none; }
 
 /* ---------- menu bar ------------------------------------------------------ */
 
@@ -4708,7 +4697,12 @@ html.beat-page .yx-petals { display: none; }
   letter-spacing: .12em;
   color: #4a4a4a;
 }
-.site-header__end { justify-self: end; }
+.site-header__end {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 2vw, 20px);
+}
 .site-header__support {
   padding: 8px 0;
   border: 0;
@@ -4720,16 +4714,32 @@ html.beat-page .yx-petals { display: none; }
   transition: color .2s ease;
 }
 .site-header__support:hover { color: #fff; }
+.site-header__flower {
+  flex: none;
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+.site-header__flower img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  animation: yxFlowerSpin 16s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, .22));
+  will-change: transform;
+}
+@keyframes yxFlowerSpin { to { transform: rotate(360deg); } }
 
 /* ---------- the archive grid ---------------------------------------------- */
 
 .yx-home {
-  padding: clamp(46px, 8vw, 112px) clamp(16px, 4vw, 44px) clamp(64px, 10vw, 148px);
+  padding: clamp(36px, 6vw, 80px) clamp(16px, 4vw, 44px) clamp(56px, 8vw, 112px);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 .yx-home__head {
-  max-width: 1280px;
-  margin: 0 auto clamp(44px, 7vw, 92px);
+  max-width: 1180px;
+  margin: 0 auto clamp(30px, 4.6vw, 58px);
 }
 .yx-eyebrow {
   font-size: 9px;
@@ -4738,12 +4748,12 @@ html.beat-page .yx-petals { display: none; }
 }
 .yx-eyebrow span { color: #3a3a3a; margin: 0 10px; }
 .yx-title {
-  margin: 26px 0 22px;
+  margin: 20px 0 18px;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: clamp(58px, 13.5vw, 188px);
+  font-size: clamp(48px, 8.6vw, 118px);
   font-weight: 800;
-  line-height: .82;
-  letter-spacing: -.065em;
+  line-height: .84;
+  letter-spacing: -.06em;
   color: #fff;
 }
 .yx-lede {
@@ -4753,11 +4763,11 @@ html.beat-page .yx-petals { display: none; }
   color: #8a8a8a;
 }
 .yx-grid {
-  max-width: 1280px;
+  max-width: 1180px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(28px, 4.6vw, 64px) clamp(16px, 3vw, 40px);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(20px, 2.4vw, 30px) clamp(10px, 1.5vw, 18px);
   transition: opacity .3s ease;
 }
 .yx-grid.is-fading { pointer-events: none; }
@@ -4802,13 +4812,13 @@ html.beat-page .yx-petals { display: none; }
 .yx-card__row {
   display: flex;
   align-items: baseline;
-  gap: 10px;
-  padding-top: 13px;
+  gap: 8px;
+  padding-top: 10px;
 }
 .yx-card__index {
   flex: none;
-  width: 18px;
-  font-size: 8px;
+  width: 16px;
+  font-size: 7px;
   color: #4c4c4c;
 }
 .yx-card__name {
@@ -4817,20 +4827,20 @@ html.beat-page .yx-petals { display: none; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
-  letter-spacing: .16em;
+  font-size: 10px;
+  letter-spacing: .14em;
 }
 .yx-card__specs {
   flex: none;
-  font-size: 8px;
+  font-size: 7px;
   color: #707070;
-  letter-spacing: .08em;
+  letter-spacing: .06em;
 }
 .yx-card__type {
-  margin: 5px 0 0 28px;
-  font-size: 8px;
+  margin: 4px 0 0 24px;
+  font-size: 7px;
   color: #565656;
-  letter-spacing: .14em;
+  letter-spacing: .12em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4840,8 +4850,8 @@ html.beat-page .yx-petals { display: none; }
   align-items: center;
   gap: 8px;
   width: max-content;
-  margin: 11px 0 0 28px;
-  padding: 5px 8px;
+  margin: 9px 0 0 24px;
+  padding: 4px 7px;
   border: 1px solid #2c2c2c;
   color: #b4b4b4;
   font-size: 7px;
@@ -4853,6 +4863,7 @@ html.beat-page .yx-petals { display: none; }
   filter: grayscale(1);
 }
 .yx-card.is-locked .yx-card__flag { border-color: #1f1f1f; color: #5d5d5d; }
+.yx-home.is-behind { visibility: hidden; }
 .yx-grid__empty {
   grid-column: 1 / -1;
   padding: 60px 0;
@@ -4861,9 +4872,9 @@ html.beat-page .yx-petals { display: none; }
   color: #666;
 }
 .yx-home__foot {
-  max-width: 1280px;
-  margin: clamp(40px, 6vw, 80px) auto 0;
-  padding-top: 18px;
+  max-width: 1180px;
+  margin: clamp(32px, 4.6vw, 60px) auto 0;
+  padding-top: 16px;
   border-top: 1px solid #1b1b1b;
   font-size: 8px;
   letter-spacing: .18em;
@@ -4875,23 +4886,30 @@ html.beat-page .yx-petals { display: none; }
 /* ---------- focused selection --------------------------------------------- */
 
 .yx-focus {
-  position: relative;
-  padding: clamp(22px, 4vw, 42px) clamp(16px, 4vw, 44px) clamp(72px, 10vw, 128px);
+  position: fixed;
+  top: var(--yx-header-h, 64px);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 55;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  background: #000;
+  padding: clamp(14px, 2.6vw, 30px) clamp(16px, 4vw, 44px) clamp(40px, 7vw, 80px);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
+.yx-focus[hidden] { display: none; }
 .yx-focus:focus { outline: none; }
-.yx-focus.is-open { animation: yxFocusIn .5s cubic-bezier(.16, 1, .3, 1) both; }
-@keyframes yxFocusIn {
-  from { opacity: 0; transform: translateY(14px); }
-  to { opacity: 1; transform: none; }
-}
+.yx-focus.is-open { animation: yxFocusFade .3s ease both; }
+@keyframes yxFocusFade { from { opacity: .4; } to { opacity: 1; } }
 .yx-focus__top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  max-width: 760px;
-  margin: 0 auto clamp(26px, 4vw, 44px);
+  max-width: 1040px;
+  margin: 0 auto clamp(14px, 2.2vw, 26px);
   font-size: 8px;
   letter-spacing: .18em;
   color: #5c5c5c;
@@ -4909,31 +4927,26 @@ html.beat-page .yx-petals { display: none; }
 .yx-focus__back span { margin-right: 7px; }
 .yx-focus__kicker { color: #4b4b4b; }
 .yx-focus__spacer { width: 74px; }
-.yx-focus__flower-wrap {
-  width: clamp(54px, 7vw, 78px);
-  margin: 0 auto clamp(22px, 3vw, 34px);
-}
-.yx-focus__flower {
-  display: block;
-  width: 100%;
-  height: auto;
-  animation: yxFlowerSpin 18s linear infinite;
-  filter: drop-shadow(0 0 22px rgba(255, 255, 255, .2));
-  will-change: transform;
-}
-@keyframes yxFlowerSpin { to { transform: rotate(360deg); } }
 
 .yx-focus__card {
-  max-width: 760px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.04fr) minmax(0, 1fr);
+  align-items: start;
+  max-width: 1040px;
   margin: 0 auto;
   border: 1px solid rgba(255, 255, 255, .14);
-  background: rgba(0, 0, 0, .7);
+  background: #000;
 }
+/* The cover is the zoom layer: storefront.js scales it from the chosen tile's
+   box to this frame, so the record opens in place instead of fading in. */
 .yx-focus__art {
   aspect-ratio: 1;
   overflow: hidden;
   background: #060606;
-  border-bottom: 1px solid rgba(255, 255, 255, .12);
+  border-right: 1px solid rgba(255, 255, 255, .12);
+  transform-origin: 0 0;
+  transition: transform .62s cubic-bezier(.16, 1, .3, 1);
+  will-change: transform;
 }
 .yx-focus__art img {
   display: block;
@@ -4941,7 +4954,11 @@ html.beat-page .yx-petals { display: none; }
   height: 100%;
   object-fit: cover;
 }
-.yx-focus__body { padding: clamp(24px, 4vw, 46px); }
+.yx-focus__body {
+  padding: clamp(22px, 3.4vw, 40px);
+  transition: opacity .24s ease .06s;
+}
+.yx-focus.is-zooming .yx-focus__body { opacity: 0; transition: none; }
 .yx-focus__index {
   font-size: 8px;
   letter-spacing: .2em;
@@ -4950,9 +4967,9 @@ html.beat-page .yx-petals { display: none; }
 .yx-focus__title {
   margin: 10px 0 8px;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: clamp(42px, 7vw, 82px);
+  font-size: clamp(34px, 4.6vw, 58px);
   font-weight: 800;
-  line-height: .88;
+  line-height: .9;
   letter-spacing: -.045em;
   color: #fff;
 }
@@ -5148,7 +5165,21 @@ html.beat-page .yx-petals { display: none; }
 
 /* ---------- responsive ---------------------------------------------------- */
 
+@media (max-width: 1100px) {
+  .yx-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 @media (max-width: 900px) {
+  .yx-focus__card { grid-template-columns: minmax(0, 1fr); }
+  .yx-focus__art {
+    aspect-ratio: auto;
+    height: min(46dvh, 380px);
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, .12);
+  }
+}
+
+@media (max-width: 760px) {
   .yx-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
@@ -5159,6 +5190,7 @@ html.beat-page .yx-petals { display: none; }
     row-gap: 0;
   }
   .site-brand { font-size: 13px; }
+  .site-header__flower { width: 20px; height: 20px; }
   .site-nav {
     grid-column: 1 / -1;
     grid-row: 2;
@@ -5174,14 +5206,15 @@ html.beat-page .yx-petals { display: none; }
   }
   .site-nav__link.is-active::after { bottom: 3px; }
   .site-header__support { font-size: 8px; padding: 4px 0; }
-  .yx-home { padding-top: 40px; }
-  .yx-title { margin-top: 20px; }
-  .yx-grid { grid-template-columns: 1fr; gap: 34px; }
-  .yx-card__name { font-size: 12px; }
-  .yx-focus__top { margin-bottom: 22px; }
+  .yx-home { padding-top: 32px; }
+  .yx-title { margin-top: 16px; }
+  .yx-grid { gap: 22px 10px; }
+  .yx-card__name { font-size: 9px; }
+  .yx-card__specs { display: none; }
+  .yx-focus__top { margin-bottom: 14px; }
   .yx-focus__spacer { width: 58px; }
   .yx-focus__card { border-left: 0; border-right: 0; }
-  .yx-focus__body { padding: 22px 16px 28px; }
+  .yx-focus__body { padding: 20px 16px 26px; }
   .yx-player { gap: 10px; }
   .yx-player__time { min-width: 11ch; font-size: 7px; }
   .site-footer { grid-template-columns: 1fr; align-items: start; }
@@ -5191,7 +5224,9 @@ html.beat-page .yx-petals { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .yx-focus.is-open { animation: none; }
-  .yx-focus__flower { animation: none; }
+  .site-header__flower img { animation: none; }
+  .yx-focus__art { transition: none; }
+  .yx-focus__body { transition: none; }
   .yx-grid,
   .yx-card,
   .yx-card__media img,
