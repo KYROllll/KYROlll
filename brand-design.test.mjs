@@ -264,10 +264,12 @@ const assertPressing = async (page, card, label, options = {}) => {
   return pressing;
 };
 
-// Every rendered colour except the hero tagline's green / pink glitch palette
-// must be an equal-channel grey. (A vinyl disc is a photograph of the pressing,
-// which this computed-style sweep does not read; the footer's social marks are
-// now monochrome `currentColor` SVG, so they need no exemption either.)
+// Every rendered colour except the two declared glitch palettes — the hero
+// tagline's green / pink, and the category headers' cyber-glitch red / cyan
+// split, both authored inside their own marked stylesheet sections — must be an
+// equal-channel grey. (A vinyl disc is a photograph of the pressing, which this
+// computed-style sweep does not read; the footer's social marks are now
+// monochrome `currentColor` SVG, so they need no exemption either.)
 const noHue = async (page, label) => {
   const report = await page.evaluate(() => {
     const plain = ['color', 'backgroundColor', 'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor', 'outlineColor', 'textDecorationColor', 'caretColor', 'fill', 'stroke', 'columnRuleColor', 'boxShadow', 'textShadow'];
@@ -277,7 +279,7 @@ const noHue = async (page, label) => {
     const bad = [];
     let inspected = 0;
     document.querySelectorAll('*').forEach(el => {
-      if (el.closest('.brand-tagline')) return;
+      if (el.closest('.brand-tagline, .yx-title, .site-nav__link')) return;
       const cs = getComputedStyle(el);
       inspected += 1;
       plain.forEach(prop => runs(cs[prop]).forEach(rgb => {

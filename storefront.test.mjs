@@ -232,6 +232,10 @@ test('choosing a record zooms it open in place and offers the packages', async (
     const focus = document.querySelector('#yx-focus');
     return focus && !focus.hidden;
   });
+  // The zoom pins the cover with an inline `transition: none` for the FLIP's
+  // first frame and releases it in the next one; wait for the release so the
+  // measurement is of the sheet's own transition, not that pinned frame.
+  await page.waitForFunction(() => !document.querySelector('.yx-focus__art').style.transition);
   const focus = await page.evaluate(() => {
     const sheet = document.querySelector('#yx-focus');
     const art = document.querySelector('.yx-focus__art');
@@ -610,10 +614,62 @@ test('reduced motion holds the flower and skips the zoom', async () => {
     zoom: document.querySelector('#yx-focus').classList.contains('is-zooming'),
     artTransition: getComputedStyle(document.querySelector('.yx-focus__art')).transitionDuration,
     transition: getComputedStyle(document.querySelector('.yx-card')).transitionDuration,
+    titleGlitch: getComputedStyle(document.querySelector('.yx-title')).animationName,
+    navGlitch: getComputedStyle(document.querySelector('.site-nav__link.is-active')).animationName,
   }));
   assert.equal(motion.flower, 'none', 'the flower holds its pose under reduced motion');
+  assert.equal(motion.titleGlitch, 'none', 'the view title holds its clean state under reduced motion');
+  assert.equal(motion.navGlitch, 'none', 'the category menu never tears under reduced motion');
   assert.equal(motion.zoom, false, 'the cover does not zoom under reduced motion');
   assert.equal(motion.artTransition, '0s', 'the cover never animates under reduced motion');
   assert.equal(motion.transition, '0s', 'the archive does not fade under reduced motion');
+  await context.close();
+});
+
+test('the brand keeps its own lettering and the category headers glitch on a slow cycle', async () => {
+  const { context, page } = await openHome({ viewport: { width: 1440, height: 900 } });
+  const type = await page.evaluate(() => {
+    const style = (selector) => getComputedStyle(document.querySelector(selector));
+    const brand = style('.site-brand');
+    return {
+      brandFont: brand.fontFamily,
+      brandWeight: brand.fontWeight,
+      brandTracking: parseFloat(brand.letterSpacing),
+      brandSize: parseFloat(brand.fontSize),
+      titleFont: style('.yx-title').fontFamily,
+      titleAnimation: style('.yx-title').animationName,
+      titleDuration: style('.yx-title').animationDuration,
+      navFont: style('.site-nav__link.is-active').fontFamily,
+      navAnimation: style('.site-nav__link.is-active').animationName,
+    };
+  });
+  assert.match(type.brandFont, /Helvetica Neue/, 'the wordmark keeps its own bespoke face');
+  assert.equal(type.brandWeight, '800', 'the wordmark keeps its original weight');
+  assert.equal(type.brandTracking, Number((type.brandSize * 0.3).toFixed(2)), 'the wordmark keeps its .3em tracking');
+  assert.match(type.titleFont, /mono/i, 'the category title is set in the code monospace');
+  assert.match(type.navFont, /mono/i, 'the category menu is set in the code monospace');
+  assert.equal(type.titleAnimation, 'yxGlitchTitle', 'the view title runs the glitch cycle');
+  assert.equal(type.navAnimation, 'yxGlitchNav', 'the active category runs the glitch cycle');
+  assert.equal(type.titleDuration, '7s', 'the glitch is a slow, quiet cycle');
+
+  // Seek the cycle: the burst frame paints a red/cyan split, and the rest of the
+  // cycle is clean — the tear is brief, not a permanent tint.
+  const frames = await page.evaluate(() => {
+    const title = document.querySelector('.yx-title');
+    const animation = title.getAnimations()[0];
+    animation.pause();
+    animation.currentTime = 0;
+    const rest = getComputedStyle(title);
+    const restShadow = rest.textShadow;
+    const restTransform = rest.transform;
+    animation.currentTime = 7000 * 0.72;
+    const burst = getComputedStyle(title);
+    return { restShadow, restTransform, burstShadow: burst.textShadow, burstTransform: burst.transform };
+  });
+  assert.equal(frames.restShadow, 'none', 'the header rests clean');
+  assert.equal(frames.restTransform, 'matrix(1, 0, 0, 1, 0, 0)', 'the header does not sit displaced between bursts');
+  assert.match(frames.burstShadow, /rgba?\(255, 0, 64/, 'the burst paints the red half of the split');
+  assert.match(frames.burstShadow, /rgba?\(0, 229, 255/, 'the burst paints the cyan half of the split');
+  assert.notEqual(frames.burstTransform, 'none', 'the burst jitters the header horizontally');
   await context.close();
 });

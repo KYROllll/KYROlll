@@ -52,12 +52,31 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   floor. Because mono carries its own sidebearings the display tracking is only
   `-0.02em` (a deeper sans-style tracking collides glyphs), the 7 px metadata labels sit
   at 8 px for legibility, and display weights stop at 700 — a synthetic 800/900 smears a
-  monospace face.
-- **One palette for the store's own paint — with one isolated colour exception.** The
+  monospace face. **The wordmark is the one exception**: `.site-brand` (the top-left
+  `KYROIII` on every page) and the legacy `.brand-wordmark` keep the brand's own bespoke
+  cut — `"Helvetica Neue", Helvetica, Arial, sans-serif`, weight 800 / 900, `.3em`
+  tracking with a matching `text-indent` on the header mark and `-.075em` on the display
+  wordmark. Do not point either at `var(--font-mono)`.
+- **The category headers glitch on a slow clock.** `.yx-title` (the view heading, e.g.
+  `FREE BEATS`) and the active `.site-nav__link` run `yxGlitchTitle` / `yxGlitchNav`:
+  one shared 7 s `steps(1, end)` cycle that is clean for six seconds, tears for ~120 ms
+  around 72 % (two offset text-shadows, red left / cyan right, plus a 1–3 px horizontal
+  jitter) and blinks once more at 79 %. It is painted on the glyphs — no extra markup,
+  no `data-text` copy and no pseudo-element — so a title whose text changes with the
+  view (`FREE BEATS` → `ORIGINAL ARTWORK`) always glitches the current word. The
+  colours live in their own marked palette block (below), reduced motion sets
+  `animation: none`, and `.motion-paused` drops the animation rather than freezing a
+  half-torn frame. Do not lengthen the burst or widen the split: it is meant to read as
+  the terminal re-syncing, not as decoration.
+- **One palette for the store's own paint — with two isolated colour exceptions.** The
   storefront is pitch black `#000000` / `#040404`, pure white `#FFFFFF` and silver `#888888`, with the
   original neon-green / vivid-pink glitch palette isolated to the hero tagline and heart. Every
-  colour literal outside **one** deliberately marked section — the hero tagline — is an
-  equal-channel grey, and the `theme-color` metas are `#000000`. The beat cover art is **not** filtered: the catalog tiles and the beat detail show
+  colour literal outside the deliberately marked palette sections is an equal-channel grey, and
+  the `theme-color` metas are `#000000`. The **second** marked section is the category headers'
+  cyber glitch (`yxGlitchTitle` / `yxGlitchNav`, `=== THE BRAND CYBER-GLITCH PALETTE ===`); its
+  red / cyan text-shadow split is the only hue the archive itself paints, it exists only for the
+  brief burst frames of the 7 s cycle, and both the stylesheet audit and the computed-style
+  `noHue` sweep skip its two surfaces the same way they skip `.brand-tagline`. The beat cover art is **not** filtered: the catalog tiles and the beat detail show
   the supplied covers in their original colour. The same is true of the brand marks:
   `body > canvas` (the falling brush X), `.footer__logo`, `.brand-wordmark__mark`,
   `.vinyl-record__logo` and both watermark images paint in the colour they were drawn in — the

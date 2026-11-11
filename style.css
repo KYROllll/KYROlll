@@ -188,10 +188,12 @@ button {
   margin: 0 0 10px;
   padding-right: .66em;
   color: var(--white);
+  /* The wordmark's own bespoke lettering, not the storefront's monospace. */
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: clamp(48px, 7vw, 108px);
-  font-weight: 700;
+  font-weight: 900;
   line-height: 1;
-  letter-spacing: -0.02em;
+  letter-spacing: -.075em;
   text-transform: none;
   white-space: nowrap;
 }
@@ -4693,12 +4695,17 @@ html { --yx-header-h: 64px; }
   border-bottom: 1px solid rgba(255, 255, 255, .12);
   font-family: var(--font-mono);
 }
+/* The wordmark keeps its own bespoke cut: the storefront is set in the code
+   monospace, but the logo is the one mark that is not. Do not point this at
+   `var(--font-mono)` — the Helvetica face, its 800 weight and the wide .3em
+   tracking are the brand's own lettering, and the `text-indent` cancels the
+   trailing sidebearing so the mark sits flush on the left edge of the bar. */
 .site-brand {
   justify-self: start;
   color: #fff;
-  font-family: var(--font-mono);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: .3em;
   text-indent: .3em;
   text-decoration: none;
@@ -4722,7 +4729,12 @@ html { --yx-header-h: 64px; }
   text-decoration: none;
   transition: color .2s ease;
 }
-.site-nav__link.is-active { color: #fff; }
+.site-nav__link.is-active {
+  color: #fff;
+  /* The active category is a header, so it carries the same slow terminal
+     glitch as the view title — one shared clock, see the glitch section. */
+  animation: yxGlitchNav 7s steps(1, end) infinite;
+}
 .site-nav__link.is-active::after {
   content: "";
   position: absolute;
@@ -4801,6 +4813,81 @@ html { --yx-header-h: 64px; }
   line-height: .88;
   letter-spacing: -.02em;
   color: #fff;
+  animation: yxGlitchTitle 7s steps(1, end) infinite;
+}
+
+/* ---------- the category headers' cyber glitch ---------------------------- */
+
+/* One slow 7s cycle, and almost all of it is rest: a two-frame burst around
+   72% plus a quieter tear at 79%, then six clean seconds. The split is painted
+   with two offset text-shadows — red left, cyan right — and a 1–2px horizontal
+   jitter; the glyphs themselves never change, so the words stay readable and
+   the effect reads as a terminal re-syncing rather than a decoration. Both the
+   view title and the active nav link animate on the same clock, so a page and
+   its menu tear together instead of drifting apart. */
+/* === THE BRAND CYBER-GLITCH PALETTE START === */
+@keyframes yxGlitchTitle {
+  0%, 71.9%, 74.3%, 78.9%, 80.4%, 100% {
+    text-shadow: none;
+    transform: translate3d(0, 0, 0);
+  }
+  72% {
+    text-shadow: -3px 0 rgba(255, 0, 64, 0.72), 3px 0 rgba(0, 229, 255, 0.64);
+    transform: translate3d(2px, 0, 0);
+  }
+  72.7% {
+    text-shadow: 2px 0 rgba(255, 0, 64, 0.6), -2px 0 rgba(0, 229, 255, 0.55);
+    transform: translate3d(-2px, 0, 0);
+  }
+  73.4% {
+    text-shadow: -1px 0 rgba(255, 0, 64, 0.5), 1px 0 rgba(0, 229, 255, 0.46);
+    transform: translate3d(1px, 0, 0);
+  }
+  79% {
+    text-shadow: 1px 0 rgba(255, 0, 64, 0.42), -1px 0 rgba(0, 229, 255, 0.38);
+    transform: translate3d(-1px, 0, 0);
+  }
+  79.6% {
+    text-shadow: none;
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes yxGlitchNav {
+  0%, 71.9%, 73.6%, 78.9%, 80.4%, 100% {
+    text-shadow: none;
+    transform: translate3d(0, 0, 0);
+  }
+  72% {
+    text-shadow: -1px 0 rgba(255, 0, 64, 0.75), 1px 0 rgba(0, 229, 255, 0.68);
+    transform: translate3d(1px, 0, 0);
+  }
+  72.7% {
+    text-shadow: 1px 0 rgba(255, 0, 64, 0.62), -1px 0 rgba(0, 229, 255, 0.56);
+    transform: translate3d(-1px, 0, 0);
+  }
+  73.2% {
+    text-shadow: -1px 0 rgba(255, 0, 64, 0.5), 1px 0 rgba(0, 229, 255, 0.44);
+    transform: translate3d(0, 0, 0);
+  }
+  79% {
+    text-shadow: 1px 0 rgba(255, 0, 64, 0.38), -1px 0 rgba(0, 229, 255, 0.32);
+    transform: translate3d(1px, 0, 0);
+  }
+  79.6% {
+    text-shadow: none;
+    transform: translate3d(0, 0, 0);
+  }
+}
+/* === THE BRAND CYBER-GLITCH PALETTE END === */
+
+/* A paused storefront holds its clean state — never a frozen tear. */
+.motion-paused .yx-title,
+.motion-paused .site-nav__link.is-active {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .yx-title,
+  .site-nav__link.is-active { animation: none; }
 }
 .yx-lede {
   font-size: 9px;
