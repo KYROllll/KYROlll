@@ -2894,7 +2894,23 @@ html.vinyl-dragging * {
    unfolds from that exact row rather than in a panel under the list. The row
    indents its panel slightly so the form reads as the row's own body. */
 .yx-pack__gate { padding: 2px 0 14px; }
-.yx-pack__gate .gate-panel__card { background: #060606; padding: 20px 18px 22px; }
+.yx-pack__gate .gate-panel__card { background: #060606; padding: 12px 14px 14px; }
+/* Ultra-compact terminal-style email step: a single thin hairline input,
+   no bulky box, no padding. */
+.yx-pack__gate .gate-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #5c5c5c;
+  border-radius: 0;
+  color: #ffffff;
+  font-size: 12px;
+  padding: 6px 2px;
+  letter-spacing: .12em;
+}
+.yx-pack__gate .gate-input:focus { border-bottom-color: #ffffff; box-shadow: none; outline: none; }
+.yx-pack__gate .gate-input::placeholder { color: #5c5c5c; }
+.yx-pack__gate .gate-field__label { font-size: 7px; margin-bottom: 4px; }
+.yx-pack__gate .gate-field { margin-bottom: 8px; }
 
 /* The beat card's slot, under the action row. */
 .beat-detail__gate { margin-top: 18px; }
@@ -5583,7 +5599,7 @@ html { --yx-header-h: 64px; }
   .yx-player { margin: 10px 0; padding: 10px 0; }
   .yx-pack__btn { padding: 10px 2px; }
   .yx-pack__gate { padding-bottom: 12px; }
-  .yx-pack__gate .gate-panel__card { padding: 16px 13px 18px; }
+  .yx-pack__gate .gate-panel__card { padding: 10px 12px 12px; }
   /* One line per package keeps the three options on the same screen; the
      full includes list is still on the package drawer and the license. */
   .yx-pack__includes {
@@ -5601,7 +5617,7 @@ html { --yx-header-h: 64px; }
   .yx-focus__title { font-size: clamp(28px, 3.2vw, 40px); }
   .yx-player { margin: 10px 0; padding: 10px 0; }
   .yx-pack__btn { padding: 8px 2px; }
-  .yx-pack__gate .gate-panel__card { padding: 16px 14px 18px; }
+  .yx-pack__gate .gate-panel__card { padding: 10px 12px 12px; }
   .yx-pack__includes { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .yx-focus__note { margin-top: 8px; }
 }
