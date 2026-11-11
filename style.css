@@ -3488,6 +3488,10 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
 /* ---------- 11. Utility pages (support.html) ------------------------------- */
 
 .page-main { max-width: 1080px; margin: 0 auto; padding: clamp(20px, 4vw, 48px) 24px 80px; }
+/* The utility pages share the fixed menu bar, so their column starts below the
+   bar's measured height instead of sliding under it. Their own inset is added on
+   top: these views are glass cards, not the flush archive dock. */
+.page-body .page-main { padding-top: calc(var(--yx-header-h) + clamp(20px, 4vw, 48px)); }
 
 .page-nav {
   display: flex;
@@ -4637,9 +4641,21 @@ html.beat-page .yx-focus { display: none; }
 
 /* ---------- menu bar ------------------------------------------------------ */
 
+/* The bar is taken out of the document's flow (`position: fixed`), so every
+   page carries its measured height as an offset. `header-offset.js` writes the
+   real number onto `:root`; the two fallbacks below match the one-row desktop
+   bar (64px) and the two-row phone bar (67px), so the first paint already docks
+   correctly even before that measurement lands. Neither value is a guess the
+   layout depends on: the script re-measures on load, resize, orientation change,
+   a font swap and any change to the bar's own box. */
+html { --yx-header-h: 64px; }
+@media (max-width: 640px) { html { --yx-header-h: 67px; } }
+
 .site-header {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  width: 100%;
   z-index: 60;
   /* The bar is pinned for the life of the page, so it owns one permanent
      hardware layer. Without it the rotating flower's compositor frames keep
@@ -4741,8 +4757,11 @@ html.beat-page .yx-focus { display: none; }
 
 /* ---------- the archive grid ---------------------------------------------- */
 
+/* The archive docks flush under the fixed bar: its top padding is exactly the
+   bar's measured height, so there is no dead band between the two and no slice
+   of the grid hidden behind the bar. Every other side keeps its own inset. */
 .yx-home {
-  padding: clamp(16px, 2vw, 24px) clamp(16px, 4vw, 44px) clamp(56px, 8vw, 112px);
+  padding: var(--yx-header-h) clamp(16px, 4vw, 44px) clamp(56px, 8vw, 112px);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 .yx-home__head {
@@ -5340,7 +5359,8 @@ html.beat-page .yx-focus { display: none; }
   }
   .site-nav__link.is-active::after { bottom: 3px; }
   .site-header__support { font-size: 8px; padding: 4px 0; }
-  .yx-home { padding-top: 16px; }
+  /* The phone bar is two rows tall (67px); the variable carries that height, so
+     the dock must not re-introduce a smaller top inset here. */
   .yx-title { margin-top: 16px; }
   .yx-grid { gap: 22px 10px; }
   .yx-card__name { font-size: 9px; }

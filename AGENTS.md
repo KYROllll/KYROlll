@@ -7,8 +7,8 @@ about *running* the app in this sandbox, not about the app's own behaviour.
 
 - **Storefront** — plain static files (`index.html`, `download.html`, `support.html`,
   `style.css`, `storefront.js`, `script.js`, `catalog.js`, `downloads.js`,
-  `download-page.js`, `preview-player.js`, `assets/*.min.js`) served by `server.mjs` on
-  port 8080. The home is the archive grid; beat links keep the detailed card. No bundler,
+  `download-page.js`, `preview-player.js`, `header-offset.js`, `assets/*.min.js`) served by
+  `server.mjs` on port 8080. The home is the archive grid; beat links keep the detailed card. No bundler,
   no runtime dependencies: `server.mjs` is pure Node `http`, so edits to HTML/CSS/JS show
   up on a browser reload with no rebuild.
 - **No backend and no secrets.** Every beat is 100% free: there is no cart, no
@@ -511,7 +511,7 @@ mark is the spinning flower in the header.
   `HH:MM:SS`; a claimed beat dims its cover and reads `CLAIMED / SOLD OUT`
   (or `OWNED / YOURS` for the buyer).
 - **Focus.** Choosing a card opens a sheet that is `position: fixed` under the
-  sticky header, so the record is focused in place rather than on a new page.
+  fixed header, so the record is focused in place rather than on a new page.
   The cover is a FLIP layer: `storefront.js` measures the chosen tile's media box,
   pins `.yx-focus__art` onto it with a `transform`, then releases it to the sheet's
   own frame on the CSS curve (`.62s cubic-bezier(.16,1,.3,1)`); the body fades in
@@ -530,10 +530,13 @@ mark is the spinning flower in the header.
   `?focus=<id-or-slug>`; a direct
   `?beat=` link still renders the full beat card through `script.js`, so old
   links and the download hand-off keep working.
-- **Locked header.** `.site-header` is `position: sticky; top: 0; z-index: 60`
-  and must stay that way: the brand, the category links and the flower are pinned
-  to the viewport top through every scroll and while the focus sheet is open, and
-  the sheet's `--yx-header-h` offset keeps it docked directly under the bar. It
+- **Locked header.** `.site-header` is `position: fixed; top: 0; left: 0;
+  width: 100%; z-index: 60` and must stay that way: it is out of the document's
+  flow entirely, so no scroll, no focus sheet and no `overflow-x: clip` guard can
+  make it drift, and the brand, the category links and the flower stay welded to
+  the viewport top through every scroll. Because it takes no room in the flow,
+  every page carries its height as `--yx-header-h` (below); the focus sheet's
+  `top` reads the same property, so the sheet docks directly under the bar. It
   also owns **one permanent compositor layer** (`transform: translateZ(0)`,
   `will-change: transform`, `backface-visibility: hidden`): the spinning flower
   renders on its own frames, and without the promotion each of those repainted
@@ -543,13 +546,20 @@ mark is the spinning flower in the header.
   rule does not cover: the bar never stops being pinned. (The beat route keeps
   its own `position: relative` header because there the sticky
   `#beat-navigation` rail owns the top edge.)
-- **The archive docks under the bar.** `.yx-home` is the first block after the
-  header, and its top padding is the only thing between them — kept to a tight
-  `clamp(16px, 2vw, 24px)` (16 px on a phone), so the section's own box starts at
-  the header's bottom edge and the eyebrow/title sit just under it. It used to
-  open at up to 80 px, which read as a dead band under the sticky header. Do not
-  add a `margin-top` to `#catalog` or an extra wrapper: the first section is the
-  dock.
+- **The archive docks flush under the bar — no gap, no dead band.**
+  `header-offset.js` measures the fixed bar (`getBoundingClientRect().height`,
+  re-measured on load, resize, rotation, a font swap and any `ResizeObserver`
+  change) and writes the exact number onto `:root` as `--yx-header-h`; the
+  stylesheet's own fallbacks are `64px` and, under 640 px, `67px` — the real
+  one-row and two-row heights — so the first paint is already correct.
+  `.yx-home` (`#catalog` and the artwork view) uses that value as its whole
+  `padding-top`, so the first line of the archive meets the bar's bottom edge at
+  every width; do not add a `margin-top` to `#catalog`, an extra wrapper or a
+  smaller phone override — the section is the dock. `.page-body .page-main`
+  (`download.html`, `support.html`) adds the same value on top of its own inset,
+  because those are glass-card views rather than the flush archive. The
+  `brand-design`/`storefront` tests measure both halves (the bar's position and
+  the zero gap between its bottom edge and the first line of the catalog).
 - **Header flower.** `.site-header__end` carries the captured flower
   (`assets/kyrolll-flower-rest.png`, a 2D print) at the top-right on every page —
   home, beat route, download and support — turning on `yxFlowerSpin` (16s linear),

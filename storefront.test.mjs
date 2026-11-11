@@ -110,6 +110,23 @@ test('the home is a solid black compact grid with the category menu', async () =
       },
       bg: getComputedStyle(document.body).backgroundColor,
       overflow: document.documentElement.scrollWidth - window.innerWidth,
+      dock: (() => {
+        const header = document.querySelector('.site-header');
+        const home = document.querySelector('#catalog');
+        const box = header.getBoundingClientRect();
+        const head = home.querySelector('.yx-home__head').getBoundingClientRect();
+        return {
+          position: getComputedStyle(header).position,
+          top: Math.round(box.top),
+          left: Math.round(box.left),
+          width: Math.round(box.width),
+          height: Math.round(box.height),
+          padTop: Math.round(parseFloat(getComputedStyle(home).paddingTop)),
+          firstInk: Math.round(head.top),
+          transform: getComputedStyle(header).transform,
+          willChange: getComputedStyle(header).willChange,
+        };
+      })(),
     };
   });
   assert.equal(home.cards, 8, 'all eight releases are in the grid');
@@ -121,6 +138,17 @@ test('the home is a solid black compact grid with the category menu', async () =
   assert.equal(home.main, 'none', 'the old catalog document is not below the archive');
   assert.equal(home.room, 0, 'the vinyl room is gone from the home route');
   assert.equal(home.overflow, 0, 'the home never scrolls sideways');
+  // The bar is fixed and out of flow: the archive carries its exact height as
+  // its top padding, so the first line of the catalog meets the bar's bottom
+  // edge with no dead band and nothing tucked behind the bar.
+  assert.equal(home.dock.position, 'fixed', 'the menu bar is fixed, not a sticky row in the flow');
+  assert.equal(home.dock.top, 0, 'the bar is welded to the viewport top');
+  assert.equal(home.dock.left, 0, 'the bar starts at the viewport left edge');
+  assert.equal(home.dock.width, 1440, 'the bar spans the viewport');
+  assert.equal(home.dock.padTop, home.dock.height, "the dock's top padding is the bar's measured height");
+  assert.equal(home.dock.firstInk, home.dock.height, 'the catalog meets the bar with zero gap');
+  assert.notEqual(home.dock.transform, 'none', 'the bar keeps its own hardware layer');
+  assert.match(home.dock.willChange, /transform/, 'the bar is promoted for the life of the page');
   assert.equal(home.active, 'FREE BEATS', 'FREE BEATS is the active category');
   assert.deepEqual(home.nav, [
     { text: 'FREE BEATS', disabled: false },
@@ -176,7 +204,7 @@ test('the home is a solid black compact grid with the category menu', async () =
     };
   });
   assert(pinned.scrollY > 300, 'the archive really scrolled under the bar');
-  assert.equal(pinned.position, 'sticky', 'the header is a sticky bar, not a scrolled row');
+  assert.equal(pinned.position, 'fixed', 'the header is a fixed bar, not a scrolled row');
   assert.equal(pinned.top, 0, 'the header stays locked to the viewport top');
   assert(pinned.height >= 60, 'the whole bar stays on screen, not a sliver');
   assert(pinned.flowerRight >= 0 && pinned.flowerRight <= 56, 'the flower stays pinned in the top-right corner');
@@ -531,11 +559,23 @@ test('a phone fits the grid and the focused packages without sideways scroll', a
     overflow: document.documentElement.scrollWidth - window.innerWidth,
     nav: document.querySelector('.site-nav').getBoundingClientRect(),
     card: Math.round(document.querySelector('.yx-card').getBoundingClientRect().width),
+    dock: (() => {
+      const header = document.querySelector('.site-header').getBoundingClientRect();
+      const home = document.querySelector('#catalog');
+      const head = home.querySelector('.yx-home__head').getBoundingClientRect();
+      return {
+        height: Math.round(header.height),
+        padTop: Math.round(parseFloat(getComputedStyle(home).paddingTop)),
+        firstInk: Math.round(head.top),
+      };
+    })(),
   }));
   assert.equal(phone.columns, 2, 'phones get two compact columns');
   assert.equal(phone.overflow, 0, 'the archive never scrolls sideways on a phone');
   assert(phone.nav.left >= 0 && phone.nav.right <= 390, 'the category menu stays on screen');
   assert(phone.card > 150 && phone.card < 200, 'the covers stay compact on a phone');
+  assert.equal(phone.dock.padTop, phone.dock.height, 'the two-row phone bar is offset by its own measured height');
+  assert.equal(phone.dock.firstInk, phone.dock.height, 'the phone catalog docks flush under the bar');
 
   await page.locator('#yx-grid .yx-card').first().click();
   await page.waitForFunction(() => !document.querySelector('#yx-focus').hidden);
