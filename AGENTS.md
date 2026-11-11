@@ -43,6 +43,16 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   again in `toAscii` (`license-pdf.js`), which uppercases before it sanitises; `KYROlll`
   survives only as an API name (`window.KYROlll_*`), an asset path (`assets/kyrolll-*.png`)
   and the YouTube handle.
+- **One typeface: the storefront is set in a code monospace.** `--font-mono`
+  (`JetBrains Mono` → `Space Mono` → `Fira Code` → `IBM Plex Mono` → `ui-monospace` → the
+  platform mono) on `:root` is the only family in `style.css`; `body` sets it and every
+  other rule reads the token or inherits, so headings, buttons, track titles, card
+  metadata, numbers, navigation and the focus sheet cannot drift back to a sans stack.
+  No font file is shipped and no font is fetched: the platform mono is the guaranteed
+  floor. Because mono carries its own sidebearings the display tracking is only
+  `-0.02em` (a deeper sans-style tracking collides glyphs), the 7 px metadata labels sit
+  at 8 px for legibility, and display weights stop at 700 — a synthetic 800/900 smears a
+  monospace face.
 - **One palette for the store's own paint — with one isolated colour exception.** The
   storefront is pitch black `#000000` / `#040404`, pure white `#FFFFFF` and silver `#888888`, with the
   original neon-green / vivid-pink glitch palette isolated to the hero tagline and heart. Every
