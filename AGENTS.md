@@ -547,14 +547,13 @@ mark is the spinning flower in the header.
   `src` an `assets/artwork/…` scan), and `storefront.js` renders one
   `<button class="yx-card yx-art-card" data-yx-art="<id>">` per entry — the work
   itself, never the record's photograph. A catalog beat with no registered piece
-  gets an inert `div.yx-art-card.is-placeholder` instead: a hairline empty frame
-  reading `COMING SOON` / `ORIGINAL ARTWORK DROP`, the record name, `RESERVED`,
-  and the same padlock badge. Placeholders carry no `data-yx-art`, no
-  button/tabindex and no click handler, so they cannot open a focus view. The
-  foot counts the two separately (`<span data-yx-art-count>` ORIGINAL ARTWORK /
-  `<span data-yx-art-slots>` SLOTS RESERVED · 2028–2029). Adding a drawing is one
-  entry in `KYROlll_ARTWORKS`; nothing reads a beat `img` for the gallery. Three
-  columns on desktop, one on a phone. Every card is a locked collector item: a
+  is simply absent: there are no coming-soon or reserved slots, no empty frames
+  and no placeholder copy anywhere in the view. The foot prints only
+  `<span data-yx-art-count>` ORIGINAL ARTWORK; there is no slot counter. Adding a
+  drawing is one entry in `KYROlll_ARTWORKS`; nothing reads a beat `img` for the
+  gallery. Three columns on desktop, one on a phone, and a single registered
+  piece gets `is-single` on the grid — one centred 420px column, so a 1-of-1 is
+  shown as a piece rather than the first cell of an empty grid. Every card is a locked collector item: a
   hairline `COLLECTOR — LOCKED` badge with a `currentColor` padlock SVG and a
   `PRINTS · DROPS · APPAREL 2028–2029` line, and the gallery keeps the art at
   full contrast (`.yx-art-card.is-locked` opts out of the beats grid's dimming).

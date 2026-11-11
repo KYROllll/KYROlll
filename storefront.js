@@ -28,7 +28,6 @@
   const artView = document.getElementById("yx-artwork");
   const artGrid = document.getElementById("yx-art-grid");
   const artCount = document.querySelector("[data-yx-art-count]");
-  const artSlots = document.querySelector("[data-yx-art-slots]");
   const focus = document.getElementById("yx-focus");
   const header = document.querySelector(".site-header");
   const countNode = document.querySelector("[data-yx-count]");
@@ -95,12 +94,10 @@
   const viewFor = (kind) => (kind === "art" ? artView : home);
 
   /* The collection is the artwork register only. A piece points at the record it
-     was drawn for; every record it does not cover reserves an empty slot, so no
-     beat photograph can ever stand in for a drawing. */
+     was drawn for; a record with no drawing is simply absent, so no beat
+     photograph and no empty stand-in slot can ever appear here. */
   const beatFor = (piece) => newest.find((beat) => beat.id === piece.beatId || beat.slug === piece.beatId) || null;
   const pieces = ARTWORKS.filter((piece) => piece && piece.id && piece.src);
-  const covered = new Set(pieces.map((piece) => (beatFor(piece) || {}).id).filter(Boolean));
-  const slots = newest.filter((beat) => !covered.has(beat.id));
   const pieceFor = (id) => pieces.find((piece) => piece.id === id) || null;
   const artIndex = (piece) => String(pieces.indexOf(piece) + 1).padStart(2, "0");
 
@@ -153,30 +150,6 @@
     </button>`;
   }
 
-  /* A reserved slot: no photograph, no scan, just the record the drawing is
-     owed and the same locked badge. It is a div, so it is inert to pointer and
-     keyboard and cannot open a focus view that does not exist yet. */
-  function artSlotHTML(beat, index) {
-    const { name } = splitTitle(beat);
-    return `<div class="yx-art-card is-placeholder" aria-label="Original artwork for ${esc(name)} — coming soon, locked until 2028">
-      <span class="yx-card__media yx-art-card__blank">
-        <span class="yx-art-card__soon">COMING SOON</span>
-        <span class="yx-art-card__drop">ORIGINAL ARTWORK DROP</span>
-      </span>
-      <span class="yx-art-card__badge">
-        ${LOCK_SVG}
-        <span>COLLECTOR — LOCKED</span>
-      </span>
-      <span class="yx-card__row">
-        <span class="yx-card__index">${String(index + 1).padStart(2, "0")}</span>
-        <span class="yx-card__name">${esc(name)}</span>
-        <span class="yx-card__specs">RESERVED</span>
-      </span>
-      <span class="yx-card__type">COVER STUDY — IN PROGRESS</span>
-      <span class="yx-art-card__window">PRINTS · DROPS · APPAREL 2028–2029</span>
-    </div>`;
-  }
-
   function renderGrid() {
     if (countNode) countNode.textContent = String(newest.length).padStart(2, "0");
     grid.innerHTML = newest.length
@@ -190,12 +163,10 @@
 
   function renderArtGrid() {
     if (!artGrid) return;
-    const cards = pieces.map(artCardHTML);
-    const reserved = slots.map((beat, i) => artSlotHTML(beat, pieces.length + i));
     if (artCount) artCount.textContent = String(pieces.length).padStart(2, "0");
-    if (artSlots) artSlots.textContent = String(slots.length).padStart(2, "0");
-    artGrid.innerHTML = (cards.length + reserved.length)
-      ? cards.concat(reserved).join("")
+    artGrid.classList.toggle("is-single", pieces.length === 1);
+    artGrid.innerHTML = pieces.length
+      ? pieces.map(artCardHTML).join("")
       : '<p class="yx-grid__empty">NO ORIGINAL ARTWORK IN THE COLLECTION YET.</p>';
     artGrid.inert = false;
   }

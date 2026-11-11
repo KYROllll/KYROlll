@@ -102,9 +102,9 @@
   // The artwork register. The collection on the home route shows ONLY pieces
   // listed here: every entry is a hand-drawn original, drawn for the record in
   // `beatId`, with its own scan in `src` (`assets/artwork/…`). A record with no
-  // entry keeps its beat cover in the archive but gets an empty
-  // `COMING SOON // ORIGINAL ARTWORK DROP` slot in the collection — never a
-  // stand-in photo. A piece is one of one, so `edition` is always `1 / 1` and
+  // entry keeps its beat cover in the archive and is simply absent from the
+  // collection — no stand-in photo and no empty placeholder slot. A piece is one
+  // of one, so `edition` is always `1 / 1` and
   // `medium` describes the physical drawing; the 2028–2029 print/drop/apparel
   // window is copy in `storefront.js`/`style.css`, not data.
   window.KYROlll_ARTWORKS = [

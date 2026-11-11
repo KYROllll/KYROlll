@@ -268,9 +268,8 @@ test('the artwork collection opens in place as locked collector pieces', async (
       covers: cards.map((node) => node.querySelector('.yx-card__media img')?.getAttribute('src') || null),
       beatCards: section.querySelectorAll('[data-yx-beat]').length,
       count: document.querySelector('[data-yx-art-count]').textContent,
-      slots: document.querySelector('[data-yx-art-slots]').textContent,
-      slotCopy: cards[1].innerText.replace(/\s+/g, ' ').trim(),
-      slotFocusable: cards[1].matches('button, a, [tabindex]') || cards[1].hasAttribute('data-yx-art'),
+      slots: section.querySelector('[data-yx-art-slots]'),
+      emptyCopy: /COMING SOON|ORIGINAL ARTWORK DROP|RESERVED/.test(section.innerText),
       overflow: document.documentElement.scrollWidth - window.innerWidth,
     };
   });
@@ -280,30 +279,22 @@ test('the artwork collection opens in place as locked collector pieces', async (
   assert.equal(gallery.homeDisplay, 'none', 'the beats grid yields to the collection');
   assert.equal(gallery.artDisplay, 'block', 'the collection is the page, not a new route');
   assert.equal(gallery.title, 'ARTWORK');
-  assert.equal(gallery.cards, 8, 'one slot per record, no more');
-  assert.equal(gallery.pieces, 1, 'only the registered hand-drawn piece is a real card');
-  assert.equal(gallery.placeholders, 7, 'every uncovered record reserves an empty slot');
-  assert.equal(gallery.columns, 3, 'the collection is three wide on desktop');
-  assert.equal(gallery.badge, 'COLLECTOR — LOCKED', 'each card is a locked collector piece');
+  assert.equal(gallery.cards, 1, 'the gallery holds only the drawn pieces');
+  assert.equal(gallery.pieces, 1, 'the single registered hand-drawn piece is the whole gallery');
+  assert.equal(gallery.placeholders, 0, 'no coming-soon placeholder slots survive');
+  assert.equal(gallery.columns, 1, 'a single 1-of-1 is shown as one centred column');
+  assert.equal(gallery.badge, 'COLLECTOR — LOCKED', 'the piece is a locked collector item');
   assert.match(gallery.window, /PRINTS · DROPS · APPAREL 2028–2029/, 'the badge names the 2028–2029 window');
   assert.deepEqual(
-    gallery.covers.filter(Boolean),
+    gallery.covers,
     ['assets/artwork/pink-study-01.svg'],
     'the collection carries the original drawing and nothing else'
   );
-  assert.equal(gallery.covers.filter(Boolean).length, 1, 'no beat photograph stands in for artwork');
   assert.equal(gallery.beatCards, 0, 'the gallery never borrows a beat card');
   assert.equal(gallery.count, '01');
-  assert.equal(gallery.slots, '07');
-  assert.match(gallery.slotCopy, /COMING SOON/, 'an unassigned record reads COMING SOON');
-  assert.match(gallery.slotCopy, /ORIGINAL ARTWORK DROP/, 'the empty slot announces the artwork drop');
-  assert.match(gallery.slotCopy, /COLLECTOR — LOCKED/, 'the empty slot carries the locked badge');
-  assert.match(gallery.slotCopy, /RESERVED/, 'the empty slot is marked reserved');
-  assert.equal(gallery.slotFocusable, false, 'an empty slot cannot be opened');
+  assert.equal(gallery.slots, null, 'the reserved-slot counter is gone');
+  assert.equal(gallery.emptyCopy, false, 'nothing in the gallery reads coming soon or reserved');
   assert.equal(gallery.overflow, 0, 'the collection never scrolls sideways');
-
-  await page.locator('#yx-art-grid .is-placeholder').first().click();
-  assert.equal(await page.locator('#yx-focus').isHidden(), true, 'a reserved slot opens nothing');
 
   const before = await page.evaluate(() => ({
     scrollY: Math.round(scrollY),
