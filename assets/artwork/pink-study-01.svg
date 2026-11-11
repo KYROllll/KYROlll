@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1400" width="1400" height="1400" role="img" aria-label="PINK STUDY 01 — original hand-drawn pink and white cover artwork">
+  <defs>
+    <filter id="wobble" x="-12%" y="-12%" width="124%" height="124%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.014 0.02" numOctaves="2" seed="7" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="7" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="wobbleSoft" x="-12%" y="-12%" width="124%" height="124%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.008 0.011" numOctaves="2" seed="19" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="11" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="wobbleText" x="-14%" y="-14%" width="128%" height="128%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.024 0.04" numOctaves="2" seed="3" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" seed="11" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.05"/></feComponentTransfer>
+    </filter>
+    <radialGradient id="edge" cx="50%" cy="46%" r="72%">
+      <stop offset="0%" stop-color="#FFFDFA"/>
+      <stop offset="72%" stop-color="#F6F0E8"/>
+      <stop offset="100%" stop-color="#E9E0D4"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1400" height="1400" fill="url(#edge)"/>
+  <rect width="1400" height="1400" filter="url(#grain)" opacity="0.5"/>
+
+  <!-- marker washes -->
+  <g fill="#FF2E88" opacity="0.16" filter="url(#wobbleSoft)">
+    <ellipse cx="734.0" cy="403.7" rx="135.5" ry="103.6" transform="rotate(-50.7 672 604)" />
+    <ellipse cx="862.2" cy="648.8" rx="142.4" ry="70.8" transform="rotate(2.2 672 604)" />
+    <ellipse cx="595.4" cy="665.1" rx="104.6" ry="94.3" transform="rotate(1.2 672 604)" />
+    <ellipse cx="649.3" cy="658.1" rx="96.9" ry="129.9" transform="rotate(67.0 672 604)" />
+    <ellipse cx="591.7" cy="490.4" rx="178.4" ry="128.7" transform="rotate(-89.6 672 604)" />
+    <ellipse cx="730.4" cy="741.9" rx="70.9" ry="110.0" transform="rotate(-63.9 672 604)" />
+    <ellipse cx="951.8" cy="633.1" rx="175.7" ry="60.3" transform="rotate(-27.8 672 604)" />
+    <ellipse cx="747.0" cy="627.8" rx="118.2" ry="46.8" transform="rotate(16.2 672 604)" />
+    <ellipse cx="623.3" cy="456.9" rx="128.0" ry="112.9" transform="rotate(52.7 672 604)" />
+  </g>
+
+  <!-- construction lines -->
+  <g fill="none" stroke="#9C8F84" stroke-width="1.4" opacity="0.55" filter="url(#wobble)">
+    <circle cx="672" cy="604" r="292" />
+    <circle cx="672" cy="604" r="120" />
+    <line x1="312" y1="604" x2="1032" y2="604" />
+    <line x1="672" y1="244" x2="672" y2="964" />
+    <line x1="372" y1="304" x2="972" y2="904" stroke-dasharray="3 12" />
+    <line x1="972.0" y1="604.0" x2="992.0" y2="604.0" />
+    <line x1="931.8" y1="754.0" x2="939.6" y2="758.5" />
+    <line x1="822.0" y1="863.8" x2="826.5" y2="871.6" />
+    <line x1="672.0" y1="904.0" x2="672.0" y2="924.0" />
+    <line x1="522.0" y1="863.8" x2="517.5" y2="871.6" />
+    <line x1="412.2" y1="754.0" x2="404.4" y2="758.5" />
+    <line x1="372.0" y1="604.0" x2="352.0" y2="604.0" />
+    <line x1="412.2" y1="454.0" x2="404.4" y2="449.5" />
+    <line x1="522.0" y1="344.2" x2="517.5" y2="336.4" />
+    <line x1="672.0" y1="304.0" x2="672.0" y2="284.0" />
+    <line x1="822.0" y1="344.2" x2="826.5" y2="336.4" />
+    <line x1="931.8" y1="454.0" x2="939.6" y2="449.5" />
+  </g>
+
+  <!-- pink petal fills under the ink -->
+  <g fill="#FF2E88" opacity="0.5" filter="url(#wobble)">
+    <path d="M739.9 565.5 C883.2 622.6 957.7 528.0 924.3 460.2 C891.5 401.7 769.6 407.7 739.9 565.5 Z"/>
+    <path d="M673.4 682.0 C570.4 784.2 596.2 917.4 677.1 919.6 C759.4 912.8 785.3 786.8 673.4 682.0 Z"/>
+    <path d="M603.0 567.7 C567.8 420.2 435.4 396.0 404.5 465.6 C370.9 539.5 453.9 631.8 603.0 567.7 Z"/>
+  </g>
+
+  <!-- ink outline, drawn twice for a pen over pencil feel -->
+  <g fill="none" stroke="#1A1310" stroke-linecap="round" stroke-linejoin="round" filter="url(#wobble)">
+    <path d="M671.9 526.0 C788.5 422.3 751.1 311.7 667.7 311.5 C584.5 312.8 553.2 421.4 671.9 526.0 Z" stroke-width="5.6"/>
+    <path d="M739.9 565.5 C883.2 622.6 957.7 528.0 924.3 460.2 C891.5 401.7 769.6 407.7 739.9 565.5 Z" stroke-width="5.6"/>
+    <path d="M739.8 642.6 C762.8 789.1 884.9 811.7 927.8 747.3 C972.3 678.1 879.7 590.0 739.8 642.6 Z" stroke-width="5.6"/>
+    <path d="M673.4 682.0 C570.4 784.2 596.2 917.4 677.1 919.6 C759.4 912.8 785.3 786.8 673.4 682.0 Z" stroke-width="5.6"/>
+    <path d="M603.1 640.6 C455.5 586.9 366.6 671.8 404.9 746.4 C443.5 815.4 573.5 793.3 603.1 640.6 Z" stroke-width="5.6"/>
+    <path d="M603.0 567.7 C567.8 420.2 435.4 396.0 404.5 465.6 C370.9 539.5 453.9 631.8 603.0 567.7 Z" stroke-width="5.6"/>
+  </g>
+
+  <!-- pink marker hatching -->
+  <g fill="none" stroke="#FF2E88" stroke-width="9" stroke-linecap="round" opacity="0.72" filter="url(#wobble)">
+    <path d="M680.5 482.4 l22.3 -2.7 M660.7 460.0 l21.8 0.5 M676.2 437.6 l27.9 1.0 M657.2 415.2 l26.8 -0.8 M664.1 392.7 l30.6 0.5 M665.6 370.3 l28.3 2.9 M675.9 347.9 l25.0 2.8 "/>
+    <path d="M781.7 546.7 l7.3 13.9 M805.3 531.5 l11.2 15.4 M808.8 536.0 l9.8 25.1 M836.8 514.0 l10.9 18.9 M852.5 482.9 l5.6 12.9 M874.6 501.9 l12.2 21.1 M899.5 488.2 l16.0 24.6 "/>
+    <path d="M776.2 677.7 l-10.8 25.9 M804.3 685.3 l-6.8 19.1 M813.5 688.9 l-10.3 9.6 M839.6 699.9 l-11.9 17.4 M856.1 705.3 l-13.9 26.3 M868.2 717.1 l-6.4 16.7 M901.9 718.2 l-11.8 24.4 "/>
+    <path d="M668.8 728.6 l-14.2 3.1 M666.0 752.6 l-16.7 -0.6 M691.2 776.0 l-15.6 -3.4 M654.3 799.6 l-16.7 3.5 M697.3 824.2 l-13.5 0.8 M690.9 847.9 l-30.2 -1.0 M671.9 871.4 l-28.6 4.0 "/>
+    <path d="M565.8 649.0 l-3.7 -9.2 M542.5 649.8 l-11.8 -30.2 M521.2 700.4 l-10.3 -11.2 M503.2 690.9 l-8.8 -21.4 M489.0 706.4 l-12.4 -22.6 M464.6 707.0 l-10.1 -18.3 M451.0 712.2 l-5.8 -9.6 "/>
+    <path d="M559.9 539.3 l5.9 -11.8 M554.0 530.9 l9.0 -23.1 M529.9 521.6 l10.0 -19.8 M492.0 508.9 l6.4 -12.3 M495.6 495.5 l12.1 -19.3 M467.7 502.8 l2.2 -7.2 M445.8 499.2 l8.0 -10.4 "/>
+  </g>
+
+  <!-- centre -->
+  <g fill="none" stroke="#1A1310" stroke-width="3" stroke-linecap="round" filter="url(#wobble)">
+    <circle cx="672" cy="604" r="62" />
+    <circle cx="672" cy="604" r="42" />
+    <circle cx="668.5" cy="576.1" r="3.9" />
+    <circle cx="699.2" cy="591.1" r="5.4" />
+    <circle cx="688.5" cy="624.5" r="2.7" />
+    <circle cx="682.8" cy="600.0" r="5.2" />
+    <circle cx="671.8" cy="613.8" r="3.5" />
+    <circle cx="673.7" cy="602.9" r="2.8" />
+    <circle cx="671.7" cy="605.1" r="2.9" />
+    <circle cx="669.5" cy="608.6" r="4.6" />
+    <circle cx="683.9" cy="595.8" r="5.3" />
+    <circle cx="699.8" cy="589.0" r="5.7" />
+    <circle cx="700.2" cy="585.5" r="3.0" />
+    <circle cx="664.1" cy="610.7" r="4.2" />
+    <circle cx="660.1" cy="630.8" r="5.4" />
+    <circle cx="655.0" cy="586.5" r="3.4" />
+    <circle cx="685.6" cy="597.5" r="3.4" />
+    <circle cx="690.4" cy="614.3" r="4.2" />
+    <circle cx="687.4" cy="597.7" r="3.8" />
+    <circle cx="661.6" cy="596.1" r="4.9" />
+    <circle cx="660.2" cy="630.6" r="4.9" />
+    <circle cx="673.2" cy="613.0" r="4.7" />
+    <circle cx="671.3" cy="604.2" r="3.2" />
+    <circle cx="680.5" cy="602.6" r="2.8" />
+    <circle cx="674.5" cy="621.5" r="5.3" />
+    <circle cx="684.6" cy="611.3" r="2.3" />
+    <circle cx="674.6" cy="608.4" r="5.5" />
+    <circle cx="676.8" cy="615.8" r="3.4" />
+    <circle cx="693.5" cy="580.3" r="5.9" />
+    <circle cx="665.2" cy="595.6" r="2.1" />
+    <circle cx="667.2" cy="635.3" r="4.1" />
+    <circle cx="683.6" cy="601.1" r="4.1" />
+    <circle cx="669.5" cy="597.4" r="4.1" />
+    <circle cx="686.1" cy="575.6" r="4.6" />
+    <circle cx="665.2" cy="602.2" r="2.4" />
+    <circle cx="652.1" cy="590.4" r="5.2" />
+    <circle cx="680.1" cy="596.1" r="5.4" />
+    <circle cx="676.2" cy="599.8" r="5.3" />
+    <circle cx="669.2" cy="597.2" r="3.5" />
+    <circle cx="673.9" cy="608.0" r="3.3" />
+    <circle cx="678.1" cy="630.4" r="3.9" />
+    <circle cx="662.6" cy="596.4" r="4.3" />
+    <circle cx="647.0" cy="610.9" r="5.3" />
+    <circle cx="671.3" cy="604.6" r="2.3" />
+    <circle cx="691.3" cy="586.4" r="4.9" />
+    <circle cx="669.7" cy="608.8" r="4.3" />
+    <circle cx="665.5" cy="619.2" r="5.6" />
+    <circle cx="680.6" cy="596.0" r="3.9" />
+  </g>
+  <g fill="#1A1310" opacity="0.8" filter="url(#wobble)">
+    <circle cx="672" cy="604" r="26" fill="none" stroke="#FF2E88" stroke-width="12" opacity="0.85"/>
+  </g>
+
+  <!-- hand annotations -->
+  <g fill="none" stroke="#1A1310" stroke-width="2.4" stroke-linecap="round" filter="url(#wobble)">
+    <path d="M1010 330 L1120 288"/>
+    <path d="M1104 276 L1122 288 L1102 300"/>
+    <path d="M1035 980 C1110 940 1170 960 1230 918"/>
+    <path d="M1214 906 L1232 918 L1212 932"/>
+    <path d="M150 1010 C230 1040 280 1024 340 1052"/>
+    <path d="M1148 214 l26 -10 l-6 26"/>
+    <path d="M110 1180 l34 0 M127 1163 l0 34"/>
+    <path d="M1210 150 l34 0 M1227 133 l0 34"/>
+  </g>
+
+  <!-- lettering -->
+  <g filter="url(#wobbleText)">
+    <text x="104" y="206" font-family="'SFMono-Regular', Consolas, monospace" font-size="26" letter-spacing="9" fill="#1A1310" opacity="0.72">STUDY 01</text>
+    <text x="104" y="243" font-family="'SFMono-Regular', Consolas, monospace" font-size="20" letter-spacing="7" fill="#1A1310" opacity="0.5">INK / MARKER / PAPER — 2026</text>
+    <text x="1035" y="390" font-family="'SFMono-Regular', Consolas, monospace" font-size="22" letter-spacing="6" fill="#FF2E88">PINK</text>
+    <text x="1035" y="424" font-family="'SFMono-Regular', Consolas, monospace" font-size="22" letter-spacing="6" fill="#1A1310" opacity="0.8">WHITE</text>
+    <text x="96" y="1252" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-weight="800" font-size="118" letter-spacing="10" fill="#1A1310" transform="rotate(-2.4 96 1252)">KYROIII</text>
+    <text x="1010" y="1214" font-family="'SFMono-Regular', Consolas, monospace" font-size="22" letter-spacing="7" fill="#1A1310" opacity="0.62" transform="rotate(3 1010 1214)">ORIGINAL</text>
+    <text x="1010" y="1250" font-family="'SFMono-Regular', Consolas, monospace" font-size="22" letter-spacing="7" fill="#FF2E88" transform="rotate(3 1010 1250)">1 / 1</text>
+  </g>
+
+  <!-- a couple of pink marks on the page -->
+  <g fill="#FF2E88" opacity="0.9" filter="url(#wobble)">
+    <circle cx="356" cy="1074" r="9"/>
+    <circle cx="396" cy="1096" r="5"/>
+    <circle cx="308" cy="1100" r="4"/>
+  </g>
+  <g fill="none" stroke="#FF2E88" stroke-width="3" filter="url(#wobble)" opacity="0.8">
+    <path d="M262 960 l22 24 M284 960 l-22 24"/>
+  </g>
+</svg>

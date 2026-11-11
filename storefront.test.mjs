@@ -260,10 +260,17 @@ test('the artwork collection opens in place as locked collector pieces', async (
       artDisplay: getComputedStyle(section).display,
       title: document.querySelector('#yx-art-title').textContent,
       cards: cards.length,
+      pieces: cards.filter((node) => node.hasAttribute('data-yx-art')).length,
+      placeholders: cards.filter((node) => node.classList.contains('is-placeholder')).length,
       columns: getComputedStyle(document.querySelector('#yx-art-grid')).gridTemplateColumns.split(' ').length,
       badge: cards[0].querySelector('.yx-art-card__badge').textContent.replace(/\s+/g, ' ').trim(),
       window: cards[0].querySelector('.yx-art-card__window').textContent,
-      covers: cards.map((node) => node.querySelector('.yx-card__media img').getAttribute('src')),
+      covers: cards.map((node) => node.querySelector('.yx-card__media img')?.getAttribute('src') || null),
+      beatCards: section.querySelectorAll('[data-yx-beat]').length,
+      count: document.querySelector('[data-yx-art-count]').textContent,
+      slots: document.querySelector('[data-yx-art-slots]').textContent,
+      slotCopy: cards[1].innerText.replace(/\s+/g, ' ').trim(),
+      slotFocusable: cards[1].matches('button, a, [tabindex]') || cards[1].hasAttribute('data-yx-art'),
       overflow: document.documentElement.scrollWidth - window.innerWidth,
     };
   });
@@ -273,12 +280,30 @@ test('the artwork collection opens in place as locked collector pieces', async (
   assert.equal(gallery.homeDisplay, 'none', 'the beats grid yields to the collection');
   assert.equal(gallery.artDisplay, 'block', 'the collection is the page, not a new route');
   assert.equal(gallery.title, 'ARTWORK');
-  assert.equal(gallery.cards, 8, 'every cover drawn for the records is in the collection');
+  assert.equal(gallery.cards, 8, 'one slot per record, no more');
+  assert.equal(gallery.pieces, 1, 'only the registered hand-drawn piece is a real card');
+  assert.equal(gallery.placeholders, 7, 'every uncovered record reserves an empty slot');
   assert.equal(gallery.columns, 3, 'the collection is three wide on desktop');
-  assert.equal(gallery.badge, 'COLLECTOR — LOCKED', 'each cover is a locked collector piece');
+  assert.equal(gallery.badge, 'COLLECTOR — LOCKED', 'each card is a locked collector piece');
   assert.match(gallery.window, /PRINTS · DROPS · APPAREL 2028–2029/, 'the badge names the 2028–2029 window');
-  assert.equal(new Set(gallery.covers).size, 8, 'each piece carries its own original cover');
+  assert.deepEqual(
+    gallery.covers.filter(Boolean),
+    ['assets/artwork/pink-study-01.svg'],
+    'the collection carries the original drawing and nothing else'
+  );
+  assert.equal(gallery.covers.filter(Boolean).length, 1, 'no beat photograph stands in for artwork');
+  assert.equal(gallery.beatCards, 0, 'the gallery never borrows a beat card');
+  assert.equal(gallery.count, '01');
+  assert.equal(gallery.slots, '07');
+  assert.match(gallery.slotCopy, /COMING SOON/, 'an unassigned record reads COMING SOON');
+  assert.match(gallery.slotCopy, /ORIGINAL ARTWORK DROP/, 'the empty slot announces the artwork drop');
+  assert.match(gallery.slotCopy, /COLLECTOR — LOCKED/, 'the empty slot carries the locked badge');
+  assert.match(gallery.slotCopy, /RESERVED/, 'the empty slot is marked reserved');
+  assert.equal(gallery.slotFocusable, false, 'an empty slot cannot be opened');
   assert.equal(gallery.overflow, 0, 'the collection never scrolls sideways');
+
+  await page.locator('#yx-art-grid .is-placeholder').first().click();
+  assert.equal(await page.locator('#yx-focus').isHidden(), true, 'a reserved slot opens nothing');
 
   const before = await page.evaluate(() => ({
     scrollY: Math.round(scrollY),
@@ -287,7 +312,7 @@ test('the artwork collection opens in place as locked collector pieces', async (
       return [Math.round(rect.left), Math.round(rect.top), Math.round(rect.width)];
     }),
   }));
-  const cover = await page.locator('#yx-art-grid .yx-card__media').first().boundingBox();
+  const cover = await page.locator('#yx-art-grid [data-yx-art] .yx-card__media').boundingBox();
   await page.locator('#yx-art-grid .yx-art-card').first().click();
   await page.waitForFunction(() => !document.querySelector('#yx-focus').hidden);
   const focus = await page.evaluate(() => {
@@ -297,6 +322,7 @@ test('the artwork collection opens in place as locked collector pieces', async (
       title: document.querySelector('[data-yx-focus-title]').textContent,
       type: document.querySelector('[data-yx-focus-type]').textContent,
       specs: document.querySelector('[data-yx-focus-specs]').textContent,
+      art: document.querySelector('[data-yx-focus-art]').getAttribute('src'),
       kicker: document.querySelector('[data-yx-focus-kicker]').textContent,
       back: document.querySelector('[data-yx-focus-back]').textContent,
       isArt: sheet.classList.contains('is-art'),
@@ -315,10 +341,11 @@ test('the artwork collection opens in place as locked collector pieces', async (
       sheetTop: Math.round(sheet.getBoundingClientRect().top),
     };
   });
-  assert.match(focus.url, /artwork=white-night/, 'the piece is addressable without leaving the page');
-  assert.equal(focus.title, 'WHITE NIGHT');
-  assert.equal(focus.type, 'ORIGINAL COVER ARTWORK');
+  assert.match(focus.url, /artwork=pink-study-01/, 'the piece is addressable without leaving the page');
+  assert.equal(focus.title, 'PINK STUDY 01');
+  assert.equal(focus.type, 'ORIGINAL HAND-DRAWN COVER — WHITE NIGHT');
   assert.equal(focus.specs, 'ORIGINAL 1 / 1');
+  assert.equal(focus.art, 'assets/artwork/pink-study-01.svg', 'the sheet shows the drawing, not the beat cover');
   assert.equal(focus.kicker, 'COLLECTOR PIECE');
   assert.equal(focus.back, 'ALL ARTWORK', 'the return control names the collection');
   assert.equal(focus.isArt, true, 'the same sheet carries the artwork state');
@@ -327,7 +354,7 @@ test('the artwork collection opens in place as locked collector pieces', async (
   assert.match(focus.note, /PHYSICAL PRINTS, LIMITED DROPS AND APPAREL INTEGRATION OPEN IN 2028–2029/);
   assert.deepEqual(focus.rows, [
     'EDITION / ORIGINAL 1 / 1',
-    'MEDIUM / ORIGINAL COVER STUDY',
+    'MEDIUM / INK & MARKER ON PAPER',
     'ACCESS / LOCKED — 2028–2029',
   ]);
   assert.equal(focus.player, 'none', 'a locked print offers no preview');
@@ -349,7 +376,7 @@ test('the artwork collection opens in place as locked collector pieces', async (
     url: location.search,
   }));
   assert.equal(flight.ghost, true, 'closing flies the artwork home instead of cutting');
-  assert.match(flight.cover, /white-night/);
+  assert.match(flight.cover, /assets\/artwork\/pink-study-01\.svg/);
   assert.equal(flight.visibility, 'visible', 'the collection is already back in place for the landing');
   assert.equal(flight.leaving, true);
   assert.match(flight.url, /view=artwork/, 'closing returns to the collection, not the beats grid');

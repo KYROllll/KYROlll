@@ -541,22 +541,39 @@ mark is the spinning flower in the header.
   frozen under `prefers-reduced-motion`. It is the site's only flower mark; the
   focus view adds none.
 - **The artwork collection.** `ARTWORK` swaps the beats grid for `#yx-artwork`
-  in place (`?view=artwork`, `history.pushState`; `FREE BEATS` swaps back). It is
-  one `<button class="yx-card yx-art-card">` per beat, reusing the catalog covers
-  and the `data-yx-beat` / `.yx-card__media` contract, three columns on desktop and
-  one on a phone. Every piece is a locked collector item: the card carries a
+  in place (`?view=artwork`, `history.pushState`; `FREE BEATS` swaps back). The
+  collection shows **only original hand-drawn artwork**: `window.KYROlll_ARTWORKS`
+  in `catalog.js` is the register (`{ id, title, beatId, year, src, medium }`, the
+  `src` an `assets/artwork/…` scan), and `storefront.js` renders one
+  `<button class="yx-card yx-art-card" data-yx-art="<id>">` per entry — the work
+  itself, never the record's photograph. A catalog beat with no registered piece
+  gets an inert `div.yx-art-card.is-placeholder` instead: a hairline empty frame
+  reading `COMING SOON` / `ORIGINAL ARTWORK DROP`, the record name, `RESERVED`,
+  and the same padlock badge. Placeholders carry no `data-yx-art`, no
+  button/tabindex and no click handler, so they cannot open a focus view. The
+  foot counts the two separately (`<span data-yx-art-count>` ORIGINAL ARTWORK /
+  `<span data-yx-art-slots>` SLOTS RESERVED · 2028–2029). Adding a drawing is one
+  entry in `KYROlll_ARTWORKS`; nothing reads a beat `img` for the gallery. Three
+  columns on desktop, one on a phone. Every card is a locked collector item: a
   hairline `COLLECTOR — LOCKED` badge with a `currentColor` padlock SVG and a
-  `PRINTS · DROPS · APPAREL 2028–2029` line, and the gallery keeps its covers at
+  `PRINTS · DROPS · APPAREL 2028–2029` line, and the gallery keeps the art at
   full contrast (`.yx-art-card.is-locked` opts out of the beats grid's dimming).
   Choosing a piece opens the **same** focus sheet, FLIP zoom and flying-cover
   close, with `.yx-focus.is-art`: the player, package rows and license note are
   hidden and `[data-yx-collector]` replaces them with `COLLECTOR PIECE — LOCKED`,
-  the 2028–2029 window copy, and the EDITION / MEDIUM / ACCESS rows, while the
-  kicker reads `COLLECTOR PIECE` and the return control `ALL ARTWORK`. A focused
-  piece is `?view=artwork&artwork=<id-or-slug>`; closing returns to the gallery
-  (not the beats grid) and never rebuilds or rescrolls it. `.yx-focus.is-art` is
-  the only switch — there is one sheet, one zoom and one ghost, so the two views
-  cannot drift apart.
+  the 2028–2029 window copy, and the EDITION / MEDIUM / ACCESS rows (MEDIUM is
+  `data-yx-collector-medium`, printed from the piece), while the kicker reads
+  `COLLECTOR PIECE` and the return control `ALL ARTWORK`. The sheet title is the
+  piece's own (`PINK STUDY 01`), the type line `ORIGINAL HAND-DRAWN COVER —
+  <RECORD>`, the specs `ORIGINAL 1 / 1`. A focused piece is
+  `?view=artwork&artwork=<piece.id>` (the artwork id, not a beat slug); closing
+  returns to the gallery (not the beats grid) and never rebuilds or rescrolls it.
+  `.yx-focus.is-art` is the only switch — there is one sheet, one zoom and one
+  ghost, so the two views cannot drift apart. The first piece shipped is
+  `assets/artwork/pink-study-01.svg` (inked flower, pink marker washes, cream
+  paper, `INK & MARKER ON PAPER`, drawn for `white-night`); it is a vector
+  placeholder-quality original and can be replaced by a scan without touching
+  any code as long as the path in `KYROlll_ARTWORKS` stays.
 - **Packages.** Every package row calls `KYROlll_DOWNLOADS.start(beat.id,
   pack.id)`. The email gate, REVIEW & SIGN, PDF and exclusive-claim register are
   never re-implemented in the archive; a locked or not-yet-released record renders

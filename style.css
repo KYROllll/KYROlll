@@ -5176,6 +5176,39 @@ html.beat-page .yx-focus { display: none; }
   color: #565656;
 }
 
+/* A reserved slot: the drawing is not made yet, so the frame stays empty —
+   never a beat photograph standing in for original artwork. */
+.yx-art-card.is-placeholder { cursor: default; }
+.yx-art-card__blank {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 16px;
+  border: 1px solid #1c1c1c;
+  background: #050505;
+  text-align: center;
+}
+.yx-art-card__blank::before {
+  content: "";
+  width: 22px;
+  height: 1px;
+  background: #2a2a2a;
+}
+.yx-art-card__soon {
+  font-size: 9px;
+  letter-spacing: .34em;
+  color: #d6d6d6;
+}
+.yx-art-card__drop {
+  font-size: 7px;
+  letter-spacing: .2em;
+  color: #4f4f4f;
+}
+.yx-art-card.is-placeholder .yx-card__name { color: #767676; }
+.yx-art-card.is-placeholder .yx-card__specs { color: #3f3f3f; }
+
 .yx-collector {
   margin-top: 24px;
   padding-top: 20px;

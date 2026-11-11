@@ -6,10 +6,12 @@
  * package button calls `KYROlll_DOWNLOADS.start`, so the email + license flow,
  * the PDF and the exclusive-claim registry stay exactly where they live.
  *
- * ARTWORK is the second view of the same page: the covers drawn for the beats,
- * shown as locked collector pieces. It reuses the focus sheet, the FLIP zoom and
- * the flying-cover close, but swaps the player and packages for the collector
- * record (prints, drops and apparel open in 2028–2029).
+ * ARTWORK is the second view of the same page: the hand-drawn covers, shown as
+ * locked collector pieces. It reuses the focus sheet, the FLIP zoom and the
+ * flying-cover close, but swaps the player and packages for the collector record
+ * (prints, drops and apparel open in 2028–2029). The collection shows NOTHING
+ * but `KYROlll_ARTWORKS` — a beat cover is never borrowed as a stand-in, so a
+ * record without a drawing gets an empty COMING SOON slot instead.
  *
  * Both views are home-only. A direct `?beat=` link still renders the full beat
  * card through script.js, untouched.
@@ -19,12 +21,14 @@
 
   const CATALOG = window.KYROlll_CATALOG || [];
   const PACKAGES = window.KYROlll_PACKAGES || [];
+  const ARTWORKS = window.KYROlll_ARTWORKS || [];
   const HELPERS = window.KYROlll_HELPERS || {};
   const grid = document.getElementById("yx-grid");
   const home = document.querySelector(".yx-home:not(.yx-art)");
   const artView = document.getElementById("yx-artwork");
   const artGrid = document.getElementById("yx-art-grid");
   const artCount = document.querySelector("[data-yx-art-count]");
+  const artSlots = document.querySelector("[data-yx-art-slots]");
   const focus = document.getElementById("yx-focus");
   const header = document.querySelector(".site-header");
   const countNode = document.querySelector("[data-yx-count]");
@@ -38,6 +42,7 @@
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
   const state = {
     beat: null,
+    art: null,
     kind: null,
     view: "beats",
     zoomTimer: 0,
@@ -60,6 +65,7 @@
   const focusBack = focus.querySelector("[data-yx-focus-back]");
   const focusKicker = focus.querySelector("[data-yx-focus-kicker]");
   const collector = focus.querySelector("[data-yx-collector]");
+  const collectorMedium = focus.querySelector("[data-yx-collector-medium]");
 
   const LOCK_SVG = '<svg class="yx-lock" viewBox="0 0 10 12" aria-hidden="true" focusable="false">'
     + '<path d="M2.5 5V3.6a2.5 2.5 0 0 1 5 0V5" fill="none" stroke="currentColor" stroke-width="1"/>'
@@ -88,6 +94,16 @@
   const gridFor = (kind) => (kind === "art" ? artGrid : grid);
   const viewFor = (kind) => (kind === "art" ? artView : home);
 
+  /* The collection is the artwork register only. A piece points at the record it
+     was drawn for; every record it does not cover reserves an empty slot, so no
+     beat photograph can ever stand in for a drawing. */
+  const beatFor = (piece) => newest.find((beat) => beat.id === piece.beatId || beat.slug === piece.beatId) || null;
+  const pieces = ARTWORKS.filter((piece) => piece && piece.id && piece.src);
+  const covered = new Set(pieces.map((piece) => (beatFor(piece) || {}).id).filter(Boolean));
+  const slots = newest.filter((beat) => !covered.has(beat.id));
+  const pieceFor = (id) => pieces.find((piece) => piece.id === id) || null;
+  const artIndex = (piece) => String(pieces.indexOf(piece) + 1).padStart(2, "0");
+
   /* ------------------------------------------------------------------- grid */
 
   function cardHTML(beat, index) {
@@ -115,11 +131,37 @@
     </button>`;
   }
 
-  function artCardHTML(beat, index) {
-    const { name, type } = splitTitle(beat);
-    return `<button class="yx-card yx-art-card is-locked" type="button" data-yx-beat="${esc(beat.id)}" aria-label="Focus artwork for ${esc(name)} — locked until 2028">
+  function artCardHTML(piece) {
+    const beat = beatFor(piece);
+    const beatName = beat ? splitTitle(beat).name : "";
+    const type = beatName ? `HAND-DRAWN ORIGINAL — ${esc(beatName)}` : "HAND-DRAWN ORIGINAL";
+    return `<button class="yx-card yx-art-card is-locked" type="button" data-yx-art="${esc(piece.id)}" aria-label="Focus ${esc(piece.title)} — original hand-drawn artwork, locked until 2028">
       <span class="yx-card__media">
-        <img src="${esc(beat.img)}" alt="${esc(name)} original cover artwork" width="1024" height="1024" ${index < 3 ? "" : 'loading="lazy"'} decoding="async">
+        <img src="${esc(piece.src)}" alt="${esc(piece.title)} — original hand-drawn cover artwork" width="1400" height="1400" decoding="async">
+      </span>
+      <span class="yx-art-card__badge">
+        ${LOCK_SVG}
+        <span>COLLECTOR — LOCKED</span>
+      </span>
+      <span class="yx-card__row">
+        <span class="yx-card__index">${artIndex(piece)}</span>
+        <span class="yx-card__name">${esc(piece.title)}</span>
+        <span class="yx-card__specs">1 / 1</span>
+      </span>
+      <span class="yx-card__type">${type}</span>
+      <span class="yx-art-card__window">PRINTS · DROPS · APPAREL 2028–2029</span>
+    </button>`;
+  }
+
+  /* A reserved slot: no photograph, no scan, just the record the drawing is
+     owed and the same locked badge. It is a div, so it is inert to pointer and
+     keyboard and cannot open a focus view that does not exist yet. */
+  function artSlotHTML(beat, index) {
+    const { name } = splitTitle(beat);
+    return `<div class="yx-art-card is-placeholder" aria-label="Original artwork for ${esc(name)} — coming soon, locked until 2028">
+      <span class="yx-card__media yx-art-card__blank">
+        <span class="yx-art-card__soon">COMING SOON</span>
+        <span class="yx-art-card__drop">ORIGINAL ARTWORK DROP</span>
       </span>
       <span class="yx-art-card__badge">
         ${LOCK_SVG}
@@ -128,11 +170,11 @@
       <span class="yx-card__row">
         <span class="yx-card__index">${String(index + 1).padStart(2, "0")}</span>
         <span class="yx-card__name">${esc(name)}</span>
-        <span class="yx-card__specs">1 / 1</span>
+        <span class="yx-card__specs">RESERVED</span>
       </span>
-      <span class="yx-card__type">${esc(type)}</span>
+      <span class="yx-card__type">COVER STUDY — IN PROGRESS</span>
       <span class="yx-art-card__window">PRINTS · DROPS · APPAREL 2028–2029</span>
-    </button>`;
+    </div>`;
   }
 
   function renderGrid() {
@@ -148,10 +190,13 @@
 
   function renderArtGrid() {
     if (!artGrid) return;
-    if (artCount) artCount.textContent = String(newest.length).padStart(2, "0");
-    artGrid.innerHTML = newest.length
-      ? newest.map(artCardHTML).join("")
-      : '<p class="yx-grid__empty">NO ARTWORK IN THE COLLECTION YET.</p>';
+    const cards = pieces.map(artCardHTML);
+    const reserved = slots.map((beat, i) => artSlotHTML(beat, pieces.length + i));
+    if (artCount) artCount.textContent = String(pieces.length).padStart(2, "0");
+    if (artSlots) artSlots.textContent = String(slots.length).padStart(2, "0");
+    artGrid.innerHTML = (cards.length + reserved.length)
+      ? cards.concat(reserved).join("")
+      : '<p class="yx-grid__empty">NO ORIGINAL ARTWORK IN THE COLLECTION YET.</p>';
     artGrid.inert = false;
   }
 
@@ -167,38 +212,29 @@
     </button>`;
   }
 
-  function renderFocus(beat, keepAudio, kind) {
+  function renderFocus(beat, keepAudio) {
     const { name, type } = splitTitle(beat);
-    const isArt = kind === "art";
     const locked = isLocked(beat);
     const owned = locked && isOwned(beat);
     const pending = !locked && !isReleased(beat);
 
     focusArt.src = beat.img;
-    focusArt.alt = `${name} ${isArt ? "original cover artwork" : "cover art"}`;
+    focusArt.alt = `${name} cover art`;
     focusIndex.textContent = numberFor(beat);
     focusTitle.textContent = name;
-    focusType.textContent = isArt ? "ORIGINAL COVER ARTWORK" : type;
-    focusSpecs.textContent = isArt ? "ORIGINAL 1 / 1" : specsFor(beat);
-    focus.classList.toggle("is-art", isArt);
-    if (focusKicker) focusKicker.textContent = isArt ? "COLLECTOR PIECE" : "FOCUSED SELECTION";
-    if (focusBack) focusBack.textContent = isArt ? "ALL ARTWORK" : "ALL BEATS";
-    if (collector) collector.hidden = !isArt;
+    focusType.textContent = type;
+    focusSpecs.textContent = specsFor(beat);
+    focus.classList.remove("is-art");
+    if (focusKicker) focusKicker.textContent = "FOCUSED SELECTION";
+    if (focusBack) focusBack.textContent = "ALL BEATS";
+    if (collector) collector.hidden = true;
 
     let status = "";
-    if (!isArt) {
-      if (pending) status = `DROPPING SOON — <b data-focus-countdown>${esc(countdown(beat))}</b>`;
-      else if (locked) status = owned ? "PRIVATE MASTER // YOURS" : "CLAIMED / SOLD OUT";
-    }
+    if (pending) status = `DROPPING SOON — <b data-focus-countdown>${esc(countdown(beat))}</b>`;
+    else if (locked) status = owned ? "PRIVATE MASTER // YOURS" : "CLAIMED / SOLD OUT";
     focusStatus.innerHTML = status;
     focusStatus.hidden = !status;
     focusStatus.classList.toggle("is-locked", locked);
-
-    if (isArt) {
-      focusPacks.innerHTML = "";
-      if (!keepAudio) pauseAudio();
-      return;
-    }
 
     if (locked) {
       focusPacks.innerHTML = `<p class="yx-focus__closed">${owned
@@ -212,6 +248,32 @@
 
     if (!keepAudio) loadAudio(beat);
     watchCountdowns();
+  }
+
+  /* A focused artwork is the same sheet with the collector record in place of
+     the player and the packages. It never touches the beat's audio element, and
+     it shows the drawing itself — never the record's photograph. */
+  function renderArtFocus(piece) {
+    const beat = beatFor(piece);
+    const beatName = beat ? splitTitle(beat).name : "";
+    focusArt.src = piece.src;
+    focusArt.alt = `${piece.title} — original hand-drawn cover artwork`;
+    focusIndex.textContent = artIndex(piece);
+    focusTitle.textContent = piece.title;
+    focusType.textContent = beatName
+      ? `ORIGINAL HAND-DRAWN COVER — ${beatName}`
+      : "ORIGINAL HAND-DRAWN COVER";
+    focusSpecs.textContent = `ORIGINAL ${piece.edition || "1 / 1"}`;
+    focus.classList.add("is-art");
+    if (focusKicker) focusKicker.textContent = "COLLECTOR PIECE";
+    if (focusBack) focusBack.textContent = "ALL ARTWORK";
+    if (collector) collector.hidden = false;
+    if (collectorMedium) collectorMedium.textContent = piece.medium || "INK ON PAPER";
+    focusStatus.innerHTML = "";
+    focusStatus.hidden = true;
+    focusStatus.classList.remove("is-locked");
+    focusPacks.innerHTML = "";
+    pauseAudio();
   }
 
   /* The focused record is a sheet pinned under the header, and the cover is a
@@ -228,7 +290,8 @@
   function cardMedia(id, kind) {
     const scope = gridFor(kind);
     if (!scope) return null;
-    const card = scope.querySelector(`[data-yx-beat="${CSS.escape(id)}"]`);
+    const selector = kind === "art" ? "data-yx-art" : "data-yx-beat";
+    const card = scope.querySelector(`[${selector}="${CSS.escape(id)}"]`);
     const media = card && card.querySelector(".yx-card__media");
     return media ? { card, media, rect: media.getBoundingClientRect() } : null;
   }
@@ -254,12 +317,19 @@
     });
   }
 
-  function showFocus(beat, kind) {
-    const from = cardMedia(beat.id, kind);
+  function showFocus(item, kind) {
+    const from = cardMedia(item.id, kind);
     const seq = ++state.zoomSeq;
-    state.beat = beat;
     state.kind = kind;
-    renderFocus(beat, false, kind);
+    if (kind === "art") {
+      state.art = item;
+      state.beat = null;
+      renderArtFocus(item);
+    } else {
+      state.beat = item;
+      state.art = null;
+      renderFocus(item, false);
+    }
     if (from && from.card) from.card.classList.add("is-selected");
     window.clearTimeout(state.zoomTimer);
     syncFocusTop();
@@ -280,33 +350,43 @@
     if (from && !reduced.matches) zoomIn(from, seq);
   }
 
-  function openItem(id, kind, push) {
+  function openItem(id, push) {
     const beat = newest.find((item) => item.id === id || item.slug === id);
     if (!beat) return;
     if (state.beat && state.beat.id === beat.id) return;
-    if (state.view !== normalizeView(kind)) setView(kind, false, false);
+    if (state.view !== "beats") setView("beats", false, false);
     if (push) {
       const url = new URL(location.href);
-      if (kind === "art") {
-        url.searchParams.set("view", "artwork");
-        url.searchParams.set("artwork", beat.slug || beat.id);
-        url.searchParams.delete("focus");
-      } else {
-        url.searchParams.delete("view");
-        url.searchParams.delete("artwork");
-        url.searchParams.set("focus", id);
-      }
-      history.pushState({ focus: id, view: kind }, "", url.pathname + url.search);
+      url.searchParams.delete("view");
+      url.searchParams.delete("artwork");
+      url.searchParams.set("focus", id);
+      history.pushState({ focus: id, view: "beat" }, "", url.pathname + url.search);
     }
-    showFocus(beat, kind);
+    showFocus(beat, "beat");
+  }
+
+  function openArtwork(id, push) {
+    const piece = pieceFor(id);
+    if (!piece) return;
+    if (state.art && state.art.id === piece.id) return;
+    if (state.view !== "art") setView("art", false, false);
+    if (push) {
+      const url = new URL(location.href);
+      url.searchParams.set("view", "artwork");
+      url.searchParams.set("artwork", piece.id);
+      url.searchParams.delete("focus");
+      history.pushState({ focus: piece.id, view: "art" }, "", url.pathname + url.search);
+    }
+    showFocus(piece, "art");
   }
 
   function closeFocus(push, instant) {
-    if (!state.beat) return;
-    const last = state.beat;
+    if (!state.beat && !state.art) return;
     const kind = state.kind || "beat";
+    const last = kind === "art" ? state.art : state.beat;
     const seq = ++state.zoomSeq;
     state.beat = null;
+    state.art = null;
     state.kind = null;
     window.clearTimeout(state.zoomTimer);
     pauseAudio();
@@ -430,16 +510,16 @@
     const artId = query.get("artwork");
     const inArt = Boolean(artId) || query.get("view") === "artwork";
     if (inArt) {
-      if (state.beat && state.kind !== "art") closeFocus(false, true);
+      if (state.beat) closeFocus(false, true);
       if (state.view !== "art") setView("art", false, false);
-      if (artId) openItem(artId, "art", false);
-      else if (state.beat) closeFocus(false);
+      if (artId) openArtwork(artId, false);
+      else if (state.art) closeFocus(false);
       return;
     }
-    if (state.beat && state.kind === "art") closeFocus(false, true);
+    if (state.art) closeFocus(false, true);
     if (state.view !== "beats") setView("beats", false, false);
     const id = query.get("focus");
-    if (id) openItem(id, "beat", false);
+    if (id) openItem(id, false);
     else if (state.beat) closeFocus(false);
   }
 
@@ -557,7 +637,7 @@
       }
       if (due) {
         renderGrid();
-        if (state.beat) renderFocus(state.beat, true, state.kind);
+        if (state.beat) renderFocus(state.beat, true);
       }
     };
     tick();
@@ -567,7 +647,7 @@
   function repaintClaims() {
     if (document.documentElement.classList.contains("gate-open")) return;
     renderGrid();
-    if (state.beat && state.kind === "beat") renderFocus(state.beat, true, "beat");
+    if (state.beat) renderFocus(state.beat, true);
   }
 
   window.addEventListener("kyrolll:exclusive-locked", repaintClaims);
@@ -578,14 +658,14 @@
   grid.addEventListener("click", (event) => {
     const card = event.target.closest("[data-yx-beat]");
     if (!card) return;
-    openItem(card.getAttribute("data-yx-beat"), "beat", true);
+    openItem(card.getAttribute("data-yx-beat"), true);
   });
 
   if (artGrid) {
     artGrid.addEventListener("click", (event) => {
-      const card = event.target.closest("[data-yx-beat]");
+      const card = event.target.closest("[data-yx-art]");
       if (!card) return;
-      openItem(card.getAttribute("data-yx-beat"), "art", true);
+      openArtwork(card.getAttribute("data-yx-art"), true);
     });
   }
 
@@ -599,7 +679,7 @@
 
   focusPacks.addEventListener("click", (event) => {
     const button = event.target.closest("[data-yx-pack]");
-    if (!button || !state.beat || state.kind === "art") return;
+    if (!button || !state.beat) return;
     if (isLocked(state.beat) || !isReleased(state.beat)) return;
     if (!window.KYROlll_DOWNLOADS || !window.KYROlll_DOWNLOADS.start) return;
     window.KYROlll_DOWNLOADS.start(state.beat.id, button.getAttribute("data-yx-pack"));
@@ -624,14 +704,14 @@
   renderArtGrid();
   const startInArt = params.get("view") === "artwork" || params.has("artwork");
   setView(startInArt ? "art" : "beats", false, false);
-  if (startInArt && params.get("artwork")) openItem(params.get("artwork"), "art", false);
-  else if (!startInArt && params.get("focus")) openItem(params.get("focus"), "beat", false);
+  if (startInArt && params.get("artwork")) openArtwork(params.get("artwork"), false);
+  else if (!startInArt && params.get("focus")) openItem(params.get("focus"), false);
 
   // Exposed for the smoke check and for the room's old callers, without making
   // any of this a public contract.
   window.KYROlll_ARCHIVE = {
-    open: (id) => openItem(id, "beat", true),
-    openArtwork: (id) => openItem(id, "art", true),
+    open: (id) => openItem(id, true),
+    openArtwork: (id) => openArtwork(id, true),
     view: (name) => setView(name, true),
     close: () => closeFocus(true),
     get focused() { return state.beat ? state.beat.id : null; },
