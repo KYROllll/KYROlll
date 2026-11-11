@@ -494,8 +494,9 @@ drops the spring and settles instantly.
 
 The home route is the storefront, not a document below it. `index.html` renders a
 Yeezy-minimal archive on a solid pitch-black field: a sticky category bar
-(`FREE BEATS` active; `COMMERCIAL` and `PLUGINS` present but disabled), one
-compact grid, and a focused record. There is no vinyl room, hero, marquee,
+(`FREE BEATS` active; `COMMERCIAL` present but disabled; `ARTWORK` live), one
+compact grid, and a focused record. `ARTWORK` is a second view of the same page,
+not a route: see the collection note below. There is no vinyl room, hero, marquee,
 preloader, live 3D flower or ambient canvas on this route — `storefront.js` loads
 as a plain hand-written script, so a change is a reload and a `?v=N` bump, not an
 esbuild step. The page carries no decorative canvas at all: the only animated
@@ -539,6 +540,23 @@ mark is the spinning flower in the header.
   home, beat route, download and support — turning on `yxFlowerSpin` (16s linear),
   frozen under `prefers-reduced-motion`. It is the site's only flower mark; the
   focus view adds none.
+- **The artwork collection.** `ARTWORK` swaps the beats grid for `#yx-artwork`
+  in place (`?view=artwork`, `history.pushState`; `FREE BEATS` swaps back). It is
+  one `<button class="yx-card yx-art-card">` per beat, reusing the catalog covers
+  and the `data-yx-beat` / `.yx-card__media` contract, three columns on desktop and
+  one on a phone. Every piece is a locked collector item: the card carries a
+  hairline `COLLECTOR — LOCKED` badge with a `currentColor` padlock SVG and a
+  `PRINTS · DROPS · APPAREL 2028–2029` line, and the gallery keeps its covers at
+  full contrast (`.yx-art-card.is-locked` opts out of the beats grid's dimming).
+  Choosing a piece opens the **same** focus sheet, FLIP zoom and flying-cover
+  close, with `.yx-focus.is-art`: the player, package rows and license note are
+  hidden and `[data-yx-collector]` replaces them with `COLLECTOR PIECE — LOCKED`,
+  the 2028–2029 window copy, and the EDITION / MEDIUM / ACCESS rows, while the
+  kicker reads `COLLECTOR PIECE` and the return control `ALL ARTWORK`. A focused
+  piece is `?view=artwork&artwork=<id-or-slug>`; closing returns to the gallery
+  (not the beats grid) and never rebuilds or rescrolls it. `.yx-focus.is-art` is
+  the only switch — there is one sheet, one zoom and one ghost, so the two views
+  cannot drift apart.
 - **Packages.** Every package row calls `KYROlll_DOWNLOADS.start(beat.id,
   pack.id)`. The email gate, REVIEW & SIGN, PDF and exclusive-claim register are
   never re-implemented in the archive; a locked or not-yet-released record renders

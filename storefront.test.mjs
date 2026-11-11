@@ -109,8 +109,8 @@ test('the home is a solid black compact grid with the category menu', async () =
   assert.deepEqual(home.nav, [
     { text: 'FREE BEATS', disabled: false },
     { text: 'COMMERCIAL 2028', disabled: true },
-    { text: 'PLUGINS SOON', disabled: true },
-  ], 'COMMERCIAL and PLUGINS are visibly disabled');
+    { text: 'ARTWORK', disabled: false },
+  ], 'the plugins slot is now the artwork collection; COMMERCIAL stays locked');
   assert.match(home.flower.src, /kyrolll-flower-rest\.png/, 'the header wears the flower mark');
   assert(home.flower.box.right > 1300, 'the flower sits in the top-right corner');
   assert(home.flower.box.width <= 26, 'the header flower stays a small mark');
@@ -242,6 +242,154 @@ test('choosing a record zooms it open in place and offers the packages', async (
   assert.deepEqual(back.media, archive.media, 'no card reflowed or moved during open and close');
   assert.equal(back.focused, true, 'focus returns to the card that was chosen');
   assert(!back.url.includes('focus='), 'closing clears the focus parameter');
+  await context.close();
+});
+
+test('the artwork collection opens in place as locked collector pieces', async () => {
+  const { context, page, errors } = await openHome({ viewport: { width: 1440, height: 900 } });
+  await page.locator('[data-yx-view="artwork"]').click();
+  await page.waitForTimeout(150);
+  const gallery = await page.evaluate(() => {
+    const section = document.querySelector('#yx-artwork');
+    const cards = [...section.querySelectorAll('.yx-art-card')];
+    return {
+      url: location.search,
+      active: document.querySelector('.site-nav__link.is-active').textContent.trim(),
+      plugins: [...document.querySelectorAll('.site-nav__link')].some((node) => /PLUGINS/.test(node.textContent)),
+      homeDisplay: getComputedStyle(document.querySelector('#catalog')).display,
+      artDisplay: getComputedStyle(section).display,
+      title: document.querySelector('#yx-art-title').textContent,
+      cards: cards.length,
+      columns: getComputedStyle(document.querySelector('#yx-art-grid')).gridTemplateColumns.split(' ').length,
+      badge: cards[0].querySelector('.yx-art-card__badge').textContent.replace(/\s+/g, ' ').trim(),
+      window: cards[0].querySelector('.yx-art-card__window').textContent,
+      covers: cards.map((node) => node.querySelector('.yx-card__media img').getAttribute('src')),
+      overflow: document.documentElement.scrollWidth - window.innerWidth,
+    };
+  });
+  assert.match(gallery.url, /view=artwork/, 'the collection is addressable');
+  assert.equal(gallery.active, 'ARTWORK', 'ARTWORK becomes the active category');
+  assert.equal(gallery.plugins, false, 'the plugins category is gone from the menu');
+  assert.equal(gallery.homeDisplay, 'none', 'the beats grid yields to the collection');
+  assert.equal(gallery.artDisplay, 'block', 'the collection is the page, not a new route');
+  assert.equal(gallery.title, 'ARTWORK');
+  assert.equal(gallery.cards, 8, 'every cover drawn for the records is in the collection');
+  assert.equal(gallery.columns, 3, 'the collection is three wide on desktop');
+  assert.equal(gallery.badge, 'COLLECTOR — LOCKED', 'each cover is a locked collector piece');
+  assert.match(gallery.window, /PRINTS · DROPS · APPAREL 2028–2029/, 'the badge names the 2028–2029 window');
+  assert.equal(new Set(gallery.covers).size, 8, 'each piece carries its own original cover');
+  assert.equal(gallery.overflow, 0, 'the collection never scrolls sideways');
+
+  const before = await page.evaluate(() => ({
+    scrollY: Math.round(scrollY),
+    media: [...document.querySelectorAll('#yx-art-grid .yx-card__media')].map((node) => {
+      const rect = node.getBoundingClientRect();
+      return [Math.round(rect.left), Math.round(rect.top), Math.round(rect.width)];
+    }),
+  }));
+  const cover = await page.locator('#yx-art-grid .yx-card__media').first().boundingBox();
+  await page.locator('#yx-art-grid .yx-art-card').first().click();
+  await page.waitForFunction(() => !document.querySelector('#yx-focus').hidden);
+  const focus = await page.evaluate(() => {
+    const sheet = document.querySelector('#yx-focus');
+    return {
+      url: location.search,
+      title: document.querySelector('[data-yx-focus-title]').textContent,
+      type: document.querySelector('[data-yx-focus-type]').textContent,
+      specs: document.querySelector('[data-yx-focus-specs]').textContent,
+      kicker: document.querySelector('[data-yx-focus-kicker]').textContent,
+      back: document.querySelector('[data-yx-focus-back]').textContent,
+      isArt: sheet.classList.contains('is-art'),
+      collector: document.querySelector('[data-yx-collector]'),
+      collectorHidden: document.querySelector('[data-yx-collector]').hidden,
+      badge: document.querySelector('.yx-collector__badge').textContent.replace(/\s+/g, ' ').trim(),
+      note: document.querySelector('.yx-collector__note').textContent,
+      rows: [...document.querySelectorAll('.yx-collector__rows div')].map((node) => node.innerText.replace(/\n/g, ' / ')),
+      player: getComputedStyle(document.querySelector('.yx-player')).display,
+      packs: document.querySelectorAll('[data-yx-pack]').length,
+      behind: document.querySelector('#yx-artwork').classList.contains('is-behind'),
+      visibility: getComputedStyle(document.querySelector('#yx-artwork')).visibility,
+      zooming: sheet.classList.contains('is-zooming'),
+      artBox: Math.round(document.querySelector('.yx-focus__art').offsetWidth),
+      headerTop: Math.round(document.querySelector('.site-header').getBoundingClientRect().top),
+      sheetTop: Math.round(sheet.getBoundingClientRect().top),
+    };
+  });
+  assert.match(focus.url, /artwork=white-night/, 'the piece is addressable without leaving the page');
+  assert.equal(focus.title, 'WHITE NIGHT');
+  assert.equal(focus.type, 'ORIGINAL COVER ARTWORK');
+  assert.equal(focus.specs, 'ORIGINAL 1 / 1');
+  assert.equal(focus.kicker, 'COLLECTOR PIECE');
+  assert.equal(focus.back, 'ALL ARTWORK', 'the return control names the collection');
+  assert.equal(focus.isArt, true, 'the same sheet carries the artwork state');
+  assert.equal(focus.collectorHidden, false, 'the collector record replaces the player and packages');
+  assert.equal(focus.badge, 'COLLECTOR PIECE — LOCKED');
+  assert.match(focus.note, /PHYSICAL PRINTS, LIMITED DROPS AND APPAREL INTEGRATION OPEN IN 2028–2029/);
+  assert.deepEqual(focus.rows, [
+    'EDITION / ORIGINAL 1 / 1',
+    'MEDIUM / ORIGINAL COVER STUDY',
+    'ACCESS / LOCKED — 2028–2029',
+  ]);
+  assert.equal(focus.player, 'none', 'a locked print offers no preview');
+  assert.equal(focus.packs, 0, 'a locked print offers no packages');
+  assert.equal(focus.behind, true, 'the collection stays laid out behind the sheet');
+  assert.equal(focus.visibility, 'hidden');
+  assert.equal(focus.zooming, true, 'the cover zooms from the gallery tile');
+  assert(focus.artBox > cover.width, 'the focused artwork is larger than its tile');
+  assert.equal(focus.headerTop, 0);
+  assert(focus.sheetTop > 0, 'the sheet still docks under the pinned header');
+
+  await page.locator('[data-yx-close]').first().click();
+  await page.waitForTimeout(60);
+  const flight = await page.evaluate(() => ({
+    ghost: Boolean(document.querySelector('.yx-ghost')),
+    cover: document.querySelector('.yx-ghost img')?.getAttribute('src'),
+    visibility: getComputedStyle(document.querySelector('#yx-artwork')).visibility,
+    leaving: document.querySelector('#yx-focus').classList.contains('is-leaving'),
+    url: location.search,
+  }));
+  assert.equal(flight.ghost, true, 'closing flies the artwork home instead of cutting');
+  assert.match(flight.cover, /white-night/);
+  assert.equal(flight.visibility, 'visible', 'the collection is already back in place for the landing');
+  assert.equal(flight.leaving, true);
+  assert.match(flight.url, /view=artwork/, 'closing returns to the collection, not the beats grid');
+
+  await page.waitForFunction(() => document.querySelector('#yx-focus').hidden);
+  await page.waitForFunction(() => !document.querySelector('.yx-ghost'));
+  const landed = await page.evaluate(() => ({
+    url: location.search,
+    active: document.querySelector('.site-nav__link.is-active').textContent.trim(),
+    homeDisplay: getComputedStyle(document.querySelector('#catalog')).display,
+    artDisplay: getComputedStyle(document.querySelector('#yx-artwork')).display,
+    scrollY: Math.round(scrollY),
+    media: [...document.querySelectorAll('#yx-art-grid .yx-card__media')].map((node) => {
+      const rect = node.getBoundingClientRect();
+      return [Math.round(rect.left), Math.round(rect.top), Math.round(rect.width)];
+    }),
+    focusedCard: Boolean(document.activeElement && document.activeElement.classList.contains('yx-art-card')),
+  }));
+  assert.equal(landed.active, 'ARTWORK', 'the collection stays the active category');
+  assert.equal(landed.homeDisplay, 'none', 'the beats grid did not replace the collection');
+  assert.equal(landed.artDisplay, 'block');
+  assert.equal(landed.scrollY, before.scrollY, 'closing never rescrolls the collection');
+  assert.deepEqual(landed.media, before.media, 'no artwork tile reflowed during open and close');
+  assert.equal(landed.focusedCard, true, 'focus returns to the chosen piece');
+  assert(!/artwork=/.test(landed.url), 'closing clears the focused piece');
+
+  await page.locator('[data-yx-view="beats"]').click();
+  await page.waitForTimeout(100);
+  const beats = await page.evaluate(() => ({
+    url: location.search,
+    active: document.querySelector('.site-nav__link.is-active').textContent.trim(),
+    cards: document.querySelectorAll('#yx-grid .yx-card').length,
+    artHidden: document.querySelector('#yx-artwork').hidden,
+  }));
+  assert.equal(beats.active, 'FREE BEATS');
+  assert.equal(beats.cards, 8);
+  assert.equal(beats.artHidden, true);
+  assert(!/view=artwork/.test(beats.url), 'the menu switches back to the beats archive');
+
+  for (const failure of errors) assert.fail(`page error: ${failure}`);
   await context.close();
 });
 

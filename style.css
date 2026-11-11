@@ -4864,6 +4864,7 @@ html.beat-page .yx-focus { display: none; }
 }
 .yx-card.is-locked .yx-card__flag { border-color: #1f1f1f; color: #5d5d5d; }
 .yx-home.is-behind { visibility: hidden; }
+.yx-home[hidden] { display: none; }
 .yx-grid__empty {
   grid-column: 1 / -1;
   padding: 60px 0;
@@ -5141,6 +5142,93 @@ html.beat-page .yx-focus { display: none; }
   color: #4b4b4b;
 }
 
+/* ---------- artwork collection -------------------------------------------- */
+
+.yx-grid--art {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(30px, 4vw, 52px) clamp(14px, 2vw, 26px);
+}
+.yx-art-card { position: relative; }
+.yx-art-card .yx-card__media img { opacity: .92; }
+.yx-art-card:hover .yx-card__media img,
+.yx-art-card:focus-visible .yx-card__media img { opacity: 1; }
+.yx-art-card.is-locked .yx-card__media img { opacity: .92; filter: none; }
+.yx-art-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: max-content;
+  margin-top: 12px;
+  padding: 5px 8px;
+  border: 1px solid #2a2a2a;
+  color: #cfcfcf;
+  font-size: 7px;
+  letter-spacing: .18em;
+  white-space: nowrap;
+}
+.yx-lock { flex: none; width: 8px; height: 10px; display: block; }
+.yx-art-card .yx-card__type { margin-left: 0; }
+.yx-art-card__window {
+  margin-top: 7px;
+  font-size: 7px;
+  line-height: 1.7;
+  letter-spacing: .14em;
+  color: #565656;
+}
+
+.yx-collector {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #242424;
+}
+.yx-collector[hidden] { display: none; }
+.yx-collector__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border: 1px solid #2f2f2f;
+  color: #dcdcdc;
+  font-size: 7px;
+  letter-spacing: .2em;
+}
+.yx-collector__note {
+  margin-top: 16px;
+  font-size: 8px;
+  line-height: 2;
+  letter-spacing: .12em;
+  color: #7d7d7d;
+}
+.yx-collector__rows {
+  margin: 20px 0 0;
+  border-top: 1px solid #1e1e1e;
+}
+.yx-collector__rows div {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 11px 0;
+  border-bottom: 1px solid #1e1e1e;
+}
+.yx-collector__rows dt {
+  font-size: 7px;
+  letter-spacing: .18em;
+  color: #555;
+}
+.yx-collector__rows dd {
+  margin: 0;
+  font-size: 8px;
+  letter-spacing: .12em;
+  color: #e6e6e6;
+  text-align: right;
+}
+
+/* An artwork focus holds the collector record instead of the player and packs. */
+.yx-focus.is-art .yx-player,
+.yx-focus.is-art .yx-focus__label,
+.yx-focus.is-art .yx-focus__packs,
+.yx-focus.is-art .yx-focus__note { display: none; }
+
 /* ---------- minimal footer ------------------------------------------------ */
 
 .site-footer {
@@ -5201,8 +5289,17 @@ html.beat-page .yx-focus { display: none; }
   }
 }
 
+@media (max-width: 980px) {
+  .yx-grid.yx-grid--art { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 760px) {
   .yx-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .yx-grid.yx-grid--art { grid-template-columns: minmax(0, 1fr); gap: 34px; }
+  .yx-art-card__badge { margin-top: 10px; }
 }
 
 @media (max-width: 640px) {

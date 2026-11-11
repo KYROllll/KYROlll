@@ -20,7 +20,7 @@
     document.documentElement.classList.add("js");
   </script>
   <link rel="icon" type="image/svg+xml" href="assets/kyrolll-metal.svg?v=5">
-  <link rel="stylesheet" href="style.css?v=198">
+  <link rel="stylesheet" href="style.css?v=199">
 </head>
 <body>
   <div class="viewport">
@@ -28,9 +28,9 @@
     <header class="site-header">
       <a class="site-brand" href="index.html" aria-label="KYROIII home">KYROIII</a>
       <nav class="site-nav" aria-label="Store categories">
-        <a class="site-nav__link is-active" href="index.html" aria-current="page">FREE BEATS</a>
+        <a class="site-nav__link is-active" href="index.html" data-yx-view="beats" aria-current="page">FREE BEATS</a>
         <span class="site-nav__link is-disabled" aria-disabled="true">COMMERCIAL <i>2028</i></span>
-        <span class="site-nav__link is-disabled" aria-disabled="true">PLUGINS <i>SOON</i></span>
+        <a class="site-nav__link" href="index.html?view=artwork" data-yx-view="artwork">ARTWORK</a>
       </nav>
       <div class="site-header__end">
         <button class="site-header__support" type="button" data-support-open>SUPPORT</button>
@@ -50,10 +50,20 @@
       <p class="yx-home__foot"><span data-yx-count>09</span> RELEASES <span>/</span> ALL BEATS PRODUCED BY KYROIII</p>
     </section>
 
+    <section class="yx-home yx-art" id="yx-artwork" hidden aria-labelledby="yx-art-title">
+      <div class="yx-home__head">
+        <p class="yx-eyebrow">KYROIII — ORIGINAL COVER ART <span>/</span> COLLECTION 001</p>
+        <h1 class="yx-title" id="yx-art-title">ARTWORK</h1>
+        <p class="yx-lede">COVER STUDIES DRAWN FOR EVERY RECORD IN THE ARCHIVE.<br>COLLECTOR PIECES — PRINTS, DROPS &amp; APPAREL OPEN 2028–2029.</p>
+      </div>
+      <div class="yx-grid yx-grid--art" id="yx-art-grid" aria-label="Original cover artwork"></div>
+      <p class="yx-home__foot"><span data-yx-art-count>08</span> ORIGINAL COVERS <span>/</span> LOCKED UNTIL 2028–2029</p>
+    </section>
+
     <section class="yx-focus" id="yx-focus" hidden aria-labelledby="yx-focus-title" tabindex="-1">
       <div class="yx-focus__top">
-        <button class="yx-focus__back" type="button" data-yx-close><span aria-hidden="true">←</span> ALL BEATS</button>
-        <p class="yx-focus__kicker">FOCUSED SELECTION</p>
+        <button class="yx-focus__back" type="button" data-yx-close><span aria-hidden="true">←</span> <span data-yx-focus-back>ALL BEATS</span></button>
+        <p class="yx-focus__kicker" data-yx-focus-kicker>FOCUSED SELECTION</p>
         <span class="yx-focus__spacer" aria-hidden="true"></span>
       </div>
 
@@ -67,6 +77,19 @@
           <p class="yx-focus__type" data-yx-focus-type>DON TOLIVER TYPE BEAT</p>
           <p class="yx-focus__specs" data-yx-focus-specs>130 BPM / AM</p>
           <p class="yx-focus__status" data-yx-focus-status hidden></p>
+
+          <div class="yx-collector" data-yx-collector hidden>
+            <p class="yx-collector__badge">
+              <svg class="yx-lock" viewBox="0 0 10 12" aria-hidden="true" focusable="false"><path d="M2.5 5V3.6a2.5 2.5 0 0 1 5 0V5" fill="none" stroke="currentColor" stroke-width="1"/><rect x="1" y="5" width="8" height="6.2" rx=".6" fill="currentColor"/></svg>
+              COLLECTOR PIECE — LOCKED
+            </p>
+            <p class="yx-collector__note">PHYSICAL PRINTS, LIMITED DROPS AND APPAREL INTEGRATION OPEN IN 2028–2029. THE ORIGINAL COVER IS HELD IN THE COLLECTOR ARCHIVE UNTIL THEN.</p>
+            <dl class="yx-collector__rows">
+              <div><dt>EDITION</dt><dd>ORIGINAL 1 / 1</dd></div>
+              <div><dt>MEDIUM</dt><dd>ORIGINAL COVER STUDY</dd></div>
+              <div><dt>ACCESS</dt><dd>LOCKED — 2028–2029</dd></div>
+            </dl>
+          </div>
 
           <div class="yx-player" data-yx-player>
             <button class="yx-player__toggle" type="button" data-yx-play aria-label="Play preview" aria-pressed="false">
@@ -166,7 +189,7 @@
   <script src="downloads.js?v=43"></script>
   <script src="preview-player.js?v=11"></script>
   <script src="script.js?v=90"></script>
-  <script src="storefront.js?v=3"></script>
+  <script src="storefront.js?v=4"></script>
   <script src="vinyl-deck.js?v=1"></script>
   <script src="support.js?v=6"></script>
 </body>
