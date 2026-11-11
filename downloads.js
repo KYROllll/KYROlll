@@ -971,7 +971,7 @@
       filesStep +
       '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + ' — FILES UNLOCKED</span>' +
       '<h2 class="gate-panel__title" id="gate-title">YOUR FILES</h2>' +
-      '<p class="gate-panel__copy">' + escapeHTML(beat.title) + '</p>' +
+      (inlineFiles ? '' : '<p class="gate-panel__copy">' + escapeHTML(beat.title) + '</p>') +
       '<div class="gate-serial">' +
         '<span class="gate-serial__kicker">LICENSE ID</span>' +
         '<span class="gate-serial__id">' + escapeHTML(serial) + '</span>' +
@@ -1048,7 +1048,7 @@
     card.innerHTML =
       '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + '</span>' +
       '<h2 class="gate-panel__title" id="gate-title">LICENSE REVIEW &amp; SIGNATURE</h2>' +
-      '<p class="gate-panel__copy">READ THE TERMS, TYPE YOUR FULL NAME, DRAW YOUR SIGNATURE, AND YOUR FILES UNLOCK.</p>' +
+      (inlineSign ? '' : '<p class="gate-panel__copy">READ THE TERMS, TYPE YOUR FULL NAME, DRAW YOUR SIGNATURE, AND YOUR FILES UNLOCK.</p>') +
       s2 +
       '<div class="sign-terms" data-sign-terms role="region" tabindex="0" aria-label="License terms">' +
         termsHTML(beat, pack) +

@@ -2915,6 +2915,25 @@ html.vinyl-dragging * {
 .yx-pack__gate .gate-optin--mini { font-size: 7px; margin: 6px 0 8px; gap: 6px; }
 .yx-pack__gate .gate-panel__actions--mini { margin-top: 4px; gap: 8px; }
 .yx-pack__gate .gate-panel__actions--mini .kyrolll-btn { padding: 6px 10px; font-size: 8px; }
+/* Ultra-minimal inline sign + files stages: compact, single-line oriented,
+   no heavy wrappers, scroll-contained terms, razor-thin canvas/files. */
+.yx-pack__gate .sign-terms { max-height: 110px; margin: 0 0 8px; padding: 8px 10px; }
+.yx-pack__gate .sign-modes { margin: 0 0 6px; gap: 4px; }
+.yx-pack__gate .sign-mode { padding: 4px 10px; font-size: 8px; }
+.yx-pack__gate .gate-field { margin-bottom: 6px; }
+.yx-pack__gate .sign-pad { margin: 0 0 6px; }
+.yx-pack__gate .sign-pad__canvas { max-height: 72px; width: 100%; height: auto; }
+.yx-pack__gate .sign-pad__row { margin-top: 4px; }
+.yx-pack__gate .sign-pad__hint { font-size: 7px; }
+.yx-pack__gate .sign-pad__clear { padding: 2px 6px; font-size: 7px; }
+.yx-pack__gate .gate-files { margin-top: 4px; }
+.yx-pack__gate .gate-file { padding: 6px 8px; gap: 8px; }
+.yx-pack__gate .gate-file__body { gap: 2px; }
+.yx-pack__gate .gate-file__label { font-size: 6.5px; }
+.yx-pack__gate .gate-file__name { font-size: 8px; }
+.yx-pack__gate .gate-file__go { font-size: 7px; padding: 2px 6px; }
+.yx-pack__gate .gate-serial { margin: 6px 0; padding: 6px 8px; }
+.yx-pack__gate .gate-panel__hint { font-size: 7px; margin-top: 4px; }
 
 /* The beat card's slot, under the action row. */
 .beat-detail__gate { margin-top: 18px; }
