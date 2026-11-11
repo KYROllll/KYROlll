@@ -59,10 +59,26 @@ after(async () => {
 });
 
 async function openHome(options = {}) {
-  const context = await browser.newContext(options);
+  const { art = false, ...contextOptions } = options;
+  const context = await browser.newContext(contextOptions);
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
+  if (art) {
+    // The shipped register is empty on purpose (no artwork until the first
+    // official upload). Register one piece for this check so the gallery, the
+    // live nav link and the collector focus zoom are exercised end to end.
+    await page.route('**/catalog.js*', async (route) => {
+      const response = await route.fetch();
+      const source = await response.text();
+      const body = source.replace(
+        'window.KYROlll_ARTWORKS = [];',
+        'window.KYROlll_ARTWORKS = [{ id: "pink-study-01", title: "PINK STUDY 01", beatId: "white-night", year: 2026, src: "assets/artwork/pink-study-01.svg", medium: "INK & MARKER ON PAPER" }];'
+      );
+      assert.notEqual(body, source, 'the test can register an artwork in the catalog');
+      await route.fulfill({ response, body });
+    });
+  }
   await page.goto(homeUrl, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#yx-grid .yx-card');
   return { context, page, errors };
@@ -108,9 +124,33 @@ test('the home is a solid black compact grid with the category menu', async () =
   assert.equal(home.active, 'FREE BEATS', 'FREE BEATS is the active category');
   assert.deepEqual(home.nav, [
     { text: 'FREE BEATS', disabled: false },
-    { text: 'COMMERCIAL 2028', disabled: true },
-    { text: 'ARTWORK', disabled: false },
-  ], 'the plugins slot is now the artwork collection; COMMERCIAL stays locked');
+    { text: 'ARTWORK 2028', disabled: true },
+    { text: 'APPAREL 2030', disabled: true },
+  ], 'free beats are the only live category; artwork awaits its first drop and apparel is 2030');
+
+  // With no registered artwork the collection is absent, not an empty shell.
+  const locked = await page.evaluate(() => ({
+    galleryHidden: document.querySelector('#yx-artwork').hidden,
+    cards: document.querySelectorAll('#yx-art-grid .yx-art-card').length,
+    artDisabled: document.querySelector('[data-yx-nav-art]').getAttribute('aria-disabled'),
+    artBadge: document.querySelector('[data-yx-nav-art]').textContent.replace(/\s+/g, ' ').trim(),
+  }));
+  assert.equal(locked.galleryHidden, true, 'the artwork view stays hidden until the first drop');
+  assert.equal(locked.cards, 0, 'no artwork card and no placeholder is rendered');
+  assert.equal(locked.artDisabled, 'true', 'the artwork link is locked');
+  assert.equal(locked.artBadge, 'ARTWORK 2028', 'the lock wears the 2028 badge');
+
+  // A locked link is inert even to a forced click (Playwright itself refuses it).
+  await page.evaluate(() => document.querySelector('[data-yx-nav-art]').click());
+  await page.waitForTimeout(120);
+  const afterLockedClick = await page.evaluate(() => ({
+    url: location.search,
+    active: document.querySelector('.site-nav__link.is-active').textContent.trim(),
+    beatsVisible: !document.querySelector('#catalog').hidden,
+  }));
+  assert(!/view=artwork/.test(afterLockedClick.url), 'a locked artwork link does not navigate');
+  assert.equal(afterLockedClick.active, 'FREE BEATS', 'the archive stays the active category');
+  assert.equal(afterLockedClick.beatsVisible, true, 'the archive stays on screen');
   assert.match(home.flower.src, /kyrolll-flower-rest\.png/, 'the header wears the flower mark');
   assert(home.flower.box.right > 1300, 'the flower sits in the top-right corner');
   assert(home.flower.box.width <= 26, 'the header flower stays a small mark');
@@ -246,7 +286,7 @@ test('choosing a record zooms it open in place and offers the packages', async (
 });
 
 test('the artwork collection opens in place as locked collector pieces', async () => {
-  const { context, page, errors } = await openHome({ viewport: { width: 1440, height: 900 } });
+  const { context, page, errors } = await openHome({ viewport: { width: 1440, height: 900 }, art: true });
   await page.locator('[data-yx-view="artwork"]').click();
   await page.waitForTimeout(150);
   const gallery = await page.evaluate(() => {

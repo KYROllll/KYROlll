@@ -10,8 +10,11 @@
  * locked collector pieces. It reuses the focus sheet, the FLIP zoom and the
  * flying-cover close, but swaps the player and packages for the collector record
  * (prints, drops and apparel open in 2028–2029). The collection shows NOTHING
- * but `KYROlll_ARTWORKS` — a beat cover is never borrowed as a stand-in, so a
- * record without a drawing gets an empty COMING SOON slot instead.
+ * but `KYROlll_ARTWORKS` — a beat cover is never borrowed as a stand-in. While
+ * that register is empty the whole view stays hidden, the ARTWORK nav link is
+ * locked with its 2028 badge, and `?view=artwork` falls back to the archive; the
+ * first registered piece brings the gallery and the live nav link back by
+ * itself.
  *
  * Both views are home-only. A direct `?beat=` link still renders the full beat
  * card through script.js, untouched.
@@ -32,6 +35,7 @@
   const header = document.querySelector(".site-header");
   const countNode = document.querySelector("[data-yx-count]");
   const navLinks = [...document.querySelectorAll("[data-yx-view]")];
+  const navArt = document.querySelector("[data-yx-nav-art]");
   if (!grid || !focus) return;
 
   const params = new URLSearchParams(location.search);
@@ -165,10 +169,30 @@
     if (!artGrid) return;
     if (artCount) artCount.textContent = String(pieces.length).padStart(2, "0");
     artGrid.classList.toggle("is-single", pieces.length === 1);
-    artGrid.innerHTML = pieces.length
-      ? pieces.map(artCardHTML).join("")
-      : '<p class="yx-grid__empty">NO ORIGINAL ARTWORK IN THE COLLECTION YET.</p>';
+    artGrid.innerHTML = pieces.map(artCardHTML).join("");
     artGrid.inert = false;
+  }
+
+  /* Until the first original is registered the collection is not part of the
+     store at all: no section, no nav destination, just the locked 2028 roadmap
+     link. Registering a piece unlocks both automatically. */
+  function syncArtAccess() {
+    if (!navArt) return;
+    const hasArt = pieces.length > 0;
+    navArt.classList.toggle("is-disabled", !hasArt);
+    if (hasArt) {
+      navArt.removeAttribute("aria-disabled");
+      navArt.removeAttribute("tabindex");
+      navArt.querySelector("i")?.remove();
+      return;
+    }
+    navArt.setAttribute("aria-disabled", "true");
+    navArt.setAttribute("tabindex", "-1");
+    if (!navArt.querySelector("i")) {
+      const badge = document.createElement("i");
+      badge.textContent = "2028";
+      navArt.append(" ", badge);
+    }
   }
 
   /* ------------------------------------------------------------ focus view */
@@ -443,7 +467,8 @@
   const normalizeView = (kind) => (kind === "art" || kind === "artwork" ? "art" : "beats");
 
   function setView(kind, push, scroll) {
-    const next = normalizeView(kind);
+    let next = normalizeView(kind);
+    if (next === "art" && !pieces.length) next = "beats";
     if (state.kind) closeFocus(false, true);
     state.view = next;
     document.documentElement.classList.toggle("view-artwork", next === "art");
@@ -644,6 +669,7 @@
     link.addEventListener("click", (event) => {
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
       event.preventDefault();
+      if (link.classList.contains("is-disabled")) return;
       setView(link.getAttribute("data-yx-view"), true);
     });
   });
@@ -673,6 +699,7 @@
 
   renderGrid();
   renderArtGrid();
+  syncArtAccess();
   const startInArt = params.get("view") === "artwork" || params.has("artwork");
   setView(startInArt ? "art" : "beats", false, false);
   if (startInArt && params.get("artwork")) openArtwork(params.get("artwork"), false);

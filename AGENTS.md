@@ -494,9 +494,10 @@ drops the spring and settles instantly.
 
 The home route is the storefront, not a document below it. `index.html` renders a
 Yeezy-minimal archive on a solid pitch-black field: a sticky category bar
-(`FREE BEATS` active; `COMMERCIAL` present but disabled; `ARTWORK` live), one
-compact grid, and a focused record. `ARTWORK` is a second view of the same page,
-not a route: see the collection note below. There is no vinyl room, hero, marquee,
+(`FREE BEATS` active; `ARTWORK` locked with a 2028 badge while its register is
+empty; `APPAREL` locked with a 2030 badge), one compact grid, and a focused
+record. There is no paid/`COMMERCIAL` category. `ARTWORK` is a second view of the
+same page, not a route: see the collection note below. There is no vinyl room, hero, marquee,
 preloader, live 3D flower or ambient canvas on this route — `storefront.js` loads
 as a plain hand-written script, so a change is a reload and a `?v=N` bump, not an
 esbuild step. The page carries no decorative canvas at all: the only animated
@@ -542,7 +543,12 @@ mark is the spinning flower in the header.
   focus view adds none.
 - **The artwork collection.** `ARTWORK` swaps the beats grid for `#yx-artwork`
   in place (`?view=artwork`, `history.pushState`; `FREE BEATS` swaps back). The
-  collection shows **only original hand-drawn artwork**: `window.KYROlll_ARTWORKS`
+  register ships **empty**, so the gallery is hidden, its section absent and the
+  `ARTWORK` nav link locked with a `2028` badge: `setView` refuses the art view
+  while `KYROlll_ARTWORKS` is empty and `?view=artwork` falls back to the archive.
+  Registering the first piece brings the view, the live nav link and the collector
+  zoom back automatically — no other edit. The collection shows **only original
+  hand-drawn artwork**: `window.KYROlll_ARTWORKS`
   in `catalog.js` is the register (`{ id, title, beatId, year, src, medium }`, the
   `src` an `assets/artwork/…` scan), and `storefront.js` renders one
   `<button class="yx-card yx-art-card" data-yx-art="<id>">` per entry — the work
@@ -553,7 +559,9 @@ mark is the spinning flower in the header.
   drawing is one entry in `KYROlll_ARTWORKS`; nothing reads a beat `img` for the
   gallery. Three columns on desktop, one on a phone, and a single registered
   piece gets `is-single` on the grid — one centred 420px column, so a 1-of-1 is
-  shown as a piece rather than the first cell of an empty grid. Every card is a locked collector item: a
+  shown as a piece rather than the first cell of an empty grid. The whole section
+  is `hidden` in the markup until a piece exists (no flash of an empty view on a
+  cold load). Every card is a locked collector item: a
   hairline `COLLECTOR — LOCKED` badge with a `currentColor` padlock SVG and a
   `PRINTS · DROPS · APPAREL 2028–2029` line, and the gallery keeps the art at
   full contrast (`.yx-art-card.is-locked` opts out of the beats grid's dimming).
@@ -568,11 +576,14 @@ mark is the spinning flower in the header.
   `?view=artwork&artwork=<piece.id>` (the artwork id, not a beat slug); closing
   returns to the gallery (not the beats grid) and never rebuilds or rescrolls it.
   `.yx-focus.is-art` is the only switch — there is one sheet, one zoom and one
-  ghost, so the two views cannot drift apart. The first piece shipped is
-  `assets/artwork/pink-study-01.svg` (inked flower, pink marker washes, cream
-  paper, `INK & MARKER ON PAPER`, drawn for `white-night`); it is a vector
-  placeholder-quality original and can be replaced by a scan without touching
-  any code as long as the path in `KYROlll_ARTWORKS` stays.
+  ghost, so the two views cannot drift apart. `assets/artwork/pink-study-01.svg`
+  (inked flower, pink marker washes, cream paper, `INK & MARKER ON PAPER`, drawn
+  for `white-night`) stays on disk **unreferenced**: it is the proof-of-concept
+  sketch for the first drop, not a published piece. Register it — or a real scan
+  at any `assets/artwork/…` path — with one `KYROlll_ARTWORKS` entry and the
+  gallery populates itself. `download.html` and `support.html` carry the same
+  nav as static markup (no `storefront.js`), so their `ARTWORK` link stays a
+  plain navigation link — it lands on the archive while the register is empty.
 - **Packages.** Every package row calls `KYROlll_DOWNLOADS.start(beat.id,
   pack.id)`. The email gate, REVIEW & SIGN, PDF and exclusive-claim register are
   never re-implemented in the archive; a locked or not-yet-released record renders

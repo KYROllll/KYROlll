@@ -107,16 +107,17 @@
   // of one, so `edition` is always `1 / 1` and
   // `medium` describes the physical drawing; the 2028–2029 print/drop/apparel
   // window is copy in `storefront.js`/`style.css`, not data.
-  window.KYROlll_ARTWORKS = [
-    {
-      id: "pink-study-01",
-      title: "PINK STUDY 01",
-      beatId: "white-night",
-      year: 2026,
-      src: "assets/artwork/pink-study-01.svg",
-      medium: "INK & MARKER ON PAPER"
-    }
-  ];
+  //
+  // The register ships EMPTY: the artwork view stays locked and absent until the
+  // first original is uploaded here, and then the gallery, its ARTWORK nav link
+  // and the collector focus zoom come up by themselves. Adding a piece is one
+  // entry, e.g.
+  //   { id: "pink-study-01", title: "PINK STUDY 01", beatId: "white-night",
+  //     year: 2026, src: "assets/artwork/pink-study-01.svg",
+  //     medium: "INK & MARKER ON PAPER" }
+  // (`assets/artwork/pink-study-01.svg` is that sketch, kept on disk unreferenced
+  // until it is officially registered).
+  window.KYROlll_ARTWORKS = [];
 
   // `id` is the beat's stable id (the uuid for the original releases, the short
   // store handle for newer catalog entries) and `slug` is the human handle kept
