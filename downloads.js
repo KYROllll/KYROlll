@@ -837,11 +837,14 @@
     });
   }
 
-  function gateCard(pack, beat, stageTitle, body, cardClass) {
+  function gateCard(pack, beat, stageTitle, body, cardClass, hideTitle) {
     const titleText = stageTitle ? (escapeHTML(stageTitle) + ' — ' + escapeHTML(beat.title)) : escapeHTML(beat.title);
-    return '<div class="gate-panel__card' + (cardClass ? ' ' + cardClass : '') + '" role="region" aria-labelledby="gate-title">' +
+    const titleHTML = hideTitle ? '' :
+      '<h2 class="gate-panel__title" id="gate-title">' + titleText + '</h2>';
+    const aria = hideTitle ? '' : ' aria-labelledby="gate-title"';
+    return '<div class="gate-panel__card' + (cardClass ? ' ' + cardClass : '') + '" role="region"' + aria + '>' +
         '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + '</span>' +
-        '<h2 class="gate-panel__title" id="gate-title">' + titleText + '</h2>' + body + '</div>';
+        titleHTML + body + '</div>';
   }
 
   /* The animated tick used by every completed step (and by the email field once
@@ -1452,7 +1455,8 @@
        REVIEW & SIGN stage. There is no social step, no like and no follow to
        verify, so the panel is one clean sheet. */
     const body = emailGateBody(pack, { inline: !!(opts && opts.inline) });
-    panel.innerHTML = gateCard(pack, beat, null, body, "");
+    const hideTitle = !!(opts && opts.inline);
+    panel.innerHTML = gateCard(pack, beat, null, body, "", hideTitle);
     gate = { el: panel, host: host, inline: !!(opts && opts.inline) };
     document.documentElement.classList.add("gate-open");
     document.dispatchEvent(new CustomEvent("kyrolll:gate-open", {
