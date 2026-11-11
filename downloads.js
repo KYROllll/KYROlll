@@ -842,8 +842,9 @@
     const titleHTML = hideTitle ? '' :
       '<h2 class="gate-panel__title" id="gate-title">' + titleText + '</h2>';
     const aria = hideTitle ? '' : ' aria-labelledby="gate-title"';
+    const kickerHTML = hideTitle ? '' : '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + '</span>';
     return '<div class="gate-panel__card' + (cardClass ? ' ' + cardClass : '') + '" role="region"' + aria + '>' +
-        '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + '</span>' +
+        kickerHTML +
         titleHTML + body + '</div>';
   }
 
@@ -883,10 +884,30 @@
   function emailGateBody(pack, opts) {
     const label = (opts && opts.submit) || "UNLOCK DOWNLOAD";
     const inline = !!(opts && opts.inline);
-    const step = inline ? '<p class="gate-step">STEP 1 / 5 — EMAIL</p>' : '';
+    const endpoint = newsletterEndpoint();
+    if (inline) {
+      /* Bare-minimum inline email step: a single input line, a compact opt-in,
+         and tight action buttons — nothing else. */
+      return '<form class="gate-form" data-gate-form novalidate' +
+          (endpoint ? ' action="' + escapeHTML(endpoint) + '" method="post"' : '') + '>' +
+          '<input class="gate-input" id="gate-email" name="email" type="email" inputmode="email" ' +
+            'autocomplete="off" spellcheck="false" placeholder="EMAIL" required>' +
+          '<label class="gate-optin gate-optin--mini"><input type="checkbox" id="gate-optin" ' +
+            'name="opt_in" checked required><span>UPDATES</span></label>' +
+          '<input type="hidden" name="embed" value="1">' +
+          '<input type="hidden" name="tag" value="beat-download">' +
+          '<input type="hidden" name="_subject" value="KYROIII BEAT DOWNLOAD">' +
+        '</form>' +
+        '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
+        '<div class="gate-panel__actions gate-panel__actions--mini">' +
+          '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
+          '<button type="button" class="kyrolll-btn" data-gate-submit disabled>' + escapeHTML(label) + '</button>' +
+        '</div>';
+    }
+    const step = '';
     const copy = (opts && opts.copy === false) ? "" :
       '<p class="gate-panel__copy">ENTER YOUR EMAIL TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>';
-    return step + copy +
+    return copy +
       emailFormHTML(opts && opts.optin) +
       '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
       '<div class="gate-panel__actions">' +
