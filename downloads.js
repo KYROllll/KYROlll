@@ -879,9 +879,11 @@
      the same card to the REVIEW & SIGN stage. */
   function emailGateBody(pack, opts) {
     const label = (opts && opts.submit) || "UNLOCK DOWNLOAD";
+    const inline = !!(opts && opts.inline);
+    const step = inline ? '<p class="gate-step">STEP 1 / 5 — EMAIL</p>' : '';
     const copy = (opts && opts.copy === false) ? "" :
       '<p class="gate-panel__copy">ENTER YOUR EMAIL TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>';
-    return copy +
+    return step + copy +
       emailFormHTML(opts && opts.optin) +
       '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
       '<div class="gate-panel__actions">' +
@@ -939,7 +941,10 @@
       '</button>').join("");
     card.className = "gate-panel__card gate-panel__card--files";
     card.setAttribute("aria-live", "polite");
+    const inlineFiles = !!(gate && gate.inline);
+    const filesStep = inlineFiles ? '<p class="gate-step">STEP 5 / 5 — FILES UNLOCKED</p>' : '';
     card.innerHTML =
+      filesStep +
       '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + ' — FILES UNLOCKED</span>' +
       '<h2 class="gate-panel__title" id="gate-title">YOUR FILES</h2>' +
       '<p class="gate-panel__copy">' + escapeHTML(beat.title) + '</p>' +
@@ -1011,17 +1016,23 @@
     const card = modal && modal.querySelector(".gate-panel__card");
     if (!modal || !card) return;
     resizeHost();
+    const inlineSign = !!(gate && gate.inline);
+    const s2 = inlineSign ? '<p class="gate-step">STEP 2 / 5 — TERMS</p>' : '';
+    const s3 = inlineSign ? '<p class="gate-step">STEP 3 / 5 — FULL NAME</p>' : '';
+    const s4 = inlineSign ? '<p class="gate-step">STEP 4 / 5 — SIGNATURE</p>' : '';
     card.className = "gate-panel__card gate-panel__card--sign";
     card.innerHTML =
       '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + '</span>' +
       '<h2 class="gate-panel__title" id="gate-title">LICENSE REVIEW &amp; SIGNATURE</h2>' +
       '<p class="gate-panel__copy">READ THE TERMS, TYPE YOUR FULL NAME, DRAW YOUR SIGNATURE, AND YOUR FILES UNLOCK.</p>' +
+      s2 +
       '<div class="sign-terms" data-sign-terms role="region" tabindex="0" aria-label="License terms">' +
         termsHTML(beat, pack) +
       '</div>' +
       /* The FULL NAME field sits ABOVE the TYPE / DRAW switch and never hides:
          it is required in both modes, so switching to DRAW cannot skip the name
          that attributes the license. */
+      s3 +
       '<label class="gate-field" data-sign-field for="sign-name">' +
         '<span class="gate-field__label">FULL NAME — FIRST AND LAST' +
           '<span class="gate-field__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +
@@ -1035,6 +1046,7 @@
       '</div>' +
       /* The signature sheet: a clean field, so the customer never signs over the
          brand's flower mark. */
+      s4 +
       '<div class="sign-sheet">' +
         '<div class="sign-pad" data-sign-pad hidden>' +
           '<canvas class="sign-pad__canvas" data-sign-canvas width="' + SIGN_PAD.w + '" height="' + SIGN_PAD.h + '"></canvas>' +
@@ -1439,7 +1451,7 @@
     /* Every package opens the same two-step gate: the email form now, then the
        REVIEW & SIGN stage. There is no social step, no like and no follow to
        verify, so the panel is one clean sheet. */
-    const body = emailGateBody(pack, {});
+    const body = emailGateBody(pack, { inline: !!(opts && opts.inline) });
     panel.innerHTML = gateCard(pack, beat, null, body, "");
     gate = { el: panel, host: host, inline: !!(opts && opts.inline) };
     document.documentElement.classList.add("gate-open");

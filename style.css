@@ -2965,6 +2965,16 @@ html.vinyl-dragging * {
   border-bottom: 1px solid rgba(255, 255, 255, .45);
 }
 
+.gate-step {
+  display: block;
+  margin: 0 0 10px;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .3em;
+  color: #5c5c5c;
+  text-align: left;
+}
+
 .gate-panel__kicker {
   display: block;
   margin-bottom: 10px;
