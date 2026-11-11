@@ -530,12 +530,26 @@ mark is the spinning flower in the header.
   `?focus=<id-or-slug>`; a direct
   `?beat=` link still renders the full beat card through `script.js`, so old
   links and the download hand-off keep working.
-- **Locked header.** `.site-header` is `position: sticky; top: 0` with
-  `z-index: 60` and must stay that way: the brand, the category links and the
-  flower are pinned to the viewport top through every scroll and while the focus
-  sheet is open, and the sheet's `--yx-header-h` offset keeps it docked directly
-  under the bar. (The beat route keeps its own `position: relative` header
-  because there the sticky `#beat-navigation` rail owns the top edge.)
+- **Locked header.** `.site-header` is `position: sticky; top: 0; z-index: 60`
+  and must stay that way: the brand, the category links and the flower are pinned
+  to the viewport top through every scroll and while the focus sheet is open, and
+  the sheet's `--yx-header-h` offset keeps it docked directly under the bar. It
+  also owns **one permanent compositor layer** (`transform: translateZ(0)`,
+  `will-change: transform`, `backface-visibility: hidden`): the spinning flower
+  renders on its own frames, and without the promotion each of those repainted
+  the bar's background/border mid-scroll — the pixel shake. Measured across a
+  0→1200 px scroll the pinned box is identical every frame (top `0`, left `0`,
+  width unchanged). This is the deliberate `will-change` exception the reveal
+  rule does not cover: the bar never stops being pinned. (The beat route keeps
+  its own `position: relative` header because there the sticky
+  `#beat-navigation` rail owns the top edge.)
+- **The archive docks under the bar.** `.yx-home` is the first block after the
+  header, and its top padding is the only thing between them — kept to a tight
+  `clamp(16px, 2vw, 24px)` (16 px on a phone), so the section's own box starts at
+  the header's bottom edge and the eyebrow/title sit just under it. It used to
+  open at up to 80 px, which read as a dead band under the sticky header. Do not
+  add a `margin-top` to `#catalog` or an extra wrapper: the first section is the
+  dock.
 - **Header flower.** `.site-header__end` carries the captured flower
   (`assets/kyrolll-flower-rest.png`, a 2D print) at the top-right on every page —
   home, beat route, download and support — turning on `yxFlowerSpin` (16s linear),

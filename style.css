@@ -4641,6 +4641,14 @@ html.beat-page .yx-focus { display: none; }
   position: sticky;
   top: 0;
   z-index: 60;
+  /* The bar is pinned for the life of the page, so it owns one permanent
+     hardware layer. Without it the rotating flower's compositor frames keep
+     invalidating the header's own paint while the archive scrolls, which is the
+     pixel shake. `translateZ(0)` + `will-change` hand it to the compositor once;
+     `backface-visibility` stops Safari rounding the layer seams on each frame. */
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -4734,7 +4742,7 @@ html.beat-page .yx-focus { display: none; }
 /* ---------- the archive grid ---------------------------------------------- */
 
 .yx-home {
-  padding: clamp(36px, 6vw, 80px) clamp(16px, 4vw, 44px) clamp(56px, 8vw, 112px);
+  padding: clamp(16px, 2vw, 24px) clamp(16px, 4vw, 44px) clamp(56px, 8vw, 112px);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 .yx-home__head {
@@ -5332,7 +5340,7 @@ html.beat-page .yx-focus { display: none; }
   }
   .site-nav__link.is-active::after { bottom: 3px; }
   .site-header__support { font-size: 8px; padding: 4px 0; }
-  .yx-home { padding-top: 32px; }
+  .yx-home { padding-top: 16px; }
   .yx-title { margin-top: 16px; }
   .yx-grid { gap: 22px 10px; }
   .yx-card__name { font-size: 9px; }
