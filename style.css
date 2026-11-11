@@ -2890,16 +2890,80 @@ html.vinyl-dragging * {
 .gate-panel__card::-webkit-scrollbar-track { background: transparent; }
 .gate-panel__card::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 999px; }
 
-/* The focus sheet's own slot: the panel sits directly under the package rows,
-   inside the copy column that scrolls, so the sheet simply grows. */
-.yx-focus__gate { margin-top: 16px; }
-.yx-focus__gate .gate-panel__card { background: #060606; }
+/* The focus sheet's slot lives *inside the chosen package row*, so the flow
+   unfolds from that exact row rather than in a panel under the list. The row
+   indents its panel slightly so the form reads as the row's own body. */
+.yx-pack__gate { padding: 2px 0 14px; }
+.yx-pack__gate .gate-panel__card { background: #060606; padding: 20px 18px 22px; }
 
 /* The beat card's slot, under the action row. */
 .beat-detail__gate { margin-top: 18px; }
 
 /* The download page's slot, under the file list. */
 .download-gate { margin-top: 18px; }
+
+/* ---- the inline files stage — the flow's last screen, in the same panel ---- */
+.gate-panel__card--files { text-align: left; }
+.gate-panel__card--files .gate-panel__kicker,
+.gate-panel__card--files .gate-panel__title,
+.gate-panel__card--files .gate-panel__copy { text-align: center; }
+.gate-serial {
+  display: grid;
+  gap: 5px;
+  margin: 14px 0 16px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(255, 255, 255, .025);
+}
+.gate-serial__kicker {
+  font-size: 7px;
+  letter-spacing: .26em;
+  color: #8f8f8f;
+}
+.gate-serial__id {
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.gate-files { border-top: 1px solid #262626; }
+.gate-file {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 2px;
+  border: 0;
+  border-bottom: 1px solid #262626;
+  background: transparent;
+  color: #fff;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background .18s ease;
+}
+.gate-file:hover,
+.gate-file:focus-visible { background: rgba(255, 255, 255, .05); }
+.gate-file__index { font-size: 8px; color: #5c5c5c; font-variant-numeric: tabular-nums; }
+.gate-file__body { display: grid; gap: 4px; min-width: 0; }
+.gate-file__label { font-size: 7px; letter-spacing: .2em; color: #8f8f8f; }
+.gate-file__name {
+  font-size: 9px;
+  letter-spacing: .05em;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gate-file__go {
+  font-size: 7px;
+  letter-spacing: .18em;
+  color: #fff;
+  padding-bottom: 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, .45);
+}
 
 .gate-panel__kicker {
   display: block;
@@ -4902,6 +4966,7 @@ html { --yx-header-h: 64px; }
   transition: opacity .35s ease, transform .35s ease;
 }
 .yx-card__media {
+  position: relative;
   display: block;
   aspect-ratio: 1;
   overflow: hidden;
@@ -4966,11 +5031,56 @@ html { --yx-header-h: 64px; }
   letter-spacing: .12em;
 }
 .yx-card__flag b { font-weight: 400; color: #fff; font-variant-numeric: tabular-nums; }
-.yx-card.is-locked .yx-card__media img {
-  opacity: .42;
-  filter: grayscale(1);
+/* A retired record keeps its cover exactly as it was — full colour, full
+   contrast, unfiltered. It is marked, never muted: the stamp below is painted
+   over the art and the art is left alone. */
+.yx-card__stamp {
+  position: absolute;
+  left: 9px;
+  bottom: 9px;
+  z-index: 2;
+  pointer-events: none;
 }
-.yx-card.is-locked .yx-card__flag { border-color: #1f1f1f; color: #5d5d5d; }
+.yx-card:hover .yx-card__stamp,
+.yx-card:focus-visible .yx-card__stamp { opacity: 1; }
+
+/* The stamp itself: a hairline plate with white corner ticks, the rights line
+   above and the ownership line below. Static by design — a retired record can
+   never scan, sheen or breathe. */
+.yx-stamp {
+  position: relative;
+  display: inline-grid;
+  gap: 3px;
+  padding: 8px 11px 7px;
+  border: 1px solid rgba(255, 255, 255, .55);
+  background: rgba(0, 0, 0, .62);
+  color: #fff;
+  text-align: left;
+}
+.yx-stamp::before,
+.yx-stamp::after {
+  content: "";
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border: 1px solid #fff;
+}
+.yx-stamp::before { top: 3px; left: 3px; border-right: 0; border-bottom: 0; }
+.yx-stamp::after { right: 3px; bottom: 3px; border-left: 0; border-top: 0; }
+.yx-stamp__kicker {
+  font-size: 6px;
+  line-height: 1;
+  letter-spacing: .26em;
+  color: #c4c4c4;
+  white-space: nowrap;
+}
+.yx-stamp__line {
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: .18em;
+  color: #fff;
+  white-space: nowrap;
+}
 .yx-home.is-behind { visibility: hidden; }
 .yx-home[hidden] { display: none; }
 .yx-grid__empty {
@@ -5144,7 +5254,15 @@ html { --yx-header-h: 64px; }
   letter-spacing: .16em;
 }
 .yx-focus__status b { color: #fff; font-weight: 400; font-variant-numeric: tabular-nums; }
-.yx-focus__status.is-locked { color: #8c8c8c; }
+/* A claimed record's focus status wears the same locked stamp as its tile, so
+   the record reads as retired in both views without losing its cover. */
+.yx-focus__status.is-locked {
+  display: block;
+  margin-top: 16px;
+  padding: 0;
+  border: 0;
+  color: #fff;
+}
 
 .yx-player {
   display: flex;
@@ -5220,9 +5338,14 @@ html { --yx-header-h: 64px; }
   color: #565656;
 }
 .yx-focus__packs { display: flex; flex-direction: column; margin-top: 8px; }
-/* Two rows per package (name + FREE on the first, includes + arrow on the
-   second), so the three licence options stay a compact list inside the sheet. */
+/* A package row is a container: the trigger (two lines of copy) and the row's
+   own gate slot, so the form unfolds inside the row that was chosen. */
 .yx-pack {
+  border-top: 1px solid #242424;
+  transition: background .18s ease;
+}
+.yx-pack:last-child { border-bottom: 1px solid #242424; }
+.yx-pack__btn {
   display: grid;
   grid-template-columns: 1fr auto;
   grid-template-areas:
@@ -5230,9 +5353,9 @@ html { --yx-header-h: 64px; }
     "includes arrow";
   align-items: center;
   gap: 5px 16px;
+  width: 100%;
   padding: 12px 2px;
   border: 0;
-  border-top: 1px solid #242424;
   background: transparent;
   color: #fff;
   text-align: left;
@@ -5240,12 +5363,11 @@ html { --yx-header-h: 64px; }
   cursor: pointer;
   transition: background .18s ease;
 }
-.yx-pack:last-child { border-bottom: 1px solid #242424; }
-.yx-pack:hover,
-.yx-pack:focus-visible { background: rgba(255, 255, 255, .035); }
-/* The chosen package opens under the list, so its row stays lit and its arrow
+.yx-pack__btn:hover,
+.yx-pack__btn:focus-visible { background: rgba(255, 255, 255, .035); }
+/* The chosen package opens in its own row, so the row stays lit and its arrow
    turns down: the selection reads as the row unfolding, not as a new screen. */
-.yx-pack.is-selected { background: rgba(255, 255, 255, .06); }
+.yx-pack.is-selected { background: rgba(255, 255, 255, .05); }
 .yx-pack.is-selected .yx-pack__arrow { color: #fff; transform: rotate(90deg); }
 .yx-pack__arrow { transition: transform .3s cubic-bezier(.16, 1, .3, 1), color .2s ease; }
 @media (prefers-reduced-motion: reduce) {
@@ -5449,7 +5571,9 @@ html { --yx-header-h: 64px; }
   .yx-focus__title { margin: 8px 0 6px; font-size: clamp(26px, 7vw, 34px); }
   .yx-focus__specs { margin-top: 10px; }
   .yx-player { margin: 10px 0; padding: 10px 0; }
-  .yx-pack { padding: 10px 2px; }
+  .yx-pack__btn { padding: 10px 2px; }
+  .yx-pack__gate { padding-bottom: 12px; }
+  .yx-pack__gate .gate-panel__card { padding: 16px 13px 18px; }
   /* One line per package keeps the three options on the same screen; the
      full includes list is still on the package drawer and the license. */
   .yx-pack__includes {
@@ -5466,7 +5590,8 @@ html { --yx-header-h: 64px; }
   .yx-focus__body { padding: clamp(14px, 1.8vw, 20px); }
   .yx-focus__title { font-size: clamp(28px, 3.2vw, 40px); }
   .yx-player { margin: 10px 0; padding: 10px 0; }
-  .yx-pack { padding: 8px 2px; }
+  .yx-pack__btn { padding: 8px 2px; }
+  .yx-pack__gate .gate-panel__card { padding: 16px 14px 18px; }
   .yx-pack__includes { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .yx-focus__note { margin-top: 8px; }
 }
@@ -5513,6 +5638,10 @@ html { --yx-header-h: 64px; }
   .yx-grid { gap: 22px 10px; }
   .yx-card__name { font-size: 9px; }
   .yx-card__specs { display: none; }
+  .yx-card__stamp { left: 6px; bottom: 6px; }
+  .yx-stamp { padding: 6px 8px 5px; }
+  .yx-stamp__kicker { font-size: 5.5px; letter-spacing: .2em; }
+  .yx-stamp__line { font-size: 8px; letter-spacing: .14em; }
   .yx-focus__top { margin-bottom: 14px; }
   .yx-focus__spacer { width: 58px; }
   .yx-focus__card { border-left: 0; border-right: 0; }

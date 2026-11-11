@@ -511,8 +511,13 @@ test('a package opens the real gate, and the preview plays', async () => {
   await page.waitForFunction(() => document.querySelector('[data-gate-host].is-open'));
   const gate = await page.evaluate(() => {
     const panel = document.querySelector('.gate-panel');
-    const host = document.querySelector('#yx-focus [data-gate-host]');
+    const host = document.querySelector('#yx-focus [data-gate-host].is-open');
+    const row = host && host.closest('[data-yx-pack-row]');
     return {
+      /* The panel lives in the chosen row's own slot, not in a slot under the
+         package list. */
+      inRow: !!(row && row.classList.contains('is-selected')),
+      rowHost: !!(row && row.querySelector('[data-gate-host]') === host),
       email: document.querySelector('#gate-email').value,
       optin: document.querySelector('#gate-optin').checked,
       /* The gate is part of the sheet, not a window over it: no backdrop, no
@@ -531,6 +536,8 @@ test('a package opens the real gate, and the preview plays', async () => {
   assert.equal(gate.optin, true, 'the opt-in is part of the gate');
   assert(gate.tiers >= 0, 'the gate renders');
   assert.equal(gate.insideFocus, true, 'the gate expands inside the focus sheet, not over it');
+  assert.equal(gate.inRow, true, 'the gate expands in the exact package row that was chosen');
+  assert.equal(gate.rowHost, true, 'the chosen row owns the slot the form grows in');
   assert.equal(gate.backdrops, 0, 'there is no backdrop any more');
   assert.equal(gate.dialogs, 0, 'no modal dialog is opened for a package');
   assert.equal(gate.fixedPanels, 0, 'the gate is never a fixed overlay');
@@ -541,9 +548,9 @@ test('a package opens the real gate, and the preview plays', async () => {
   /* The email step hands the SAME slot to the license stage — still inline. */
   await page.locator('#gate-email').fill('inline-buyer@example.com');
   await page.locator('[data-gate-submit]').click();
-  await page.waitForSelector('.yx-focus__gate .gate-panel__card--sign');
+  await page.waitForSelector('.yx-pack.is-selected .gate-panel__card--sign');
   const sign = await page.evaluate(() => ({
-    inSheet: !!document.querySelector('#yx-focus [data-gate-host] .gate-panel__card--sign'),
+    inSheet: !!(document.querySelector('.yx-pack.is-selected [data-gate-host] .gate-panel__card--sign')),
     terms: document.querySelectorAll('.sign-terms').length,
     name: document.querySelectorAll('#sign-name').length,
     pad: document.querySelectorAll('.sign-pad__canvas').length,
@@ -555,10 +562,10 @@ test('a package opens the real gate, and the preview plays', async () => {
   assert.equal(sign.pad, 1, 'the signature pad is inline');
   assert.equal(sign.modal, 0, 'nothing is pinned over the page');
 
-  await page.locator('.yx-focus__gate [data-gate-cancel]').click();
+  await page.locator('.yx-pack.is-selected [data-gate-cancel]').click();
   await page.waitForFunction(() => !document.querySelector('.gate-panel'));
   const closed = await page.evaluate(() => ({
-    hostHidden: document.querySelector('#yx-focus [data-gate-host]').hidden,
+    hostHidden: [...document.querySelectorAll('#yx-focus [data-gate-host]')].every((host) => host.hidden),
     selected: document.querySelectorAll('.yx-pack.is-selected').length,
     open: document.documentElement.classList.contains('gate-open'),
   }));
@@ -566,6 +573,173 @@ test('a package opens the real gate, and the preview plays', async () => {
   assert.equal(closed.selected, 0, 'the package list returns to rest');
   assert.equal(closed.open, false, 'the gate state is cleared');
   for (const failure of errors) assert.fail(`page error: ${failure}`);
+  await context.close();
+});
+
+test('signing in the sheet unlocks the files in the same row, with no redirect', async () => {
+  const { context, page, errors } = await openHome({ viewport: { width: 1440, height: 900 } });
+  /* The one POST the flow makes. Kept off the network so the run never touches
+     the live form; the files must appear whether or not it answers. */
+  await page.route('https://formspree.io/**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: '{"ok":true}',
+  }));
+  await page.locator('#yx-grid .yx-card').first().click();
+  await page.waitForFunction(() => !document.querySelector('#yx-focus').hidden);
+  await page.locator('[data-yx-pack]').first().click();
+  await page.waitForSelector('.yx-pack.is-selected .gate-panel');
+  await page.locator('#gate-email').fill('inline-flow@example.com');
+  await page.locator('[data-gate-submit]').click();
+  await page.waitForSelector('.yx-pack.is-selected .gate-panel__card--sign');
+
+  /* The whole REVIEW & SIGN stage is in that same row: the terms pane, the full
+     name and the pad, with nothing pinned over the page. */
+  await page.locator('#sign-name').fill('Jordan Vega');
+  await page.evaluate(() => {
+    const terms = document.querySelector('.sign-terms');
+    terms.scrollTop = terms.scrollHeight;
+  });
+  await page.locator('[data-sign-mode="draw"]').click();
+  await page.waitForTimeout(150);
+  /* Draw through real pointer events dispatched on the canvas. Coordinates are
+     recomputed from the live rect on every event, so a reflow mid-stroke (the
+     hint line changing as the drawing registers) cannot move the pen off the
+     pad. */
+  await page.evaluate(() => {
+    const canvas = document.querySelector('.sign-pad__canvas');
+    const rect = canvas.getBoundingClientRect();
+    const at = (fx, fy) => ({
+      clientX: rect.left + rect.width * fx,
+      clientY: rect.top + rect.height * fy,
+    });
+    const fire = (type, fx, fy, extra = {}) => {
+      const p = at(fx, fy);
+      const ev = new PointerEvent(type, {
+        bubbles: true, cancelable: true, composed: true,
+        pointerId: 1, pointerType: 'mouse', isPrimary: true,
+        clientX: p.clientX, clientY: p.clientY, buttons: type === 'pointerup' ? 0 : 1,
+        ...extra,
+      });
+      canvas.dispatchEvent(ev);
+    };
+    fire('pointerdown', 0.16, 0.5);
+    for (let i = 0; i <= 14; i += 1) {
+      fire('pointermove', 0.16 + i * 0.045, 0.5 + Math.sin(i / 2) * 0.2);
+    }
+    fire('pointerup', 0.16 + 14 * 0.045, 0.5 + Math.sin(14 / 2) * 0.2);
+  });
+  /* Re-pin the terms pane at the bottom after the stroke reflowed the card,
+     so `termsRead` stays true no matter what the hint line did to the height. */
+  await page.evaluate(() => { const t = document.querySelector('.sign-terms'); t.scrollTop = t.scrollHeight; });
+  await page.waitForFunction(() => {
+    const submit = document.querySelector('[data-sign-submit]');
+    return submit && !submit.disabled;
+  }, null, { timeout: 15000 });
+  const before = page.url();
+  await page.locator('[data-sign-submit]').click();
+
+  /* The flow never leaves the record: the same row turns into the files shelf,
+     with the serial and the license beside it. */
+  await page.waitForSelector('.yx-pack.is-selected .gate-panel__card--files', { timeout: 15000 });
+  const unlocked = await page.evaluate(() => {
+    const host = document.querySelector('.yx-pack.is-selected [data-gate-host]');
+    const panel = document.querySelector('.gate-panel__card--files');
+    const first = document.querySelector('[data-gate-file="0"]');
+    return {
+      inRow: !!(host && host.contains(panel)),
+      rowSelected: document.querySelectorAll('.yx-pack.is-selected').length,
+      sheetOpen: !document.querySelector('#yx-focus').hidden,
+      files: document.querySelectorAll('[data-gate-file]').length,
+      serial: (document.querySelector('.gate-serial__id') || {}).textContent || '',
+      pdf: document.querySelectorAll('[data-gate-license]').length,
+      fileName: first ? first.querySelector('.gate-file__name').textContent : '',
+      fixed: [...document.querySelectorAll('.gate-panel')].filter((el) => getComputedStyle(el).position === 'fixed').length,
+      overflow: document.documentElement.scrollWidth - window.innerWidth,
+    };
+  });
+  assert.equal(page.url(), before, 'the flow never navigates away from the record');
+  assert.equal(unlocked.sheetOpen, true, 'the focused record is still on screen after the signature');
+  assert.equal(unlocked.inRow, true, 'the files open inside the package row that was signed');
+  assert.equal(unlocked.rowSelected, 1, 'the row stays the selected one');
+  assert(unlocked.files >= 1, 'the unlocked files are listed inline');
+  assert.match(unlocked.serial, /^KYRO-\d{4}-/, 'the license serial is shown inline');
+  assert.equal(unlocked.pdf, 1, 'the license PDF is offered inline');
+  assert.match(unlocked.fileName, /^KYROIII - /, 'the file carries its studio name');
+  assert.equal(unlocked.fixed, 0, 'the files are never a fixed overlay');
+  assert.equal(unlocked.overflow, 0, 'the inline shelf never scrolls sideways');
+
+  /* CLOSE collapses the row's slot and leaves the sheet exactly as it was. */
+  await page.locator('.yx-pack.is-selected [data-gate-cancel]').click();
+  await page.waitForFunction(() => !document.querySelector('.gate-panel'));
+  const closed = await page.evaluate(() => ({
+    hostHidden: [...document.querySelectorAll('#yx-focus [data-gate-host]')].every((host) => host.hidden),
+    selected: document.querySelectorAll('.yx-pack.is-selected').length,
+    open: document.documentElement.classList.contains('gate-open'),
+  }));
+  assert.equal(closed.hostHidden, true, 'closing the files collapses the row slot');
+  assert.equal(closed.selected, 0, 'the package list returns to rest');
+  assert.equal(closed.open, false, 'the gate state is cleared');
+  for (const failure of errors) assert.fail(`page error: ${failure}`);
+  await context.close();
+});
+
+test('a claimed record keeps its cover vivid and wears the locked stamp', async () => {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(homeUrl, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#yx-grid .yx-card');
+  /* Seed a claim by another buyer into the same register the store reads, then
+     reload so the record is retired on the way in. */
+  const claimedId = await page.evaluate(async () => {
+    const seed = await (await fetch('data/exclusive-claims.json')).json();
+    const beat = window.KYROlll_CATALOG[0];
+    localStorage.setItem('kyrolll_exclusive_claims', JSON.stringify({
+      version: 2,
+      generation: seed.generation,
+      buyerId: 'test-buyer',
+      claims: {
+        [beat.id]: { at: new Date().toISOString(), ownerId: 'another-buyer', msgId: 'test-claim', nonce: 'n1' },
+      },
+      outbox: [],
+    }));
+    return beat.id;
+  });
+  await page.goto(homeUrl, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#yx-grid .yx-card');
+  const claimed = await page.evaluate((id) => {
+    const card = document.querySelector(`[data-yx-beat="${id}"]`);
+    const img = card.querySelector('.yx-card__media img');
+    const style = getComputedStyle(img);
+    return {
+      locked: card.classList.contains('is-locked'),
+      filter: style.filter,
+      opacity: style.opacity,
+      stamp: (card.querySelector('.yx-card__stamp .yx-stamp__line') || {}).textContent || '',
+      stampKicker: (card.querySelector('.yx-card__stamp .yx-stamp__kicker') || {}).textContent || '',
+      stampOverArt: !!card.querySelector('.yx-card__media .yx-card__stamp'),
+      flag: card.querySelectorAll('.yx-card__flag').length,
+    };
+  }, claimedId);
+  assert.equal(claimed.locked, true, 'the claimed record is marked as retired');
+  assert.equal(claimed.filter, 'none', 'the claimed cover keeps its colour — no grayscale filter');
+  assert.equal(claimed.opacity, '1', 'the claimed cover keeps full contrast');
+  assert.equal(claimed.stampOverArt, true, 'the stamp is painted over the cover, not instead of it');
+  assert.equal(claimed.stamp, 'CLAIMED // SOLD OUT', 'another buyer sees the public sold-out stamp');
+  assert.equal(claimed.stampKicker, 'EXCLUSIVE RIGHTS', 'the stamp names the retired rights');
+  assert.equal(claimed.flag, 0, 'no dim grey flag row is used for a claimed record');
+
+  /* The focused view of the same record wears the same stamp. */
+  await page.locator(`[data-yx-beat="${claimedId}"]`).click();
+  await page.waitForFunction(() => !document.querySelector('#yx-focus').hidden);
+  const focus = await page.evaluate(() => ({
+    artFilter: getComputedStyle(document.querySelector('[data-yx-focus-art]')).filter,
+    status: (document.querySelector('.yx-focus__status .yx-stamp__line') || {}).textContent || '',
+    packs: document.querySelectorAll('[data-yx-pack]').length,
+    stampOverStatus: !!document.querySelector('.yx-focus__status .yx-stamp'),
+  }));
+  assert.equal(focus.artFilter, 'none', 'the focused cover is vivid too');
+  assert.equal(focus.status, 'CLAIMED // SOLD OUT', 'the focus view wears the locked stamp');
+  assert.equal(focus.stampOverStatus, true, 'the focus stamp is the same plate as the tile');
+  assert.equal(focus.packs, 0, 'a retired record offers no package rows');
   await context.close();
 });
 

@@ -396,7 +396,13 @@
     if (holdExclusiveClaim(beat)) return;
     if (holdScheduledDrop(beat)) return;
     if (pack.gate === "instant") { goToDownload(beat, pack, "", ""); return; }
-    openGate(beat, pack, (b, p, email, serial) => { goToDownload(b, p, email, serial); }, opts);
+    /* `opts.inline` keeps the whole flow — gate, license, files — in the panel
+       it expanded into (the focus sheet's package row). Without it the panel
+       hands off to `download.html` as before. */
+    openGate(beat, pack, (b, p, email, serial) => {
+      if (opts && opts.inline) return;
+      goToDownload(b, p, email, serial);
+    }, opts);
   }
 
   /* ------------------------------------------------------ menu */
@@ -904,6 +910,69 @@
     return gate.el;
   }
 
+  /* The inline flow's final screen: the files themselves, inside the same
+     panel, so a visitor on the store never leaves the record for a separate
+     download page. The files, their studio names, the serial and the license
+     are exactly what `download.html` would show; only the shelf differs. */
+  function primeInlineLicense(beat, pack, serial) {
+    const pdf = window.KYROlll_LICENSE_PDF;
+    if (!pdf || !pdf.primeLicensePDF) return;
+    /* Built ahead of the click so the button saves a ready blob synchronously —
+       what Safari / iOS require to save a generated file rather than open it. */
+    Promise.resolve(pdf.primeLicensePDF(beat, pack, serial, signaturePayload()))
+      .catch(() => { /* non-fatal: the click falls back to building on demand */ });
+  }
+
+  function showFilesStage(beat, pack, email, serial) {
+    if (!gate) return null;
+    const card = gate.el.querySelector(".gate-panel__card");
+    if (!card) return null;
+    const items = deliverablesFor(beat.id, pack.id);
+    const rows = items.map((item, index) =>
+      '<button type="button" class="gate-file" data-gate-file="' + index + '">' +
+        '<span class="gate-file__index">' + String(index + 1).padStart(2, "0") + '</span>' +
+        '<span class="gate-file__body">' +
+          '<span class="gate-file__label">' + escapeHTML(item.label || "FILE") + '</span>' +
+          '<span class="gate-file__name">' + escapeHTML(item.name || item.file) + '</span>' +
+        '</span>' +
+        '<span class="gate-file__go">DOWNLOAD</span>' +
+      '</button>').join("");
+    card.className = "gate-panel__card gate-panel__card--files";
+    card.setAttribute("aria-live", "polite");
+    card.innerHTML =
+      '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + ' — FILES UNLOCKED</span>' +
+      '<h2 class="gate-panel__title" id="gate-title">YOUR FILES</h2>' +
+      '<p class="gate-panel__copy">' + escapeHTML(beat.title) + '</p>' +
+      '<div class="gate-serial">' +
+        '<span class="gate-serial__kicker">LICENSE ID</span>' +
+        '<span class="gate-serial__id">' + escapeHTML(serial) + '</span>' +
+      '</div>' +
+      '<div class="gate-files">' + rows + '</div>' +
+      '<div class="gate-panel__actions">' +
+        '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CLOSE</button>' +
+        '<button type="button" class="kyrolll-btn" data-gate-license>LICENSE (.PDF)</button>' +
+      '</div>' +
+      '<p class="gate-panel__hint">FREE FOR PERSONAL &amp; COMMERCIAL USE — CREDIT (PROD. BY KYROIII)</p>';
+    resizeHost();
+    card.querySelectorAll("[data-gate-file]").forEach((button) => {
+      button.addEventListener("click", () => {
+        downloadItem(items[Number(button.getAttribute("data-gate-file"))]);
+      });
+    });
+    const pdf = card.querySelector("[data-gate-license]");
+    const api = window.KYROlll_LICENSE_PDF;
+    if (pdf && api && api.generateLicensePDF) {
+      pdf.addEventListener("click", () => {
+        api.generateLicensePDF(beat, pack, window.KYROlll_DOWNLOADS, serial, signaturePayload());
+      });
+    } else if (pdf) {
+      pdf.remove();
+    }
+    wireGateDismiss(card);
+    primeInlineLicense(beat, pack, serial);
+    return card;
+  }
+
   /* ---------------------------------------------- REVIEW & SIGN (the last step)
      Every gate now ends here instead of jumping straight to the download page:
      the modal turns into the license itself — the terms to read, then a full
@@ -1012,11 +1081,16 @@
       }
     }
 
-    /* Terms read to the end (or short enough to fit without scrolling). */
+    /* Terms read to the end (or short enough to fit without scrolling). Once the
+       visitor has reached the bottom it stays "read" — a reflow that grew the
+       card (a hint line, a stamp) must not un-read it and lock the button. */
+    let termsEverRead = false;
     function termsRead() {
       if (!terms) return true;
-      return terms.scrollHeight <= terms.clientHeight + 4 ||
+      const read = terms.scrollHeight <= terms.clientHeight + 4 ||
         terms.scrollTop + terms.clientHeight >= terms.scrollHeight - 6;
+      if (read) termsEverRead = true;
+      return read || termsEverRead;
     }
     function typedName() { return String(nameInput && nameInput.value || "").trim(); }
     function drawPoints() { return strokes.reduce((sum, stroke) => sum + stroke.length, 0); }
@@ -1261,11 +1335,12 @@
         }
       }
       rememberGrant(beat.id, pack.id, email);
-      showSuccessPanel();
       /* The exclusive license is the one that takes the beat off the market.
-         The claim is recorded only after the success surface is up, so the
-         grid's in-place repaint cannot tear that hand-off out from under the
-         visitor; the storefront reads the claimed entry on its next render. */
+         The claim is recorded before the success surface (the ALL SET card or
+         the inline files stage) is painted, so the storefront's in-place
+         repaint — which is held off while a gate is open — lands the stamp the
+         moment the panel closes and can never tear that hand-off out from under
+         the visitor. */
       if (pack.id === "exclusive") {
         const h = helpers();
         const claimed = h && h.lockExclusive ? h.lockExclusive(beat.id) : true;
@@ -1275,6 +1350,15 @@
           return;
         }
       }
+      if (gate && gate.inline) {
+        /* The unified inline flow: the same panel turns into the files shelf,
+           with the license beside them. Nothing navigates and no separate
+           download page is ever needed — the record is still on screen. */
+        showFilesStage(beat, pack, email, serial);
+        if (onUnlocked) onUnlocked(beat, pack, email || "", serial || "");
+        return;
+      }
+      showSuccessPanel();
       setTimeout(() => {
         closeGate();
         if (onUnlocked) onUnlocked(beat, pack, email || "", serial || "");
@@ -1357,7 +1441,7 @@
        verify, so the panel is one clean sheet. */
     const body = emailGateBody(pack, {});
     panel.innerHTML = gateCard(pack, beat, null, body, "");
-    gate = { el: panel, host: host };
+    gate = { el: panel, host: host, inline: !!(opts && opts.inline) };
     document.documentElement.classList.add("gate-open");
     document.dispatchEvent(new CustomEvent("kyrolll:gate-open", {
       detail: { beatId: beat.id, packageId: pack.id }

@@ -65,7 +65,6 @@
   const focusSpecs = focus.querySelector("[data-yx-focus-specs]");
   const focusStatus = focus.querySelector("[data-yx-focus-status]");
   const focusPacks = focus.querySelector("[data-yx-focus-packs]");
-  const focusGate = focus.querySelector("[data-gate-host]");
   const focusBack = focus.querySelector("[data-yx-focus-back]");
   const focusKicker = focus.querySelector("[data-yx-focus-kicker]");
   const collector = focus.querySelector("[data-yx-collector]");
@@ -97,6 +96,15 @@
      (e.g. 09), so the oldest record stays 01 as the collection grows. */
   const numberFor = (beat) => String(newest.length - newest.indexOf(beat)).padStart(2, "0");
   const specsFor = (beat) => `${beat.bpm} BPM / ${String(beat.key || "").toUpperCase()}`;
+
+  /* The retired record's mark: a hairline plate with corner ticks, the rights
+     line above and the ownership line below. It is painted over the cover, never
+     instead of it, so a closed beat still shows its full-colour art. */
+  const stampHTML = (owned) =>
+    '<span class="yx-stamp">' +
+      `<span class="yx-stamp__kicker">${owned ? "PRIVATE MASTER" : "EXCLUSIVE RIGHTS"}</span>` +
+      `<span class="yx-stamp__line">${owned ? "OWNED // YOURS" : "CLAIMED // SOLD OUT"}</span>` +
+    "</span>";
   const gridFor = (kind) => (kind === "art" ? artGrid : grid);
   const viewFor = (kind) => (kind === "art" ? artView : home);
 
@@ -115,15 +123,19 @@
     const locked = isLocked(beat);
     const pending = !locked && !isReleased(beat);
     const flags = locked ? " is-locked" : pending ? " is-pending" : "";
-    let flag = "";
-    if (pending) {
-      flag = `<span class="yx-card__flag">DROPPING SOON <b data-countdown="${esc(beat.id)}">${esc(countdown(beat))}</b></span>`;
-    } else if (locked) {
-      flag = `<span class="yx-card__flag">${isOwned(beat) ? "OWNED / YOURS" : "CLAIMED / SOLD OUT"}</span>`;
-    }
+    /* A claimed record is retired, not dimmed: the cover keeps its full colour
+       and contrast and wears a locked tech stamp instead. A scheduled drop
+       still counts down under the cover. */
+    const flag = pending
+      ? `<span class="yx-card__flag">DROPPING SOON <b data-countdown="${esc(beat.id)}">${esc(countdown(beat))}</b></span>`
+      : "";
+    const stamp = locked
+      ? `<span class="yx-card__stamp" aria-hidden="true">${stampHTML(isOwned(beat))}</span>`
+      : "";
     return `<button class="yx-card${flags}" type="button" data-yx-beat="${esc(beat.id)}" aria-label="Focus ${esc(name)}">
       <span class="yx-card__media">
         <img src="${esc(beat.img)}" alt="${esc(name)} cover art" width="1024" height="1024" ${index < 3 ? "" : 'loading="lazy"'} decoding="async">
+        ${stamp}
       </span>
       <span class="yx-card__row">
         <span class="yx-card__index">${String(newest.length - index).padStart(2, "0")}</span>
@@ -200,14 +212,40 @@
 
   /* ------------------------------------------------------------ focus view */
 
-  function packHTML(pack) {
+  /* A package row is a container, not a bare button: the row's own gate slot
+     rides inside it, so choosing the package unfolds the email form and the
+     license *in that exact row* instead of in a panel under the list. The slot
+     is a sibling of the button (a form can never live inside one) and starts
+     hidden at zero height. */
+  function packHTML(pack, beatId) {
     const includes = Array.isArray(pack.includes) ? pack.includes.join(" · ") : "";
-    return `<button class="yx-pack" type="button" data-yx-pack="${esc(pack.id)}">
-      <span class="yx-pack__name">${esc(pack.name)}</span>
-      <span class="yx-pack__includes">${esc(includes)}</span>
-      <span class="yx-pack__tag">FREE</span>
-      <span class="yx-pack__arrow" aria-hidden="true">↗</span>
-    </button>`;
+    const gateId = `yx-gate-${beatId}-${pack.id}`;
+    return `<div class="yx-pack" data-yx-pack-row="${esc(pack.id)}">
+      <button class="yx-pack__btn" type="button" data-yx-pack="${esc(pack.id)}" aria-expanded="false" aria-controls="${esc(gateId)}">
+        <span class="yx-pack__name">${esc(pack.name)}</span>
+        <span class="yx-pack__includes">${esc(includes)}</span>
+        <span class="yx-pack__tag">FREE</span>
+        <span class="yx-pack__arrow" aria-hidden="true">↗</span>
+      </button>
+      <div class="yx-pack__gate" id="${esc(gateId)}" data-gate-host hidden></div>
+    </div>`;
+  }
+
+  /* Every row's slot is emptied when the sheet changes record, so no stale gate
+     and no stale selection can survive into the next beat. */
+  function clearPackGates() {
+    focusPacks.querySelectorAll("[data-yx-pack-row]").forEach((row) => {
+      row.classList.remove("is-selected");
+      const button = row.querySelector("[data-yx-pack]");
+      if (button) button.setAttribute("aria-expanded", "false");
+      const host = row.querySelector("[data-gate-host]");
+      if (host) {
+        host.innerHTML = "";
+        host.hidden = true;
+        host.classList.remove("is-open");
+        host.style.cssText = "";
+      }
+    });
   }
 
   function renderFocus(beat, keepAudio) {
@@ -223,21 +261,16 @@
     focusType.textContent = type;
     focusSpecs.textContent = specsFor(beat);
     focus.classList.remove("is-art");
-    /* A record arriving fresh carries no gate: the slot is emptied before the
-       new package rows are built. */
-    if (focusGate) {
-      focusGate.innerHTML = "";
-      focusGate.hidden = true;
-      focusGate.classList.remove("is-open");
-      focusGate.style.cssText = "";
-    }
+    /* A record arriving fresh carries no gate: every row's slot is emptied
+       before the new package rows are built. */
+    clearPackGates();
     if (focusKicker) focusKicker.textContent = "FOCUSED SELECTION";
     if (focusBack) focusBack.textContent = "ALL BEATS";
     if (collector) collector.hidden = true;
 
     let status = "";
     if (pending) status = `DROPPING SOON — <b data-focus-countdown>${esc(countdown(beat))}</b>`;
-    else if (locked) status = owned ? "PRIVATE MASTER // YOURS" : "CLAIMED / SOLD OUT";
+    else if (locked) status = stampHTML(owned);
     focusStatus.innerHTML = status;
     focusStatus.hidden = !status;
     focusStatus.classList.toggle("is-locked", locked);
@@ -249,7 +282,7 @@
     } else if (pending) {
       focusPacks.innerHTML = '<p class="yx-focus__closed">THE PACKAGES OPEN THE MOMENT THIS RECORD LANDS.</p>';
     } else {
-      focusPacks.innerHTML = PACKAGES.map(packHTML).join("");
+      focusPacks.innerHTML = PACKAGES.map((pack) => packHTML(pack, beat.id)).join("");
     }
 
     if (!keepAudio) loadAudio(beat);
@@ -393,12 +426,7 @@
     if (window.KYROlll_DOWNLOADS && window.KYROlll_DOWNLOADS.closeGate) {
       window.KYROlll_DOWNLOADS.closeGate();
     }
-    if (focusGate) {
-      focusGate.innerHTML = "";
-      focusGate.hidden = true;
-      focusGate.classList.remove("is-open");
-      focusGate.style.cssText = "";
-    }
+    clearPackGates();
     const kind = state.kind || "beat";
     const last = kind === "art" ? state.art : state.beat;
     const seq = ++state.zoomSeq;
@@ -701,24 +729,40 @@
     if (!button || !state.beat) return;
     if (isLocked(state.beat) || !isReleased(state.beat)) return;
     if (!window.KYROlll_DOWNLOADS || !window.KYROlll_DOWNLOADS.start) return;
-    /* The gate expands inside this sheet: the sheet's own slot is handed to the
-       flow, so the email form and the signature render under the package rows
-       rather than in a window over the store. The chosen row is marked so the
-       list reads as one package unfolding. */
-    focusPacks.querySelectorAll("[data-yx-pack]").forEach((row) => {
-      row.classList.toggle("is-selected", row === button);
-      row.setAttribute("aria-expanded", row === button ? "true" : "false");
+    const row = button.closest("[data-yx-pack-row]");
+    if (!row) return;
+    /* The gate expands inside the chosen row itself: the row hands its own slot
+       to the flow, so the email form, the license and the signature grow out of
+       that exact row. Selecting another package releases the previous row. */
+    focusPacks.querySelectorAll("[data-yx-pack-row]").forEach((other) => {
+      const selected = other === row;
+      other.classList.toggle("is-selected", selected);
+      const trigger = other.querySelector("[data-yx-pack]");
+      if (trigger) trigger.setAttribute("aria-expanded", selected ? "true" : "false");
     });
-    window.KYROlll_DOWNLOADS.start(state.beat.id, button.getAttribute("data-yx-pack"), { host: focusGate });
+    window.KYROlll_DOWNLOADS.start(state.beat.id, button.getAttribute("data-yx-pack"), {
+      host: row.querySelector("[data-gate-host]"),
+      /* The unlocked files and the license stay in this row too, so the whole
+         flow — email, terms, name, signature, files — is the focused record. */
+      inline: true
+    });
   });
 
-  /* The inline gate closing (CANCEL, or a completed hand-off) returns the
-     package list to its resting state; the sheet's slot collapses itself. */
+  /* The inline gate closing (CANCEL or the files stage's own close) returns the
+     package list to its resting state; the row's slot collapses itself. The
+     grid is repainted just after the collapse so a claim issued in this flow
+     lands on the tile as a stamp instead of a stale package list. */
   document.addEventListener("kyrolll:gate-closed", () => {
-    focusPacks.querySelectorAll("[data-yx-pack]").forEach((row) => {
+    focusPacks.querySelectorAll("[data-yx-pack-row]").forEach((row) => {
       row.classList.remove("is-selected");
-      row.removeAttribute("aria-expanded");
+      const button = row.querySelector("[data-yx-pack]");
+      if (button) button.setAttribute("aria-expanded", "false");
     });
+    window.setTimeout(() => {
+      const lockedNow = state.beat && isLocked(state.beat);
+      renderGrid();
+      if (lockedNow) renderFocus(state.beat, true);
+    }, 360);
   });
 
   focus.querySelectorAll("[data-yx-close]").forEach((button) => {

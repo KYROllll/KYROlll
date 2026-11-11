@@ -552,10 +552,15 @@ mark is the spinning flower in the header.
   The cover is a FLIP layer: `storefront.js` measures the chosen tile's media box,
   pins `.yx-focus__art` onto it with a `transform`, then releases it to the sheet's
   own frame on the CSS curve (`.62s cubic-bezier(.16,1,.3,1)`); the body fades in
-  once the cover lands (`is-zooming`).  The sheet already holds the preview player, the three package rows and the
-  `.yx-focus__gate` slot those rows expand into, so choosing a package grows the email form
-  and the license stage inside the sheet — the flow never leaves the record (see the gate
-  section below). The archive
+  once the cover lands (`is-zooming`).  The sheet already holds the preview player and the three package rows; **each row now
+  owns its own gate slot** (`.yx-pack__gate`), so choosing a package grows the email form,
+  the license and the unlocked files inside that exact row. The flow can stay entirely in the
+  record: `start(..., { inline: true })` turns the panel into a files shelf after SIGN &
+  UNLOCK instead of navigating to `download.html`. A claimed record is never dimmed: its cover
+  keeps full colour and contrast and wears a static, hairline `.yx-stamp` (corner ticks,
+  `PRIVATE MASTER // OWNED // YOURS` for the buyer, `EXCLUSIVE RIGHTS // CLAIMED // SOLD OUT`
+  otherwise) over the art, and the same stamp is inlined into `.yx-focus__status`. Its player,
+  vinyl and cover are otherwise untouched. The archive
   stays laid out and is only hidden visually (`.yx-home.is-behind`, `inert`), so
   the page never re-scrolls behind the sheet. Closing does not run that cover
   back inside the sheet: `storefront.js` clones it into a fixed `.yx-ghost` at the
@@ -948,10 +953,13 @@ never arrive half-empty:
   and the package drawer. The drawer itself always unfolds downwards from the button, so it can
   never open over the artwork on a beat page — the reason this order is deliberate and not a
   cosmetic swap.
-- `start(beatId, packageId)` resolves the beat + package, then opens that package's gate and
-  continues on success (`gate: "instant"` short-circuits straight to the download page). There is
-  **no grant shortcut**: even a package this view already passed opens the gate from scratch and
-  requires REVIEW & SIGN again, so the mandatory signature step can never be skipped.
+- `start(beatId, packageId, opts)` resolves the beat + package, then opens that package's gate
+  and continues on success (`gate: "instant"` short-circuits straight to the download page).
+  `opts.host` names the slot the panel expands into and `opts.inline` keeps the whole flow in
+  that slot after SIGN & UNLOCK — turning the panel into a files shelf instead of navigating to
+  `download.html`. There is **no grant shortcut**: even a package this view already passed opens
+  the gate from scratch and requires REVIEW & SIGN again, so the mandatory signature step can
+  never be skipped.
 - `start(beatId, packageId, opts)` forwards `opts.host` to `openGate(beat, pack, onUnlocked,
   opts)`, which expands the `.gate-panel` in that slot (the focus sheet names its own; without
   one the first visible `[data-gate-host]` wins, then the beat card's, then the page's) and
@@ -970,6 +978,9 @@ never arrive half-empty:
   malformed address is refused with `#gate-error`. **Only CANCEL closes the gate** — there is no
   dismiss attribute anywhere else, no outside-click listener, and Escape does nothing, so a
   stray tap or key cannot close a gate mid-step. `submitGate` validates the address and
+  hands the same card to the REVIEW & SIGN stage, which then unlocks either by navigating
+  to the download page (`start`) or by turning the panel into a files shelf (`start` with
+  `{ inline: true }`), depending on the surface that opened it.
   opt-in and then hands the *same* card over to the sign stage (below) without posting — the
   files stay locked until the license is signed, and the one authoritative Formspree POST fires
   at SIGN & UNLOCK with every analytics field present.
