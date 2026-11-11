@@ -65,6 +65,7 @@
   const focusSpecs = focus.querySelector("[data-yx-focus-specs]");
   const focusStatus = focus.querySelector("[data-yx-focus-status]");
   const focusPacks = focus.querySelector("[data-yx-focus-packs]");
+  const focusGate = focus.querySelector("[data-gate-host]");
   const focusBack = focus.querySelector("[data-yx-focus-back]");
   const focusKicker = focus.querySelector("[data-yx-focus-kicker]");
   const collector = focus.querySelector("[data-yx-collector]");
@@ -222,6 +223,14 @@
     focusType.textContent = type;
     focusSpecs.textContent = specsFor(beat);
     focus.classList.remove("is-art");
+    /* A record arriving fresh carries no gate: the slot is emptied before the
+       new package rows are built. */
+    if (focusGate) {
+      focusGate.innerHTML = "";
+      focusGate.hidden = true;
+      focusGate.classList.remove("is-open");
+      focusGate.style.cssText = "";
+    }
     if (focusKicker) focusKicker.textContent = "FOCUSED SELECTION";
     if (focusBack) focusBack.textContent = "ALL BEATS";
     if (collector) collector.hidden = true;
@@ -379,6 +388,17 @@
 
   function closeFocus(push, instant) {
     if (!state.beat && !state.art) return;
+    /* Leaving the record leaves its gate behind: the panel lives in this sheet,
+       so it is collapsed here rather than lingering on the next record. */
+    if (window.KYROlll_DOWNLOADS && window.KYROlll_DOWNLOADS.closeGate) {
+      window.KYROlll_DOWNLOADS.closeGate();
+    }
+    if (focusGate) {
+      focusGate.innerHTML = "";
+      focusGate.hidden = true;
+      focusGate.classList.remove("is-open");
+      focusGate.style.cssText = "";
+    }
     const kind = state.kind || "beat";
     const last = kind === "art" ? state.art : state.beat;
     const seq = ++state.zoomSeq;
@@ -681,7 +701,24 @@
     if (!button || !state.beat) return;
     if (isLocked(state.beat) || !isReleased(state.beat)) return;
     if (!window.KYROlll_DOWNLOADS || !window.KYROlll_DOWNLOADS.start) return;
-    window.KYROlll_DOWNLOADS.start(state.beat.id, button.getAttribute("data-yx-pack"));
+    /* The gate expands inside this sheet: the sheet's own slot is handed to the
+       flow, so the email form and the signature render under the package rows
+       rather than in a window over the store. The chosen row is marked so the
+       list reads as one package unfolding. */
+    focusPacks.querySelectorAll("[data-yx-pack]").forEach((row) => {
+      row.classList.toggle("is-selected", row === button);
+      row.setAttribute("aria-expanded", row === button ? "true" : "false");
+    });
+    window.KYROlll_DOWNLOADS.start(state.beat.id, button.getAttribute("data-yx-pack"), { host: focusGate });
+  });
+
+  /* The inline gate closing (CANCEL, or a completed hand-off) returns the
+     package list to its resting state; the sheet's slot collapses itself. */
+  document.addEventListener("kyrolll:gate-closed", () => {
+    focusPacks.querySelectorAll("[data-yx-pack]").forEach((row) => {
+      row.classList.remove("is-selected");
+      row.removeAttribute("aria-expanded");
+    });
   });
 
   focus.querySelectorAll("[data-yx-close]").forEach((button) => {

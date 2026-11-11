@@ -435,7 +435,7 @@ async function pickPackage(page, packageId) {
 // to the end AND BOTH halves of the signature captured — a FULL name (first and
 // last) typed into the field AND a genuine drawing on the pad — before SIGN &
 // UNLOCK comes alive. TYPE and DRAW share that one readiness state.
-const signStage = (page) => page.locator('.gate-modal__card--sign');
+const signStage = (page) => page.locator('.gate-panel__card--sign');
 async function readTerms(page) {
   await page.locator('[data-sign-terms]').evaluate(el => {
     el.scrollTop = el.scrollHeight;
@@ -479,7 +479,7 @@ const drawnPaths = text => [...text.matchAll(/m ((?:[\d.]+ [\d.]+ l )+)/g)]
 async function expectCleanGate(page) {
   assert.equal(await page.locator('.gate-step').count(), 0, 'the gate carries no social step');
   assert.equal(await page.locator('[data-gate-action]').count(), 0, 'the gate carries no like/follow action');
-  assert.equal(await page.locator('.gate-modal a[href*="youtube.com"], .gate-modal a[href*="instagram.com"], .gate-modal a[href*="tiktok.com"], .gate-modal a[href*="x.com"]').count(), 0,
+  assert.equal(await page.locator('.gate-panel a[href*="youtube.com"], .gate-panel a[href*="instagram.com"], .gate-panel a[href*="tiktok.com"], .gate-panel a[href*="x.com"]').count(), 0,
     'the gate opens no social profile');
   assert.equal(await page.locator('#gate-email').count(), 1, 'the gate asks for the email');
   assert.equal(await page.locator('#gate-optin').count(), 1, 'the gate asks for the mandatory opt-in');
@@ -1036,7 +1036,7 @@ try {
   const serials = [];
   const mp3Page = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce', acceptDownloads: true });
   await pickPackage(mp3Page, 'mp3');
-  await mp3Page.locator('.gate-modal').waitFor();
+  await mp3Page.locator('.gate-panel').waitFor();
   assert.equal(await mp3Page.locator('.gate-step').count(), 0, 'the MP3 lease carries no social step');
   assert.equal(await mp3Page.locator('[data-gate-action]').count(), 0, 'the MP3 lease asks for the email and opt-in only');
   assert.equal(await mp3Page.locator('#gate-optin').isChecked(), true, 'the opt-in starts ticked');
@@ -1094,7 +1094,7 @@ try {
   assert.match(await mp3Page.locator('#gate-hint').innerText(), /FULL NAME SET — SWITCH TO DRAW TAB & SIGN THE PAD TO UNLOCK/);
   await readTerms(mp3Page);
   assert(await mp3Page.locator('[data-sign-terms]').evaluate(el => el.scrollTop > 0), 'the terms pane really scrolled to the end');
-  assert.equal(await mp3Page.locator('.gate-modal__card--sign .gate-field.is-valid').count(), 1, 'a full name ticks its field');
+  assert.equal(await mp3Page.locator('.gate-panel__card--sign .gate-field.is-valid').count(), 1, 'a full name ticks its field');
   assert.match(await mp3Page.locator('[data-sign-stamp]').innerText(), /JORDAN VEGA/, 'the stamp previews the name while the pad is still empty');
   assert.equal(await mp3Page.locator('[data-sign-submit]').isDisabled(), true, 'read terms + a full name still needs the drawn signature');
   // DRAW is the same readiness machine, not a second rule: the shared button is
@@ -1140,7 +1140,7 @@ try {
   assert.match(await mp3Page.title(), /MP3 LEASE/);
   assert.equal(await mp3Page.locator('.dl-hero__flower').count(), 1); // the 3D flower branding
   assert.equal(await mp3Page.locator('.download-item').count(), 1); // the tagged MP3 (license is its own panel)
-  assert.equal(await mp3Page.locator('.gate-modal').count(), 0);
+  assert.equal(await mp3Page.locator('.gate-panel').count(), 0);
   // The plain-text license is gone: only the PDF action remains, behind a
   // certificate block that shows the serial the document will carry.
   assert.equal(await mp3Page.locator('#license-view').count(), 0);
@@ -1270,12 +1270,12 @@ try {
   // no social step in front of it. The page then lists the MP3 + WAV.
   const wavPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce', acceptDownloads: true });
   await pickPackage(wavPage, 'wav');
-  await wavPage.locator('.gate-modal').waitFor();
+  await wavPage.locator('.gate-panel').waitFor();
   const wavPack = await wavPage.evaluate(() => window.KYROlll_PACKAGES.find(item => item.id === 'wav'));
   assert.equal(wavPack.tag, 'EMAIL + LICENSE', 'the WAV package badge names the email + license gate');
   assert.equal(wavPack.gate, 'email', 'the WAV package uses the shared email gate');
   assert.equal(wavPack.blurb, 'TAGGED MP3 + HIGH-QUALITY WAV + LICENSE. ENTER YOUR EMAIL, ACCEPT THE LICENSE AND UNLOCK.', 'the WAV package describes the clean gate');
-  assert.match(await wavPage.locator('.gate-modal__copy').first().innerText(), /ENTER YOUR EMAIL TO UNLOCK THE STANDARD WAV LEASE/, 'the WAV gate asks only for the email before the license');
+  assert.match(await wavPage.locator('.gate-panel__copy').first().innerText(), /ENTER YOUR EMAIL TO UNLOCK THE STANDARD WAV LEASE/, 'the WAV gate asks only for the email before the license');
   await expectCleanGate(wavPage);
   await noYouTubeButton(wavPage, CARD);
   assert.equal(await wavPage.locator('[data-gate-submit]').isDisabled(), true);
@@ -1354,12 +1354,12 @@ try {
   await proPage.locator(`${CARD} .download-trigger`).click();
   await proPage.locator('.download-menu.is-open').waitFor();
   await proPage.locator('.download-tier[data-package="exclusive"]').click();
-  await proPage.locator('.gate-modal').waitFor();
+  await proPage.locator('.gate-panel').waitFor();
   const proPack = await proPage.evaluate(() => window.KYROlll_PACKAGES.find(item => item.id === 'exclusive'));
   assert.equal(proPack.tag, 'EMAIL + LICENSE', 'the Pro package badge names the email + license gate');
   assert.equal(proPack.gate, 'email', 'the Pro package uses the shared email gate');
   assert.equal(proPack.blurb, 'FULL STEMS + MP3 + WAV + EXCLUSIVE LICENSE. ENTER YOUR EMAIL, ACCEPT THE LICENSE AND UNLOCK.', 'the Pro package describes the clean gate and names its exclusive license');
-  assert.match(await proPage.locator('.gate-modal__copy').first().innerText(), /ENTER YOUR EMAIL TO UNLOCK THE EXCLUSIVE \/ PRO PACKAGE/, 'the Pro gate asks only for the email before the license');
+  assert.match(await proPage.locator('.gate-panel__copy').first().innerText(), /ENTER YOUR EMAIL TO UNLOCK THE EXCLUSIVE \/ PRO PACKAGE/, 'the Pro gate asks only for the email before the license');
   assert.equal(await proPage.locator('#gate-optin').isChecked(), true);
   // The email gate is a real <form> pointing at that provider endpoint.
   assert.equal(await proPage.locator('[data-gate-form]').getAttribute('action'), endpoint);
@@ -1529,14 +1529,14 @@ try {
     await proPage.locator(`${JUST_DO_IT_CARD} .download-trigger`).click();
     await proPage.locator('.download-menu.is-open').waitFor();
     await proPage.locator(`.download-tier[data-package="${pkg}"]`).click();
-    await proPage.locator('.gate-modal').waitFor();
+    await proPage.locator('.gate-panel').waitFor();
     assert.equal(await proPage.locator('#gate-email').inputValue(), '', `${pkg}: the address is never remembered`);
     assert.equal(await proPage.locator('[data-gate-submit]').isDisabled(), true, `${pkg}: the gate starts closed again`);
-    assert.equal(await proPage.locator('.gate-modal__card--sign').count(), 0, `${pkg}: the sign step is never auto-opened`);
+    assert.equal(await proPage.locator('.gate-panel__card--sign').count(), 0, `${pkg}: the sign step is never auto-opened`);
     assert.equal(await proPage.locator('#sign-name').count(), 0, `${pkg}: no signature is ever prefilled`);
     assert.equal(await proPage.locator('#gate-comment').count(), 0, `${pkg}: there is no comment step at all`);
-    await proPage.locator('.gate-modal__card [data-gate-cancel]').click();
-    await proPage.locator('.gate-modal').waitFor({ state: 'detached' });
+    await proPage.locator('.gate-panel__card [data-gate-cancel]').click();
+    await proPage.locator('.gate-panel').waitFor({ state: 'detached' });
   }
   assert.equal(subscribeRequests.length, 3, 'opening a gate posts nothing');
   await noGateMemory(proPage, 'after three gates in one browser');
@@ -1546,7 +1546,7 @@ try {
   // so the flow is identical from any entry point.
   const coldPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce' });
   await coldPage.goto(`${url}/download.html?beat=${BEAT_ID}&package=exclusive`);
-  await coldPage.locator('.gate-modal').waitFor();
+  await coldPage.locator('.gate-panel').waitFor();
   assert.equal(await coldPage.locator('#gate-email').inputValue(), '');
   assert.match(await coldPage.locator('#download-list').innerText(), /UNLOCK THIS PACKAGE/i);
   assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), false, 'a cold entry starts with no grant');
@@ -1580,7 +1580,7 @@ try {
   assert.equal(await coldPage.evaluate(id => window.KYROlll_HELPERS.isExclusiveLocked(id), BEAT_ID), true, 'the exclusive signature claims the beat');
   await coldPage.evaluate(id => { window.KYROlll_DOWNLOADS.start(id, 'exclusive'); }, BEAT_ID);
   await coldPage.waitForTimeout(120);
-  assert.equal(await coldPage.locator('.gate-modal').count(), 0, 'a claimed beat never re-opens a gate');
+  assert.equal(await coldPage.locator('.gate-panel').count(), 0, 'a claimed beat never re-opens a gate');
   assert.equal(await coldPage.locator('.download-menu').count(), 0, 'a claimed beat never re-opens the drawer');
   assert.equal(subscribeRequests.length, postsBeforeMemory, 're-opening a claimed beat posts nothing');
   assert.equal(await coldPage.evaluate(id => window.KYROlll_DOWNLOADS.isUnlocked(id, 'exclusive'), BEAT_ID), true, 'the pass stays recorded for this view');
@@ -1612,9 +1612,9 @@ try {
     return rooted && attached && box.left >= -1 && box.right <= innerWidth + 1 && box.top >= -1 && box.bottom <= innerHeight + 1;
   }), 'the root-anchored drawer stays welded to its trigger and lands inside the phone viewport');
   await phone.locator('.download-tier[data-package="exclusive"]').click();
-  await phone.locator('.gate-modal').waitFor();
+  await phone.locator('.gate-panel').waitFor();
   assert(await phone.evaluate(() => {
-    const card = document.querySelector('.gate-modal__card');
+    const card = document.querySelector('.gate-panel__card');
     const box = card.getBoundingClientRect();
     return box.left >= -1 && box.right <= innerWidth + 1 && box.bottom <= innerHeight + 1;
   }), 'the gate card fits the phone viewport');
@@ -1658,52 +1658,52 @@ try {
   await phone.close();
 
   // The dialog has exactly one exit: its CANCEL button. Escape and a click on
-  // the backdrop are deliberately inert, so a stray key or tap can never wipe a
+  // the panel are deliberately inert, so a stray key or tap can never wipe a
   // gate (or a signature) in progress; CANCEL closes cleanly and releases the page.
   const escPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce' });
   await pickPackage(escPage, 'exclusive');
-  await escPage.locator('.gate-modal').waitFor();
+  await escPage.locator('.gate-panel').waitFor();
   await escPage.keyboard.press('Escape');
   await escPage.waitForTimeout(120);
-  assert.equal(await escPage.locator('.gate-modal').count(), 1, 'Escape never closes the gate');
+  assert.equal(await escPage.locator('.gate-panel').count(), 1, 'Escape never closes the gate');
   assert.equal(await escPage.evaluate(() => document.documentElement.classList.contains('gate-open')), true, 'the page stays locked while the gate is open');
-  await escPage.locator('.gate-modal__backdrop').click({ position: { x: 5, y: 5 } });
+  await escPage.locator('.gate-panel__card').click({ position: { x: 5, y: 5 } });
   await escPage.waitForTimeout(320);
-  assert.equal(await escPage.locator('.gate-modal').count(), 1, 'the backdrop never closes the gate');
-  assert.equal(await escPage.evaluate(() => document.documentElement.classList.contains('gate-open')), true, 'the backdrop click never unlocks the page');
+  assert.equal(await escPage.locator('.gate-panel').count(), 1, 'the panel never closes the gate');
+  assert.equal(await escPage.evaluate(() => document.documentElement.classList.contains('gate-open')), true, 'the panel click never unlocks the page');
   await escPage.mouse.click(5, 5);
   await escPage.waitForTimeout(320);
-  assert.equal(await escPage.locator('.gate-modal').count(), 1, 'a click outside the dialog never closes the gate');
-  await escPage.locator('.gate-modal').click({ position: { x: 5, y: 5 } });
+  assert.equal(await escPage.locator('.gate-panel').count(), 1, 'a click outside the dialog never closes the gate');
+  await escPage.locator('.gate-panel').click({ position: { x: 5, y: 5 } });
   await escPage.waitForTimeout(320);
-  assert.equal(await escPage.locator('.gate-modal').count(), 1, 'the modal root absorbs the empty-area click');
+  assert.equal(await escPage.locator('.gate-panel').count(), 1, 'the modal root absorbs the empty-area click');
   assert.equal(await escPage.evaluate(() => document.documentElement.classList.contains('gate-open')), true, 'the modal root click never unlocks the page');
-  await escPage.locator('.gate-modal__card [data-gate-cancel]').click();
-  await escPage.locator('.gate-modal').waitFor({ state: 'detached' });
+  await escPage.locator('.gate-panel__card [data-gate-cancel]').click();
+  await escPage.locator('.gate-panel').waitFor({ state: 'detached' });
   assert.equal(await escPage.evaluate(() => document.documentElement.classList.contains('gate-open')), false, 'CANCEL releases the page');
   await escPage.close();
 
-  // The signature stage has the same single exit and no prefill: a backdrop click
+  // The signature stage has the same single exit and no prefill: a panel click
   // leaves the empty, locked signature sheet exactly where it was, and only the
   // explicit CANCEL closes it. The intact stage still unlocks after the click.
   const signDismiss = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce' });
   await pickPackage(signDismiss, 'mp3');
-  await signDismiss.locator('.gate-modal').waitFor();
+  await signDismiss.locator('.gate-panel').waitFor();
   await signDismiss.locator('#gate-email').fill('dismiss@example.com');
   await signDismiss.locator('[data-gate-submit]').click();
   await signStage(signDismiss).waitFor();
   assert.equal(await signDismiss.locator('#sign-name').inputValue(), '', 'the signature stage starts empty');
   assert.equal(await signDismiss.locator('[data-sign-submit]').isDisabled(), true, 'the signature stage starts locked');
-  await signDismiss.locator('.gate-modal__backdrop').click({ position: { x: 5, y: 5 } });
+  await signDismiss.locator('.gate-panel__card').click({ position: { x: 5, y: 5 } });
   await signDismiss.waitForTimeout(320);
-  assert.equal(await signStage(signDismiss).isVisible(), true, 'the backdrop never closes the signature stage');
-  assert.equal(await signDismiss.evaluate(() => document.documentElement.classList.contains('gate-open')), true, 'the backdrop click never unlocks the page from the sign stage');
+  assert.equal(await signStage(signDismiss).isVisible(), true, 'the panel never closes the signature stage');
+  assert.equal(await signDismiss.evaluate(() => document.documentElement.classList.contains('gate-open')), true, 'the panel click never unlocks the page from the sign stage');
   await signDismiss.mouse.click(5, 5);
   await signDismiss.waitForTimeout(320);
   assert.equal(await signStage(signDismiss).isVisible(), true, 'a click outside the dialog never closes the signature stage');
-  await signDismiss.locator('.gate-modal').click({ position: { x: 5, y: 5 } });
+  await signDismiss.locator('.gate-panel').click({ position: { x: 5, y: 5 } });
   await signDismiss.waitForTimeout(320);
-  assert.equal(await signDismiss.locator('.gate-modal').count(), 1, 'the modal root absorbs the empty-area click');
+  assert.equal(await signDismiss.locator('.gate-panel').count(), 1, 'the modal root absorbs the empty-area click');
   assert.equal(await signStage(signDismiss).isVisible(), true, 'the modal root never closes the signature stage');
   assert.equal(await signDismiss.locator('#sign-name').inputValue(), '', 'the signature is still not prefilled');
   assert.equal(await signDismiss.locator('[data-sign-submit]').isDisabled(), true, 'the signature stage is still locked');
@@ -1711,8 +1711,8 @@ try {
   await drawSignature(signDismiss);
   await readTerms(signDismiss);
   assert.equal(await signDismiss.locator('[data-sign-submit]').isDisabled(), false, 'the intact sign stage still reaches SIGN & UNLOCK');
-  await signDismiss.locator('.gate-modal__card [data-gate-cancel]').click();
-  await signDismiss.locator('.gate-modal').waitFor({ state: 'detached' });
+  await signDismiss.locator('.gate-panel__card [data-gate-cancel]').click();
+  await signDismiss.locator('.gate-panel').waitFor({ state: 'detached' });
   assert.equal(await signDismiss.evaluate(() => document.documentElement.classList.contains('gate-open')), false, 'CANCEL releases the page from the sign stage');
   await signDismiss.close();
 
@@ -1721,7 +1721,7 @@ try {
   // present (with the terms read), and switching tabs cannot change that.
   const syncPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce' });
   await pickPackage(syncPage, 'mp3');
-  await syncPage.locator('.gate-modal').waitFor();
+  await syncPage.locator('.gate-panel').waitFor();
   await syncPage.locator('#gate-email').fill('sync-buyer@example.com');
   await syncPage.locator('[data-gate-submit]').click();
   await signStage(syncPage).waitFor();
@@ -1747,24 +1747,24 @@ try {
   assert.match(await syncPage.locator('#gate-hint').innerText(), /ALL SET — SIGN & UNLOCK/);
   await syncPage.locator('[data-sign-mode="draw"]').click();
   assert.equal(await syncPage.locator('[data-sign-submit]').isDisabled(), false, 'full name + drawing stays enabled on DRAW');
-  // 4. Empty-area clicks — the backdrop at (5, 5), the viewport corner and the
+  // 4. Empty-area clicks — the panel at (5, 5), the viewport corner and the
   //    modal root itself — never close, reset or dismiss the stage.
-  await syncPage.locator('.gate-modal__backdrop').click({ position: { x: 5, y: 5 } });
+  await syncPage.locator('.gate-panel__card').click({ position: { x: 5, y: 5 } });
   await syncPage.waitForTimeout(320);
-  assert.equal(await signStage(syncPage).isVisible(), true, 'a backdrop click at (5, 5) never closes the sign stage');
-  assert.equal(await syncPage.evaluate(() => document.documentElement.classList.contains('gate-open')), true, 'the backdrop click never unlocks the page');
+  assert.equal(await signStage(syncPage).isVisible(), true, 'a panel click at (5, 5) never closes the sign stage');
+  assert.equal(await syncPage.evaluate(() => document.documentElement.classList.contains('gate-open')), true, 'the panel click never unlocks the page');
   await syncPage.mouse.click(5, 5);
   await syncPage.waitForTimeout(320);
   assert.equal(await signStage(syncPage).isVisible(), true, 'an empty-area click never closes the sign stage');
-  await syncPage.locator('.gate-modal').click({ position: { x: 5, y: 5 } });
+  await syncPage.locator('.gate-panel').click({ position: { x: 5, y: 5 } });
   await syncPage.waitForTimeout(320);
-  assert.equal(await syncPage.locator('.gate-modal').count(), 1, 'the modal root never closes the sign stage');
+  assert.equal(await syncPage.locator('.gate-panel').count(), 1, 'the modal root never closes the sign stage');
   assert.equal(await syncPage.evaluate(() => document.documentElement.classList.contains('gate-open')), true, 'the modal root click never unlocks the page');
   assert.equal(await syncPage.locator('[data-sign-mode="draw"]').evaluate(el => el.classList.contains('is-active')), true, 'the stage is not reset by the clicks');
   assert.equal(await syncPage.locator('#sign-name').inputValue(), 'MATAN MAMADOV', 'the name is not reset by the clicks');
   assert.equal(await syncPage.locator('[data-sign-submit]').isDisabled(), false, 'the enabled button survives the clicks');
-  await syncPage.locator('.gate-modal__card [data-gate-cancel]').click();
-  await syncPage.locator('.gate-modal').waitFor({ state: 'detached' });
+  await syncPage.locator('.gate-panel__card [data-gate-cancel]').click();
+  await syncPage.locator('.gate-panel').waitFor({ state: 'detached' });
   await syncPage.close();
 
   const playback = await setupPage({ viewport: { width: 480, height: 800 }, reducedMotion: 'reduce' });
@@ -1935,7 +1935,7 @@ try {
   // A locked drop cannot be opened programmatically either.
   await preDrop.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), FLOW_ID);
   await preDrop.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), FLOW_ID);
-  assert.equal(await preDrop.locator('.gate-modal').count(), 0, 'a scheduled drop opens no gate');
+  assert.equal(await preDrop.locator('.gate-panel').count(), 0, 'a scheduled drop opens no gate');
   assert.equal(await preDrop.locator('.download-menu').count(), 0, 'a scheduled drop opens no drawer');
   // The helper refuses to hand out the unreleased video URL either.
   assert.equal(await preDrop.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), FLOW_ID), 'https://www.youtube.com/@KYROlll00?sub_confirmation=1', 'the helper withholds the unreleased video URL');
@@ -1975,7 +1975,7 @@ try {
 
   // ------------------------------------------------ mobile title isolation
   // The phone's glass beat card is the worst case for a WebKit re-rasterisation
-  // jitter: a backdrop-filtered surface fading in while a live countdown and the
+  // jitter: a panel-filtered surface fading in while a live countdown and the
   // delayed vinyl reveal run inside it. The title, its head and the info sheet
   // are permanent compositor layers now, and the countdown readout is tabular
   // and fixed-width. Sample the title's document-space box and computed
@@ -2154,7 +2154,7 @@ try {
     locked.closest('.card__actions').dispatchEvent(new MouseEvent('click', { bubbles: true }));
   }, FLOW_ID);
   assert.equal(await liveDrop.locator('.download-menu').count(), 0, 'the LOCKED control opens no drawer');
-  assert.equal(await liveDrop.locator('.gate-modal').count(), 0, 'the LOCKED control opens no gate');
+  assert.equal(await liveDrop.locator('.gate-panel').count(), 0, 'the LOCKED control opens no gate');
   const urlBeforeDrop = liveDrop.url();
   await liveDrop.waitForFunction((id) => {
     const card = document.getElementById('card-' + id);
@@ -2185,7 +2185,7 @@ try {
   await flowPage.locator('.download-menu.is-open').waitFor();
   assert.equal(await flowPage.locator('.download-tier').count(), 3, 'the same three-package drawer');
   await flowPage.locator('.download-tier[data-package="mp3"]').click();
-  await flowPage.locator('.gate-modal').waitFor();
+  await flowPage.locator('.gate-panel').waitFor();
   await flowPage.locator('#gate-email').fill('flow-buyer@example.com');
   await flowPage.locator('[data-gate-submit]').click();
   await signLicense(flowPage, 'Flow Buyer');
@@ -2231,7 +2231,7 @@ try {
   assert.match(await greenPre.locator('.marquee-track').innerText(), /2 RELEASES LIVE/, 'the studio count excludes the not-yet-live third release');
   await greenPre.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), GREEN_FLESH_ID);
   await greenPre.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), GREEN_FLESH_ID);
-  assert.equal(await greenPre.locator('.gate-modal').count(), 0, 'the scheduled GREEN FLESH drop opens no gate');
+  assert.equal(await greenPre.locator('.gate-panel').count(), 0, 'the scheduled GREEN FLESH drop opens no gate');
   assert.equal(await greenPre.locator('.download-menu').count(), 0, 'the scheduled GREEN FLESH drop opens no drawer');
   assert.equal(await greenPre.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), GREEN_FLESH_ID), 'https://www.youtube.com/@KYROlll00?sub_confirmation=1', 'the helper withholds the GREEN FLESH video URL until release');
   await noCardBleed(greenPre, 'GREEN FLESH desktop catalog');
@@ -2340,7 +2340,7 @@ try {
   assert.match(await squishPre.locator('.marquee-track').innerText(), /3 RELEASES LIVE/, 'the studio count excludes the not-yet-live fourth release');
   await squishPre.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), SQUISH_ID);
   await squishPre.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), SQUISH_ID);
-  assert.equal(await squishPre.locator('.gate-modal').count(), 0, 'the scheduled SQUISH! drop opens no gate');
+  assert.equal(await squishPre.locator('.gate-panel').count(), 0, 'the scheduled SQUISH! drop opens no gate');
   assert.equal(await squishPre.locator('.download-menu').count(), 0, 'the scheduled SQUISH! drop opens no drawer');
   assert.equal(await squishPre.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), SQUISH_ID), 'https://www.youtube.com/@KYROlll00?sub_confirmation=1', 'the helper withholds the SQUISH! video URL until release');
   await noCardBleed(squishPre, 'SQUISH! desktop catalog');
@@ -2441,7 +2441,7 @@ try {
   assert.match(await justDoItPre.locator('.marquee-track').innerText(), /4 RELEASES LIVE/, 'the studio count excludes the not-yet-live fifth release');
   await justDoItPre.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), JUST_DO_IT_ID);
   await justDoItPre.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), JUST_DO_IT_ID);
-  assert.equal(await justDoItPre.locator('.gate-modal').count(), 0, 'the scheduled JUST D0 IT drop opens no gate');
+  assert.equal(await justDoItPre.locator('.gate-panel').count(), 0, 'the scheduled JUST D0 IT drop opens no gate');
   assert.equal(await justDoItPre.locator('.download-menu').count(), 0, 'the scheduled JUST D0 IT drop opens no drawer');
   assert.equal(await justDoItPre.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), JUST_DO_IT_ID), 'https://www.youtube.com/@KYROlll00?sub_confirmation=1', 'the helper withholds the JUST D0 IT video URL until release');
   await noCardBleed(justDoItPre, 'JUST D0 IT desktop catalog');
@@ -2557,7 +2557,7 @@ try {
   assert.match(await adllPre.locator('.marquee-track').innerText(), /5 RELEASES LIVE/, 'the studio count excludes the not-yet-live sixth release');
   await adllPre.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), ADLL_ID);
   await adllPre.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), ADLL_ID);
-  assert.equal(await adllPre.locator('.gate-modal').count(), 0, 'the scheduled ADLL drop opens no gate');
+  assert.equal(await adllPre.locator('.gate-panel').count(), 0, 'the scheduled ADLL drop opens no gate');
   assert.equal(await adllPre.locator('.download-menu').count(), 0, 'the scheduled ADLL drop opens no drawer');
   assert.equal(await adllPre.evaluate((id) => window.KYROlll_HELPERS.videoFor(id), ADLL_ID), 'https://www.youtube.com/@KYROlll00?sub_confirmation=1', 'the helper withholds the ADLL video URL until release');
   await noCardBleed(adllPre, 'ADLL desktop catalog');
@@ -2648,7 +2648,7 @@ try {
   assert(ownedLayout.overflow <= 1, 'the owned beat page never overflows horizontally');
   await adllLive.evaluate((id) => window.KYROlll_DOWNLOADS.start(id, 'mp3'), ADLL_ID);
   await adllLive.evaluate((id) => window.KYROlll_DOWNLOADS.openMenu(document.body, id), ADLL_ID);
-  assert.equal(await adllLive.locator('.gate-modal').count(), 0, 'a claimed beat opens no gate');
+  assert.equal(await adllLive.locator('.gate-panel').count(), 0, 'a claimed beat opens no gate');
   assert.equal(await adllLive.locator('.download-menu').count(), 0, 'a claimed beat opens no drawer');
   assert.equal(await adllLive.evaluate((id) => window.KYROlll_HELPERS.isExclusiveLocked(id), ADLL_ID), true, 'the claim is recorded on the live entry');
   await adllLive.evaluate(() => {
@@ -2871,9 +2871,9 @@ try {
   const successTitle = supportPage.locator('[data-support-success] .support-success__title');
   await successTitle.waitFor();
   assert.equal(await successTitle.innerText(), 'MESSAGE SENT SUCCESSFULLY // WE WILL GET BACK TO YOU SOON', 'the desk reaches its success state');
-  // The dialog has one exit: a stray backdrop tap cannot wipe a written message.
+  // The dialog has one exit: a stray panel tap cannot wipe a written message.
   await supportPage.mouse.click(5, 5);
-  assert.equal(await supportPage.locator('.support-modal').isHidden(), false, 'the backdrop never dismisses the desk');
+  assert.equal(await supportPage.locator('.support-modal').isHidden(), false, 'the panel never dismisses the desk');
   await supportPage.locator('[data-support-done]').click();
   await supportPage.waitForFunction(() => document.getElementById('support-modal')?.hidden === true, null, { timeout: 5000 });
   assert.equal(await supportPage.evaluate(() => document.body.style.position), '', 'closing the desk restores the page scroll');
@@ -2947,7 +2947,7 @@ try {
   assert.match(cssText, /\.beat-preview__time \{[^}]*font-variant-numeric:\s*tabular-nums/, 'the clock uses tabular figures');
   assert.match(cssText, /\.beat-preview__time \{[^}]*font-feature-settings:\s*"tnum"/, 'the clock enables tabular figures explicitly');
   // The frame is completely inert: no sheen pseudo-element, no rotating border,
-  // and no continuous shadow keyframes to repaint the backdrop-filtered surface.
+  // and no continuous shadow keyframes to repaint the panel-filtered surface.
   assert.doesNotMatch(cssText, /@keyframes playerSpin/, 'no spinning border keyframe remains');
   assert.doesNotMatch(cssText, /@keyframes playerPulse/, 'the player never animates its shadow');
   assert.doesNotMatch(cssText, /@keyframes togglePulse/, 'the play button never animates its shadow');
@@ -3054,7 +3054,7 @@ try {
     'no superseded Formspree form id remains anywhere in the repository');
 
   assert.deepEqual(errors, []);
-  console.log('Passed storefront layout, tagged audio preview, and the free-download drawer + all three packages behind one clean two-step gate (email + opt-in only, with no social step, like, follow or subscribe anywhere), the REVIEW & SIGN stage with read-to-the-end terms, a typed full name AND a drawn signature required together in BOTH TYPE and DRAW with a single word or a drawing alone refused even with the disabled attribute stripped, and a re-sign single word refused on the download page — an upright never-flipped signature mark, no flower watermark on the signature sheet / the certificate (the flower now lives in the PDF\'s LICENSOR approval stamp) and a pure-white drawn signature ink, a backdrop that never dismisses the gate or the signature stage, a border-free floating flower and white/silver monochrome PDF borders, a direct studio-named PDF download with its serial, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts, and the whole flow walked at 390x844 with touch).');
+  console.log('Passed storefront layout, tagged audio preview, and the free-download drawer + all three packages behind one clean two-step gate (email + opt-in only, with no social step, like, follow or subscribe anywhere), the REVIEW & SIGN stage with read-to-the-end terms, a typed full name AND a drawn signature required together in BOTH TYPE and DRAW with a single word or a drawing alone refused even with the disabled attribute stripped, and a re-sign single word refused on the download page — an upright never-flipped signature mark, no flower watermark on the signature sheet / the certificate (the flower now lives in the PDF\'s LICENSOR approval stamp) and a pure-white drawn signature ink, a panel that never dismisses the gate or the signature stage, a border-free floating flower and white/silver monochrome PDF borders, a direct studio-named PDF download with its serial, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts, and the whole flow walked at 390x844 with touch).');
 } finally {
   await browser?.close();
   server.close();

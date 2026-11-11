@@ -52,11 +52,15 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   floor. Because mono carries its own sidebearings the display tracking is only
   `-0.02em` (a deeper sans-style tracking collides glyphs), the 7 px metadata labels sit
   at 8 px for legibility, and display weights stop at 700 — a synthetic 800/900 smears a
-  monospace face. **The wordmark is the one exception**: `.site-brand` (the top-left
-  `KYROIII` on every page) and the legacy `.brand-wordmark` keep the brand's own bespoke
-  cut — `"Helvetica Neue", Helvetica, Arial, sans-serif`, weight 800 / 900, `.3em`
-  tracking with a matching `text-indent` on the header mark and `-.075em` on the display
-  wordmark. Do not point either at `var(--font-mono)`.
+  monospace face. **The wordmark is the one exception, and it covers every instance of the
+  name.** `.site-brand` (the top-left `KYROIII` on every page), the legacy `.brand-wordmark`,
+  the footer signature `.site-footer__brand` and the inline `.brand-name` spans (the archive
+  eyebrows, the `PRODUCED BY KYROIII` foot, the `© 2026 KYROIII` line and the download page's
+  `← KYROIII STORE`) all keep the brand's own bespoke cut — `"Helvetica Neue", Helvetica,
+  Arial, sans-serif`, weight 800 / 900, `.3em` tracking with a matching `text-indent` on the
+  header mark and `-.075em` on the display wordmark. Do not point any of them at
+  `var(--font-mono)`, and wrap a new inline mention in `<span class="brand-name">` rather than
+  styling the sentence around it.
 - **The category headers glitch on a slow clock.** `.yx-title` (the view heading, e.g.
   `FREE BEATS`) and the active `.site-nav__link` run `yxGlitchTitle` / `yxGlitchNav`:
   one shared 7 s `steps(1, end)` cycle that is clean for six seconds, tears for ~120 ms
@@ -97,17 +101,21 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   the same photographed disc with the flower dead centre on its label, and that no synthetic
   rim, splash or label pseudo-element is painted. Keep any new CSS accents scoped to those marked exceptions;
   all other storefront styling stays neutral.
-- **The dialog is a phone citizen.** `.gate-modal` is measured in *dynamic* viewport units
-  (`height: 100vh; height: 100dvh`) and the card is capped at `max-height: 90dvh` and scrolls
-  inside itself, so the gate (email form or the full REVIEW & SIGN stage) stays whole and
-  the unlock button can never hide behind mobile browser chrome; `downloads.js` also pins the page's scroll offset on
-  the body while a gate is open (a plain `overflow: hidden` makes iOS jump to the top) and
-  restores it on close. Inputs render at 16px on phones, so iOS does not zoom the page on
-  focus, and every control on the path carries `touch-action: manipulation` (no 300 ms
+- **The gate is inline, never a dialog.** There is no `.gate-modal`, no backdrop, no overlay
+  and no page lock: a package expands a `.gate-panel` inside its own `[data-gate-host]` slot
+  (the focus sheet's `.yx-focus__gate`, the beat card's `.beat-detail__gate`, the download
+  page's `.download-gate`), and the page keeps scrolling around it. `downloads.js` measures
+  the panel, pins the slot to `height: 0` and eases it open to that height before releasing it
+  to the content's own height, so the form unfolds out of the package row; CANCEL collapses it
+  again and the slot is left exactly as it was. The chosen `.yx-pack` row stays lit with its
+  arrow turned down while its gate is open. The gate is a phone citizen still: inputs render
+  at 16px, every control on the path carries `touch-action: manipulation` (no 300 ms
   double-tap-zoom wait) while the signature pad keeps `touch-action: none` (it owns the
-  gesture). The dialog has exactly **one exit — its CANCEL button**: the backdrop carries no
-  dismiss attribute and there is no outside-click or Escape handler, so a stray tap or key can
-  never close a gate or wipe a step in progress.
+  gesture), and the sheet's own scroll container carries the taller REVIEW & SIGN stage. The
+  gate has exactly **one exit — its CANCEL button**: there is no outside field to tap and no
+  Escape handler (`html.gate-open` only records that a gate is open, it locks nothing), so a
+  stray tap or key can never close a gate or wipe a step in progress. The support desk keeps
+  its own `.support-modal` dialog; that is the only remaining overlay in the store.
 - `hero-intro.js` drives the hero scroll storytelling: it publishes a 0 → 1
   scroll progress onto `.brand-hero` as the `--hero-p` custom property (all hero
   movement is `calc()`-ed from it in CSS) and reveals the sections below the fold.
@@ -544,8 +552,10 @@ mark is the spinning flower in the header.
   The cover is a FLIP layer: `storefront.js` measures the chosen tile's media box,
   pins `.yx-focus__art` onto it with a `transform`, then releases it to the sheet's
   own frame on the CSS curve (`.62s cubic-bezier(.16,1,.3,1)`); the body fades in
-  once the cover lands (`is-zooming`). The sheet already holds the preview player
-  and the three package rows, so they are there the moment it opens. The archive
+  once the cover lands (`is-zooming`).  The sheet already holds the preview player, the three package rows and the
+  `.yx-focus__gate` slot those rows expand into, so choosing a package grows the email form
+  and the license stage inside the sheet — the flow never leaves the record (see the gate
+  section below). The archive
   stays laid out and is only hidden visually (`.yx-home.is-behind`, `inert`), so
   the page never re-scrolls behind the sheet. Closing does not run that cover
   back inside the sheet: `storefront.js` clones it into a fixed `.yx-ghost` at the
@@ -882,8 +892,9 @@ never arrive half-empty:
   ancestor's `overflow`, so the storefront's page-wide `overflow-x: clip` guards — which keep
   the page from scrolling sideways — have no say over the drawer and stay exactly as they are.
   The drawer sits in the root stacking context at `z-index: 999999`, above every card, section,
-  glow and the footer; the gate modal (`1000000`) and the toast (`1000001`) are raised above it
-  so an open dialog still wins. While closed it is `visibility: hidden`, so an unopened drawer
+  glow and the footer; the support dialog (`1000000`) and the toast (`1000001`) are raised
+  above it so an open dialog still wins. A package gate is inline in its own surface, so it is
+  never painted over anything. While closed it is `visibility: hidden`, so an unopened drawer
   is inert to pointer and keyboard, while every `.download-tier` re-states `pointer-events:
   auto` so a tap always lands on the option itself. The drawer is a **glass** sheet — the same
   `backdrop-filter` treatment the detail card wears (equal-channel greys only, per the monochrome
@@ -941,8 +952,11 @@ never arrive half-empty:
   continues on success (`gate: "instant"` short-circuits straight to the download page). There is
   **no grant shortcut**: even a package this view already passed opens the gate from scratch and
   requires REVIEW & SIGN again, so the mandatory signature step can never be skipped.
-- `openGate(beat, pack, onUnlocked)` renders `.gate-modal` (backdrop + card) into `<body>`
-  and adds `html.gate-open`. Every package renders the *same* gate: the email form
+- `start(beatId, packageId, opts)` forwards `opts.host` to `openGate(beat, pack, onUnlocked,
+  opts)`, which expands the `.gate-panel` in that slot (the focus sheet names its own; without
+  one the first visible `[data-gate-host]` wins, then the beat card's, then the page's) and
+  adds `html.gate-open`. The last-resort mount is the page's own `<main>` — never a floating
+  window. Every package renders the *same* gate: the email form
   (`emailGateBody`) and then the REVIEW & SIGN stage. There is no `.gate-step`, no
   `data-gate-action`, no social link, no like, follow, subscribe or comment step, and no
   step counters to verify — the flow is strictly email + license agreement. Every gate renders the same real
@@ -953,9 +967,9 @@ never arrive half-empty:
   (`[data-gate-submit]`) row. The field always starts **empty** and the submit only enables
   once the address is well formed and the box is ticked, so a plain click
   cannot skip anything; Enter on the field runs the same `submitGate`, which is also where a
-  malformed address is refused with `#gate-error`. **Only CANCEL closes the dialog** — the
-  backdrop is inert (no `data-gate-cancel`, no outside-click listener) and Escape does nothing,
-  so a stray tap or key cannot close a gate mid-step. `submitGate` validates the address and
+  malformed address is refused with `#gate-error`. **Only CANCEL closes the gate** — there is no
+  dismiss attribute anywhere else, no outside-click listener, and Escape does nothing, so a
+  stray tap or key cannot close a gate mid-step. `submitGate` validates the address and
   opt-in and then hands the *same* card over to the sign stage (below) without posting — the
   files stay locked until the license is signed, and the one authoritative Formspree POST fires
   at SIGN & UNLOCK with every analytics field present.
@@ -1239,8 +1253,9 @@ glance away at any scroll depth. Landing on a beat is one explicit instant `wind
 and the first line of the title are both on screen in the first settled frame, and no browser
 smooth-scroll setting can animate the arrival. Sticky, not fixed: it is painted in the root stacking context
 with `z-index: 95`, above the storefront's own tiles and marquee but deliberately below the
-preloader veil (400), the package drawer (999999) and the gate modal (1000000), so it can never
-float over a dialog or the first paint. `script.js` marks it `data-beat-back` and its click is
+preloader veil (400), the package drawer (999999) and the support dialog (1000000), so it can
+never float over a dialog or the first paint. (A package gate is inline in its own surface, so
+there is nothing for the rail to float over.) `script.js` marks it `data-beat-back` and its click is
 the same memory path as a tile the visitor came from: `unlockScroll()`, `pushState`,
 `rebuildCatalog()`, then `restoreCatalogScroll()` (a deep link with no saved offset falls back
 to the top of the catalog). Because a beat page auto-scrolls its card to the top of the
@@ -1313,12 +1328,11 @@ Tests that ship with the repo:
   proves TYPE and DRAW are one readiness machine: typing `MATAN MAMADOV` on TYPE keeps the
   button locked until the pad is inked, a drawing with the name empty or a single word (`MATAN`)
   keeps it locked on both tabs, and only both halves enable it — identically on TYPE and DRAW.
-  The empty-area clicks are watched from both stages: the backdrop at `(5, 5)`, a viewport-corner
-  mouse click and a click on the modal root never close, reset or dismiss a gate or a signature
-  in progress. The download page's re-sign field refuses a single word the same way; re-signing
+  Stray clicks are watched from both stages: a click on the panel's own empty corner and a
+  viewport-corner mouse click never close, reset or dismiss a gate or a signature in progress. The download page's re-sign field refuses a single word the same way; re-signing
   then downloads again, proving the new name replaces the old one in caps on the next issuance. It also
   asserts the gate posts a valid address to the configured newsletter provider (and never a
-  malformed one, and never on a re-opened gate), that the backdrop and Escape never dismiss a
+  malformed one, and never on a re-opened gate), that a stray click and Escape never dismiss a
   gate or the sign stage (only CANCEL does), that selecting a package passed on the download page
   re-opens the full gate and still requires the signature (nothing is auto-opened or prefilled,
   nothing is re-posted until submit, and the in-page grant is gone after a reload), and that gate
@@ -1355,8 +1369,8 @@ signature** captured in the sign step — both are required on **both** TYPE and
 neither a typed name alone nor a bare drawing can stand in for the other (a single word, a blank
 field, an unsigned pad and a token dot are all refused before the unlock button will move, and
 the submit handler refuses them again if the attribute is stripped).
-The dialog has one exit — its CANCEL button. The backdrop and Escape are inert, so a stray tap
-or key cannot wipe a gate or a signature in progress. The in-page `grants` record never skips a
+The gate has one exit — its CANCEL button. There is no backdrop to tap and Escape is inert, so
+a stray tap or key cannot wipe a gate or a signature in progress. The in-page `grants` record never skips a
 selection: a visitor who passes a package and selects it again in the same view is asked in full
 again, with the signature stage empty and locked, while a reload, a new tab or another browser is
 asked from scratch. The

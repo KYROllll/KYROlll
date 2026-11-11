@@ -261,6 +261,7 @@ function beatDetailInner(beat) {
       <div class="card__actions">
         ${actionsSlotHTML(beat, false)}
       </div>
+      <div class="beat-detail__gate" data-gate-host hidden></div>
     </section>
     <div class="beat-detail__artwork-wrap">
       <figure class="beat-detail__artwork">

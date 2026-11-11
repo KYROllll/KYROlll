@@ -268,7 +268,9 @@ test('choosing a record zooms it open in place and offers the packages', async (
   assert(focus.artBox > cover.width, 'the focused cover is larger than the grid tile');
   assert.match(focus.url, /focus=white-night/, 'the focused record is addressable');
   await page.locator('[data-yx-close]').first().click();
-  await page.waitForTimeout(60);
+  /* Wait for the leave animation's first painted frame rather than a fixed
+     delay: the fade's start is what "already fading" depends on. */
+  await page.waitForFunction(() => Number(getComputedStyle(document.querySelector('#yx-focus')).opacity) < 1);
   const flight = await page.evaluate(() => {
     const ghost = document.querySelector('.yx-ghost');
     const sheet = document.querySelector('#yx-focus');
@@ -505,19 +507,64 @@ test('a package opens the real gate, and the preview plays', async () => {
   assert.equal(audio.pitch, 0, 'there is no pitch control anywhere in the archive');
 
   await page.locator('[data-yx-pack]').first().click();
-  await page.waitForSelector('.gate-modal');
-  const gate = await page.evaluate(() => ({
-    email: document.querySelector('#gate-email').value,
-    optin: document.querySelector('#gate-optin').checked,
-    tiers: document.querySelectorAll('[data-package]').length,
-    backdropDismiss: document.querySelector('.gate-modal__backdrop')?.hasAttribute('data-gate-cancel') || false,
-  }));
+  await page.waitForSelector('.gate-panel');
+  await page.waitForFunction(() => document.querySelector('[data-gate-host].is-open'));
+  const gate = await page.evaluate(() => {
+    const panel = document.querySelector('.gate-panel');
+    const host = document.querySelector('#yx-focus [data-gate-host]');
+    return {
+      email: document.querySelector('#gate-email').value,
+      optin: document.querySelector('#gate-optin').checked,
+      /* The gate is part of the sheet, not a window over it: no backdrop, no
+         dialog role, no fixed overlay, no page lock. */
+      insideFocus: host.contains(panel),
+      backdrops: document.querySelectorAll('.gate-panel__backdrop, .gate-panel__backdrop--static').length,
+      dialogs: document.querySelectorAll('[role="dialog"][aria-modal="true"]').length,
+      fixedPanels: [...document.querySelectorAll('.gate-panel')].filter((el) => getComputedStyle(el).position === 'fixed').length,
+      pageLocked: getComputedStyle(document.body).position === 'fixed',
+      sheetOverflow: getComputedStyle(document.documentElement).overflowY,
+      selected: document.querySelectorAll('.yx-pack.is-selected').length,
+      tiers: document.querySelectorAll('[data-package]').length,
+    };
+  });
   assert.equal(gate.email, '', 'the gate always starts empty');
   assert.equal(gate.optin, true, 'the opt-in is part of the gate');
   assert(gate.tiers >= 0, 'the gate renders');
-  assert.equal(gate.backdropDismiss, false, 'the backdrop cannot dismiss a gate');
-  await page.locator('.gate-modal [data-gate-cancel]').click();
-  await page.waitForFunction(() => !document.querySelector('.gate-modal'));
+  assert.equal(gate.insideFocus, true, 'the gate expands inside the focus sheet, not over it');
+  assert.equal(gate.backdrops, 0, 'there is no backdrop any more');
+  assert.equal(gate.dialogs, 0, 'no modal dialog is opened for a package');
+  assert.equal(gate.fixedPanels, 0, 'the gate is never a fixed overlay');
+  assert.equal(gate.pageLocked, false, 'the page keeps scrolling around the inline gate');
+  assert.equal(gate.sheetOverflow, 'visible', 'nothing locks the page while a gate is open');
+  assert.equal(gate.selected, 1, 'the chosen package row reads as the one that unfolded');
+
+  /* The email step hands the SAME slot to the license stage — still inline. */
+  await page.locator('#gate-email').fill('inline-buyer@example.com');
+  await page.locator('[data-gate-submit]').click();
+  await page.waitForSelector('.yx-focus__gate .gate-panel__card--sign');
+  const sign = await page.evaluate(() => ({
+    inSheet: !!document.querySelector('#yx-focus [data-gate-host] .gate-panel__card--sign'),
+    terms: document.querySelectorAll('.sign-terms').length,
+    name: document.querySelectorAll('#sign-name').length,
+    pad: document.querySelectorAll('.sign-pad__canvas').length,
+    modal: document.querySelectorAll('.gate-panel[style*="position: fixed"]').length,
+  }));
+  assert.equal(sign.inSheet, true, 'the license terms, the name field and the pad render in the sheet');
+  assert.equal(sign.terms, 1, 'the terms scroll is inline');
+  assert.equal(sign.name, 1, 'the typed-name field is inline');
+  assert.equal(sign.pad, 1, 'the signature pad is inline');
+  assert.equal(sign.modal, 0, 'nothing is pinned over the page');
+
+  await page.locator('.yx-focus__gate [data-gate-cancel]').click();
+  await page.waitForFunction(() => !document.querySelector('.gate-panel'));
+  const closed = await page.evaluate(() => ({
+    hostHidden: document.querySelector('#yx-focus [data-gate-host]').hidden,
+    selected: document.querySelectorAll('.yx-pack.is-selected').length,
+    open: document.documentElement.classList.contains('gate-open'),
+  }));
+  assert.equal(closed.hostHidden, true, 'cancelling collapses the slot');
+  assert.equal(closed.selected, 0, 'the package list returns to rest');
+  assert.equal(closed.open, false, 'the gate state is cleared');
   for (const failure of errors) assert.fail(`page error: ${failure}`);
   await context.close();
 });
@@ -636,6 +683,9 @@ test('the brand keeps its own lettering and the category headers glitch on a slo
       brandWeight: brand.fontWeight,
       brandTracking: parseFloat(brand.letterSpacing),
       brandSize: parseFloat(brand.fontSize),
+      footerFont: style('.site-footer__brand').fontFamily,
+      footerWeight: style('.site-footer__brand').fontWeight,
+      inlineFonts: [...document.querySelectorAll('.brand-name')].map((el) => getComputedStyle(el).fontFamily),
       titleFont: style('.yx-title').fontFamily,
       titleAnimation: style('.yx-title').animationName,
       titleDuration: style('.yx-title').animationDuration,
@@ -646,6 +696,10 @@ test('the brand keeps its own lettering and the category headers glitch on a slo
   assert.match(type.brandFont, /Helvetica Neue/, 'the wordmark keeps its own bespoke face');
   assert.equal(type.brandWeight, '800', 'the wordmark keeps its original weight');
   assert.equal(type.brandTracking, Number((type.brandSize * 0.3).toFixed(2)), 'the wordmark keeps its .3em tracking');
+  assert.match(type.footerFont, /Helvetica Neue/, 'the footer signature uses the same bespoke face');
+  assert.equal(type.footerWeight, '800', 'the footer signature keeps the wordmark weight');
+  assert(type.inlineFonts.length >= 4, 'every inline mention of the brand carries the wordmark face');
+  assert(type.inlineFonts.every((font) => /Helvetica Neue/.test(font)), 'no inline mention falls back to the monospace');
   assert.match(type.titleFont, /mono/i, 'the category title is set in the code monospace');
   assert.match(type.navFont, /mono/i, 'the category menu is set in the code monospace');
   assert.equal(type.titleAnimation, 'yxGlitchTitle', 'the view title runs the glitch cycle');

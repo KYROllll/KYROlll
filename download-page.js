@@ -453,6 +453,8 @@
         subEl.textContent = "ONE QUICK STEP AND YOUR FILES UNLOCK.";
         renderMeta([]);
         listEl.innerHTML = '<div class="download-list__empty">UNLOCK THIS PACKAGE TO REVEAL YOUR FILES.</div>';
+        /* The cold gate expands inside this page's own file column — there is no
+           dialog over the download page any more. */
         d.openGate(beat, pack, (b, p, email, gateSerial) => {
           if (email) licensee = String(email).trim();
           /* The cold gate's SIGN & UNLOCK mints the serial it just recorded in
@@ -464,7 +466,7 @@
           }
           prebuildLicense();
           render();
-        });
+        }, { host: document.querySelector("[data-gate-host]") });
       } else {
         render();
       }

@@ -388,7 +388,7 @@
 
   /* `start` opens the gate on every selection — there is no grant shortcut, so
      the mandatory REVIEW & SIGNATURE stage can never be skipped. */
-  function start(beatId, packageId) {
+  function start(beatId, packageId, opts) {
     const catalog = helpers();
     const beat = catalog && catalog.beatById(beatId);
     const pack = catalog && catalog.packageById(packageId);
@@ -396,7 +396,7 @@
     if (holdExclusiveClaim(beat)) return;
     if (holdScheduledDrop(beat)) return;
     if (pack.gate === "instant") { goToDownload(beat, pack, "", ""); return; }
-    openGate(beat, pack, (b, p, email, serial) => { goToDownload(b, p, email, serial); });
+    openGate(beat, pack, (b, p, email, serial) => { goToDownload(b, p, email, serial); }, opts);
   }
 
   /* ------------------------------------------------------ menu */
@@ -713,91 +713,129 @@
     }[c]));
   }
 
-  /* gates */
+  /* ------------------------------------------------------------------ gates
+     A gate is NOT a dialog any more. Selecting a package expands a panel
+     inside the surface that was clicked — the beat's focus sheet, the beat
+     card, the download page — and the email form and the whole REVIEW & SIGN
+     stage render in that panel, in the page's own flow. There is no overlay,
+     no backdrop, no page lock and no focus trap; the page keeps scrolling
+     around the form, which is what makes the flow feel like part of the record
+     instead of a window over it.
+
+     `gate` is the open panel: { el, host }. The host is the `[data-gate-host]`
+     slot that owns the expansion (the focus sheet's, the beat card's, the
+     download page's). */
   let gate = null;
 
-  /* The page behind an open gate is locked the way a phone respects: a plain
-     `overflow: hidden` alone makes iOS jump to the top, so the scroll offset is
-     pinned on the body and restored when the gate closes. Nothing is stored —
-     it lives for the length of the dialog. */
-  let pageLocked = false;
-  let lockedAt = 0;
-  function lockPage() {
-    document.documentElement.classList.add("gate-open");
-    if (pageLocked) return;
-    pageLocked = true;
-    lockedAt = window.pageYOffset || document.documentElement.scrollTop || 0;
-    document.body.style.position = "fixed";
-    document.body.style.top = -lockedAt + "px";
-    document.body.style.left = "0";
-    document.body.style.right = "0";
-    document.body.style.width = "100%";
+  /* Pick the slot the panel expands into. Callers may name it explicitly; the
+     rest of the time the first *visible* host wins, so a beat card's slot is
+     never chosen while the focus sheet is the surface on screen. */
+  function gateHosts() {
+    return Array.prototype.slice.call(document.querySelectorAll("[data-gate-host]"));
   }
-  function unlockPage() {
-    document.documentElement.classList.remove("gate-open");
-    if (!pageLocked) return;
-    pageLocked = false;
-    const y = lockedAt;
-    lockedAt = 0;
-    document.body.style.position = "";
-    document.body.style.top = "";
-    document.body.style.left = "";
-    document.body.style.right = "";
-    document.body.style.width = "";
-    window.scrollTo(0, y);
+  function hostIsVisible(el) {
+    if (!el || el.hidden) return false;
+    const box = el.getBoundingClientRect();
+    return box.width > 0 || box.height > 0 || el.getClientRects().length > 0;
+  }
+  function resolveGateHost(explicit) {
+    if (explicit) return explicit;
+    const hosts = gateHosts();
+    const visible = hosts.filter(hostIsVisible)[0];
+    if (visible) return visible;
+    /* Nothing is laid out yet (a slot still hidden with its container): pick by
+       the surface the visitor is actually on — the open focus sheet first, then
+       the beat card, then whatever slot the page declares. */
+    const sheet = document.getElementById("yx-focus");
+    const sheetHost = sheet && sheet.querySelector("[data-gate-host]");
+    if (sheetHost && !sheet.hidden) return sheetHost;
+    const beatHost = document.querySelector(".beat-detail [data-gate-host]");
+    if (beatHost) return beatHost;
+    return hosts[0] || null;
   }
 
-  /* The dialog has exactly one exit: its CANCEL button. The backdrop is a
-     deliberately inert field — no outside-click listener, no Escape handler and
-     no dismiss attribute on the backdrop — so a stray tap can never close the
-     gate or wipe the progress of the step in front of it. Only `wireGateDismiss`
-     (bound to `[data-gate-cancel]`, i.e. CANCEL) closes it. */
+  /* The expansion itself: the panel is measured, the slot is collapsed to zero
+     and eased open to that height on the sheet's own curve, then the inline
+     height is released so the slot simply follows its content (a stage switch,
+     a refusal line or a rotated keyboard can never leave it clipped). */
+  const ease = "cubic-bezier(.16, 1, .3, 1)";
+  function expandHost(host, panel) {
+    if (!host) return;
+    host.hidden = false;
+    host.classList.add("is-open");
+    host.innerHTML = "";
+    host.appendChild(panel);
+    const target = Math.ceil(panel.getBoundingClientRect().height);
+    host.style.transition = "none";
+    host.style.height = "0px";
+    host.style.overflow = "hidden";
+    void host.offsetHeight;
+    host.style.transition = "height .52s " + ease;
+    host.style.height = target + "px";
+    window.clearTimeout(host._gateSettle);
+    host._gateSettle = window.setTimeout(() => {
+      if (gate && gate.host === host) releaseHost(host);
+    }, 560);
+  }
+  function releaseHost(host) {
+    if (!host) return;
+    window.clearTimeout(host._gateSettle);
+    host.style.height = "";
+    host.style.overflow = "";
+    host.style.transition = "";
+  }
+  /* A new stage makes the card taller or shorter; the slot follows it at once
+     once the opening expansion has settled. */
+  function resizeHost() {
+    if (gate && gate.host) releaseHost(gate.host);
+  }
+
+  /* The gate has exactly one exit: CANCEL. There is no outside field to tap and
+     no Escape handler, so a stray tap or key cannot wipe a step in progress.
+     Closing collapses the slot back to zero and leaves the surface it grew out
+     of exactly as it was. */
   function closeGate() {
     if (!gate) return;
-    const node = gate;
+    const { el, host } = gate;
     gate = null;
-    node.classList.remove("is-visible");
-    unlockPage();
-    setTimeout(() => node.remove(), 260);
+    document.documentElement.classList.remove("gate-open");
+    document.dispatchEvent(new CustomEvent("kyrolll:gate-closed", { detail: {} }));
+    if (host) {
+      const height = el.getBoundingClientRect().height;
+      host.style.transition = "none";
+      host.style.overflow = "hidden";
+      host.style.height = height + "px";
+      void host.offsetHeight;
+      host.style.transition = "height .3s cubic-bezier(.4, 0, .2, 1)";
+      host.style.height = "0px";
+      window.clearTimeout(host._gateSettle);
+      host._gateSettle = window.setTimeout(() => {
+        el.remove();
+        host.classList.remove("is-open");
+        host.style.height = "";
+        host.style.overflow = "";
+        host.style.transition = "";
+        host.hidden = true;
+      }, 320);
+      return;
+    }
+    el.remove();
   }
 
   /* Every stage of a gate is rendered into the same card, so the CANCEL control
-     is (re)bound after each render — `stageTitle` keeps the beat in the heading,
-     `kicker` names the package. The backdrop deliberately carries no
-     `data-gate-cancel`: only the explicit button dismisses a gate. */
-  function wireGateDismiss(modal) {
-    modal.querySelectorAll("[data-gate-cancel]").forEach((el) => {
+     is (re)bound after each render. Only the explicit button closes a gate. */
+  function wireGateDismiss(panel) {
+    panel.querySelectorAll("[data-gate-cancel]").forEach((el) => {
       el.removeEventListener("click", closeGate);
       el.addEventListener("click", closeGate);
     });
   }
 
-  /* The dialog's own surface absorbs every pointer gesture. The backdrop carries
-     no dismiss behaviour, and stopping the event at the modal root means no
-     page-level delegated handler (the download trigger, a menu's outside-click,
-     a future listener) can ever read a click on the dark field as a reason to
-     close, reset or re-render the gate. `preventDefault` is deliberately NOT
-     called: inputs, the sign pad, the tabs and CANCEL must keep working. Only
-     the explicit CANCEL button closes a gate. */
-  function absorbGateEvent(event) {
-    event.stopPropagation();
-  }
-  function lockGateSurface(modal) {
-    if (!modal) return;
-    const surfaces = [modal, modal.querySelector(".gate-modal__backdrop")];
-    ["click", "pointerdown", "mousedown", "touchstart"].forEach((type) => {
-      surfaces.forEach((surface) => {
-        if (surface) surface.addEventListener(type, absorbGateEvent, { passive: true });
-      });
-    });
-  }
-
-  function gateShell(pack, beat, stageTitle, body, cardClass) {
+  function gateCard(pack, beat, stageTitle, body, cardClass) {
     const titleText = stageTitle ? (escapeHTML(stageTitle) + ' — ' + escapeHTML(beat.title)) : escapeHTML(beat.title);
-    return '<div class="gate-modal__backdrop"></div>' +
-      '<div class="gate-modal__card' + (cardClass ? ' ' + cardClass : '') + '" role="dialog" aria-modal="true" aria-labelledby="gate-title">' +
-        '<span class="gate-modal__kicker">' + escapeHTML(pack.name) + '</span>' +
-        '<h2 class="gate-modal__title" id="gate-title">' + titleText + '</h2>' + body + '</div>';
+    return '<div class="gate-panel__card' + (cardClass ? ' ' + cardClass : '') + '" role="region" aria-labelledby="gate-title">' +
+        '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + '</span>' +
+        '<h2 class="gate-panel__title" id="gate-title">' + titleText + '</h2>' + body + '</div>';
   }
 
   /* The animated tick used by every completed step (and by the email field once
@@ -836,34 +874,34 @@
   function emailGateBody(pack, opts) {
     const label = (opts && opts.submit) || "UNLOCK DOWNLOAD";
     const copy = (opts && opts.copy === false) ? "" :
-      '<p class="gate-modal__copy">ENTER YOUR EMAIL TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>';
+      '<p class="gate-panel__copy">ENTER YOUR EMAIL TO UNLOCK THE ' + escapeHTML(pack.name) + '.</p>';
     return copy +
       emailFormHTML(opts && opts.optin) +
       '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
-      '<div class="gate-modal__actions">' +
+      '<div class="gate-panel__actions">' +
         '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
         '<button type="button" class="kyrolll-btn" data-gate-submit disabled>' + escapeHTML(label) + '</button>' +
       '</div>' +
-      ((opts && opts.hint === false) ? '' : '<p class="gate-modal__hint" id="gate-hint">ENTER EMAIL, TICK THE BOX AND SUBMIT</p>');
+      ((opts && opts.hint === false) ? '' : '<p class="gate-panel__hint" id="gate-hint">ENTER EMAIL, TICK THE BOX AND SUBMIT</p>');
   }
 
-  function showSuccessModal() {
-    const modal = document.createElement("div");
-    modal.className = "gate-modal gate-modal--success";
-    modal.innerHTML =
-      '<div class="gate-modal__backdrop gate-modal__backdrop--static"></div>' +
-      '<div class="gate-modal__card gate-modal__card--success" role="dialog" aria-modal="true" aria-live="polite">' +
-        '<div class="checkmark" aria-hidden="true">' +
-          '<svg class="checkmark__svg" viewBox="0 0 52 52"><circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark__path" fill="none" d="M14 27 21 34 38 17"/></svg>' +
-        '</div>' +
-        '<h3 class="gate-modal__title">ALL SET</h3>' +
-        '<p class="gate-modal__copy">GATE PASSED. UNLOCKING YOUR DOWNLOAD PAGE…</p>' +
-      '</div>';
-    document.body.appendChild(modal);
-    lockGateSurface(modal);
-    lockPage();
-    requestAnimationFrame(() => modal.classList.add("is-visible"));
-    return modal;
+  /* The completed gate is the same panel, wearing its ALL SET face: the form
+     collapses into the confirmation in place, inside the surface that owns the
+     slot, and the slot follows the (shorter) card. */
+  function showSuccessPanel() {
+    if (!gate) return null;
+    const card = gate.el.querySelector(".gate-panel__card");
+    if (!card) return null;
+    card.className = "gate-panel__card gate-panel__card--success";
+    card.setAttribute("aria-live", "polite");
+    card.innerHTML =
+      '<div class="checkmark" aria-hidden="true">' +
+        '<svg class="checkmark__svg" viewBox="0 0 52 52"><circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark__path" fill="none" d="M14 27 21 34 38 17"/></svg>' +
+      '</div>' +
+      '<h3 class="gate-panel__title">ALL SET</h3>' +
+      '<p class="gate-panel__copy">GATE PASSED. UNLOCKING YOUR DOWNLOAD PAGE…</p>';
+    resizeHost();
+    return gate.el;
   }
 
   /* ---------------------------------------------- REVIEW & SIGN (the last step)
@@ -900,14 +938,15 @@
   }
 
   function showSignStage(beat, pack, email, onUnlocked, optin) {
-    const modal = gate;
-    const card = modal && modal.querySelector(".gate-modal__card");
+    const modal = gate && gate.el;
+    const card = modal && modal.querySelector(".gate-panel__card");
     if (!modal || !card) return;
-    card.className = "gate-modal__card gate-modal__card--sign";
+    resizeHost();
+    card.className = "gate-panel__card gate-panel__card--sign";
     card.innerHTML =
-      '<span class="gate-modal__kicker">' + escapeHTML(pack.name) + '</span>' +
-      '<h2 class="gate-modal__title" id="gate-title">LICENSE REVIEW &amp; SIGNATURE</h2>' +
-      '<p class="gate-modal__copy">READ THE TERMS, TYPE YOUR FULL NAME, DRAW YOUR SIGNATURE, AND YOUR FILES UNLOCK.</p>' +
+      '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + '</span>' +
+      '<h2 class="gate-panel__title" id="gate-title">LICENSE REVIEW &amp; SIGNATURE</h2>' +
+      '<p class="gate-panel__copy">READ THE TERMS, TYPE YOUR FULL NAME, DRAW YOUR SIGNATURE, AND YOUR FILES UNLOCK.</p>' +
       '<div class="sign-terms" data-sign-terms role="region" tabindex="0" aria-label="License terms">' +
         termsHTML(beat, pack) +
       '</div>' +
@@ -936,13 +975,13 @@
         '<span class="license-cert__stamp" data-sign-stamp data-stamped="false"></span>' +
       '</div>' +
       '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
-      '<div class="gate-modal__actions">' +
+      '<div class="gate-panel__actions">' +
         '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
         '<button type="button" class="kyrolll-btn" data-sign-submit disabled>SIGN &amp; UNLOCK</button>' +
       '</div>' +
       /* The initial hint already states the required order, so the card reads
          correctly in the frame before the first `refresh()`. */
-      '<p class="gate-modal__hint" id="gate-hint">SCROLL THROUGH THE TERMS TO THE END</p>';
+      '<p class="gate-panel__hint" id="gate-hint">SCROLL THROUGH THE TERMS TO THE END</p>';
     wireGateDismiss(modal);
 
     const terms = card.querySelector("[data-sign-terms]");
@@ -1198,7 +1237,8 @@
       postAnalytics(payload).then((res) => {
         if (!res.ok && typeof console !== "undefined") console.warn("KYROIII analytics post failed:", res.error);
       });
-      closeGate();
+      /* The panel stays in place and turns into the ALL SET confirmation; the
+         flow moves on from `finalizeGate`, which collapses it on the way out. */
       finalizeGate(beat, pack, onUnlocked, email, serial);
     });
   }
@@ -1216,12 +1256,12 @@
         const h = helpers();
         if (h && h.isExclusiveLocked && h.isExclusiveLocked(beat.id)) {
           showToast("CLAIMED / SOLD OUT — THIS BEAT IS SECURED");
-          unlockPage();
+          closeGate();
           return;
         }
       }
       rememberGrant(beat.id, pack.id, email);
-      const sm = showSuccessModal();
+      showSuccessPanel();
       /* The exclusive license is the one that takes the beat off the market.
          The claim is recorded only after the success surface is up, so the
          grid's in-place repaint cannot tear that hand-off out from under the
@@ -1230,15 +1270,13 @@
         const h = helpers();
         const claimed = h && h.lockExclusive ? h.lockExclusive(beat.id) : true;
         if (!claimed) {
-          if (sm && sm.parentNode) sm.remove();
+          closeGate();
           showToast("CLAIMED / SOLD OUT — THIS BEAT IS SECURED");
-          unlockPage();
           return;
         }
       }
       setTimeout(() => {
-        if (sm && sm.parentNode) sm.remove();
-        unlockPage();
+        closeGate();
         if (onUnlocked) onUnlocked(beat, pack, email || "", serial || "");
       }, 1400);
     };
@@ -1297,28 +1335,43 @@
     showSignStage(beat, pack, state.email, onUnlocked, state.optin);
   }
 
-  /* ---------------------------------------------------------- openGate dispatcher */
-  function openGate(beat, pack, onUnlocked) {
+  /* ---------------------------------------------------------- openGate dispatcher
+     `opts.host` names the slot the panel expands into (the focus sheet passes
+     its own). Without one, the first visible `[data-gate-host]` on the page is
+     used, so the beat card and the download page open the same panel in their
+     own column. There is no overlay fallback: the last resort is the page's
+     own <main>. */
+  function openGate(beat, pack, onUnlocked, opts) {
     closeGate();
     /* No session shortcut: selecting a package always renders the gate from
        scratch and always requires the REVIEW & SIGNATURE stage, even if this
        view already passed it. The in-page `grants` Map is only a record for the
        API — it is never consulted to skip a step. */
-    const modal = document.createElement("div");
-    modal.className = "gate-modal";
-    
+    const host = resolveGateHost(opts && opts.host);
+    const panel = document.createElement("div");
+    panel.className = "gate-panel";
+    panel.setAttribute("data-gate-panel", "");
+
     /* Every package opens the same two-step gate: the email form now, then the
        REVIEW & SIGN stage. There is no social step, no like and no follow to
-       verify, so the dialog is one clean sheet. */
+       verify, so the panel is one clean sheet. */
     const body = emailGateBody(pack, {});
-    modal.innerHTML = gateShell(pack, beat, null, body, "");
-    document.body.appendChild(modal);
-    /* Freeze the backdrop: nothing but CANCEL can dismiss this dialog. */
-    lockGateSurface(modal);
-    gate = modal;
-    lockPage();
-    requestAnimationFrame(() => modal.classList.add("is-visible"));
+    panel.innerHTML = gateCard(pack, beat, null, body, "");
+    gate = { el: panel, host: host };
+    document.documentElement.classList.add("gate-open");
+    document.dispatchEvent(new CustomEvent("kyrolll:gate-open", {
+      detail: { beatId: beat.id, packageId: pack.id }
+    }));
 
+    if (host) {
+      expandHost(host, panel);
+    } else {
+      /* Defensive: a page with no declared slot still gets the panel inline,
+         inside its own content column — never a floating window over it. */
+      (document.querySelector("main") || document.body).appendChild(panel);
+    }
+
+    const modal = panel;
     const submit = modal.querySelector("[data-gate-submit]");
     const input = modal.querySelector("#gate-email");
     const optin = modal.querySelector("#gate-optin");
@@ -1356,11 +1409,19 @@
     submit.addEventListener("click", () => submitGate(beat, pack, modal, onUnlocked, readState));
     refresh();
 
-    /* Every gate opens straight on the field, so the caret goes into it. The
-       address is never prefilled: a fresh gate is always a fresh gate. */
-    if (input) {
-      setTimeout(() => { try { input.focus(); input.select(); } catch (err) { /* ignore */ } }, 40);
-    }
+    /* Every gate opens straight on the field, so the caret goes into it — but
+       the page is never wrenched to the top doing it: the field is focused
+       without scrolling and the panel itself is eased into view inside its own
+       scroll container. The address is never prefilled: a fresh gate is always
+       a fresh gate. */
+    if (input) setTimeout(() => { try { input.focus({ preventScroll: true }); input.select(); } catch (err) { /* ignore */ } }, 90);
+    /* Once the expansion has settled the panel is brought fully into its own
+       scroll container — measured after the growth, so the buttons at the foot
+       of the form are on screen and not just the first field. */
+    setTimeout(() => {
+      const reduce = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+      try { panel.scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" }); } catch (err) { /* ignore */ }
+    }, 600);
 
     // The only dismissal is CANCEL (bound by `wireGateDismiss` below). There is
     // deliberately no Escape or outside-click close, so a stray tap or key can

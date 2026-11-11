@@ -91,7 +91,15 @@ input, textarea, select, button, optgroup, option { text-transform: uppercase; }
 input::placeholder, textarea::placeholder { text-transform: uppercase; }
 ::file-selector-button { text-transform: uppercase; }
 
-.brand-name { letter-spacing: .06em; }
+/* The brand's own lettering, everywhere the name appears: the header mark, the
+   footer signature and every inline mention of it (the archive eyebrows, the
+   copyright line, the store link). The storefront's monospace stops at the
+   name — this is the one bespoke cut left in the page. */
+.brand-name {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 800;
+  letter-spacing: .3em;
+}
 
 :focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
 
@@ -2841,87 +2849,59 @@ html.vinyl-dragging * {
   to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
-/* The gates: one small glass dialog reused by every gated package. It reuses
-   the shared `.kyrolll-btn` action row and the `.kyrolll-toast`. */
-/* The page behind the dialog is locked (the JS also pins the scroll offset, so
-   iOS cannot jump to the top) and the dialog itself is measured in *dynamic*
-   viewport units — `100vh` on a phone is the large viewport, which is exactly
-   how the unlock button used to end up behind the browser chrome. */
-html.gate-open,
-html.gate-open body { overflow: hidden; overscroll-behavior: none; }
+/* The gates: one panel that expands INLINE, in the surface that asked for it.
+   There is no overlay, no backdrop, no page lock and no dialog: selecting a
+   package grows the email form (and then the whole REVIEW & SIGN stage) inside
+   the beat's focus sheet, the beat card or the download page, and the page
+   keeps scrolling around it. It reuses the shared `.kyrolll-btn` action row and
+   the `.kyrolll-toast`. */
 
-.gate-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 1000000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-  height: 100dvh;
-  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
-  overscroll-behavior: contain;
-  /* The surface is always hit-testable so an empty-area tap lands on the dialog
-     itself and is absorbed there — never on the page underneath. */
-  pointer-events: auto;
+/* The slot that owns the expansion. `downloads.js` measures the panel, pins the
+   slot to zero and eases it open to that height (then releases it to the
+   content's own height), so the form unfolds out of the package row instead of
+   appearing all at once. */
+[data-gate-host] { display: block; overflow: hidden; }
+[data-gate-host][hidden] { display: none; }
+[data-gate-host].is-open { overflow: visible; }
+
+.gate-panel {
+  display: block;
+  animation: gatePanelIn .46s cubic-bezier(.16, 1, .3, 1) both;
 }
-
-.gate-modal__backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, .82);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  /* An opaque, click-absorbing field with NO dismiss handler: a tap on it does
-     nothing at all. The dialog closes only through its CANCEL button, so a
-     stray tap can never wipe a gate or a signature in progress. The JS surface
-     absorbers stop the event from reaching any page-level handler; these two
-     properties keep the field itself a real pointer target (and stop a phone's
-     300 ms double-tap wait) in every browser. */
-  pointer-events: auto;
-  touch-action: manipulation;
-  opacity: 0;
-  transition: opacity .25s ease;
+@keyframes gatePanelIn {
+  from { opacity: 0; transform: translate3d(0, -10px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
+/* A stage swap inside an already-open panel must not re-play the entrance: the
+   card is replaced, not the panel. */
+.gate-panel.is-closing { animation: none; }
 
-.gate-modal.is-visible .gate-modal__backdrop { opacity: 1; }
-
-.gate-modal__card {
+.gate-panel__card {
   position: relative;
-  width: min(420px, 100%);
-  /* Never taller than nine tenths of the *dynamic* viewport: the card scrolls
-     inside itself, so a five-step social gate plus the email form and its
-     buttons stays whole on a laptop and on a phone, never clipped by browser
-     chrome. */
-  max-height: 90dvh;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scroll-behavior: smooth;
-  scrollbar-width: thin;
-  scrollbar-color: #4a4a4a transparent;
-  -webkit-overflow-scrolling: touch;
+  width: 100%;
   background: #050505;
   border: 1px solid #484848;
-  box-shadow: 0 40px 100px rgba(0, 0, 0, .7);
-  padding: 28px 24px 32px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .55);
+  padding: 26px 22px 30px;
   text-align: center;
-  opacity: 0;
-  transform: translate3d(0, 14px, 0) scale(.97);
-  transition: opacity .22s ease, transform .3s cubic-bezier(.16, 1, .3, 1);
-  will-change: transform, opacity;
-  backface-visibility: hidden;
 }
 
-.gate-modal.is-visible .gate-modal__card {
-  opacity: 1;
-  transform: translate3d(0, 0, 0) scale(1);
-}
+.gate-panel__card::-webkit-scrollbar { width: 6px; }
+.gate-panel__card::-webkit-scrollbar-track { background: transparent; }
+.gate-panel__card::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 999px; }
 
-.gate-modal__card::-webkit-scrollbar { width: 6px; }
-.gate-modal__card::-webkit-scrollbar-track { background: transparent; }
-.gate-modal__card::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 999px; }
+/* The focus sheet's own slot: the panel sits directly under the package rows,
+   inside the copy column that scrolls, so the sheet simply grows. */
+.yx-focus__gate { margin-top: 16px; }
+.yx-focus__gate .gate-panel__card { background: #060606; }
 
-.gate-modal__kicker {
+/* The beat card's slot, under the action row. */
+.beat-detail__gate { margin-top: 18px; }
+
+/* The download page's slot, under the file list. */
+.download-gate { margin-top: 18px; }
+
+.gate-panel__kicker {
   display: block;
   margin-bottom: 10px;
   font-size: 8px;
@@ -2930,7 +2910,7 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
   color: var(--gray);
 }
 
-.gate-modal__title {
+.gate-panel__title {
   margin: 0 0 10px;
   font-size: 15px;
   font-weight: 700;
@@ -2938,7 +2918,7 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
   color: var(--white);
 }
 
-.gate-modal__copy {
+.gate-panel__copy {
   margin: 0 0 20px;
   font-size: 11px;
   line-height: 1.6;
@@ -2995,17 +2975,17 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
   text-align: left;
 }
 
-.gate-modal__actions {
+.gate-panel__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   justify-content: center;
 }
 
-.gate-modal__actions .kyrolll-btn { flex: 1 1 auto; }
-.gate-modal__actions .kyrolll-btn[disabled] { opacity: .4; cursor: not-allowed; }
+.gate-panel__actions .kyrolll-btn { flex: 1 1 auto; }
+.gate-panel__actions .kyrolll-btn[disabled] { opacity: .4; cursor: not-allowed; }
 
-.gate-modal__hint {
+.gate-panel__hint {
   margin: 12px 0 0;
   font-size: 8px;
   letter-spacing: .22em;
@@ -3046,10 +3026,10 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
 /* ---- The license review & sign stage — where every gate closes ---- */
 /* The gate's last screen: the terms in their own scroll pane, the signature
    controls (typed or drawn) and the one action that unlocks the files. */
-.gate-modal__card--sign { width: min(560px, 100%); text-align: left; }
-.gate-modal__card--sign .gate-modal__kicker,
-.gate-modal__card--sign .gate-modal__title,
-.gate-modal__card--sign .gate-modal__copy { text-align: center; }
+.gate-panel__card--sign { text-align: left; }
+.gate-panel__card--sign .gate-panel__kicker,
+.gate-panel__card--sign .gate-panel__title,
+.gate-panel__card--sign .gate-panel__copy { text-align: center; }
 
 .sign-terms {
   max-height: min(240px, 34vh);
@@ -3489,9 +3469,8 @@ html.gate-open body { overflow: hidden; overscroll-behavior: none; }
 @keyframes checkmark-stroke {
   to { stroke-dashoffset: 0; }
 }
-.gate-modal--success .gate-modal__card { text-align: center; }
-.gate-modal__card--success .gate-modal__copy { letter-spacing: .04em; }
-.gate-modal__backdrop--static { cursor: default; }
+.gate-panel__card--success { text-align: center; }
+.gate-panel__card--success .gate-panel__copy { letter-spacing: .04em; }
 
 
 @media (max-width: 480px) {
@@ -3927,15 +3906,10 @@ html.preloader-armed { overflow-y: hidden; }
 }
 
 @media (max-width: 640px) {
-  /* The dialog takes the phone's whole width (the 16px gutters are wasted on a
-     390px screen) and pins to the top, so a card taller than the screen scrolls
-     inside its own box with its first line always reachable. */
-  .gate-modal {
-    align-items: flex-start;
-    padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
-  }
-  .gate-modal__card,
-  .gate-modal__card--sign { width: 100%; padding: 22px 16px 26px; }
+  /* The inline panel is already the phone's whole column; it only tightens its
+     own padding, so the form keeps the sheet's (or the card's) edges. */
+  .gate-panel__card,
+  .gate-panel__card--sign { padding: 20px 14px 24px; }
 
   /* A tenth of the viewport goes to the browser chrome: the terms pane is sized
      from the *small* viewport height so the signature and the unlock button are
@@ -5269,6 +5243,14 @@ html { --yx-header-h: 64px; }
 .yx-pack:last-child { border-bottom: 1px solid #242424; }
 .yx-pack:hover,
 .yx-pack:focus-visible { background: rgba(255, 255, 255, .035); }
+/* The chosen package opens under the list, so its row stays lit and its arrow
+   turns down: the selection reads as the row unfolding, not as a new screen. */
+.yx-pack.is-selected { background: rgba(255, 255, 255, .06); }
+.yx-pack.is-selected .yx-pack__arrow { color: #fff; transform: rotate(90deg); }
+.yx-pack__arrow { transition: transform .3s cubic-bezier(.16, 1, .3, 1), color .2s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .yx-pack__arrow { transition: none; }
+}
 .yx-pack__name { grid-area: name; font-size: 10px; letter-spacing: .18em; }
 .yx-pack__includes {
   grid-area: includes;
@@ -5415,9 +5397,9 @@ html { --yx-header-h: 64px; }
   color: #555;
 }
 .site-footer__brand {
-  font-family: var(--font-mono);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: .3em;
   color: #fff;
 }
