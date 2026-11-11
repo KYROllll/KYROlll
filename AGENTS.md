@@ -5,11 +5,12 @@ about *running* the app in this sandbox, not about the app's own behaviour.
 
 ## Shape of the app
 
-- **Storefront** — plain static files (`index.html`, `download.html`, `style.css`,
-  `script.js`, `catalog.js`, `downloads.js`, `download-page.js`, `preview-player.js`,
-  `marquee.js`, `hero-intro.js`, `preloader.js`, `vinyl-room.js`, `assets/*.min.js`) served by `server.mjs`
-  on port 8080. No bundler, no runtime dependencies: `server.mjs` is pure Node `http`, so
-  edits to HTML/CSS/JS show up on a browser reload with no rebuild.
+- **Storefront** — plain static files (`index.html`, `download.html`, `support.html`,
+  `style.css`, `storefront.js`, `petals.js`, `script.js`, `catalog.js`, `downloads.js`,
+  `download-page.js`, `preview-player.js`, `assets/*.min.js`) served by `server.mjs` on
+  port 8080. The home is the archive grid; beat links keep the detailed card. No bundler,
+  no runtime dependencies: `server.mjs` is pure Node `http`, so edits to HTML/CSS/JS show
+  up on a browser reload with no rebuild.
 - **No backend and no secrets.** Every beat is 100% free: there is no cart, no
   checkout, no payment gateway, no Supabase, no worker and no server-side state.
   `catalog.js` holds the shared data (beats plus the three free packages) and
@@ -489,72 +490,48 @@ nothing, and nothing about the sleeve's layout, the reveal geometry or the label
 The ghost is pointer-only and disappears completely after the drop; `prefers-reduced-motion`
 drops the spring and settles instantly.
 
-## The vinyl room (`vinyl-room.js` → `assets/vinyl-room.min.js`)
+## The archive home (`storefront.js` → `petals.js`)
 
-The home route **is** the WebGL listening room: browsing, selecting, streaming, the free /
-exclusive package hand-off and the support/profile links all happen there. The legacy hero,
-ticker and catalogue grid are not rendered on the home route (an inline guard in
-`index.html` removes the hero and ticker before brand-logo scans stages, and
-`html:not(.beat-page)` hides `main`/`.drawer-stage`), so the room is the sole primary
-interface. The footer stays below it. A beat route keeps the compact hero and the grid for
-its card and is otherwise untouched (`.beat-page .room { display: none }`).
+The home route is the storefront, not a document below it. `index.html` renders a
+Yeezy-minimal archive in pitch black: a sticky category bar (`FREE BEATS` active;
+`COMMERCIAL` and `PLUGINS` present but disabled), one airy grid, and a focused
+record. There is no vinyl room, hero, marquee, preloader or live 3D flower on this
+route — `storefront.js` and `petals.js` load as plain hand-written scripts, so a
+change is a reload and a `?v=N` bump, not an esbuild step.
 
-- **Bundle.** `vinyl-room.js` imports `three` (the root dependency, r186) and is bundled
-  by esbuild; the file is never loaded unbundled:
-  ```bash
-  npx esbuild vinyl-room.js --bundle --minify --format=iife --target=es2020 \
-    --legal-comments=eof --outfile=assets/vinyl-room.min.js
-  ```
-  Bump `assets/vinyl-room.min.js?v=N` in `index.html` after every build. The module is
-  home-only, so no other page loads it.
-- **Boot order.** The room does **not** initialise while the preloader is up: that veil
-  waits on the flower (its own stage on the home route), which is the page's first WebGL
-  job, and a second scene compiling beside it starves both. `vinyl-room.js` waits for the
-  `kyrolll:preloader-done` event and for the section to intersect, then builds. A direct
-  beat link never boots it; returning to the home route through the SPA makes the
-  IntersectionObserver boot it then. The loop pauses whenever the section is off-screen
-  or the tab is hidden, and playback pauses when the room leaves view or the tab is hidden.
-- **Shelf.** Wide screens get 4 columns × 2 rows; narrow/portrait screens get 2 × 4 so the
-  covers stay large. A breakpoint flip rebuilds only the frame group — the record groups
-  and the seal are re-parented, never disposed. Picking is a **projected-cover hit test**
-  (`projectRecord`), not a raycast: the bevel edge lines could win a ray at a cover's seam
-  and select its neighbour. The canvas is keyboard-operable (arrows/Enter/Escape), and the
-  card/DOWNLOAD FREE path is the accessible route to each beat — there is no catalogue
-  list below the room any more.
-- **The sealed latest drop.** The newest sleeve carries a layered shrink-wrap: a clearcoat
-  film split into two halves down a jagged tear line, a crinkle normal map, crimped edge
-  seams, a `SEALED / KYROIII / PULL TO OPEN` sticker and a pull tab. Choosing it tears the
-  halves apart and lifts them away over a wall-clock 1.6 s; pressing the sealed sleeve and
-  dragging down/right scrubs `wrap.t` directly, so the visitor can pull the film open
-  themselves. The card's kicker moves from `SEALED` to `UNSEALED`. Nothing about the peel is
-  stored: a reload seals it again.
-- **Two paths.** Choosing a sleeve raises the card: LISTEN on the left, FREE DOWNLOAD on
-  the right. Download slides the package drawer in from the right (a fixed-height glass
-  sheet with a scrim, three tiers, SUPPORT and the profile links); each tier calls
-  `KYROlll_DOWNLOADS.start(beat.id, pack.id)`, so the email gate, REVIEW & SIGN, PDF and
-  every persistence rule are the store's own — the room never re-implements commerce. A
-  locked/claimed beat replaces the tiers with its ownership/archive status, and a scheduled
-  drop shows its countdown and disables the path.
-- **The deck.** LISTEN starts the public preview inside the click (so mobile autoplay
-  allows it), flies a disc along a bezier from the sleeve to the platter, eases the camera
-  to the deck preset, drops the tonearm and spins the platter. Every disc is the
-  photographed pressing **plus** `assets/kyrolll-flower-label.png` on its label — the raw
-  photograph's own tan label must never show. The chassis carries the flower print, the
-  `KYROIII` wordmark, a transport, a progress bar and the three package buttons. **There is
-  no pitch control**: the platter is a fixed 33 RPM and the preview is never resampled.
-  Playback uses one media element with `preload="auto"` and a Web Audio gain ramp (no
-  per-frame `volume` writes, no `playbackRate`), so a placed record starts from buffered
-  bytes and stops silently. All transitions use `performance.now()`, not accumulated frame
-  time, so a software rasteriser still lands the record in a second. `RETURN TO SHELF`
-  stops playback and restores the shelf disc.
-- **Palette and motion.** The room is black / white / silver only; the supplied cover art
-  and the photographed record are the only colour. `prefers-reduced-motion` snaps the camera,
-  peel and flight and stops the platter; the shared `motion-toggle` event stops the platter
-  and idle drift without freezing the explicit peel/listen animations.
-- **Budget.** No shadows, no post-processing, no transmission. Software renderers are
-  detected and get antialias off, a 0.75 MP drawing budget and every-other-frame rendering;
-  the pixel ratio is otherwise capped by a 2.4 MP budget. On a GPU the room sits beside the
-  hero flower, so the off-screen pause is what keeps the scroll cheap.
+- **Grid.** `storefront.js` sorts `KYROlll_CATALOG` newest-first and renders one
+  `<button class="yx-card">` per beat: cover, index, beat name, type line and
+  BPM/key. Three columns at desktop, two under 900 px, one on a phone; spacing
+  comes from the grid gap, and the cover is never filtered or recoloured.
+  Scheduled drops show `DROPPING SOON` + a live `HH:MM:SS`; a claimed beat dims
+  its cover and reads `CLAIMED / SOLD OUT` (or `OWNED / YOURS` for the buyer).
+- **Focus.** Choosing a card fades the other cards (`is-fading`) and then hides
+  the whole archive, leaving one record with its preview, the captured flower
+  turning above it (`assets/kyrolll-flower-rest.png`, a 2D print, never a second
+  WebGL stage) and the three package rows below. `ALL BEATS`, Escape and Back
+  restore the grid and return focus to the chosen card. The focused record is
+  addressable as `?focus=<id-or-slug>`; a direct `?beat=` link still renders the
+  full beat card through `script.js`, so old links and the download hand-off keep
+  working. Focus mode does not push a new page or scroll away from the archive.
+- **Packages.** Every package row calls `KYROlll_DOWNLOADS.start(beat.id,
+  pack.id)`. The email gate, REVIEW & SIGN, PDF and exclusive-claim register are
+  never re-implemented in the archive; a locked or not-yet-released record renders
+  its status note instead of package rows. `downloads.js`'s footer floor reads
+  `.footer, .site-footer`, so the drawer still knows where the minimal footer is.
+- **Petals.** `petals.js` paints one fixed, pointer-transparent canvas behind the
+  page at DPR 1: 12–34 white/silver petals at a 30 fps cap, no shadows or filters.
+  It stops when the tab is hidden, freezes under `prefers-reduced-motion`, and
+  removes itself on a beat route. The home canvas is the only ambient layer; the
+  old falling-X canvas is not loaded here.
+- **Shared chrome.** `download.html` and `support.html` mount the same
+  `.site-header` and `.site-footer`; the footer can no longer be `.footer`, and
+  `.site-footer__support` is still a `data-support-open` button. The old
+  `.footer`/`.header` markup is gone from those pages, so any code that needs the
+  footer must query both classes (see `downloads.js`).
+- **Retired room.** `vinyl-room.js` / `assets/vinyl-room.min.js`, `hero-intro.js`,
+  `marquee.js`, `marquee-items.js`, `preloader.js` and the falling-X bundle are no
+  longer loaded by `index.html`. The files may remain for reference, but no page
+  should start depending on them again without a deliberate re-introduction.
 
 ## Preview responsiveness in this sandbox
 
@@ -1177,15 +1154,15 @@ only clears the cache/outbox. To exercise the live bus on `localhost`, load the 
 Tests that ship with the repo:
 - `preview-player.test.mjs` is `node:test` based and needs no browser:
   `node --test preview-player.test.mjs`
-- `vinyl-room.test.mjs` is Playwright-based and covers the room-only home route: no hero,
-  ticker or catalogue below it, the seal tear (including a pointer-drag scrub), the sliding
-  package drawer and its links, the deck's playback and the absence of a pitch control, and
-  the phone layout with no sideways scroll. Run it with `node --test vinyl-room.test.mjs`.
-- `brand-design.test.mjs` predates the room-only home: its opening home-route assertions
-  still expect the legacy hero, ticker and catalogue grid below the room and therefore fail
-  before the beat-page/gate sections run. Its beat-page gate, signature, PDF and claim
-  checks remain the reference for those surfaces; `vinyl-room.test.mjs` is the reference for
-  the home route.
+- `storefront.test.mjs` is Playwright-based and covers the archive home: the eight-card
+  grid, the category menu, the petal canvas, the focus transition with its turning flower,
+  the three package rows opening the real gate, the preview player, `?focus=` deep links,
+  the untouched `?beat=` card, the phone layout and reduced motion. Run it with
+  `node --test storefront.test.mjs` (or `npm run test:store`).
+- `brand-design.test.mjs` predates the archive home: its opening home-route assertions
+  still expect the legacy hero, ticker and catalogue grid and therefore fail before the
+  beat-page/gate sections run. Its beat-page gate, signature, PDF and claim checks remain
+  the reference for those surfaces; `storefront.test.mjs` is the reference for the home.
 - `brand-design.test.mjs` is Playwright-based and checks the storefront layout, the
   tagged audio preview, the "DOWNLOAD FREE" package menu and all three gated paths,
   each of which is the same clean two-step gate. The test asserts that no gate renders a

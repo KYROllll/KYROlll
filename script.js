@@ -347,7 +347,7 @@ function buildGrid() {
   grid.classList.toggle("grid--detail", detail);
   const beatNav = $("beat-navigation");
   if (beatNav) beatNav.hidden = !detail;
-  const catalogHeading = $("catalog");
+  const catalogHeading = $("catalog-heading");
   if (catalogHeading) catalogHeading.hidden = detail;
   grid.setAttribute("aria-label", detail ? "Beat details" : "Available beats");
 

@@ -410,7 +410,7 @@
      social marks or the copyright band, however little room is left. */
   const MENU_FOOTER_GAP = 18;
   function footerTop() {
-    const footer = document.querySelector(".footer");
+    const footer = document.querySelector(".footer, .site-footer");
     if (!footer) return Infinity;
     const box = footer.getBoundingClientRect();
     return box.height > 0 ? box.top : Infinity;
@@ -429,7 +429,7 @@
     const stage = drawerStage();
     if (!stage) return null;
     const rect = trigger.getBoundingClientRect();
-    const footer = document.querySelector(".footer");
+    const footer = document.querySelector(".footer, .site-footer");
     const stageNow = stage.getBoundingClientRect().height;
     const footerDocTop = footer
       ? window.scrollY + footer.getBoundingClientRect().top

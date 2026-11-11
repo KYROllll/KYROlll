@@ -6,7 +6,7 @@
     "start": "node server.mjs",
     "test": "node --test preview-player.test.mjs",
     "sync:claims": "node scripts/sync-exclusive-claims.mjs",
-    "test:room": "node --test vinyl-room.test.mjs"
+    "test:store": "node --test storefront.test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

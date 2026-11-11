@@ -358,7 +358,8 @@ test("every beat is pressed from its own cover, and the beat page keeps a sticky
   const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
   assert.match(html, /id="all-beats-link"[^>]*aria-label="Back to all beats"/, "the beat page carries a labelled ALL BEATS control");
   assert.doesNotMatch(html, /vinyl-palette/, "the retired palette module is no longer loaded");
-  assert.match(html, /<div class="logo-stage"[^>]*role="img"[^>]*aria-label="KYROIII custom die-cut pearl flower/, "the hero/preloader still mount the 3D flower on their own stages");
+  assert.match(html, /class="yx-focus__flower"[^>]*src="assets\/kyrolll-flower-rest\.png(?:\?v=\d+)?"/, "the focused record is crowned by the captured flower");
+  assert.doesNotMatch(html, /class="logo-stage"/, "the archive no longer mounts a second WebGL flower");
   assert.doesNotMatch(html, /<div class="logo-stage[^>]*data-vinyl-flower="true"/, "the centre label no longer mounts the live 3D flower");
   assert.match(html, /<img class="vinyl-record__logo"[^>]*src="assets\/kyrolll-flower-label\.png"/, "the beat card's record shows the original flower logo as a plain image");
   const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
@@ -390,7 +391,7 @@ test("the built-in support desk is wired on every page and posts only the three 
   const pages = ["index.html", "download.html", "support.html"]
     .map(name => [name, readFileSync(new URL(`./${name}`, import.meta.url), "utf8")]);
   pages.forEach(([name, html]) => {
-    assert.match(html, /class="footer__support"[^>]*data-support-open/, `${name}: SUPPORT opens the in-page desk`);
+    assert.match(html, /class="(?:footer__support|site-footer__support)"[^>]*data-support-open/, `${name}: SUPPORT opens the in-page desk`);
     assert.doesNotMatch(html, /href="mailto:/, `${name}: the footer never hands over a mail app`);
     assert.match(html, /<script src="support\.js\?v=\d+"><\/script>/, `${name}: the desk script is loaded`);
   });
@@ -413,23 +414,21 @@ test("the built-in support desk is wired on every page and posts only the three 
     .forEach(field => assert(support.includes(field), `the desk renders the ${field} field`));
 });
 
-test("the footer carries the four official social marks as monochrome SVG icons", () => {
+test("the footer carries the four official profiles as quiet text links", () => {
   ["index.html", "download.html", "support.html"].forEach((name) => {
     const html = readFileSync(new URL(`./${name}`, import.meta.url), "utf8");
-    const anchors = html.match(/<a class="social-icon social-icon--[a-z]+"[\s\S]*?<\/a>/g) || [];
+    const anchors = html.match(/<a href="https:\/\/[^"]+"[^>]*target="_blank"[^>]*>[^<]+<\/a>/g) || [];
     assert.equal(anchors.length, 4, `${name}: four official profiles are linked`);
     ["youtube", "instagram", "tiktok", "x"].forEach((network) => {
-      assert(anchors.some(anchor => anchor.includes(`social-icon--${network}`)), `${name}: the ${network} icon is present`);
-      assert(anchors.some(anchor => anchor.includes(`social-icon--${network}`) && anchor.includes('aria-label="KYROIII on ')), `${name}: the ${network} icon is labelled`);
+      assert(anchors.some(anchor => anchor.includes(`${network}.com`)), `${name}: the ${network} link is present`);
     });
     anchors.forEach(anchor => {
-      assert.match(anchor, /<svg viewBox="0 0 24 24"/, `${name}: every icon is a real SVG mark`);
-      assert.match(anchor, /currentColor/, `${name}: every mark paints in the footer's own white`);
-      assert.doesNotMatch(anchor, /#ff0033|#25f4ee|#fe2c55|kyro-ig-gradient|fill="#fff"/, `${name}: no brand colour survives in a footer mark`);
+      assert.match(anchor, /rel="noopener noreferrer"/, `${name}: every profile opens safely`);
+      assert.doesNotMatch(anchor, /#ff0033|#25f4ee|#fe2c55|kyro-ig-gradient/, `${name}: no brand colour survives in the footer`);
     });
-    assert.match(html, /social-icon--instagram" href="https:\/\/www\.instagram\.com\/kyrolll00\/"/, `${name}: Instagram opens @kyrolll00`);
-    assert.match(html, /social-icon--tiktok" href="https:\/\/www\.tiktok\.com\/@kyrolll00"/, `${name}: TikTok opens @kyrolll00`);
-    assert.match(html, /social-icon--x" href="https:\/\/x\.com\/KYROlll00"/, `${name}: X opens @KYROlll00`);
+    assert.match(html, /href="https:\/\/www\.instagram\.com\/kyrolll00\/"[^>]*>INSTAGRAM<\/a>/, `${name}: Instagram opens @kyrolll00`);
+    assert.match(html, /href="https:\/\/www\.tiktok\.com\/@kyrolll00"[^>]*>TIKTOK<\/a>/, `${name}: TikTok opens @kyrolll00`);
+    assert.match(html, /href="https:\/\/x\.com\/KYROlll00"[^>]*>X<\/a>/, `${name}: X opens @KYROlll00`);
   });
 });
 
