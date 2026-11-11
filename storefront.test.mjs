@@ -134,7 +134,7 @@ test('the home is a solid black compact grid with the category menu', async () =
   assert.equal(home.columns, 4, 'the desktop grid is four compact columns');
   assert.equal(home.canvas, 0, 'the falling-petal canvas is gone');
   assert.equal(home.bg, 'rgb(0, 0, 0)', 'the page sits on solid pitch black');
-  assert.match(home.first, /^01 \| WHITE NIGHT \| 142 BPM \/ A/, 'the newest release leads the grid');
+  assert.match(home.first, /^08 \| WHITE NIGHT \| 142 BPM \/ A/, 'the newest release leads the grid and carries the highest archive number');
   assert.equal(home.main, 'none', 'the old catalog document is not below the archive');
   assert.equal(home.room, 0, 'the vinyl room is gone from the home route');
   assert.equal(home.overflow, 0, 'the home never scrolls sideways');

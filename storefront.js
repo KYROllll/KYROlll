@@ -92,7 +92,9 @@
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   }[char]));
 
-  const numberFor = (beat) => String(newest.indexOf(beat) + 1).padStart(2, "0");
+  /* The archive counts down: the newest release carries the highest number
+     (e.g. 09), so the oldest record stays 01 as the collection grows. */
+  const numberFor = (beat) => String(newest.length - newest.indexOf(beat)).padStart(2, "0");
   const specsFor = (beat) => `${beat.bpm} BPM / ${String(beat.key || "").toUpperCase()}`;
   const gridFor = (kind) => (kind === "art" ? artGrid : grid);
   const viewFor = (kind) => (kind === "art" ? artView : home);
@@ -123,7 +125,7 @@
         <img src="${esc(beat.img)}" alt="${esc(name)} cover art" width="1024" height="1024" ${index < 3 ? "" : 'loading="lazy"'} decoding="async">
       </span>
       <span class="yx-card__row">
-        <span class="yx-card__index">${String(index + 1).padStart(2, "0")}</span>
+        <span class="yx-card__index">${String(newest.length - index).padStart(2, "0")}</span>
         <span class="yx-card__name">${esc(name)}</span>
         <span class="yx-card__specs">${esc(specsFor(beat))}</span>
       </span>
