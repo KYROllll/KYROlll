@@ -198,6 +198,9 @@
     if (from && from.card) from.card.classList.add("is-selected");
     window.clearTimeout(state.zoomTimer);
     syncFocusTop();
+    // A close that is still flying home must not tint a freshly opened sheet.
+    document.querySelectorAll(".yx-ghost").forEach((node) => node.remove());
+    focus.classList.remove("is-leaving");
     // Lay the archive out but take it out of sight: keeping its height means the
     // page never re-scrolls behind the sheet, so the zoom lands back on the tile.
     home.classList.add("is-behind");
@@ -228,40 +231,74 @@
     state.beat = null;
     window.clearTimeout(state.zoomTimer);
     pauseAudio();
-    home.classList.remove("is-behind");
-    home.inert = false;
-    grid.hidden = false;
-    grid.classList.remove("is-fading");
-    grid.inert = false;
-    const from = cardMedia(last);
     if (push) {
       const url = new URL(location.href);
       url.searchParams.delete("focus");
       history.replaceState(null, "", url.pathname + url.search);
     }
+
+    const target = cardMedia(last);
+    const artRect = focusArtFrame ? focusArtFrame.getBoundingClientRect() : null;
+    const canFly = Boolean(target && artRect && artRect.width > 1 && artRect.height > 1 && !reduced.matches);
+
+    // A detached cover carries the eye home: it starts exactly on the sheet's
+    // cover, so replacing the sheet with the archive in this one frame is
+    // invisible, and the grid is already at its resting layout underneath.
+    let ghost = null;
+    if (canFly) {
+      ghost = document.createElement("div");
+      ghost.className = "yx-ghost";
+      ghost.setAttribute("aria-hidden", "true");
+      const img = document.createElement("img");
+      img.src = focusArt.currentSrc || focusArt.src;
+      img.alt = "";
+      ghost.appendChild(img);
+      ghost.style.left = `${artRect.left}px`;
+      ghost.style.top = `${artRect.top}px`;
+      ghost.style.width = `${artRect.width}px`;
+      ghost.style.height = `${artRect.height}px`;
+      document.body.appendChild(ghost);
+    }
+
+    // Hand the archive back in place: it was only ever visually hidden, so no
+    // card is rebuilt, no item reflows and the page keeps its scroll offset.
+    home.classList.remove("is-behind");
+    home.inert = false;
+    grid.hidden = false;
+    grid.classList.remove("is-fading");
+    grid.inert = false;
+    grid.querySelectorAll(".is-selected").forEach((card) => card.classList.remove("is-selected"));
+    if (canFly) {
+      focus.classList.remove("is-open", "is-zooming");
+      focus.classList.add("is-leaving");
+    }
+
     const finish = () => {
+      if (ghost) ghost.remove();
       if (seq !== state.zoomSeq) return;
       window.clearTimeout(state.zoomTimer);
       focus.hidden = true;
-      focus.classList.remove("is-open", "is-zooming");
+      focus.classList.remove("is-open", "is-zooming", "is-leaving");
       if (focusArtFrame) {
         focusArtFrame.style.transition = "";
         focusArtFrame.style.transform = "";
       }
-      grid.querySelectorAll(".is-selected").forEach((card) => card.classList.remove("is-selected"));
-      if (from && from.card) from.card.focus({ preventScroll: true });
+      if (target && target.card) target.card.focus({ preventScroll: true });
     };
-    if (!focusArtFrame || !from || reduced.matches) {
+
+    if (!canFly) {
       finish();
       return;
     }
-    // Zoom back onto the tile, which never moved while the sheet was up.
-    const to = focusArtFrame.getBoundingClientRect();
-    focus.classList.add("is-zooming");
-    focusArtFrame.style.transition = "transform .46s cubic-bezier(.4, 0, .2, 1)";
-    focusArtFrame.style.transform = `translate(${from.rect.left - to.left}px, ${from.rect.top - to.top}px)`
-      + ` scale(${from.rect.width / to.width}, ${from.rect.height / to.height})`;
-    state.zoomTimer = window.setTimeout(finish, 470);
+
+    // Measure the tile after the archive is back in sight, then glide onto it.
+    const to = target.media.getBoundingClientRect();
+    requestAnimationFrame(() => {
+      if (seq !== state.zoomSeq || !ghost) return;
+      ghost.style.transform = `translate(${to.left - artRect.left}px, ${to.top - artRect.top}px)`
+        + ` scale(${to.width / artRect.width}, ${to.height / artRect.height})`;
+      state.zoomTimer = window.setTimeout(finish, 480);
+    });
   }
 
   function syncFromUrl() {

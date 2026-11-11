@@ -4903,6 +4903,28 @@ html.beat-page .yx-focus { display: none; }
 .yx-focus:focus { outline: none; }
 .yx-focus.is-open { animation: yxFocusFade .3s ease both; }
 @keyframes yxFocusFade { from { opacity: .4; } to { opacity: 1; } }
+/* Closing: the sheet dissolves while a detached cover flies back to its tile. */
+.yx-focus.is-leaving {
+  pointer-events: none;
+  animation: yxFocusLeave .22s ease both;
+}
+@keyframes yxFocusLeave { from { opacity: 1; } to { opacity: 0; } }
+.yx-ghost {
+  position: fixed;
+  z-index: 57;
+  overflow: hidden;
+  background: #060606;
+  pointer-events: none;
+  transform-origin: 0 0;
+  transition: transform .46s cubic-bezier(.4, 0, .2, 1);
+  will-change: transform;
+}
+.yx-ghost img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .yx-focus__top {
   display: flex;
   align-items: center;
@@ -5223,10 +5245,12 @@ html.beat-page .yx-focus { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .yx-focus.is-open { animation: none; }
+  .yx-focus.is-open,
+  .yx-focus.is-leaving { animation: none; }
   .site-header__flower img { animation: none; }
   .yx-focus__art { transition: none; }
   .yx-focus__body { transition: none; }
+  .yx-ghost { transition: none; }
   .yx-grid,
   .yx-card,
   .yx-card__media img,

@@ -115,12 +115,49 @@ test('the home is a solid black compact grid with the category menu', async () =
   assert(home.flower.box.right > 1300, 'the flower sits in the top-right corner');
   assert(home.flower.box.width <= 26, 'the header flower stays a small mark');
   assert.equal(home.flower.animation, 'yxFlowerSpin', 'the header flower turns');
+
+  // The bar is locked to the viewport: it stays whole and on top while the archive scrolls.
+  await page.evaluate(() => window.scrollTo(0, 700));
+  await page.waitForTimeout(120);
+  const pinned = await page.evaluate(() => {
+    const header = document.querySelector('.site-header');
+    const box = header.getBoundingClientRect();
+    const flower = document.querySelector('.site-header__flower').getBoundingClientRect();
+    const brand = document.querySelector('.site-brand').getBoundingClientRect();
+    return {
+      scrollY: Math.round(scrollY),
+      position: getComputedStyle(header).position,
+      top: Math.round(box.top),
+      height: Math.round(box.height),
+      flowerRight: Math.round(innerWidth - flower.right),
+      flowerTop: Math.round(flower.top),
+      brandTop: Math.round(brand.top),
+      z: Number(getComputedStyle(header).zIndex),
+    };
+  });
+  assert(pinned.scrollY > 300, 'the archive really scrolled under the bar');
+  assert.equal(pinned.position, 'sticky', 'the header is a sticky bar, not a scrolled row');
+  assert.equal(pinned.top, 0, 'the header stays locked to the viewport top');
+  assert(pinned.height >= 60, 'the whole bar stays on screen, not a sliver');
+  assert(pinned.flowerRight >= 0 && pinned.flowerRight <= 56, 'the flower stays pinned in the top-right corner');
+  assert(pinned.flowerTop >= 0 && pinned.flowerTop < pinned.height, 'the flower stays inside the bar');
+  assert(pinned.brandTop >= 0 && pinned.brandTop < pinned.height, 'the wordmark stays inside the bar');
+  assert(pinned.z >= 50, 'the bar paints above the archive');
+
   for (const failure of errors) assert.fail(`page error: ${failure}`);
   await context.close();
 });
 
 test('choosing a record zooms it open in place and offers the packages', async () => {
   const { context, page } = await openHome({ viewport: { width: 1440, height: 900 } });
+  await page.evaluate(() => window.scrollTo(0, 200));
+  const archive = await page.evaluate(() => {
+    const media = [...document.querySelectorAll('#yx-grid .yx-card__media')].map((node) => {
+      const rect = node.getBoundingClientRect();
+      return [Math.round(rect.left), Math.round(rect.top), Math.round(rect.width)];
+    });
+    return { scrollY: Math.round(scrollY), media, cards: document.querySelectorAll('#yx-grid .yx-card').length };
+  });
   const cover = await page.locator('#yx-grid .yx-card__media').first().boundingBox();
   await page.locator('#yx-grid .yx-card').first().click();
   await page.waitForFunction(() => {
@@ -159,14 +196,51 @@ test('choosing a record zooms it open in place and offers the packages', async (
   assert(focus.artBox > cover.width, 'the focused cover is larger than the grid tile');
   assert.match(focus.url, /focus=white-night/, 'the focused record is addressable');
   await page.locator('[data-yx-close]').first().click();
+  await page.waitForTimeout(60);
+  const flight = await page.evaluate(() => {
+    const ghost = document.querySelector('.yx-ghost');
+    const sheet = document.querySelector('#yx-focus');
+    const box = ghost && ghost.getBoundingClientRect();
+    const header = document.querySelector('.site-header').getBoundingClientRect();
+    return {
+      ghost: Boolean(ghost) && Boolean(ghost.querySelector('img')),
+      cover: ghost && ghost.querySelector('img').getAttribute('src'),
+      box: box && [Math.round(box.width), Math.round(box.height)],
+      homeHidden: document.querySelector('.yx-home').classList.contains('is-behind'),
+      homeVisibility: getComputedStyle(document.querySelector('.yx-home')).visibility,
+      leaving: sheet.classList.contains('is-leaving'),
+      sheetFading: Number(getComputedStyle(sheet).opacity) < 1,
+      scrollY: Math.round(scrollY),
+      headerTop: Math.round(header.top),
+    };
+  });
+  assert.equal(flight.ghost, true, 'closing flies a real cover home instead of cutting');
+  assert.match(flight.cover, /white-night/i, 'the flying cover is the focused record\'s art');
+  assert.equal(flight.homeHidden, false, 'the archive is back in sight for the landing');
+  assert.equal(flight.homeVisibility, 'visible', 'the landing tile is already in its grid slot');
+  assert.equal(flight.leaving, true, 'the sheet dissolves under the flying cover');
+  assert.equal(flight.sheetFading, true, 'the sheet is already fading, not blinking away');
+  assert.equal(flight.scrollY, archive.scrollY, 'closing never rescrolls the archive');
+  assert.equal(flight.headerTop, 0, 'the header stays locked during the close transition');
+
   await page.waitForFunction(() => document.querySelector('#yx-focus').hidden);
+  await page.waitForFunction(() => !document.querySelector('.yx-ghost'));
   const back = await page.evaluate(() => ({
     homeHidden: document.querySelector('.yx-home').classList.contains('is-behind'),
     url: location.search,
     cards: document.querySelectorAll('#yx-grid .yx-card').length,
+    scrollY: Math.round(scrollY),
+    media: [...document.querySelectorAll('#yx-grid .yx-card__media')].map((node) => {
+      const rect = node.getBoundingClientRect();
+      return [Math.round(rect.left), Math.round(rect.top), Math.round(rect.width)];
+    }),
+    focused: document.activeElement && document.activeElement.classList.contains('yx-card'),
   }));
   assert.equal(back.homeHidden, false, 'ALL BEATS restores the archive');
   assert.equal(back.cards, 8, 'every record is back in the grid');
+  assert.equal(back.scrollY, archive.scrollY, 'the archive keeps its place after the landing');
+  assert.deepEqual(back.media, archive.media, 'no card reflowed or moved during open and close');
+  assert.equal(back.focused, true, 'focus returns to the card that was chosen');
   assert(!back.url.includes('focus='), 'closing clears the focus parameter');
   await context.close();
 });

@@ -516,11 +516,24 @@ mark is the spinning flower in the header.
   once the cover lands (`is-zooming`). The sheet already holds the preview player
   and the three package rows, so they are there the moment it opens. The archive
   stays laid out and is only hidden visually (`.yx-home.is-behind`, `inert`), so
-  the page never re-scrolls behind the sheet and the reverse zoom lands back on
-  the same tile. `ALL BEATS`, Escape and Back close it and return focus to the
-  card. The focused record is addressable as `?focus=<id-or-slug>`; a direct
+  the page never re-scrolls behind the sheet. Closing does not run that cover
+  back inside the sheet: `storefront.js` clones it into a fixed `.yx-ghost` at the
+  sheet-cover box, hands the archive back in the same frame (no card is rebuilt
+  and no item reflows, so every tile is already in its final slot), fades the sheet
+  with `is-leaving`, and glides the ghost onto the chosen tile's `.yx-card__media`
+  with the same `transform-origin: 0 0` FLIP maths — it lands exactly on the tile
+  before it is removed, so there is no cut and no flash of the grid. The archive's
+  scroll offset is untouched by open or close. `ALL BEATS`, Escape and Back close
+  it and return focus to the card. The focused record is addressable as
+  `?focus=<id-or-slug>`; a direct
   `?beat=` link still renders the full beat card through `script.js`, so old
   links and the download hand-off keep working.
+- **Locked header.** `.site-header` is `position: sticky; top: 0` with
+  `z-index: 60` and must stay that way: the brand, the category links and the
+  flower are pinned to the viewport top through every scroll and while the focus
+  sheet is open, and the sheet's `--yx-header-h` offset keeps it docked directly
+  under the bar. (The beat route keeps its own `position: relative` header
+  because there the sticky `#beat-navigation` rail owns the top edge.)
 - **Header flower.** `.site-header__end` carries the captured flower
   (`assets/kyrolll-flower-rest.png`, a 2D print) at the top-right on every page —
   home, beat route, download and support — turning on `yxFlowerSpin` (16s linear),
