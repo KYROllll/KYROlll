@@ -280,7 +280,7 @@
      Everything about "who this flow is" lives here and none of it is stored:
      the signature is handed forward in the flow's URL exactly like the
      address is (`downloadUrl`), and `license-pdf.js` only reads the result. */
-  const SIGN_PAD = { w: 600, h: 220 };   // the pad's canvas, so a drawing keeps its aspect
+  const SIGN_PAD = { w: 600, h: 150 };   // a razor-thin pad; strokes stay normalised 0..1
   const SIGN_POINTS = 320;               // per stroke and in total — a URL, not a canvas dump
   const SIGN_INK_MIN = 8;                // points a real drawing needs before it counts
   const SIGN_SPAN_MIN = 0.3;             // of the pad's width + height, so a dot cannot sign
@@ -854,6 +854,29 @@
     return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.6 12.7 9.7 17.6 19.4 6.9"/></svg>';
   }
 
+  /* One single-line breadcrumb for the inline micro-flow: the whole path is
+     always visible, the current step is white and the ones behind it are silver.
+     It replaces the old stack of per-step paragraphs, so a stage gains one thin
+     line instead of one block. */
+  const FLOW_STEPS = [
+    ["email", "EMAIL"],
+    ["terms", "TERMS"],
+    ["name", "NAME"],
+    ["sign", "SIGN"],
+    ["files", "FILES"]
+  ];
+  function stepRail(active, inline) {
+    if (!inline) return "";
+    const at = FLOW_STEPS.findIndex((step) => step[0] === active);
+    return '<div class="sign-steps" aria-hidden="true">' +
+      FLOW_STEPS.map((step, i) => {
+        const cls = i === at ? " is-active" : (i < at ? " is-done" : "");
+        return (i ? '<span class="sign-steps__sep">/</span>' : "") +
+          '<span class="sign-steps__item' + cls + '">' + step[1] + '</span>';
+      }).join("") +
+    '</div>';
+  }
+
   /* The email form used by every gate: one address field, the mandatory opt-in
      checkbox (required and pre-ticked, so it must be deliberately kept) and a
      real POST action so the form also works with scripting out of the way. */
@@ -888,7 +911,8 @@
     if (inline) {
       /* Bare-minimum inline email step: a single input line, a compact opt-in,
          and tight action buttons — nothing else. */
-      return '<form class="gate-form" data-gate-form novalidate' +
+      return stepRail("email", true) +
+          '<form class="gate-form" data-gate-form novalidate' +
           (endpoint ? ' action="' + escapeHTML(endpoint) + '" method="post"' : '') + '>' +
           '<input class="gate-input" id="gate-email" name="email" type="email" inputmode="email" ' +
             'autocomplete="off" spellcheck="false" placeholder="EMAIL" required>' +
@@ -966,12 +990,16 @@
     card.className = "gate-panel__card gate-panel__card--files";
     card.setAttribute("aria-live", "polite");
     const inlineFiles = !!(gate && gate.inline);
-    const filesStep = inlineFiles ? '<p class="gate-step">STEP 5 / 5 — FILES UNLOCKED</p>' : '';
     card.innerHTML =
-      filesStep +
-      '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + ' — FILES UNLOCKED</span>' +
-      '<h2 class="gate-panel__title" id="gate-title">YOUR FILES</h2>' +
-      (inlineFiles ? '' : '<p class="gate-panel__copy">' + escapeHTML(beat.title) + '</p>') +
+      (inlineFiles
+        ? stepRail("files", true) +
+          '<div class="gate-panel__head">' +
+            '<h2 class="gate-panel__title" id="gate-title">FILES UNLOCKED</h2>' +
+            '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + '</span>' +
+          '</div>'
+        : '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + ' — FILES UNLOCKED</span>' +
+          '<h2 class="gate-panel__title" id="gate-title">YOUR FILES</h2>' +
+          '<p class="gate-panel__copy">' + escapeHTML(beat.title) + '</p>') +
       '<div class="gate-serial">' +
         '<span class="gate-serial__kicker">LICENSE ID</span>' +
         '<span class="gate-serial__id">' + escapeHTML(serial) + '</span>' +
@@ -981,7 +1009,7 @@
         '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CLOSE</button>' +
         '<button type="button" class="kyrolll-btn" data-gate-license>LICENSE (.PDF)</button>' +
       '</div>' +
-      '<p class="gate-panel__hint">FREE FOR PERSONAL &amp; COMMERCIAL USE — CREDIT (PROD. BY KYROIII)</p>';
+      '<p class="gate-panel__hint">FREE FOR ALL USE — CREDIT (PROD. BY KYROIII)</p>';
     resizeHost();
     card.querySelectorAll("[data-gate-file]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -1041,43 +1069,60 @@
     if (!modal || !card) return;
     resizeHost();
     const inlineSign = !!(gate && gate.inline);
-    const s2 = inlineSign ? '<p class="gate-step">STEP 2 / 5 — TERMS</p>' : '';
-    const s3 = inlineSign ? '<p class="gate-step">STEP 3 / 5 — FULL NAME</p>' : '';
-    const s4 = inlineSign ? '<p class="gate-step">STEP 4 / 5 — SIGNATURE</p>' : '';
+    const head = inlineSign
+      ? stepRail("terms", true) +
+        '<div class="gate-panel__head">' +
+          '<h2 class="gate-panel__title" id="gate-title">REVIEW &amp; SIGN</h2>' +
+          '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + '</span>' +
+        '</div>'
+      : '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + '</span>' +
+        '<h2 class="gate-panel__title" id="gate-title">LICENSE REVIEW &amp; SIGNATURE</h2>' +
+        '<p class="gate-panel__copy">READ THE TERMS, TYPE YOUR FULL NAME, DRAW YOUR SIGNATURE, AND YOUR FILES UNLOCK.</p>';
+    /* The compact flow asks for the name on a single terminal line, exactly like
+       the email step: no label block, no box, just the hairline. The non-inline
+       surfaces keep the labelled field. */
+    const nameField = inlineSign
+      ? '<label class="gate-field gate-field--line" data-sign-field for="sign-name">' +
+          '<input class="gate-input" id="sign-name" name="signature" type="text" autocomplete="off" ' +
+            'autocapitalize="characters" enterkeyhint="done" spellcheck="false" maxlength="48" ' +
+            'placeholder="FIRST &amp; LAST NAME">' +
+          '<span class="gate-field__tick" aria-hidden="true">' + tickSVG() + '</span>' +
+        '</label>'
+      : '<label class="gate-field" data-sign-field for="sign-name">' +
+          '<span class="gate-field__label">FULL NAME — FIRST AND LAST' +
+            '<span class="gate-field__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +
+          '<input class="gate-input" id="sign-name" name="signature" type="text" autocomplete="off" ' +
+            'autocapitalize="characters" enterkeyhint="done" spellcheck="false" maxlength="48" ' +
+            'placeholder="TYPE YOUR FULL NAME">' +
+        '</label>';
+    const modes = '<div class="sign-modes" role="group" aria-label="Signature style">' +
+        (inlineSign ? '<span class="sign-modes__label">SIGNATURE</span>' : '') +
+        '<button type="button" class="sign-mode is-active" data-sign-mode="type">TYPE</button>' +
+        '<button type="button" class="sign-mode" data-sign-mode="draw">DRAW</button>' +
+        /* In the compact flow the live stamp rides on the same line as the
+           switch, so it costs no vertical space of its own. */
+        (inlineSign ? '<span class="license-cert__stamp" data-sign-stamp data-stamped="false"></span>' : '') +
+      '</div>';
     card.className = "gate-panel__card gate-panel__card--sign";
     card.innerHTML =
-      '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + '</span>' +
-      '<h2 class="gate-panel__title" id="gate-title">LICENSE REVIEW &amp; SIGNATURE</h2>' +
-      (inlineSign ? '' : '<p class="gate-panel__copy">READ THE TERMS, TYPE YOUR FULL NAME, DRAW YOUR SIGNATURE, AND YOUR FILES UNLOCK.</p>') +
-      s2 +
+      head +
       '<div class="sign-terms" data-sign-terms role="region" tabindex="0" aria-label="License terms">' +
         termsHTML(beat, pack) +
       '</div>' +
       /* The FULL NAME field sits ABOVE the TYPE / DRAW switch and never hides:
          it is required in both modes, so switching to DRAW cannot skip the name
          that attributes the license. */
-      s3 +
-      '<label class="gate-field" data-sign-field for="sign-name">' +
-        '<span class="gate-field__label">FULL NAME — FIRST AND LAST' +
-          '<span class="gate-field__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +
-        '<input class="gate-input" id="sign-name" name="signature" type="text" autocomplete="off" ' +
-          'autocapitalize="characters" enterkeyhint="done" spellcheck="false" maxlength="48" ' +
-          'placeholder="TYPE YOUR FULL NAME">' +
-      '</label>' +
-      '<div class="sign-modes" role="group" aria-label="Signature style">' +
-        '<button type="button" class="sign-mode is-active" data-sign-mode="type">TYPE</button>' +
-        '<button type="button" class="sign-mode" data-sign-mode="draw">DRAW</button>' +
-      '</div>' +
+      nameField +
+      modes +
       /* The signature sheet: a clean field, so the customer never signs over the
          brand's flower mark. */
-      s4 +
       '<div class="sign-sheet">' +
         '<div class="sign-pad" data-sign-pad hidden>' +
           '<canvas class="sign-pad__canvas" data-sign-canvas width="' + SIGN_PAD.w + '" height="' + SIGN_PAD.h + '"></canvas>' +
           '<div class="sign-pad__row"><span class="sign-pad__hint">DRAG TO SIGN — MOUSE OR FINGER</span>' +
             '<button type="button" class="sign-pad__clear" data-sign-clear>CLEAR</button></div>' +
         '</div>' +
-        '<span class="license-cert__stamp" data-sign-stamp data-stamped="false"></span>' +
+        (inlineSign ? '' : '<span class="license-cert__stamp" data-sign-stamp data-stamped="false"></span>') +
       '</div>' +
       '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
       '<div class="gate-panel__actions">' +
@@ -1104,6 +1149,20 @@
     let current = null;
     let submitted = false;
     const ctx = canvas && canvas.getContext ? canvas.getContext("2d") : null;
+
+    /* The breadcrumb follows the visitor through the one combined card: the
+       terms while they are unread, the name once the terms are read, then the
+       signature once a full name is on file. Files is the next stage and is
+       painted by `showFilesStage`. */
+    function setRail(activeKey) {
+      const items = card.querySelectorAll(".sign-steps__item");
+      if (!items.length) return;
+      const at = FLOW_STEPS.findIndex((step) => step[0] === activeKey);
+      items.forEach((item, i) => {
+        item.classList.toggle("is-active", i === at);
+        item.classList.toggle("is-done", i < at);
+      });
+    }
 
     /* A crisp pen on a retina phone: the bitmap is scaled by the device pixel
        ratio (capped at 2×) while the strokes stay normalised 0..1, so the ink is
@@ -1175,6 +1234,7 @@
       const ready = read && signed;
       if (submitBtn) submitBtn.disabled = !ready;
       if (field) field.classList.toggle("is-valid", named);
+      if (inlineSign) setRail(!read ? "terms" : (named ? "sign" : "name"));
       if (stamp) {
         let label = "NOTHING SIGNED YET";
         if (signed) label = "SIGNATURE CAPTURED — " + strokes.length + " STROKE" + (strokes.length === 1 ? "" : "S");
