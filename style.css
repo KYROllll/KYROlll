@@ -5363,16 +5363,17 @@ html { --yx-header-h: 64px; }
   width: 100%;
   margin: auto;
   border: 0;
-  background: #000;
+  background: none;
 }
 /* The cover is the zoom layer: storefront.js scales it from the chosen tile's
    box to this frame, so the record opens in place instead of fading in.
-   The frame is borderless on every side: no rule above, below or beside the
-   art, so the cover floats edge-to-edge instead of sitting in a box. */
+   The frame is not a box at all: no rule, padding or plate behind the art, so
+   the cover sits directly on the page's black field. */
 .yx-focus__art {
   aspect-ratio: 1;
   overflow: hidden;
-  background: #060606;
+  padding: 0;
+  background: none;
   border: 0;
   transform-origin: 0 0;
   transition: transform .62s cubic-bezier(.16, 1, .3, 1);
@@ -5740,6 +5741,8 @@ html { --yx-header-h: 64px; }
     aspect-ratio: auto;
     width: 100%;
     height: clamp(120px, 22dvh, 240px);
+    padding: 0;
+    background: none;
     border: 0;
   }
   .yx-focus__art img,
