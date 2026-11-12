@@ -5729,16 +5729,20 @@ html { --yx-header-h: 64px; }
     grid-template-columns: minmax(0, 1fr);
     max-width: 720px;
   }
-  /* The cover keeps a square crop on a phone, but it is sized from the
-     viewport height so the player and the three package rows land on the same
-     screen instead of below the fold. */
+  /* The cover is sized from the viewport height so the player and the three
+     package rows land on the same screen instead of below the fold. It is
+     letterboxed (contain), never cropped: a phone's wide short frame would
+     otherwise cut the top and sides off the square cover the desktop shows
+     whole. */
   .yx-focus__art {
     aspect-ratio: auto;
     width: 100%;
-    height: clamp(88px, 18dvh, 220px);
+    height: clamp(120px, 22dvh, 240px);
     border-right: 0;
     border-bottom: 1px solid rgba(255, 255, 255, .12);
   }
+  .yx-focus__art img,
+  .yx-ghost img { object-fit: contain; }
   .yx-focus__body { padding: 16px 16px 18px; }
   .yx-focus__title { margin: 8px 0 6px; font-size: clamp(26px, 7vw, 34px); }
   .yx-focus__specs { margin-top: 10px; }
