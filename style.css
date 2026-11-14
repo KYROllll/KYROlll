@@ -3985,31 +3985,31 @@ html.preloader-armed { overflow-y: hidden; }
    `.flower-spinner` is inserted by flower-spinner.js only while an image is
    actually fetching; a settled card carries no indicator and no animation. */
 .catalog-tile__art,
-.beat-detail__artwork { position: relative; }
+.beat-detail__artwork,
+.yx-card__media,
+.yx-focus__art { position: relative; }
 
-.flower-media { transition: opacity .36s ease; }
+.flower-media { transition: opacity .42s ease; }
 .is-loading > .flower-media { opacity: 0; }
+/* The grid lifts its covers on hover; a cover that is still fetching has to
+   stay hidden beneath the flower for that whole wait, hover included. */
+.yx-card:hover .yx-card__media.is-loading > .flower-media,
+.yx-card:focus-visible .yx-card__media.is-loading > .flower-media { opacity: 0; }
 
+/* The indicator owns a pure-black plate, so a cover's placeholder is the same
+   pitch black as the page and never a grey box. It sits out of flow, so the
+   square frame is already reserved and the reveal moves nothing. */
 .flower-spinner {
   position: absolute;
   inset: 0;
   z-index: 3;
   display: grid;
   place-items: center;
+  background: #000000;
   pointer-events: none;
-  transition: opacity .34s ease;
+  transition: opacity .42s ease;
 }
 .flower-spinner.is-done { opacity: 0; }
-.flower-spinner::before {
-  content: "";
-  position: absolute;
-  width: 44%;
-  max-width: 190px;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, .06), transparent 68%);
-  pointer-events: none;
-}
 .flower-spinner__flower {
   position: relative;
   width: clamp(46px, 28%, 104px);
@@ -5142,7 +5142,7 @@ html { --yx-header-h: 64px; }
   display: block;
   aspect-ratio: 1;
   overflow: hidden;
-  background: #090909;
+  background: #000000;
 }
 .yx-card__media img {
   display: block;

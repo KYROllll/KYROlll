@@ -74,6 +74,14 @@
     + '<path d="M2.5 5V3.6a2.5 2.5 0 0 1 5 0V5" fill="none" stroke="currentColor" stroke-width="1"/>'
     + '<rect x="1" y="5" width="8" height="6.2" rx=".6" fill="currentColor"/></svg>';
 
+  /* Every cover answers its own wait with the brand flower: the grid hands each
+     fresh render to the indicator, and the focused cover — whose `src` is
+     rewritten on every open — is re-tracked so a cold deep link still gets the
+     loader instead of a dark plate. */
+  const flowerSpinner = window.KYROlll_FLOWER_SPINNER || null;
+  const watchCovers = (scope) => { if (flowerSpinner && scope) flowerSpinner.watch(scope); };
+  const trackFocusCover = () => { if (flowerSpinner && focusArt) flowerSpinner.refresh(focusArt); };
+
   const isReleased = (beat) => !HELPERS.isReleased || HELPERS.isReleased(beat);
   const isLocked = (beat) => !!(HELPERS.isExclusiveLocked && HELPERS.isExclusiveLocked(beat.id));
   const isOwned = (beat) => !!(HELPERS.isExclusiveOwned && HELPERS.isExclusiveOwned(beat.id));
@@ -177,6 +185,7 @@
     grid.inert = false;
     grid.hidden = false;
     grid.classList.remove("is-fading");
+    watchCovers(grid);
     watchCountdowns();
   }
 
@@ -186,6 +195,7 @@
     artGrid.classList.toggle("is-single", pieces.length === 1);
     artGrid.innerHTML = pieces.map(artCardHTML).join("");
     artGrid.inert = false;
+    watchCovers(artGrid);
   }
 
   /* Until the first original is registered the collection is not part of the
@@ -256,6 +266,7 @@
 
     focusArt.src = beat.img;
     focusArt.alt = `${name} cover art`;
+    trackFocusCover();
     focusIndex.textContent = numberFor(beat);
     focusTitle.textContent = name;
     focusType.textContent = type;
@@ -297,6 +308,7 @@
     const beatName = beat ? splitTitle(beat).name : "";
     focusArt.src = piece.src;
     focusArt.alt = `${piece.title} — original hand-drawn cover artwork`;
+    trackFocusCover();
     focusIndex.textContent = artIndex(piece);
     focusTitle.textContent = piece.title;
     focusType.textContent = beatName

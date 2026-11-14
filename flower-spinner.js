@@ -20,9 +20,11 @@
 (function () {
   "use strict";
 
-  // A container opts in with `data-flower-loader`, and the two artwork slots the
-  // storefront already ships are picked up automatically.
-  const CONTAINER = "[data-flower-loader], .catalog-tile__art, .beat-detail__artwork";
+  // A container opts in with `data-flower-loader`; the artwork slots the
+  // storefront ships are picked up automatically. `.yx-card__media` is the
+  // archive grid's cover and `.yx-focus__art` is the focused/zoom view, so both
+  // places a beat cover is painted answer a wait with the same flower.
+  const CONTAINER = "[data-flower-loader], .catalog-tile__art, .beat-detail__artwork, .yx-card__media, .yx-focus__art";
   const SPINNER = '<span class="flower-spinner" aria-hidden="true"><span class="flower-spinner__flower"></span></span>';
   const bound = new WeakSet();
 
@@ -50,22 +52,26 @@
     const node = container.querySelector(".flower-spinner");
     if (!node) return;
     // Fade the indicator out over the image that just arrived, then drop the
-    // node so a settled card carries no idle animation at all.
+    // node so a settled card carries no idle animation at all. The grace is
+    // longer than the CSS cross-fade so its last frame is never clipped.
     node.classList.add("is-done");
-    window.setTimeout(() => node.remove(), 400);
+    window.setTimeout(() => node.remove(), 500);
   }
 
-  function bind(img) {
-    if (!img || bound.has(img) || img.tagName !== "IMG") return;
-    /* A decorative image inside a covered slot — the claimed card's flower seal
-       — must never drive the cover's loading state: the cover is the thing the
-       wait belongs to, and a lazy seal arriving late would otherwise hide an
-       already-painted cover behind a spinner. */
-    if (img.hasAttribute("data-flower-skip")) return;
+  /* Resolve one image against its cover slot. `track` is idempotent, so a grid
+     that is re-watched never restarts a wait, while the focused cover — whose
+     `src` is rewritten on every open — can be re-tracked and start the flower
+     again for a cover that is not in the browser's cache yet. */
+  function track(img) {
     const container = img.closest(CONTAINER);
     if (!container) return;
-    bound.add(img);
     img.classList.add("flower-media");
+    // A re-tracked cover (a new src on the same element) starts from a clean
+    // slate: the previous indicator and its settled state are dropped first.
+    const stale = container.querySelector(".flower-spinner");
+    if (stale) stale.remove();
+    container.classList.remove("is-loading", "is-loaded", "is-failed");
+    container.removeAttribute("aria-busy");
     // An image the browser already holds (a cache hit, or one that finished
     // before this script ran) never needs a spinner.
     if (img.complete && img.naturalWidth > 0) {
@@ -77,6 +83,27 @@
       return;
     }
     begin(container);
+  }
+
+  function bind(img) {
+    if (!img || bound.has(img) || img.tagName !== "IMG") return;
+    /* A decorative image inside a covered slot — the claimed card's flower seal
+       — must never drive the cover's loading state: the cover is the thing the
+       wait belongs to, and a lazy seal arriving late would otherwise hide an
+       already-painted cover behind a spinner. */
+    if (img.hasAttribute("data-flower-skip")) return;
+    if (!img.closest(CONTAINER)) return;
+    bound.add(img);
+    track(img);
+  }
+
+  /* Re-read an image whose `src` just changed (the focused cover). The element
+     is already observed, so this only re-evaluates its current state. */
+  function refresh(img) {
+    if (!img || img.tagName !== "IMG" || img.hasAttribute("data-flower-skip")) return;
+    if (!img.closest(CONTAINER)) return;
+    bound.add(img);
+    track(img);
   }
 
   function watch(root) {
@@ -96,7 +123,7 @@
   document.addEventListener("load", (event) => settle(event, false), true);
   document.addEventListener("error", (event) => settle(event, true), true);
 
-  window.KYROlll_FLOWER_SPINNER = { watch, markup: SPINNER };
+  window.KYROlll_FLOWER_SPINNER = { watch, refresh, markup: SPINNER };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => watch(document), { once: true });

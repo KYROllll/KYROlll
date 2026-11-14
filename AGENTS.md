@@ -246,34 +246,44 @@ and swap its `3000-` prefix for `9099-`. Delete the throwaway page afterwards.
 ## Every media wait wears the flower
 
 `flower-spinner.js` turns the storefront's blank loading states into the brand. A cover
-(`.catalog-tile__art`, `.beat-detail__artwork`) that is still fetching gets a
-`.flower-spinner` — the captured resting render, `assets/kyrolll-flower-rest.png`, over a
-soft white bloom — and the cover itself is held at `opacity: 0` until it is decoded. The
-audio player answers the same wait through CSS alone: `.beat-preview[data-state="loading"]`
-hides the play glyph and paints the same render inside `.beat-preview__toggle::after`.
+that is still fetching — the archive grid's `.yx-card__media`, the focused/zoom view's
+`.yx-focus__art`, and the legacy `.catalog-tile__art` / `.beat-detail__artwork` —
+gets a `.flower-spinner`: the captured resting render, `assets/kyrolll-flower-rest.png`,
+the same mark as the top-right header flower, centred on a pure `#000000` plate with the
+cover itself held at `opacity: 0` until it is decoded. The audio player answers the same
+wait through CSS alone: `.beat-preview[data-state="loading"]` hides the play glyph and
+paints the same render inside `.beat-preview__toggle::after`.
 
 The helper is deliberately not a second WebGL scene: a cover can be held for
 milliseconds, and building a renderer per image would cost far more than the wait it
 covers. It also never fetches or stores anything — `load`/`error` are captured at the
 document (they do not bubble, and capture also catches images a later grid render
-inserts), `script.js` hands each freshly built grid to `watch()`, and a settled container
-drops the node entirely, so a card at rest carries no idle animation. An image the
-browser already holds (a cache hit, or one that finished before the script ran) never
-shows a spinner at all; an image that fails clears the wait and leaves the broken cover
-visible. The `brand-design.test.mjs` audit is unaffected because the indicator is only
-painted while a fetch is genuinely pending. A decorative image that lives inside a watched
-slot carries `data-flower-skip` (the claimed card's seal does): otherwise its lazy arrival
-would mark the whole cover `is-loading` and hide an already-painted cover behind a spinner.
+inserts), `script.js` hands each freshly built legacy grid to `watch()`, and
+`storefront.js` does the same for every archive/artwork render. The focused cover is
+re-tracked with `refresh(focusArt)` because its `src` is rewritten on each open, so a
+cold `?focus=` deep link still starts behind the flower while a cache hit is marked
+settled without a flash. A settled container drops the node entirely, so a card at rest
+carries no idle animation. An image the browser already holds (a cache hit, or one that
+finished before the script ran) never shows a spinner at all; an image that fails clears
+the wait and leaves the broken cover visible. The `brand-design.test.mjs` audit is
+unaffected because the indicator is only painted while a fetch is genuinely pending. A
+decorative image that lives inside a watched slot carries `data-flower-skip` (the claimed
+card's seal does): otherwise its lazy arrival would mark the whole cover `is-loading` and
+hide an already-painted cover behind a spinner.
 
-The turn is `flowerSpinnerTurn` (3s linear): a continuous in-plane rotation carrying a
-gentle rocking Y tilt. A full Y-axis flip was tried and reverted — the still render goes
-edge-on twice a turn and collapses to a white sliver, which reads as a glitch. Keep the
-flower whole at every frame. The
-page's `motion-toggle` pauses it (`animation-play-state`), and
-`prefers-reduced-motion: reduce` drops the animation to `none` so the flower simply
-holds its resting pose. `flower-spinner.test.mjs` holds a cover and an audio file
-mid-fetch to assert the indicator, its clock, its background image, the reduced-motion
-freeze and the clean hand-off.
+The cover's frame is already a reserved square (`aspect-ratio: 1`) and the plate is
+absolutely positioned, so the reveal moves nothing: the cover and the indicator cross-fade
+over `.42s` on the same curve, on desktop and phone alike. The turn is
+`flowerSpinnerTurn` (3s linear): a continuous in-plane rotation carrying a gentle rocking
+Y tilt. A full Y-axis flip was tried and reverted — the still render goes edge-on twice a
+turn and collapses to a white sliver, which reads as a glitch. Keep the flower whole at
+every frame. The page's `motion-toggle` pauses it (`animation-play-state`), and
+`prefers-reduced-motion: reduce` drops the animation to `none` so the flower simply holds
+its resting pose. `flower-spinner.test.mjs` holds a cover and an audio file mid-fetch to
+assert the indicator, its clock, its background image, the reduced-motion freeze and the
+clean hand-off; `storefront.test.mjs` additionally holds the first archive cover and a
+cold focused cover mid-fetch to assert the pure-black plate, the centred mark, the
+unchanged square and the settled fade.
 
 ## The falling-X canvas is clamped by CSS, not re-measured in JS
 

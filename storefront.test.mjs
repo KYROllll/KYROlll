@@ -823,6 +823,119 @@ test('a phone fits the grid and the focused packages without sideways scroll', a
   await context.close();
 });
 
+test('a cover turns the brand flower on pure black until its art arrives, then fades cleanly', async () => {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  await page.route('**/assets/white-night.jpg*', async (route) => {
+    await gate;
+    await route.continue();
+  });
+  await page.goto(homeUrl, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#yx-grid .yx-card');
+  await page.waitForFunction(() => document.querySelector('#yx-grid .yx-card__media')?.classList.contains('is-loading'));
+
+  const read = () => page.evaluate(() => {
+    const media = document.querySelector('#yx-grid .yx-card__media');
+    const img = media.querySelector('img');
+    const spinner = media.querySelector('.flower-spinner');
+    const flower = spinner && spinner.querySelector('.flower-spinner__flower');
+    const box = media.getBoundingClientRect();
+    const icon = flower && flower.getBoundingClientRect();
+    return {
+      loading: media.classList.contains('is-loading'),
+      loaded: media.classList.contains('is-loaded'),
+      busy: media.getAttribute('aria-busy'),
+      spinner: !!spinner,
+      plate: spinner && getComputedStyle(spinner).backgroundColor,
+      imgOpacity: Number(getComputedStyle(img).opacity),
+      animation: flower && getComputedStyle(flower).animationName,
+      icon: flower && getComputedStyle(flower).backgroundImage,
+      cover: { width: Math.round(box.width), height: Math.round(box.height) },
+      centerX: icon && Math.round(icon.left + icon.width / 2 - (box.left + box.width / 2)),
+      centerY: icon && Math.round(icon.top + icon.height / 2 - (box.top + box.height / 2)),
+      flowerSmall: icon ? icon.width < box.width : null,
+    };
+  });
+
+  const loading = await read();
+  assert.equal(loading.loading, true, 'the cover reports its wait');
+  assert.equal(loading.busy, 'true', 'the cover is marked busy to assistive tech');
+  assert.equal(loading.spinner, true, 'the brand flower is mounted on the cover');
+  assert.equal(loading.plate, 'rgb(0, 0, 0)', 'the indicator sits on a pure black plate');
+  assert.equal(loading.imgOpacity, 0, 'the unpainted cover stays hidden beneath the flower');
+  assert.equal(loading.animation, 'flowerSpinnerTurn', 'the flower turns while the cover loads');
+  assert.match(loading.icon, /kyrolll-flower-rest\.png/, 'the indicator is the header emblem render');
+  assert(loading.centerX >= -1 && loading.centerX <= 1, 'the flower is centred horizontally on the cover');
+  assert(loading.centerY >= -1 && loading.centerY <= 1, 'the flower is centred vertically on the cover');
+  assert.equal(loading.flowerSmall, true, 'the flower stays a quiet mark, not a full-bleed image');
+
+  release();
+  await page.waitForFunction(() => document.querySelector('#yx-grid .yx-card__media')?.classList.contains('is-loaded'));
+  await page.waitForFunction(() => !document.querySelector('#yx-grid .yx-card__media .flower-spinner'));
+  const settled = await read();
+  assert.equal(settled.loading, false, 'the wait clears when the art arrives');
+  assert.equal(settled.spinner, false, 'a settled card carries no idle animation');
+  assert.equal(settled.imgOpacity, 1, 'the cover is fully painted');
+  assert.deepEqual(settled.cover, loading.cover, 'the reserved square never moves: zero layout shift');
+  for (const failure of errors) assert.fail(`page error: ${failure}`);
+  await context.close();
+});
+
+test('the focused cover also waits behind the branded flower on a cold deep link', async () => {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  await page.route('**/assets/white-night.jpg*', async (route) => {
+    await gate;
+    await route.continue();
+  });
+  await page.goto(`${base}/?now=${encodeURIComponent(NOW)}&focus=white-night`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !document.querySelector('#yx-focus').hidden);
+  await page.waitForFunction(() => document.querySelector('.yx-focus__art')?.classList.contains('is-loading'));
+
+  const loading = await page.evaluate(() => {
+    const frame = document.querySelector('.yx-focus__art');
+    const img = frame.querySelector('img');
+    const spinner = frame.querySelector('.flower-spinner');
+    const flower = spinner && spinner.querySelector('.flower-spinner__flower');
+    return {
+      loading: frame.classList.contains('is-loading'),
+      spinner: !!spinner,
+      plate: spinner && getComputedStyle(spinner).backgroundColor,
+      imgOpacity: Number(getComputedStyle(img).opacity),
+      animation: flower && getComputedStyle(flower).animationName,
+      icon: flower && getComputedStyle(flower).backgroundImage,
+    };
+  });
+  assert.equal(loading.loading, true, 'the focused cover reports its wait too');
+  assert.equal(loading.spinner, true, 'the zoom view mounts the same branded indicator');
+  assert.equal(loading.plate, 'rgb(0, 0, 0)', 'the focused placeholder is pure black');
+  assert.equal(loading.imgOpacity, 0, 'the cold focused cover stays hidden until it is decoded');
+  assert.equal(loading.animation, 'flowerSpinnerTurn', 'the focused flower turns while it waits');
+  assert.match(loading.icon, /kyrolll-flower-rest\.png/, 'the focused indicator is the header emblem render');
+
+  release();
+  await page.waitForFunction(() => document.querySelector('.yx-focus__art')?.classList.contains('is-loaded'));
+  await page.waitForFunction(() => !document.querySelector('.yx-focus__art .flower-spinner'));
+  const settled = await page.evaluate(() => ({
+    loading: document.querySelector('.yx-focus__art').classList.contains('is-loading'),
+    spinner: !!document.querySelector('.yx-focus__art .flower-spinner'),
+    imgOpacity: Number(getComputedStyle(document.querySelector('.yx-focus__art img')).opacity),
+  }));
+  assert.equal(settled.loading, false, 'the focused wait clears when the cover lands');
+  assert.equal(settled.spinner, false, 'the focused cover carries no idle indicator');
+  assert.equal(settled.imgOpacity, 1, 'the focused cover is fully painted');
+  for (const failure of errors) assert.fail(`page error: ${failure}`);
+  await context.close();
+});
+
 test('reduced motion holds the flower and skips the zoom', async () => {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
   const page = await context.newPage();
