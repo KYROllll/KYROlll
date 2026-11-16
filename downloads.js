@@ -118,6 +118,12 @@
     const stem = "KYROIII - " + callName(beat) + " (" + beat.bpm + " BPM - " +
       String(beat.key || "").toUpperCase() + ")";
     if (AUDIO_EXT.test(ext)) return stem + ext;
+    if (/\.(png|jpe?g|webp|gif|svg)$/i.test(ext)) {
+      const explicit = String(item.name || "").trim();
+      if (explicit) return explicit;
+      const parts = String(item.file).split(/[\\/]/);
+      return parts[parts.length - 1] || ("COVER ART" + ext);
+    }
     const explicit = String(item.name || "").trim();
     if (explicit) return explicit;
     const label = String(item.label || "").toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim();
@@ -143,6 +149,7 @@
       if (/\.mp3$/i.test(file)) return "MP3";
       if (/\.wav$/i.test(file)) return "WAV";
       if (/\.zip$/i.test(file)) return "TRACKED STEMS";
+      if (/\.(png|jpe?g|webp|gif|svg)$/i.test(file)) return "COVER ART";
       return String((item && item.label) || "FILE").toUpperCase();
     });
     labels.push("PDF LICENSE");
@@ -1009,7 +1016,9 @@
         '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CLOSE</button>' +
         '<button type="button" class="kyrolll-btn" data-gate-license>LICENSE (.PDF)</button>' +
       '</div>' +
-      '<p class="gate-panel__hint">100% EXCLUSIVE OWNERSHIP — NO CREDIT REQUIRED</p>';
+      '<p class="gate-panel__hint">100% EXCLUSIVE OWNERSHIP — NO CREDIT REQUIRED' +
+        (window.KYROlll_HELPERS && window.KYROlll_HELPERS.hasCoverArt &&
+          window.KYROlll_HELPERS.hasCoverArt(beat) ? ' — ORIGINAL COVER ART INCLUDED' : '') + '</p>';
     resizeHost();
     card.querySelectorAll("[data-gate-file]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -1042,20 +1051,43 @@
   function termsHTML(beat, pack) {
     const includes = (pack.includes || []).map((line) =>
       '<li>' + escapeHTML(line) + '</li>').join("");
+    const helpers = window.KYROlll_HELPERS || {};
+    const hasArt = !!(helpers.hasCoverArt && helpers.hasCoverArt(beat));
+    /* A drop that ships an original hand-drawn cover adds two clauses: the
+       exclusive cover-art usage license and the artist's retained IP. The audio
+       grant, its no-credit rule and its zero-royalty rule stay the same, so the
+       terms follow one numbering whether or not a drawing ships. */
+    const artClause = hasArt
+      ? '<p class="sign-terms__item"><span class="sign-terms__no">4.0</span>ORIGINAL COVER ART LICENSE — ' +
+        'THIS DROP INCLUDES AN ORIGINAL HAND-DRAWN COVER. YOU RECEIVE THE ARTWORK FILE AND AN EXCLUSIVE ' +
+        'LICENSE TO USE IT AS THE OFFICIAL RELEASE COVER FOR THIS BEAT ON DIGITAL STREAMING PLATFORMS ' +
+        '(SPOTIFY, APPLE MUSIC, YOUTUBE, AND THE LIKE) AND IN THE PROMOTION OF THAT RELEASE. THE COVER ' +
+        'LICENSE IS EXCLUSIVE TO THIS RELEASE AND NO ONE ELSE IS GRANTED IT.</p>' +
+        '<p class="sign-terms__item"><span class="sign-terms__no">5.0</span>ARTIST IP RETAINED — THE ' +
+        'COVER-ART USAGE LICENSE DOES NOT TRANSFER THE DRAWING ITSELF. KYROIII RETAINS 100% OWNERSHIP, ' +
+        'COPYRIGHT AND ALL INTELLECTUAL PROPERTY RIGHTS IN THE ORIGINAL ARTWORK, FOR FUTURE USE, ' +
+        'EXHIBITIONS, PRINTS, ART BOOKS AND MERCHANDISE. YOU MAY NOT RESELL, RE-LICENSE OR OTHERWISE ' +
+        'REDISTRIBUTE THE ARTWORK AS A STANDALONE WORK.</p>'
+      : "";
     return '<p class="sign-terms__lead">A 100% EXCLUSIVE, FIRST-COME, FIRST-SERVED GRANT OF FULL ' +
         'OWNERSHIP TO ' + escapeHTML(beat.title) + ' — THE ' + escapeHTML(pack.name) + '.</p>' +
       '<p class="sign-terms__item"><span class="sign-terms__no">1.0</span>WHOEVER CLAIMS AND DOWNLOADS ' +
         'THIS BEAT RECEIVES 100% EXCLUSIVE RIGHTS AND FULL OWNERSHIP OF IT. ONCE TAKEN, NO ONE ELSE MAY ' +
         'USE, LICENSE OR CLAIM THIS BEAT — IT IS RETIRED FROM THE STORE AND NEVER ISSUED AGAIN.</p>' +
       '<p class="sign-terms__item"><span class="sign-terms__no">2.0</span>NO PRODUCER CREDIT IS REQUIRED. ' +
-        'YOU DO NOT NEED TO WRITE \'PROD. BY KYROIII\' OR \'PRODKYROIII\' ANYWHERE. THE CREDIT RULE IS ' +
+        'YOU DO NOT NEED TO WRITE \'PROD. BY KYROIII\' OR \'PRODKYROlll\' ANYWHERE. THE CREDIT RULE IS ' +
         'WAIVED IN FULL.</p>' +
       '<p class="sign-terms__item"><span class="sign-terms__no">3.0</span>UNLIMITED COMMERCIAL AND ' +
         'NON-COMMERCIAL USE — STREAMING, DISTRIBUTION, SYNC, LIVE PERFORMANCES AND MONETIZATION — WITH ' +
         'ZERO ROYALTIES OWED TO KYROIII. YOU KEEP 100% OF WHAT YOU EARN.</p>' +
-      '<p class="sign-terms__item"><span class="sign-terms__no">4.0</span>WHAT THIS PACKAGE INCLUDES:</p>' +
-      '<ul class="sign-terms__list">' + includes + '</ul>' +
-      '<p class="sign-terms__item"><span class="sign-terms__no">5.0</span>YOUR SIGNATURE IS STAMPED INTO ' +
+      artClause +
+      '<p class="sign-terms__item"><span class="sign-terms__no">' + (hasArt ? "6.0" : "4.0") +
+        '</span>WHAT THIS PACKAGE INCLUDES:</p>' +
+      '<ul class="sign-terms__list">' + includes +
+        (hasArt ? '<li>ORIGINAL HAND-DRAWN COVER ART FILE + COVER ART LICENSE</li>' : "") +
+        '</ul>' +
+      '<p class="sign-terms__item"><span class="sign-terms__no">' + (hasArt ? "7.0" : "5.0") +
+        '</span>YOUR SIGNATURE IS STAMPED INTO ' +
         'THE LICENSEE BLOCK OF THE PDF CERTIFICATE, WHICH CARRIES ITS OWN UNIQUE SERIAL AND THIS BEAT\'S ' +
         'TEMPO AND KEY. NOTHING IS SAVED TO YOUR DEVICE.</p>' +
       '<p class="sign-terms__end">END OF TERMS</p>';

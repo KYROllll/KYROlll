@@ -42,17 +42,21 @@
  * One layout rule holds the whole document together: it must stay on a single
  * page. `FOOT_Y` is the hard floor the flow may not cross, and `ensure(...)`
  * reserves space for every block that must not be split. The exclusive
- * (stems) package is the tightest fit of the three, so it sets `SIG_LEAD`
- * (30 pt) — the clearance that opens the band the LICENSOR approval stamp
+ * package — and, on an artwork drop, its cover-art clauses — is the tightest
+ * fit, so it sets `SIG_LEAD` (20 pt) — the clearance that opens the band the LICENSOR approval stamp
  * stands in while still landing the signature block above the floor. Any new
  * block, bigger flower or looser leading has to be paid for by reclaiming the
  * same space above it.
  *
- * There is one grant and it is identical for every beat: a 100% EXCLUSIVE,
+ * There is one audio grant and it is identical for every beat: a 100% EXCLUSIVE,
  * first-come, first-served license of full ownership. The claimant receives all
  * rights, no producer credit is required and no royalties are owed; the beat is
- * retired and never licensed again. The masthead subtitle and clauses state that
- * single grant, and the document still fits on one page.
+ * retired and never licensed again. A drop that ships an original hand-drawn
+ * cover adds two clauses: an exclusive license to use that artwork as the
+ * official release cover, and KYROIII's retained 100% ownership/copyright/IP in
+ * the drawing itself (for exhibitions, prints, art books and merchandise). The
+ * masthead subtitle and clauses state that grant, and the document still fits on
+ * one page.
  */
 (function () {
   "use strict";
@@ -528,18 +532,35 @@
     /* ------------------------------------------------------- clauses */
 
     heading("1.0    GRANT OF FULL EXCLUSIVE OWNERSHIP");
-    paragraph("This beat is granted FIRST COME, FIRST SERVED as a 100% EXCLUSIVE license with " +
-      "FULL OWNERSHIP. Once claimed, no one else may use, license or claim it and it is never " +
-      "issued again. Unlimited COMMERCIAL and NON-COMMERCIAL use - streaming, distribution, sync, " +
-      "live performances and monetization - carries ZERO ROYALTIES to KYROIII, and the licensee " +
-      "keeps 100% of all revenue.");
+    paragraph("FIRST COME, FIRST SERVED: 100% EXCLUSIVE FULL OWNERSHIP. Once claimed, no one else " +
+      "may use, license or claim it. Unlimited COMMERCIAL + NON-COMMERCIAL use - streaming, " +
+      "distribution, sync, live and monetization - ZERO ROYALTIES to KYROIII.");
 
     heading("2.0    NO CREDIT REQUIRED");
-    paragraph("No producer credit is required. The licensee need not write (Prod. by KYROIII) or " +
-      "PRODKYROlll anywhere - the credit rule is waived in full.");
+    paragraph("No producer credit is required: (Prod. by KYROIII) and PRODKYROlll are waived in full.");
 
     heading("3.0    WHAT THIS PACKAGE INCLUDES");
-    (data.includes || []).forEach(bullet);
+    /* The artwork drop lists its files on four compact lines instead of six, so
+       the extra cover clause still lands above the signature band on page one. */
+    const includes = data.hasCoverArt
+      ? ["TAGGED MP3 + HIGH-QUALITY WAV + TRACKED STEMS",
+        "100% EXCLUSIVE OWNERSHIP - FULL RIGHTS + NO CREDIT REQUIRED / ZERO ROYALTIES",
+        "ORIGINAL HAND-DRAWN COVER ART FILE + COVER ART LICENSE"]
+      : (data.includes || []);
+    includes.forEach(bullet);
+
+    /* Drops that ship an original drawing add one compact clause carrying both
+       halves: the exclusive cover-art usage license and the artist's retained IP.
+       It is deliberately one paragraph so the painting drop still fits a single
+       page. The audio grant above is unchanged. */
+    if (data.hasCoverArt) {
+      heading("4.0    COVER ART LICENSE + ARTIST IP RETAINED");
+      paragraph("The artwork file is licensed EXCLUSIVELY as the OFFICIAL RELEASE COVER on " +
+        "Spotify, Apple Music, YouTube and other digital streaming platforms, and for that " +
+        "release's promotion. KYROIII retains 100% ownership, copyright and all intellectual " +
+        "property rights in the original artwork for exhibitions, prints, art books and " +
+        "merchandise.");
+    }
 
     /* --------------------------------------------------- signatures */
     /* Two clean, straight, pre-filled signature blocks close the contract: the
@@ -770,6 +791,10 @@
       exclusive: pack.grant
         ? pack.grant === "exclusive"
         : (pack.id === "exclusive" || pack.gate === "exclusive"),
+      /* A drop with an original hand-drawn cover carries the extra cover-art
+         license and the artist's retained IP in the certificate. */
+      hasCoverArt: !!(window.KYROlll_HELPERS && window.KYROlll_HELPERS.hasCoverArt &&
+        window.KYROlll_HELPERS.hasCoverArt(beat)),
       bpm: String(beat.bpm),
       key: String(beat.key),
       issued: new Date().toISOString().slice(0, 10),

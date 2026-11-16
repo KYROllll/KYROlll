@@ -176,8 +176,10 @@
      page itself says the rest. */
   function metaChips(items) {
     const hasStems = items.some((item) => /\.zip$/i.test((item && item.file) || ""));
+    const hasArt = !!(helpers() && helpers().hasCoverArt && helpers().hasCoverArt(beat));
     const tag = !items.length ? "" : (hasStems ? "STEMS + WAV + MP3" : (items.length > 1 ? "WAV + MP3" : "MP3"));
-    return [beat.bpm + " BPM", String(beat.key).toUpperCase(), tag, pack.tag].filter(Boolean);
+    return [beat.bpm + " BPM", String(beat.key).toUpperCase(), tag,
+      hasArt ? "ORIGINAL COVER ART" : "", pack.tag].filter(Boolean);
   }
   function renderMeta(items) {
     if (!metaEl) return;
@@ -205,7 +207,9 @@
     titleEl.textContent = beat.title;
     /* Every package's blurb is a gate instruction (email + license), so it is
        not repeated after the unlock; the page states the grant instead. */
-    subEl.textContent = "100% EXCLUSIVE OWNERSHIP — FULL RIGHTS, NO CREDIT REQUIRED, NO ROYALTIES OWED. RELEASE ANYWHERE AND KEEP EVERYTHING YOU EARN.";
+    subEl.textContent = (helpers() && helpers().hasCoverArt && helpers().hasCoverArt(beat))
+      ? "100% EXCLUSIVE AUDIO OWNERSHIP — NO CREDIT REQUIRED, NO ROYALTIES OWED. PLUS AN EXCLUSIVE COVER ART LICENSE FOR YOUR RELEASE. KYROIII RETAINS THE ORIGINAL ARTWORK'S COPYRIGHT."
+      : "100% EXCLUSIVE OWNERSHIP — FULL RIGHTS, NO CREDIT REQUIRED, NO ROYALTIES OWED. RELEASE ANYWHERE AND KEEP EVERYTHING YOU EARN.";
     renderMeta(items);
 
     filesPanel.hidden = false;
@@ -221,6 +225,16 @@
       note.innerHTML = '<span class="download-list__note-kicker">TRACKED STEMS — PRODUCER NOTE</span>' +
         '<p class="download-list__note-text">TRACKED STEMS ARE PART OF THE 100% EXCLUSIVE PACKAGE — THE BEAT IS CLAIMED ONCE, FIRST COME, FIRST SERVED. THE STEMS ARE SUPPLIED EXACTLY AS THEY LEFT THE STUDIO: NO WRAPPERS, NO EXTRA FILES.</p>';
       listEl.appendChild(note);
+    }
+
+    if (helpers() && helpers().hasCoverArt && helpers().hasCoverArt(beat)) {
+      const art = document.createElement("div");
+      art.className = "download-list__note";
+      art.setAttribute("role", "region");
+      art.setAttribute("aria-label", "Original Cover Art — License");
+      art.innerHTML = '<span class="download-list__note-kicker">ORIGINAL COVER ART — LICENSE</span>' +
+        '<p class="download-list__note-text">THE HAND-DRAWN COVER IS YOURS TO USE AS THE OFFICIAL RELEASE ARTWORK ON SPOTIFY, APPLE MUSIC, YOUTUBE AND OTHER DIGITAL STREAMING PLATFORMS, AND TO PROMOTE THAT RELEASE. KYROIII RETAINS 100% OWNERSHIP, COPYRIGHT AND ALL INTELLECTUAL PROPERTY RIGHTS IN THE ORIGINAL ARTWORK FOR FUTURE EXHIBITIONS, PRINTS, ART BOOKS AND MERCHANDISE.</p>';
+      listEl.appendChild(art);
     }
 
     listEl.querySelectorAll("[data-file-index]").forEach((button) => {

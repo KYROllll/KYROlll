@@ -84,6 +84,14 @@
     }
   ];
 
+  // A drop with an original hand-drawn cover declares it on the beat itself
+  // (`coverArt: "assets/BEAT COVERR.PNG"`, or an image entry in its exclusive
+  // deliverables). That single flag makes the artwork file part of the
+  // exclusive hand-over, adds the Cover Art License + retained artist IP to the
+  // gate terms and the PDF, and never touches the audio grant. BEAT 0009 is the
+  // first drop expected to carry it; a plain beat (and every beat today) simply
+  // omits the field.
+
   // The artwork register. The collection on the home route shows ONLY pieces
   // listed here: every entry is a hand-drawn original, drawn for the record in
   // `beatId`, with its own scan in `src` (`assets/artwork/…`). A record with no
@@ -874,6 +882,44 @@
     topic: EXCLUSIVE_BUS_FALLBACK_TOPIC
   };
 
+  const COVER_ART_FIELDS = ["coverArt", "cover_art", "originalArtwork", "original_artwork",
+    "coverArtFile", "cover_art_file", "artworkFile", "coverArtwork", "originalCoverArt",
+    "cover", "art", "coverArtPath", "cover_art_path"];
+  function coverArtName(file) {
+    const path = String(file == null ? "" : file).trim();
+    if (!path) return "";
+    const parts = path.split(/[\\/]/);
+    return parts[parts.length - 1] || path;
+  }
+  function isCoverArtItem(item) {
+    if (!item || typeof item !== "object") return false;
+    const file = String(item.file || "").trim();
+    const label = String(item.label || "").trim();
+    if (/\.(png|jpe?g|webp|gif|svg)$/i.test(file)) return true;
+    return /cover\s*art/i.test(label);
+  }
+  function coverArtFor(beat) {
+    if (!beat || typeof beat !== "object") return null;
+    for (let i = 0; i < COVER_ART_FIELDS.length; i += 1) {
+      const value = beat[COVER_ART_FIELDS[i]];
+      if (typeof value === "string" && value.trim()) return value.trim();
+      if (value && typeof value === "object" && typeof value.file === "string" && value.file.trim()) {
+        return value.file.trim();
+      }
+      if (value === true) return beat.img || null;
+    }
+    const deliverables = beat.deliverables || {};
+    const keys = Object.keys(deliverables);
+    for (let i = 0; i < keys.length; i += 1) {
+      const list = deliverables[keys[i]];
+      if (!Array.isArray(list)) continue;
+      for (let j = 0; j < list.length; j += 1) {
+        if (isCoverArtItem(list[j]) && list[j].file) return String(list[j].file).trim();
+      }
+    }
+    return null;
+  }
+
   window.KYROlll_HELPERS = {
     escapeHTML(value) {
       return String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({
@@ -895,10 +941,27 @@
     },
     // The files a package hands over (never the license — the download page
     // always generates that). Returns [] for an unknown beat or package.
+    // A drop that ships an original hand-drawn cover (see `coverArtFor` below)
+    // also hands over that artwork file, so the claimant receives it.
     deliverablesFor(beatId, packageId) {
       const beat = window.KYROlll_HELPERS.beatById(beatId);
       const list = beat && beat.deliverables && beat.deliverables[packageId];
-      return Array.isArray(list) ? list : [];
+      const base = Array.isArray(list) ? list.slice() : [];
+      if (packageId === "exclusive" && beat) {
+        const file = window.KYROlll_HELPERS.coverArtFor(beat);
+        if (file && !base.some((item) => item && item.file === file)) {
+          base.push({ file: file, name: coverArtName(file), label: "ORIGINAL COVER ART" });
+        }
+      }
+      return base;
+    },
+    // True when a beat ships an original hand-drawn cover that needs its own
+    // Cover Art License alongside the audio rights.
+    hasCoverArt(beat) {
+      return !!coverArtFor(beat);
+    },
+    coverArtFor(beat) {
+      return coverArtFor(beat);
     },
     // The beat's own video, or the channel as a last resort, for any caller
     // that wants to point at it. A scheduled drop's own video is

@@ -734,7 +734,13 @@ payment gateway.
   checkbox, and then closes with the same REVIEW & SIGN stage (below). `includes` is the
   plain-language list of what the package hands over (tagged MP3 + high-quality WAV +
   tracked stems + full exclusive ownership, no credit required and zero royalties) and is
-  printed verbatim in the generated license.
+  printed verbatim in the generated license. A drop with an original hand-drawn cover
+  declares it on the beat (`coverArt: "assets/BEAT COVERR.PNG"`, or an image entry in its
+  exclusive deliverables); `deliverablesFor` then appends that artwork file, and the terms
+  and PDF add the **Cover Art License** (exclusive official-release cover use on streaming
+  platforms) plus **retained artist IP** (KYROIII keeps 100% ownership/copyright for
+  exhibitions, prints, art books and merchandise). BEAT 0009 is the first such drop; a beat
+  without the field is unchanged.
 - `window.KYROlll_CATALOG` — one entry per beat: `id` (the uuid, also the `?beat=` value),
   `slug` (kept only so old `?beat=flesh` links resolve), `title`, `img`, `bpm`, `key`,
   `preview`, `youtube` (the beat's own video, exposed by `videoFor`) and `deliverables`
@@ -1067,9 +1073,15 @@ never arrive half-empty:
   beat is retired from the store and never issued again. The grant is unlimited for
   **commercial and non-commercial use** (streaming, distribution, sync, live performances,
   monetization) with **zero royalties** owed to KYROIII, and **no producer credit is
-  required** — there is no `(Prod. by KYROIII)` rule to satisfy. The **grant** is
-  package-level and shared by every beat (`pack.grant: "exclusive"`). The package's
-  `includes` are listed under "WHAT THIS PACKAGE INCLUDES". The gate, trigger, menu, download-list and download-page styles live in
+  required** — there is no `(Prod. by KYROIII)` rule to satisfy. A drop that ships an
+  original hand-drawn cover (`coverArt`, see `KYROlll_PACKAGES` above) adds the artwork
+  file and a **Cover Art License**: an exclusive right to use it as the official release
+  cover on streaming platforms and in its promotion. The artwork itself does **not**
+  transfer — KYROIII retains 100% ownership, copyright and all IP in the original drawing
+  for future exhibitions, prints, art books and merchandise, and the licensee may not
+  resell or re-license the drawing as a standalone work. The **grant** is package-level
+  and shared by every beat (`pack.grant: "exclusive"`). The package's `includes` are
+  listed under "WHAT THIS PACKAGE INCLUDES". The gate, trigger, menu, download-list and download-page styles live in
   `style.css` under "10. Free downloads, package menu, gates & download page".
 
 `license-pdf.js` is the whole license: a dependency-free PDF writer (`window.KYROlll_LICENSE_PDF`
@@ -1082,7 +1094,8 @@ embedded `/DCTDecode` JPEG at the middle of the page — **nothing outlines it**
 or frame, because the still is composited on the field's own `#0B0B0B` and therefore floats —
 the `KYROIII` wordmark under it, a full-width divider, then the title, the hero serial block,
 **one** ruled metadata row
-(BEAT / PACKAGE / BPM / KEY / TERRITORY), numbered clauses 1.0–3.0, two **straight, pre-filled
+(BEAT / PACKAGE / BPM / KEY / TERRITORY), numbered clauses 1.0–3.0 (4.0 adds the
+COVER ART LICENSE + ARTIST IP RETAINED rider on artwork drops), two **straight, pre-filled
 signature blocks** and a footer carrying the support address, the serial, a vector barcode and
 `HTTPS://KYROILL.STORE` — held to a **single page** for every package. The LICENSEE block shows
 the signature captured in the gate's sign step: the typed full name **and** the

@@ -305,17 +305,56 @@ test("every beat is audited for one uniform license, package set and secured loc
   // full ownership, no credit requirement and zero royalties.
   const pdf = readFileSync(new URL("./license-pdf.js", import.meta.url), "utf8");
   assert.equal(/const CREDIT =/.test(pdf), false, "the mandatory credit constant is gone");
-  assert.match(pdf, /This beat is granted FIRST COME, FIRST SERVED as a 100% EXCLUSIVE license with/,
+  assert.match(pdf, /FIRST COME, FIRST SERVED: 100% EXCLUSIVE FULL OWNERSHIP/,
     "the certificate grants the one exclusive license");
   assert.match(pdf, /FULL OWNERSHIP/, "the certificate grants full ownership");
-  assert.match(pdf, /Once claimed, no one else may/, "the certificate retires the beat for everyone else");
+  assert.match(pdf, /Once claimed,[\s\S]*?may use, license or claim it/, "the certificate retires the beat for everyone else");
   assert.match(pdf, /ZERO ROYALTIES to KYROIII/, "the certificate waives royalties");
-  assert.match(pdf, /Unlimited COMMERCIAL and NON-COMMERCIAL use/, "the certificate grants unlimited use");
+  assert.match(pdf, /Unlimited COMMERCIAL \+ NON-COMMERCIAL use/, "the certificate grants unlimited use");
   assert.match(pdf, /No producer credit is required/, "the certificate waives the credit rule");
   assert.match(pdf, /PRODKYROlll/, "the certificate explicitly names the waived credit");
   assert.match(pdf, /"EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE"/, "the masthead names the exclusive grant");
   assert.equal(/NON-EXCLUSIVE - WORLDWIDE/.test(pdf), false, "no lease branch survives in the certificate");
   assert.match(pdf, /exclusive: pack\.grant/, "the certificate reads the package's grant, so no beat can carry its own terms");
+  assert.match(pdf, /COVER ART LICENSE/, "the certificate names the cover-art usage license");
+  assert.match(pdf, /ARTIST IP RETAINED/, "the certificate states the artist retains the artwork IP");
+  assert.match(pdf, /retains 100% ownership,[\s\S]*?copyright and all[\s\S]*?intellectual[\s\S]*?property rights/, "the certificate spells out retained ownership");
+  assert.match(pdf, /Spotify, Apple Music, YouTube and other digital streaming platforms/, "the certificate names where the cover may be used");
+
+  // A drop with an original hand-drawn cover hands the artwork over with its
+  // audio and gains the two cover-art clauses; a drop without one does not.
+  const artBeat = {
+    id: "beat-0009",
+    slug: "beat-0009",
+    title: "[FREE 100%] BEAT 0009",
+    img: "assets/BEAT COVERR.PNG",
+    coverArt: "assets/BEAT COVERR.PNG",
+    bpm: 150,
+    key: "Cm",
+    deliverables: {
+      exclusive: [
+        { file: "assets/previews/white-night.mp3", name: "AUDIO.mp3", label: "TAGGED MP3" }
+      ]
+    }
+  };
+  catalog.push(artBeat);
+  assert.equal(helpers.hasCoverArt(artBeat), true, "an original cover is detected on the beat");
+  assert.equal(helpers.coverArtFor(artBeat), "assets/BEAT COVERR.PNG");
+  assert.deepEqual(Array.from(helpers.deliverablesFor("beat-0009", "exclusive"), (item) => item.file), [
+    "assets/previews/white-night.mp3",
+    "assets/BEAT COVERR.PNG"
+  ], "the exclusive hand-over includes the original cover art file");
+  assert.equal(helpers.hasCoverArt(helpers.beatById("white-night")), false, "a plain beat carries no cover-art license");
+  assert.equal(helpers.deliverablesFor("white-night", "exclusive").some((item) => /\.png$/i.test(item.file)), false,
+    "a plain beat hands over no artwork file");
+  catalog.pop();
+
+  const downloadsSource = readFileSync(new URL("./downloads.js", import.meta.url), "utf8");
+  assert.match(downloadsSource, /ORIGINAL COVER ART LICENSE/, "the agreement contains the cover-art usage license");
+  assert.match(downloadsSource, /ARTIST IP RETAINED/, "the agreement states the artist retains the artwork IP");
+  assert.match(downloadsSource, /KYROIII RETAINS 100% OWNERSHIP/, "the agreement spells out retained ownership");
+  assert.match(downloadsSource, /EXHIBITIONS, PRINTS, ART BOOKS AND MERCHANDISE/, "the retained rights cover future art uses");
+  assert.match(downloadsSource, /PRODKYROlll/, "the agreement explicitly names the waived credit");
 
   // The secured state is painted from one place on both surfaces.
   const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");
