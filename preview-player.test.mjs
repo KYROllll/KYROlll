@@ -264,16 +264,19 @@ test("every beat is audited for one uniform license, package set and secured loc
   const helpers = window.KYROlll_HELPERS;
   const packages = window.KYROlll_PACKAGES;
 
-  // The store's package set is the licensing contract: it may not vary by beat.
-  assert.deepEqual(Array.from(packages, (pack) => pack.id), ["mp3", "wav", "exclusive"]);
-  assert.deepEqual(Array.from(packages, (pack) => pack.grant), ["non-exclusive", "non-exclusive", "exclusive"],
-    "MP3 and WAV are non-exclusive leases; only the exclusive tier grants exclusive rights");
-  assert.deepEqual(Array.from(packages, (pack) => pack.gate), ["email", "email", "email"],
-    "every package uses the same email + license gate; no social step exists");
-  assert(packages.every((pack) => pack.name && pack.blurb && pack.includes.length > 0), "every package carries its own copy and includes");
-  assert.match(packages[0].includes.join(" "), /NON-EXCLUSIVE LICENSE/);
-  assert.match(packages[1].includes.join(" "), /NON-EXCLUSIVE LICENSE/);
-  assert.match(packages[2].includes.join(" "), /FULL EXCLUSIVE RIGHTS — RESELL, RE-LICENSE & TRADE/);
+  // The store's package set is the licensing contract: one tier, identical for
+  // every beat, and it is always the exclusive first-come license.
+  assert.deepEqual(Array.from(packages, (pack) => pack.id), ["exclusive"],
+    "the store offers one license only");
+  assert.deepEqual(Array.from(packages, (pack) => pack.grant), ["exclusive"],
+    "the single tier grants exclusive rights");
+  assert.deepEqual(Array.from(packages, (pack) => pack.gate), ["email"],
+    "the license uses the email + license gate; no social step exists");
+  assert(packages.every((pack) => pack.name && pack.blurb && pack.includes.length > 0), "the package carries its own copy and includes");
+  assert.equal(packages[0].name, "100% EXCLUSIVE OWNERSHIP");
+  assert.match(packages[0].tag, /FIRST COME, FIRST SERVED/);
+  assert.match(packages[0].includes.join(" "), /100% EXCLUSIVE OWNERSHIP — FULL RIGHTS/);
+  assert.match(packages[0].includes.join(" "), /NO CREDIT REQUIRED \/ ZERO ROYALTIES/);
 
   const ids = new Set();
   const slugs = new Set();
@@ -285,34 +288,33 @@ test("every beat is audited for one uniform license, package set and secured loc
     ids.add(beat.id);
     slugs.add(beat.slug);
     assert.equal(beat.exclusiveLocked, undefined, `${beat.slug}: no beat ships pre-claimed`);
-    ["mp3", "wav", "exclusive"].forEach((packageId) => {
-      const files = helpers.deliverablesFor(beat.id, packageId);
-      assert(files.length > 0, `${beat.slug}: ${packageId} hands over at least one file`);
-      files.forEach((item) => {
-        assert.match(item.file, /^assets\//, `${beat.slug}: ${packageId} hands over a same-origin file`);
-        const fpath = new URL(`./${item.file}`, import.meta.url).pathname;
-        assert(readFileSync(fpath).length > 0, `${beat.slug}: ${item.file} is present`);
-      });
+    const files = helpers.deliverablesFor(beat.id, "exclusive");
+    assert(files.length > 0, `${beat.slug}: the exclusive license hands over at least one file`);
+    files.forEach((item) => {
+      assert.match(item.file, /^assets\//, `${beat.slug}: the exclusive license hands over a same-origin file`);
+      const fpath = new URL(`./${item.file}`, import.meta.url).pathname;
+      assert(readFileSync(fpath).length > 0, `${beat.slug}: ${item.file} is present`);
     });
+    assert.equal(helpers.deliverablesFor(beat.id, "mp3").length, 0, `${beat.slug}: the MP3 lease is retired`);
+    assert.equal(helpers.deliverablesFor(beat.id, "wav").length, 0, `${beat.slug}: the WAV lease is retired`);
     assert.match(helpers.deliverablesFor(beat.id, "exclusive").map((item) => item.file).join(" "), /stems\.zip$/,
-      `${beat.slug}: the exclusive tier hands over its tracked stems`);
+      `${beat.slug}: the exclusive license hands over its tracked stems`);
   });
 
-  // The certificate's terms are shared: one credit rule, one free commercial
-  // grant, and two clearly-labelled grant branches (non-exclusive vs exclusive).
+  // The certificate's terms are shared: one exclusive first-come grant with
+  // full ownership, no credit requirement and zero royalties.
   const pdf = readFileSync(new URL("./license-pdf.js", import.meta.url), "utf8");
-  assert.match(pdf, /const CREDIT = "\(Prod\. by KYROIII\)";/, "the mandatory credit is one constant");
-  assert.match(pdf, /This beat is 100% free for NON-PROFIT and COMMERCIAL \/ PROFIT use/, "the exclusive certificate carries the free commercial grant");
-  assert.match(pdf, /This beat is 100% free - for NON-PROFIT and COMMERCIAL \/ PROFIT use/, "the lease carries the free commercial grant");
-  assert.match(pdf, /Upload it, stream it, monetise it/, "streaming and monetisation are granted explicitly");
-  assert.match(pdf, /Limits: keep the credit, never resell the beat as a/, "a non-exclusive lease names its one limit");
-  assert.match(pdf, /This license is non-exclusive, worldwide, perpetual and fully paid-up:/, "the lease is non-exclusive");
-  assert.match(pdf, /This license is EXCLUSIVE,/, "the exclusive tier grants exclusive rights");
-  assert.match(pdf, /the beat is retired and never licensed again/, "the exclusive tier retires the beat");
-  assert.match(pdf, /You may resell, re-license, transfer or trade it/, "the exclusive certificate grants resale and re-licensing freedom");
-
-  assert.match(pdf, /data\.exclusive\s*\n?\s*\? "EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE"/, "the masthead names the exclusive grant");
-  assert.match(pdf, /: "NON-EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE"/, "the masthead names the non-exclusive grant");
+  assert.equal(/const CREDIT =/.test(pdf), false, "the mandatory credit constant is gone");
+  assert.match(pdf, /This beat is granted FIRST COME, FIRST SERVED as a 100% EXCLUSIVE license with/,
+    "the certificate grants the one exclusive license");
+  assert.match(pdf, /FULL OWNERSHIP/, "the certificate grants full ownership");
+  assert.match(pdf, /Once claimed, no one else may/, "the certificate retires the beat for everyone else");
+  assert.match(pdf, /ZERO ROYALTIES to KYROIII/, "the certificate waives royalties");
+  assert.match(pdf, /Unlimited COMMERCIAL and NON-COMMERCIAL use/, "the certificate grants unlimited use");
+  assert.match(pdf, /No producer credit is required/, "the certificate waives the credit rule");
+  assert.match(pdf, /PRODKYROlll/, "the certificate explicitly names the waived credit");
+  assert.match(pdf, /"EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE"/, "the masthead names the exclusive grant");
+  assert.equal(/NON-EXCLUSIVE - WORLDWIDE/.test(pdf), false, "no lease branch survives in the certificate");
   assert.match(pdf, /exclusive: pack\.grant/, "the certificate reads the package's grant, so no beat can carry its own terms");
 
   // The secured state is painted from one place on both surfaces.

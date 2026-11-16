@@ -13,9 +13,9 @@ about *running* the app in this sandbox, not about the app's own behaviour.
   up on a browser reload with no rebuild.
 - **No backend and no secrets.** Every beat is 100% free: there is no cart, no
   checkout, no payment gateway, no Supabase, no worker and no server-side state.
-  `catalog.js` holds the shared data (beats plus the three free packages) and
+  `catalog.js` holds the shared data (beats plus the single exclusive license package) and
   `downloads.js` — with `download-page.js` for the landing page — is the whole
-  "commerce" layer: the "DOWNLOAD FREE" trigger opens a three-package menu, and every
+  "commerce" layer: the "DOWNLOAD FREE" trigger opens the single exclusive license option, and every
   package then sits behind the same two-step gate — an email address, then acceptance of the
   license — with no social like, follow or subscribe step. **Gate input is never written down** —
   no address, no unlock set, no signature and nothing prefilled. The storefront's two durable
@@ -562,7 +562,7 @@ mark is the spinning flower in the header.
   The cover is a FLIP layer: `storefront.js` measures the chosen tile's media box,
   pins `.yx-focus__art` onto it with a `transform`, then releases it to the sheet's
   own frame on the CSS curve (`.62s cubic-bezier(.16,1,.3,1)`); the body fades in
-  once the cover lands (`is-zooming`).  The sheet already holds the preview player and the three package rows; **each row now
+  once the cover lands (`is-zooming`).  The sheet already holds the preview player and the exclusive license row; **each row now
   owns its own gate slot** (`.yx-pack__gate`), so choosing a package grows the email form,
   the license and the unlocked files inside that exact row. The flow can stay entirely in the
   record: `start(..., { inline: true })` turns the panel into a files shelf after SIGN &
@@ -724,16 +724,17 @@ payment gateway.
   appended, kept for any link that wants to offer a subscribe prompt. Built from
   `KYROlll_SOCIAL.youtube`, so it is
   `https://www.youtube.com/@KYROlll00?sub_confirmation=1`.
-- `window.KYROlll_PACKAGES` — exactly three options per beat, all with the same
-  `gate: "email"`: `mp3` (`"MP3 LEASE"`), `wav` (`"STANDARD WAV LEASE"`) and `exclusive`
-  (`"EXCLUSIVE / PRO PACKAGE"`). `gate` is the whole behaviour: `email` asks for an address
-  and then the license signature, and `instant` (kept for a package that should skip the
-  gate, unused today) goes straight to the download page. There is no social step and no
-  comment step anywhere. Every gate requires the address **and** the opt-in checkbox, and every
-  gate then closes with the same REVIEW & SIGN stage (below). `includes` is the
-  plain-language list of what the package hands over (MP3 → tagged MP3 + license; WAV →
-  tagged MP3 + high-quality WAV + license; exclusive → tagged MP3 + WAV + tracked stems +
-  full rights + email opt-in) and is printed verbatim in the generated license.
+- `window.KYROlll_PACKAGES` — exactly **one** option per beat, the 100% exclusive
+  first-come license: `exclusive` (`"100% EXCLUSIVE OWNERSHIP"`, tag `"FIRST COME, FIRST
+  SERVED"`), with `gate: "email"`. The other tiers (MP3/WAV leases) are gone from both the
+  package list and every beat's `deliverables`. `gate` is the whole behaviour: `email` asks
+  for an address and then the license signature, and `instant` (kept for a package that
+  should skip the gate, unused today) goes straight to the download page. There is no social
+  step and no comment step anywhere. The gate requires the address **and** the opt-in
+  checkbox, and then closes with the same REVIEW & SIGN stage (below). `includes` is the
+  plain-language list of what the package hands over (tagged MP3 + high-quality WAV +
+  tracked stems + full exclusive ownership, no credit required and zero royalties) and is
+  printed verbatim in the generated license.
 - `window.KYROlll_CATALOG` — one entry per beat: `id` (the uuid, also the `?beat=` value),
   `slug` (kept only so old `?beat=flesh` links resolve), `title`, `img`, `bpm`, `key`,
   `preview`, `youtube` (the beat's own video, exposed by `videoFor`) and `deliverables`
@@ -1060,17 +1061,15 @@ never arrive half-empty:
   what makes a phone save the file instead of previewing it (and `?dl` is required so the inline
   beat preview keeps streaming the same `.wav`/`.mp3` normally). There is no text license any
   more: `downloads.js` hands over files and gates only, and the license is a PDF issued by
-  `license-pdf.js` (see below). Every package is **100% free for non-profit AND commercial/profit
-  use** (release on Spotify, Apple Music, YouTube, stream it, monetise it), with the same single
-  rule — credit `(Prod. by KYROIII)` in the song title or description. A **non-exclusive lease**
-  (`mp3`/`wav`) keeps one limit: do not resell the beat itself as a beat or license, because other
-  artists may license it too. The **exclusive** tier is different — full rights, the beat retired
-  from the store and no further license issued — and its certificate grants explicit resale freedom:
-  the owner may resell, re-license, transfer or trade the exclusive asset and keep 100% of the
-  proceeds, with the credit as the only rule. The **grant** is package-level and shared by every
-  beat (`pack.grant`): `mp3` and `wav` are `non-exclusive`, while `exclusive` is `exclusive`. The
-  package's `includes` are listed under "WHAT THIS
-  PACKAGE INCLUDES". The gate, trigger, menu, download-list and download-page styles live in
+  `license-pdf.js` (see below). There is one license and it is always the same: a **100%
+  exclusive, first-come, first-served grant of full ownership**. The claimant receives all
+  exclusive rights and no one else may use, license or claim the beat once it is taken; the
+  beat is retired from the store and never issued again. The grant is unlimited for
+  **commercial and non-commercial use** (streaming, distribution, sync, live performances,
+  monetization) with **zero royalties** owed to KYROIII, and **no producer credit is
+  required** — there is no `(Prod. by KYROIII)` rule to satisfy. The **grant** is
+  package-level and shared by every beat (`pack.grant: "exclusive"`). The package's
+  `includes` are listed under "WHAT THIS PACKAGE INCLUDES". The gate, trigger, menu, download-list and download-page styles live in
   `style.css` under "10. Free downloads, package menu, gates & download page".
 
 `license-pdf.js` is the whole license: a dependency-free PDF writer (`window.KYROlll_LICENSE_PDF`
@@ -1123,8 +1122,8 @@ Three rules hold that document together and are easy to break by accident:
   (`1 1 1 rg`) — black bars on the black field are invisible.
 - **It fits one page.** `FOOT_Y` (where the flow stops above the footer rule) and the
   `ensure(...)` reservations are the page-count knobs. The footer needs a rule, a row of control
-  text and a row for the barcode + link, and the exclusive package is the tightest fit of the
-  three — it is the one that sets `SIG_LEAD` (30 pt), the clearance that keeps the LICENSOR
+  text and a row for the barcode + link, and the single exclusive grant is the tightest fit
+  on the page — it sets `SIG_LEAD` (20 pt), the clearance that keeps the LICENSOR
   approval stamp above its rule while still landing the signature block above `FOOT_Y`.
   **The centered masthead is paid for
   above the clauses, not below them**: it spends ~70 pt more than the old corner layout, and
@@ -1311,7 +1310,7 @@ Tests that ship with the repo:
   `node --test preview-player.test.mjs`
 - `storefront.test.mjs` is Playwright-based and covers the archive home: the
   eight-card compact grid, the solid black background, the category menu, the
-  header flower, the in-place zoom sheet with its player and three package rows
+  header flower, the in-place zoom sheet with its player and the exclusive license row
   opening the real gate, `?focus=` deep links, the untouched `?beat=` card, the
   phone layout and reduced motion. Run it with `node --test storefront.test.mjs`
   (or `npm run test:store`).
@@ -1380,7 +1379,7 @@ Tests that ship with the repo:
 
 ## Deliberate behaviour worth knowing
 
-Downloads are plain same-origin files. All three packages sit behind the same two-step gate —
+Downloads are plain same-origin files. The single exclusive package sits behind the two-step gate —
 an email address and then the license agreement — with no social like, follow or subscribe
 step, which is a lead-capture courtesy rather than
 enforcement — the files themselves are public and nothing on

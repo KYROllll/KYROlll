@@ -48,25 +48,22 @@
  * block, bigger flower or looser leading has to be paid for by reclaiming the
  * same space above it.
  *
- * The grant is package-level and identical for every beat: `mp3`/`wav` issue a
- * NON-EXCLUSIVE, worldwide, perpetual, royalty-free certificate, while the
- * `exclusive` tier issues an EXCLUSIVE one — same 100% free commercial grant,
- * same mandatory `(Prod. by KYROIII)` credit, but the beat is retired and never
- * licensed again. The masthead subtitle and clause 1.0 switch on `data.exclusive`;
- * both branches are kept to the same wrapped height so the exclusive certificate
- * still fits the one page.
+ * There is one grant and it is identical for every beat: a 100% EXCLUSIVE,
+ * first-come, first-served license of full ownership. The claimant receives all
+ * rights, no producer credit is required and no royalties are owed; the beat is
+ * retired and never licensed again. The masthead subtitle and clauses state that
+ * single grant, and the document still fits on one page.
  */
 (function () {
   "use strict";
 
-  const CREDIT = "(Prod. by KYROIII)";
   const FLOWER_SRC = "assets/kyrolll-flower-rest.png?v=3";
   const SERIAL_PREFIX = "KYRO";
   const SUPPORT_EMAIL = "kyrolll00@gmail.com";
   const STORE_URL = "HTTPS://KYROILL.STORE";
   const SEAL_FLOWER = 28;          // points — the 3D flower inside the stamp's left compartment
   const SEAL_PLATE_H = 46;         // height of the LICENSOR approval stamp plate
-  const SIG_LEAD = 30;             // clearance above the signature band (the stamp's room)
+  const SIG_LEAD = 20;             // clearance above the signature band (the stamp's room)
 
   /* ------------------------------------------------------ font metrics */
   /* Adobe AFM advance widths for Helvetica / Helvetica-Bold, ASCII 32..126,
@@ -508,10 +505,8 @@
     putCenter(MID, MARK_TOP - MARK - 25, "KYROIII", "F2", 26, WHITE, 1.4);
     putCenter(MID, MARK_TOP - MARK - 40, "FREE MUSIC LICENSE PROGRAM", "F1", 7.5, MUTED, 1.9);
     rule(MARK_TOP - MARK - 54, FRAME, 0.9);
-    putCenter(MID, MARK_TOP - MARK - 79, "CERTIFICATE OF FREE LICENSE", "F2", 19, WHITE, 0.9);
-    putCenter(MID, MARK_TOP - MARK - 95, data.exclusive
-      ? "EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE"
-      : "NON-EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE", "F1", 7.5, MUTED, 1.5);
+    putCenter(MID, MARK_TOP - MARK - 79, "CERTIFICATE OF EXCLUSIVE OWNERSHIP", "F2", 19, WHITE, 0.9);
+    putCenter(MID, MARK_TOP - MARK - 95, "EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE", "F1", 7.5, MUTED, 1.5);
 
     /* Serial block — the hero of the document. */
     const boxTop = MARK_TOP - MARK - 109;
@@ -532,24 +527,16 @@
 
     /* ------------------------------------------------------- clauses */
 
-    heading("1.0    GRANT OF RIGHTS");
-    paragraph(data.exclusive
-      ? "This beat is 100% free for NON-PROFIT and COMMERCIAL / PROFIT use. Release it, stream it, " +
-        "monetise it, keep everything. No royalties, no hidden fees. This license is EXCLUSIVE, " +
-        "worldwide, perpetual and fully paid-up: the beat is retired and never licensed again. " +
-        "You may resell, re-license, transfer or trade it and keep 100% of the proceeds. " +
-        "The only rule is the credit."
-      : "This beat is 100% free - for NON-PROFIT and COMMERCIAL / PROFIT use. Release it on Spotify, " +
-        "Apple Music, YouTube, anywhere. Upload it, stream it, monetise it, keep what you make. No royalties, " +
-        "no hidden fees, no catch. This license is non-exclusive, worldwide, perpetual and fully paid-up: " +
-        "other artists may license the same beat. Limits: keep the credit, never resell the beat as a " +
-        "beat or license.");
+    heading("1.0    GRANT OF FULL EXCLUSIVE OWNERSHIP");
+    paragraph("This beat is granted FIRST COME, FIRST SERVED as a 100% EXCLUSIVE license with " +
+      "FULL OWNERSHIP. Once claimed, no one else may use, license or claim it and it is never " +
+      "issued again. Unlimited COMMERCIAL and NON-COMMERCIAL use - streaming, distribution, sync, " +
+      "live performances and monetization - carries ZERO ROYALTIES to KYROIII, and the licensee " +
+      "keeps 100% of all revenue.");
 
-    heading("2.0    THE ONLY RULE");
-    paragraph("Give proper credit in the song title or description, exactly as:");
-    ensure(18);
-    putTracked(COL_X + 14, y, CREDIT, "F2", 11, WHITE, 0.6);
-    gap(16);
+    heading("2.0    NO CREDIT REQUIRED");
+    paragraph("No producer credit is required. The licensee need not write (Prod. by KYROIII) or " +
+      "PRODKYROlll anywhere - the credit rule is waived in full.");
 
     heading("3.0    WHAT THIS PACKAGE INCLUDES");
     (data.includes || []).forEach(bullet);
@@ -777,10 +764,9 @@
     return buildPdf({
       title: beat.title,
       packageName: pack.name,
-      /* The grant is package-level, never per-beat: `mp3`/`wav` are non-exclusive
-         leases, while the `exclusive` tier is the one that retires the beat. The
-         explicit `pack.grant` wins, with the legacy id/gate as the fallback so an
-         older package object still issues the right certificate. */
+      /* There is one grant now: the exclusive first-come license. The explicit
+         `pack.grant` still wins, with the id/gate as the fallback for an older
+         package object. */
       exclusive: pack.grant
         ? pack.grant === "exclusive"
         : (pack.id === "exclusive" || pack.gate === "exclusive"),

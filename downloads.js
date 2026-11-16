@@ -16,8 +16,8 @@
  * does nothing, so a stray tap or key can never close a gate mid-step or wipe a
  * signature in progress.
  *
- * STRICT GATING — every package uses the same friction-free two-step gate, and
- * no package asks for a social like, follow or subscribe:
+ * STRICT GATING — the single exclusive package uses the same friction-free
+ * two-step gate, and it asks for no social like, follow or subscribe:
  *   step 1  EMAIL + MANDATORY OPT-IN → submit
  *   step 2  REVIEW & SIGN: read the license terms, type a full name and sign
  *           → SIGN & UNLOCK → FILES + PDF.
@@ -1009,7 +1009,7 @@
         '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CLOSE</button>' +
         '<button type="button" class="kyrolll-btn" data-gate-license>LICENSE (.PDF)</button>' +
       '</div>' +
-      '<p class="gate-panel__hint">FREE FOR ALL USE — CREDIT (PROD. BY KYROIII)</p>';
+      '<p class="gate-panel__hint">100% EXCLUSIVE OWNERSHIP — NO CREDIT REQUIRED</p>';
     resizeHost();
     card.querySelectorAll("[data-gate-file]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -1042,22 +1042,20 @@
   function termsHTML(beat, pack) {
     const includes = (pack.includes || []).map((line) =>
       '<li>' + escapeHTML(line) + '</li>').join("");
-    const exclusive = pack.grant === "exclusive" || pack.id === "exclusive";
-    return '<p class="sign-terms__lead">A FREE, ' + (exclusive ? 'EXCLUSIVE' : 'NON-EXCLUSIVE') +
-        ', WORLDWIDE, PERPETUAL LICENSE TO ' +
-        escapeHTML(beat.title) + ' — THE ' + escapeHTML(pack.name) + '.</p>' +
-      '<p class="sign-terms__item"><span class="sign-terms__no">1.0</span>100% FREE FOR NON-PROFIT AND ' +
-        'COMMERCIAL / PROFIT USE. RELEASE IT ON SPOTIFY, APPLE MUSIC, YOUTUBE OR ANYWHERE. NO ROYALTIES, ' +
-        'NO HIDDEN FEES, NO CATCH.' +
-        (exclusive
-          ? ' FULL COMMERCIAL FREEDOM: RESELL, RE-LICENSE, TRANSFER OR TRADE THIS EXCLUSIVE ASSET AND ' +
-            'KEEP 100% OF THE PROCEEDS.'
-          : '') + '</p>' +
-      '<p class="sign-terms__item"><span class="sign-terms__no">2.0</span>THE ONLY RULE — CREDIT ' +
-        '(PROD. BY KYROIII) IN THE SONG TITLE OR DESCRIPTION.</p>' +
-      '<p class="sign-terms__item"><span class="sign-terms__no">3.0</span>WHAT THIS PACKAGE INCLUDES:</p>' +
+    return '<p class="sign-terms__lead">A 100% EXCLUSIVE, FIRST-COME, FIRST-SERVED GRANT OF FULL ' +
+        'OWNERSHIP TO ' + escapeHTML(beat.title) + ' — THE ' + escapeHTML(pack.name) + '.</p>' +
+      '<p class="sign-terms__item"><span class="sign-terms__no">1.0</span>WHOEVER CLAIMS AND DOWNLOADS ' +
+        'THIS BEAT RECEIVES 100% EXCLUSIVE RIGHTS AND FULL OWNERSHIP OF IT. ONCE TAKEN, NO ONE ELSE MAY ' +
+        'USE, LICENSE OR CLAIM THIS BEAT — IT IS RETIRED FROM THE STORE AND NEVER ISSUED AGAIN.</p>' +
+      '<p class="sign-terms__item"><span class="sign-terms__no">2.0</span>NO PRODUCER CREDIT IS REQUIRED. ' +
+        'YOU DO NOT NEED TO WRITE \'PROD. BY KYROIII\' OR \'PRODKYROIII\' ANYWHERE. THE CREDIT RULE IS ' +
+        'WAIVED IN FULL.</p>' +
+      '<p class="sign-terms__item"><span class="sign-terms__no">3.0</span>UNLIMITED COMMERCIAL AND ' +
+        'NON-COMMERCIAL USE — STREAMING, DISTRIBUTION, SYNC, LIVE PERFORMANCES AND MONETIZATION — WITH ' +
+        'ZERO ROYALTIES OWED TO KYROIII. YOU KEEP 100% OF WHAT YOU EARN.</p>' +
+      '<p class="sign-terms__item"><span class="sign-terms__no">4.0</span>WHAT THIS PACKAGE INCLUDES:</p>' +
       '<ul class="sign-terms__list">' + includes + '</ul>' +
-      '<p class="sign-terms__item"><span class="sign-terms__no">4.0</span>YOUR SIGNATURE IS STAMPED INTO ' +
+      '<p class="sign-terms__item"><span class="sign-terms__no">5.0</span>YOUR SIGNATURE IS STAMPED INTO ' +
         'THE LICENSEE BLOCK OF THE PDF CERTIFICATE, WHICH CARRIES ITS OWN UNIQUE SERIAL AND THIS BEAT\'S ' +
         'TEMPO AND KEY. NOTHING IS SAVED TO YOUR DEVICE.</p>' +
       '<p class="sign-terms__end">END OF TERMS</p>';

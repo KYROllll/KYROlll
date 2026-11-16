@@ -51,8 +51,11 @@
     paidEndpoint: SITE.paidFormspreeEndpoint
   };
 
-  // The three free ways a beat leaves the store. Every one of them uses the
-  // same two-step gate, with no social requirement anywhere:
+  // A beat leaves the store exactly one way: a single 100% exclusive license,
+  // granted first come, first served. There are no leases and no tiers. The
+  // claimant receives full ownership, no credit is required and no royalties
+  // are owed (see the claim register below). Every claim still uses the same
+  // two-step gate, with no social requirement anywhere:
   //   step 1 — email + mandatory opt-in → submit
   //   step 2 — read the license terms, type a full name and sign → SIGN & UNLOCK
   // `gate` is kept as a package field for callers, but the only value in use is
@@ -61,40 +64,22 @@
   // hands over; it is printed in the generated license (see `downloads.js`).
   window.KYROlll_PACKAGES = [
     {
-      id: "mp3",
-      name: "MP3 LEASE",
-      tag: "EMAIL + LICENSE",
-      gate: "email",
-      /* `grant` is the licensing half of the package, read by the generated PDF:
-         `non-exclusive` keeps the beat in the market for other artists, while
-         `exclusive` retires it (see the claim register below). The language is
-         shared by every beat, so no catalog entry can carry its own terms. */
-      grant: "non-exclusive",
-      blurb: "ENTER YOUR EMAIL, ACCEPT THE LICENSE AND UNLOCK THE DOWNLOAD INSTANTLY.",
-      includes: ["TAGGED MP3 AUDIO FILE", "FREE NON-EXCLUSIVE LICENSE"]
-    },
-    {
-      id: "wav",
-      name: "STANDARD WAV LEASE",
-      tag: "EMAIL + LICENSE",
-      gate: "email",
-      grant: "non-exclusive",
-      blurb: "TAGGED MP3 + HIGH-QUALITY WAV + LICENSE. ENTER YOUR EMAIL, ACCEPT THE LICENSE AND UNLOCK.",
-      includes: ["TAGGED MP3 AUDIO FILE", "HIGH-QUALITY WAV", "FREE NON-EXCLUSIVE LICENSE"]
-    },
-    {
       id: "exclusive",
-      name: "EXCLUSIVE / PRO PACKAGE",
-      tag: "EMAIL + LICENSE",
+      name: "100% EXCLUSIVE OWNERSHIP",
+      tag: "FIRST COME, FIRST SERVED",
       gate: "email",
+      /* The grant is the licensing half of the package, read by the generated
+         PDF. With one tier it is always `exclusive`: the claim retires the beat
+         for everyone else, and the language is shared by every beat so no
+         catalog entry can carry its own terms. */
       grant: "exclusive",
-      blurb: "FULL STEMS + MP3 + WAV + EXCLUSIVE LICENSE. ENTER YOUR EMAIL, ACCEPT THE LICENSE AND UNLOCK.",
+      blurb: "CLAIM 100% EXCLUSIVE OWNERSHIP. FIRST COME, FIRST SERVED — ONCE CLAIMED, NO ONE ELSE MAY USE IT.",
       includes: [
         "TAGGED MP3 AUDIO FILE",
         "HIGH-QUALITY WAV",
         "TRACKED STEMS",
-        "FULL EXCLUSIVE RIGHTS — RESELL, RE-LICENSE & TRADE",
-        "EMAIL OPT-IN FOR FUTURE DROPS"
+        "100% EXCLUSIVE OWNERSHIP — FULL RIGHTS",
+        "NO CREDIT REQUIRED / ZERO ROYALTIES"
       ]
     }
   ];
@@ -147,13 +132,6 @@
       preview: "assets/previews/flesh.mp3",
       youtube: "https://www.youtube.com/watch?v=8OhRJQn2YCU",
       deliverables: {
-        mp3: [
-          { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (130 BPM - AM).mp3", label: "TAGGED MP3" }
-        ],
-        wav: [
-          { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (130 BPM - AM).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/flesh.wav", name: "KYROIII - FLESH (130 BPM - AM).wav", label: "HIGH-QUALITY WAV" }
-        ],
         exclusive: [
           { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (130 BPM - AM).mp3", label: "TAGGED MP3" },
           { file: "assets/previews/flesh.wav", name: "KYROIII - FLESH (130 BPM - AM).wav", label: "HIGH-QUALITY WAV" },
@@ -172,13 +150,6 @@
       youtube: "https://www.youtube.com/watch?v=aHMCkzw9Wuo",
       releaseAt: "2026-10-19T23:00:00+03:00",
       deliverables: {
-        mp3: [
-          { file: "assets/previews/the-flow.mp3", name: "KYROIII - THE FLOW (124 BPM - C#M).mp3", label: "TAGGED MP3" }
-        ],
-        wav: [
-          { file: "assets/previews/the-flow.mp3", name: "KYROIII - THE FLOW (124 BPM - C#M).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/the-flow.wav", name: "KYROIII - THE FLOW (124 BPM - C#M).wav", label: "HIGH-QUALITY WAV" }
-        ],
         exclusive: [
           { file: "assets/previews/the-flow.mp3", name: "KYROIII - THE FLOW (124 BPM - C#M).mp3", label: "TAGGED MP3" },
           { file: "assets/previews/the-flow.wav", name: "KYROIII - THE FLOW (124 BPM - C#M).wav", label: "HIGH-QUALITY WAV" },
@@ -198,13 +169,6 @@
       youtube: "https://www.youtube.com/@KYROlll00",
       releaseAt: "2026-10-22T23:00:00+03:00",
       deliverables: {
-        mp3: [
-          { file: "assets/previews/steam.mp3", name: "KYROIII - GREEN FLESH (138 BPM - B).mp3", label: "TAGGED MP3" }
-        ],
-        wav: [
-          { file: "assets/previews/steam.mp3", name: "KYROIII - GREEN FLESH (138 BPM - B).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/steam.wav", name: "KYROIII - GREEN FLESH (138 BPM - B).wav", label: "HIGH-QUALITY WAV" }
-        ],
         exclusive: [
           { file: "assets/previews/steam.mp3", name: "KYROIII - GREEN FLESH (138 BPM - B).mp3", label: "TAGGED MP3" },
           { file: "assets/previews/steam.wav", name: "KYROIII - GREEN FLESH (138 BPM - B).wav", label: "HIGH-QUALITY WAV" },
@@ -224,13 +188,6 @@
       youtube: "https://www.youtube.com/@KYROlll00",
       releaseAt: "2026-10-25T23:00:00+02:00",
       deliverables: {
-        mp3: [
-          { file: "assets/previews/squish.mp3", name: "KYROIII - SQUISH! (124 BPM - FM).mp3", label: "TAGGED MP3" }
-        ],
-        wav: [
-          { file: "assets/previews/squish.mp3", name: "KYROIII - SQUISH! (124 BPM - FM).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/squish.wav", name: "KYROIII - SQUISH! (124 BPM - FM).wav", label: "HIGH-QUALITY WAV" }
-        ],
         exclusive: [
           { file: "assets/previews/squish.mp3", name: "KYROIII - SQUISH! (124 BPM - FM).mp3", label: "TAGGED MP3" },
           { file: "assets/previews/squish.wav", name: "KYROIII - SQUISH! (124 BPM - FM).wav", label: "HIGH-QUALITY WAV" },
@@ -250,13 +207,6 @@
       youtube: "https://www.youtube.com/@KYROlll00",
       releaseAt: "2026-10-27T23:00:00+02:00",
       deliverables: {
-        mp3: [
-          { file: "assets/previews/just-do-it.mp3", name: "KYROIII - JUST D0 IT (135 BPM - AM).mp3", label: "TAGGED MP3" }
-        ],
-        wav: [
-          { file: "assets/previews/just-do-it.mp3", name: "KYROIII - JUST D0 IT (135 BPM - AM).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/just-do-it.wav", name: "KYROIII - JUST D0 IT (135 BPM - AM).wav", label: "HIGH-QUALITY WAV" }
-        ],
         exclusive: [
           { file: "assets/previews/just-do-it.mp3", name: "KYROIII - JUST D0 IT (135 BPM - AM).mp3", label: "TAGGED MP3" },
           { file: "assets/previews/just-do-it.wav", name: "KYROIII - JUST D0 IT (135 BPM - AM).wav", label: "HIGH-QUALITY WAV" },
@@ -276,13 +226,6 @@
       youtube: "https://www.youtube.com/@KYROlll00",
       releaseAt: "2026-11-02T19:00:00+02:00",
       deliverables: {
-        mp3: [
-          { file: "assets/previews/adll.mp3", name: "KYROIII - A.D.L (124 BPM - C#).mp3", label: "TAGGED MP3" }
-        ],
-        wav: [
-          { file: "assets/previews/adll.mp3", name: "KYROIII - A.D.L (124 BPM - C#).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/adll.wav", name: "KYROIII - A.D.L (124 BPM - C#).wav", label: "HIGH-QUALITY WAV" }
-        ],
         exclusive: [
           { file: "assets/previews/adll.mp3", name: "KYROIII - A.D.L (124 BPM - C#).mp3", label: "TAGGED MP3" },
           { file: "assets/previews/adll.wav", name: "KYROIII - A.D.L (124 BPM - C#).wav", label: "HIGH-QUALITY WAV" },
@@ -303,13 +246,6 @@
       // Schedule the drop for today at exactly 22:00 (Israel time).
       releaseAt: "2026-11-07T22:00:00+02:00",
       deliverables: {
-        mp3: [
-          { file: "assets/previews/gunna-type.mp3", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).mp3", label: "TAGGED MP3" }
-        ],
-        wav: [
-          { file: "assets/previews/gunna-type.mp3", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/gunna-type.wav", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).wav", label: "HIGH-QUALITY WAV" }
-        ],
         exclusive: [
           { file: "assets/previews/gunna-type.mp3", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).mp3", label: "TAGGED MP3" },
           { file: "assets/previews/gunna-type.wav", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).wav", label: "HIGH-QUALITY WAV" },
@@ -331,13 +267,6 @@
       // Schedule the drop for today at exactly 20:00 (Israel time).
       releaseAt: "2026-11-09T20:00:00+02:00",
       deliverables: {
-        mp3: [
-          { file: "assets/previews/white-night.mp3", name: "KYROIII - WHITE NIGHT (142 BPM - A).mp3", label: "TAGGED MP3" }
-        ],
-        wav: [
-          { file: "assets/previews/white-night.mp3", name: "KYROIII - WHITE NIGHT (142 BPM - A).mp3", label: "TAGGED MP3" },
-          { file: "assets/previews/white-night.wav", name: "KYROIII - WHITE NIGHT (142 BPM - A).wav", label: "HIGH-QUALITY WAV" }
-        ],
         exclusive: [
           { file: "assets/previews/white-night.mp3", name: "KYROIII - WHITE NIGHT (142 BPM - A).mp3", label: "TAGGED MP3" },
           { file: "assets/previews/white-night.wav", name: "KYROIII - WHITE NIGHT (142 BPM - A).wav", label: "HIGH-QUALITY WAV" },

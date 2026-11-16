@@ -205,7 +205,7 @@
     titleEl.textContent = beat.title;
     /* Every package's blurb is a gate instruction (email + license), so it is
        not repeated after the unlock; the page states the grant instead. */
-    subEl.textContent = "EVERY FILE BELOW IS YOURS, FREE. CREDIT (PROD. BY KYROIII) AND YOU ARE CLEAR TO RELEASE ON SPOTIFY, APPLE MUSIC AND YOUTUBE.";
+    subEl.textContent = "100% EXCLUSIVE OWNERSHIP — FULL RIGHTS, NO CREDIT REQUIRED, NO ROYALTIES OWED. RELEASE ANYWHERE AND KEEP EVERYTHING YOU EARN.";
     renderMeta(items);
 
     filesPanel.hidden = false;
@@ -219,7 +219,7 @@
       note.setAttribute("role", "region");
       note.setAttribute("aria-label", "Producer Note — Tracked Stems");
       note.innerHTML = '<span class="download-list__note-kicker">TRACKED STEMS — PRODUCER NOTE</span>' +
-        '<p class="download-list__note-text">TRACKED STEMS ARE PART OF OUR EXCLUSIVE, LIMITED DROPS — A WAY TO KEEP THE CATALOG FRESH, CURATED AND ELITE. THE STEMS ARE SUPPLIED EXACTLY AS THEY LEFT THE STUDIO: SEVEN TRACKS, NO WRAPPERS, NO EXTRA FILES.</p>';
+        '<p class="download-list__note-text">TRACKED STEMS ARE PART OF THE 100% EXCLUSIVE PACKAGE — THE BEAT IS CLAIMED ONCE, FIRST COME, FIRST SERVED. THE STEMS ARE SUPPLIED EXACTLY AS THEY LEFT THE STUDIO: NO WRAPPERS, NO EXTRA FILES.</p>';
       listEl.appendChild(note);
     }
 
@@ -371,8 +371,8 @@
     document.title = "SCHEDULED DROP — " + beat.title + " — KYROIII";
     kickerEl.textContent = "SCHEDULED DROP";
     titleEl.textContent = beat.title;
-    subEl.textContent = "THE PLAYER, EVERY FREE PACKAGE AND THE LICENSE UNLOCK AUTOMATICALLY AT DROP TIME.";
-    if (metaEl) metaEl.innerHTML = [beat.bpm + " BPM", String(beat.key).toUpperCase(), "FREE DOWNLOAD"]
+    subEl.textContent = "THE PLAYER, THE EXCLUSIVE LICENSE AND ITS PDF UNLOCK AUTOMATICALLY AT DROP TIME.";
+    if (metaEl) metaEl.innerHTML = [beat.bpm + " BPM", String(beat.key).toUpperCase(), "EXCLUSIVE LICENSE"]
       .map((chip) => '<span class="dl-meta__chip">' + escapeHTML(chip) + "</span>").join("");
     filesPanel.hidden = false;
     licensePanel.hidden = true;

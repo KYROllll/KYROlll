@@ -245,7 +245,7 @@ test('choosing a record zooms it open in place and offers the packages', async (
   assert.equal(focus.title, 'WHITE NIGHT', 'the focused record is the one that was chosen');
   assert.equal(focus.type, 'FUTURE TYPE BEAT', 'the type line is split from the title');
   assert.equal(focus.specs, '142 BPM / A', 'the specs stay minimal');
-  assert.deepEqual(focus.packs, ['MP3 LEASE', 'STANDARD WAV LEASE', 'EXCLUSIVE / PRO PACKAGE']);
+  assert.deepEqual(focus.packs, ['100% EXCLUSIVE OWNERSHIP'], 'the only package is the exclusive first-come license');
   assert.equal(focus.flower, 0, 'the focus view carries no extra flower');
   assert.equal(focus.sheet.position, 'fixed', 'the focused record is an in-place sheet, not a page');
   assert(focus.sheet.top > 0, 'the sheet starts under the sticky header');
@@ -803,7 +803,7 @@ test('a phone fits the grid and the focused packages without sideways scroll', a
   });
   assert(focus.card.left >= 0 && focus.card.right <= 390, 'the focused card fits the phone');
   assert(focus.packRight <= 390, 'the package row fits the phone');
-  assert.equal(focus.packs, 3, 'all three packages are offered');
+  assert.equal(focus.packs, 1, 'the single exclusive license is offered');
   assert.equal(focus.overflow, 0, 'the focused view never scrolls sideways');
   assert.equal(focus.closeVisible, true, 'ALL BEATS is reachable');
   await context.close();
