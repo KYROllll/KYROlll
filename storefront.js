@@ -212,7 +212,7 @@
       <button class="yx-pack__btn" type="button" data-yx-pack="${esc(pack.id)}" aria-expanded="false" aria-controls="${esc(gateId)}">
         <span class="yx-pack__name">${esc(pack.name)}</span>
         <span class="yx-pack__includes">${esc(includes)}</span>
-        <span class="yx-pack__tag">FREE</span>
+        <span class="yx-pack__tag">ARCHIVE GRANT</span>
         <span class="yx-pack__arrow" aria-hidden="true">↗</span>
       </button>
       <div class="yx-pack__gate" id="${esc(gateId)}" data-gate-host hidden></div>

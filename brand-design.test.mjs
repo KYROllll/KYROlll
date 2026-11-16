@@ -1217,7 +1217,7 @@ try {
   assert(pdfText.includes('SIGNED '), 'the licensee block is dated');
   // The redesign: the flower mark leads a centred masthead, and the whole page
   // lays out as one ruled certificate strip.
-  assert(pdfText.includes('FREE MUSIC LICENSE PROGRAM'));
+  assert(pdfText.includes('100% EXCLUSIVE OWNERSHIP - ARCHIVE GRANT'));
   assert(pdfText.includes('NON-EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE'));
   assert(drawnPaths(pdfText).length >= 2, 'the drawn signature is vector ink on the certificate');
   // Monochromatic palette: matte black #0B0B0B, white type, and the crisp

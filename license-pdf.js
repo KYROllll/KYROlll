@@ -507,7 +507,7 @@
     /* Masthead — the centered hero: the mark, the wordmark, the programme name,
        then the divider the title hangs under. */
     putCenter(MID, MARK_TOP - MARK - 25, "KYROIII", "F2", 26, WHITE, 1.4);
-    putCenter(MID, MARK_TOP - MARK - 40, "FREE MUSIC LICENSE PROGRAM", "F1", 7.5, MUTED, 1.9);
+    putCenter(MID, MARK_TOP - MARK - 40, "100% EXCLUSIVE OWNERSHIP - ARCHIVE GRANT", "F1", 7.5, MUTED, 1.9);
     rule(MARK_TOP - MARK - 54, FRAME, 0.9);
     putCenter(MID, MARK_TOP - MARK - 79, "CERTIFICATE OF EXCLUSIVE OWNERSHIP", "F2", 19, WHITE, 0.9);
     putCenter(MID, MARK_TOP - MARK - 95, "EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE", "F1", 7.5, MUTED, 1.5);
