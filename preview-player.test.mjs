@@ -67,7 +67,7 @@ test("the re-ingested ADLL beat is scheduled for today at 19:00 with its graffit
   assert(beat, "ADLL resolves from its id and slug");
   assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - A.D.L");
   assert.equal(beat.shortTitle, "A.D.L");
-  assert.equal(beat.img, "assets/adll.png");
+  assert.equal(beat.img, "assets/adll.webp");
   assert.equal(beat.bpm, 124);
   assert.equal(beat.key, "C#");
   assert.equal(beat.preview, "assets/previews/adll.mp3");
@@ -94,7 +94,7 @@ test("the re-ingested ADLL beat is scheduled for today at 19:00 with its graffit
     "assets/previews/adll.mp3",
     "assets/previews/adll.wav",
     "assets/previews/adll-stems.zip",
-    "assets/adll.png",
+    "assets/adll.webp",
   ]
     .forEach((asset) => assert(readFileSync(new URL(`./${asset}`, import.meta.url)).length > 0, `${asset} is ingested`));
 });
@@ -105,7 +105,7 @@ test("the GUNNA drop is scheduled for 22:00 today and every record keeps the ori
   const beat = helpers.beatById("gunna-type");
   assert(beat, "the GUNNA drop resolves from its id and slug");
   assert.equal(beat.title, "[FREE 100%] GUNNA TYPE BEAT - VVS MOTION");
-  assert.equal(beat.img, "assets/beat-cover.png");
+  assert.equal(beat.img, "assets/beat-cover.webp");
   assert.equal(beat.bpm, 146);
   assert.equal(beat.key, "Fm");
   assert.equal(beat.preview, "assets/previews/gunna-type.mp3");
@@ -129,7 +129,7 @@ test("the GUNNA drop is scheduled for 22:00 today and every record keeps the ori
     "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM) - TRACKED STEMS.zip",
   ]);
   [
-    "assets/beat-cover.png",
+    "assets/beat-cover.webp",
     "assets/previews/gunna-type.mp3",
     "assets/previews/gunna-type.wav",
     "assets/previews/gunna-type-stems.zip",
@@ -156,7 +156,7 @@ test("the WHITE NIGHT drop is scheduled for 20:00 today with its cover, MP3, WAV
   assert(beat, "the WHITE NIGHT drop resolves from its id and slug");
   assert.equal(beat.title, "[FREE 100%] FUTURE TYPE BEAT - WHITE NIGHT");
   assert.equal(beat.shortTitle, "WHITE NIGHT");
-  assert.equal(beat.img, "assets/white-night.jpg");
+  assert.equal(beat.img, "assets/white-night.webp");
   assert.equal(beat.bpm, 142);
   assert.equal(beat.key, "A");
   assert.equal(beat.preview, "assets/previews/white-night.mp3");
@@ -177,7 +177,7 @@ test("the WHITE NIGHT drop is scheduled for 20:00 today with its cover, MP3, WAV
     "KYROIII - WHITE NIGHT (142 BPM - A) - TRACKED STEMS.zip",
   ]);
   [
-    "assets/white-night.jpg",
+    "assets/white-night.webp",
     "assets/previews/white-night.mp3",
     "assets/previews/white-night.wav",
     "assets/previews/white-night-stems.zip",
@@ -327,7 +327,7 @@ test("every beat is audited for one uniform license, package set and secured loc
     id: "cover-art-sample",
     slug: "cover-art-sample",
     title: "[FREE 100%] BEAT 0009",
-    img: "assets/BEAT COVERR.PNG",
+    img: "assets/BEAT COVERR.webp",
     coverArt: "assets/BEAT COVERR.PNG",
     bpm: 150,
     key: "Cm",
@@ -383,7 +383,7 @@ test("every beat is pressed from its own cover, and the beat page keeps a sticky
   assert.equal(beats.length, 9, "the nine pressings come from the nine beats");
   beats.forEach((beat) => {
     assert.equal(beat.vinylVariant, undefined, `${beat.slug}: no hand-assigned variant — the cover is the pressing`);
-    assert.match(beat.img, /^assets\/.+\.(?:png|jpe?g)$/i, `${beat.slug}: the beat carries the cover the palette is read from`);
+    assert.match(beat.img, /^assets\/.+\.(?:png|jpe?g|webp)$/i, `${beat.slug}: the beat carries the cover the palette is read from`);
   });
   const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
   assert.match(css, /\.vinyl-record \{[^}]*url\("assets\/vinyl-classic\.png"\)/, "every record paints the photographed pressing");

@@ -92,9 +92,9 @@ async function readArtLoading(art) {
 test('a beat cover turns the branded flower while its artwork loads', async () => {
   const { context, page } = await newPage();
   const gate = deferred();
-  await page.route('**/assets/beat-cover.png*', async (route) => {
+  await page.route('**/assets/beat-cover.webp*', async (route) => {
     await gate.promise;
-    await route.fulfill({ path: join(rootPath, 'assets/beat-cover.png'), contentType: 'image/png' });
+    await route.fulfill({ path: join(rootPath, 'assets/beat-cover.webp'), contentType: 'image/webp' });
   });
 
   await open(page, '/?beat=gunna-type');
@@ -177,9 +177,9 @@ test('an audio preview turns the branded flower while it buffers', async () => {
 test('reduced motion freezes the indicator instead of spinning it', async () => {
   const { context, page } = await newPage({ reducedMotion: 'reduce' });
   const gate = deferred();
-  await page.route('**/assets/beat-cover.png*', async (route) => {
+  await page.route('**/assets/beat-cover.webp*', async (route) => {
     await gate.promise;
-    await route.fulfill({ path: join(rootPath, 'assets/beat-cover.png'), contentType: 'image/png' });
+    await route.fulfill({ path: join(rootPath, 'assets/beat-cover.webp'), contentType: 'image/webp' });
   });
 
   await open(page, '/?beat=gunna-type');

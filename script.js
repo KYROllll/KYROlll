@@ -169,7 +169,7 @@ function previewHTML(beat) {
   if (!beat.preview) return '<p class="beat-preview__unavailable">PREVIEW COMING SOON</p>';
   const title = attr(beat.title);
   return `<div class="beat-preview" data-title="${title}" data-state="idle">
-    <audio class="beat-preview__audio" src="${attr(beat.preview)}" preload="auto"></audio>
+    <audio class="beat-preview__audio" src="${attr(beat.preview)}" preload="none"></audio>
     <span class="beat-preview__tonearm" aria-hidden="true">
       <svg viewBox="0 0 30 30" focusable="false"><circle cx="24" cy="6" r="4.2"/><circle cx="24" cy="6" r="1.4" fill="currentColor" stroke="none"/><path d="M24 6 14 17l-4.5 3.5"/><rect x="6.6" y="18.6" width="5.2" height="3.4" rx="0.8" fill="currentColor" stroke="none" transform="rotate(-38 9.2 20.3)"/></svg>
     </span>

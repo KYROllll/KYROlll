@@ -142,7 +142,7 @@
       : "";
     return `<button class="yx-card${flags}" type="button" data-yx-beat="${esc(beat.id)}" aria-label="Focus ${esc(name)}">
       <span class="yx-card__media">
-        <img src="${esc(beat.img)}" alt="${esc(name)} cover art" width="1024" height="1024" ${index < 3 ? "" : 'loading="lazy"'} decoding="async">
+        <img src="${esc(beat.img)}" alt="${esc(name)} cover art" width="1024" height="1024" ${index < 3 ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async">
         ${stamp}
       </span>
       <span class="yx-card__row">
@@ -610,7 +610,7 @@
       return;
     }
     state.play.disabled = false;
-    state.audio.preload = "auto";
+    state.audio.preload = "none";
     state.audio.src = beat.preview;
     state.audio.load();
   }

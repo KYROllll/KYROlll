@@ -16,7 +16,7 @@ const root = new URL('./', import.meta.url);
 const types = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
   '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png',
-  '.jpg': 'image/jpeg', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.zip': 'application/zip',
+  '.jpg': 'image/jpeg', '.webp': 'image/webp', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.zip': 'application/zip',
 };
 
 const server = createServer(async (req, res) => {
@@ -942,7 +942,7 @@ test('a cover turns the brand flower on pure black until its art arrives, then f
   page.on('pageerror', (error) => errors.push(error.message));
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
-  await page.route('**/assets/white-night.jpg*', async (route) => {
+  await page.route('**/assets/white-night.webp*', async (route) => {
     await gate;
     await route.continue();
   });
@@ -1004,7 +1004,7 @@ test('the focused cover also waits behind the branded flower on a cold deep link
   page.on('pageerror', (error) => errors.push(error.message));
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
-  await page.route('**/assets/white-night.jpg*', async (route) => {
+  await page.route('**/assets/white-night.webp*', async (route) => {
     await gate;
     await route.continue();
   });

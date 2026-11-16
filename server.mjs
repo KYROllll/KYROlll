@@ -13,6 +13,7 @@ const MIME_TYPES = {
   ".mjs": "text/javascript",
   ".json": "application/json",
   ".png": "image/png",
+  ".webp": "image/webp",
   ".gif": "image/gif",
   ".mp3": "audio/mpeg",
   ".wav": "audio/wav",
