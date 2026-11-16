@@ -246,7 +246,7 @@ function beatDetailInner(beat) {
     ? `<div class="card__specs">${specLine(beat)} // ${owned ? "OWNED / YOURS" : "CLAIMED / SOLD OUT"}</div>`
     : pending
       ? `<div class="card__specs">${specLine(beat)} // SCHEDULED DROP</div>`
-      : `<div class="card__specs">${specLine(beat)} // TAGGED AUDIO</div>`;
+      : `<div class="card__specs">${specLine(beat)} // UNTAGGED AUDIO</div>`;
   return `
     <section class="beat-detail__content beat-detail__info" aria-label="Beat details and free downloads">
       <div class="card__meta beat-detail__head">

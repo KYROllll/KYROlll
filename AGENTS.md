@@ -732,7 +732,7 @@ payment gateway.
   should skip the gate, unused today) goes straight to the download page. There is no social
   step and no comment step anywhere. The gate requires the address **and** the opt-in
   checkbox, and then closes with the same REVIEW & SIGN stage (below). `includes` is the
-  plain-language list of what the package hands over (tagged MP3 + high-quality WAV +
+  plain-language list of what the package hands over (untagged MP3 + high-quality WAV +
   tracked stems + full exclusive ownership, no credit required and zero royalties) and is
   printed verbatim in the generated license. A drop with an original hand-drawn cover
   declares it on the beat (`coverArt: "assets/BEAT COVERR.PNG"`, or an image entry in its
@@ -1339,7 +1339,7 @@ Tests that ship with the repo:
   beat-page/gate sections run. Its beat-page gate, signature, PDF and claim checks remain
   the reference for those surfaces; `storefront.test.mjs` is the reference for the home.
 - `brand-design.test.mjs` is Playwright-based and checks the storefront layout, the
-  tagged audio preview, the "DOWNLOAD FREE" package menu and all three gated paths,
+  untagged audio preview, the "DOWNLOAD FREE" package menu and all three gated paths,
   each of which is the same clean two-step gate. The test asserts that no gate renders a
   `.gate-step` or a `[data-gate-action]`, that no social link is opened from any gate, and
   that the email and the license agreement are the only requirements. Every gate must then reach

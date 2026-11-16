@@ -333,7 +333,7 @@ test("every beat is audited for one uniform license, package set and secured loc
     key: "Cm",
     deliverables: {
       exclusive: [
-        { file: "assets/previews/white-night.mp3", name: "AUDIO.mp3", label: "TAGGED MP3" }
+        { file: "assets/previews/white-night.mp3", name: "AUDIO.mp3", label: "UNTAGGED MP3" }
       ]
     }
   };

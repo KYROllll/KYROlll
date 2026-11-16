@@ -543,7 +543,7 @@
     /* The artwork drop lists its files on four compact lines instead of six, so
        the extra cover clause still lands above the signature band on page one. */
     const includes = data.hasCoverArt
-      ? ["TAGGED MP3 + HIGH-QUALITY WAV + TRACKED STEMS",
+      ? ["UNTAGGED MP3 + HIGH-QUALITY WAV + TRACKED STEMS",
         "100% EXCLUSIVE OWNERSHIP - FULL RIGHTS + NO CREDIT REQUIRED / ZERO ROYALTIES",
         "ORIGINAL HAND-DRAWN COVER ART FILE + COVER ART LICENSE"]
       : (data.includes || []);

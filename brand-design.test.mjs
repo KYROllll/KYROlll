@@ -1195,7 +1195,7 @@ try {
   assert.equal(pdfText.includes('THIS LICENSE IS EXCLUSIVE'), false, 'the MP3 lease never claims exclusive rights');
   assert.equal(pdfText.includes('THE BEAT IS RETIRED'), false, 'the MP3 lease never retires the beat');
   assert(pdfText.includes('CERTIFICATE OF FREE LICENSE'));
-  assert(pdfText.includes('TAGGED MP3 AUDIO FILE')); // this package's includes
+  assert(pdfText.includes('UNTAGGED MP3 AUDIO FILE')); // this package's includes
   assert(pdfText.includes('Im1 Do'), 'the flower mark is embedded in the header');
   // The embedded mark is stamped again inside the LICENSOR approval stamp, and
   // nothing is drawn behind the LICENSEE signature any more: the old watermark
@@ -1274,7 +1274,7 @@ try {
   const wavPack = await wavPage.evaluate(() => window.KYROlll_PACKAGES.find(item => item.id === 'wav'));
   assert.equal(wavPack.tag, 'EMAIL + LICENSE', 'the WAV package badge names the email + license gate');
   assert.equal(wavPack.gate, 'email', 'the WAV package uses the shared email gate');
-  assert.equal(wavPack.blurb, 'TAGGED MP3 + HIGH-QUALITY WAV + LICENSE. ENTER YOUR EMAIL, ACCEPT THE LICENSE AND UNLOCK.', 'the WAV package describes the clean gate');
+  assert.equal(wavPack.blurb, 'UNTAGGED MP3 + HIGH-QUALITY WAV + LICENSE. ENTER YOUR EMAIL, ACCEPT THE LICENSE AND UNLOCK.', 'the WAV package describes the clean gate');
   assert.match(await wavPage.locator('.gate-panel__copy').first().innerText(), /ENTER YOUR EMAIL TO UNLOCK THE STANDARD WAV LEASE/, 'the WAV gate asks only for the email before the license');
   await expectCleanGate(wavPage);
   await noYouTubeButton(wavPage, CARD);

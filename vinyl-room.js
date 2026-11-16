@@ -82,7 +82,7 @@ import * as THREE from "three";
   const isLocked = (beatId) => !!(HELPERS.isExclusiveLocked && HELPERS.isExclusiveLocked(beatId));
   const isOwned = (beatId) => !!(HELPERS.isExclusiveOwned && HELPERS.isExclusiveOwned(beatId));
   const shortTitle = (beat) => beat.shortTitle || String(beat.title || "").replace(/^\[FREE 100%\]\s*/i, "");
-  const specLine = (beat) => `${beat.bpm} BPM // ${String(beat.key || "").toUpperCase()} // TAGGED AUDIO`;
+  const specLine = (beat) => `${beat.bpm} BPM // ${String(beat.key || "").toUpperCase()} // UNTAGGED AUDIO`;
   const countdown = (beat) => (HELPERS.msUntilRelease && HELPERS.formatCountdown)
     ? HELPERS.formatCountdown(HELPERS.msUntilRelease(beat))
     : "";

@@ -75,7 +75,7 @@
       grant: "exclusive",
       blurb: "CLAIM 100% EXCLUSIVE OWNERSHIP. FIRST COME, FIRST SERVED — ONCE CLAIMED, NO ONE ELSE MAY USE IT.",
       includes: [
-        "TAGGED MP3 AUDIO FILE",
+        "UNTAGGED MP3 AUDIO FILE",
         "HIGH-QUALITY WAV",
         "TRACKED STEMS",
         "100% EXCLUSIVE OWNERSHIP — FULL RIGHTS",
@@ -141,7 +141,7 @@
       youtube: "https://www.youtube.com/watch?v=8OhRJQn2YCU",
       deliverables: {
         exclusive: [
-          { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (130 BPM - AM).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/flesh.mp3", name: "KYROIII - FLESH (130 BPM - AM).mp3", label: "UNTAGGED MP3" },
           { file: "assets/previews/flesh.wav", name: "KYROIII - FLESH (130 BPM - AM).wav", label: "HIGH-QUALITY WAV" },
           { file: "assets/previews/flesh-stems.zip", name: "KYROIII - FLESH (130 BPM - AM) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
@@ -159,7 +159,7 @@
       releaseAt: "2026-10-19T23:00:00+03:00",
       deliverables: {
         exclusive: [
-          { file: "assets/previews/the-flow.mp3", name: "KYROIII - THE FLOW (124 BPM - C#M).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/the-flow.mp3", name: "KYROIII - THE FLOW (124 BPM - C#M).mp3", label: "UNTAGGED MP3" },
           { file: "assets/previews/the-flow.wav", name: "KYROIII - THE FLOW (124 BPM - C#M).wav", label: "HIGH-QUALITY WAV" },
           { file: "assets/previews/the-flow-stems.zip", name: "KYROIII - THE FLOW (124 BPM - C#M) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
@@ -178,7 +178,7 @@
       releaseAt: "2026-10-22T23:00:00+03:00",
       deliverables: {
         exclusive: [
-          { file: "assets/previews/steam.mp3", name: "KYROIII - GREEN FLESH (138 BPM - B).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/steam.mp3", name: "KYROIII - GREEN FLESH (138 BPM - B).mp3", label: "UNTAGGED MP3" },
           { file: "assets/previews/steam.wav", name: "KYROIII - GREEN FLESH (138 BPM - B).wav", label: "HIGH-QUALITY WAV" },
           { file: "assets/previews/steam-stems.zip", name: "KYROIII - GREEN FLESH - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
@@ -197,7 +197,7 @@
       releaseAt: "2026-10-25T23:00:00+02:00",
       deliverables: {
         exclusive: [
-          { file: "assets/previews/squish.mp3", name: "KYROIII - SQUISH! (124 BPM - FM).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/squish.mp3", name: "KYROIII - SQUISH! (124 BPM - FM).mp3", label: "UNTAGGED MP3" },
           { file: "assets/previews/squish.wav", name: "KYROIII - SQUISH! (124 BPM - FM).wav", label: "HIGH-QUALITY WAV" },
           { file: "assets/previews/squish-stems.zip", name: "KYROIII - SQUISH! - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
@@ -216,7 +216,7 @@
       releaseAt: "2026-10-27T23:00:00+02:00",
       deliverables: {
         exclusive: [
-          { file: "assets/previews/just-do-it.mp3", name: "KYROIII - JUST D0 IT (135 BPM - AM).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/just-do-it.mp3", name: "KYROIII - JUST D0 IT (135 BPM - AM).mp3", label: "UNTAGGED MP3" },
           { file: "assets/previews/just-do-it.wav", name: "KYROIII - JUST D0 IT (135 BPM - AM).wav", label: "HIGH-QUALITY WAV" },
           { file: "assets/previews/just-do-it-stems.zip", name: "KYROIII - JUST D0 IT - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
@@ -235,7 +235,7 @@
       releaseAt: "2026-11-02T19:00:00+02:00",
       deliverables: {
         exclusive: [
-          { file: "assets/previews/adll.mp3", name: "KYROIII - A.D.L (124 BPM - C#).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/adll.mp3", name: "KYROIII - A.D.L (124 BPM - C#).mp3", label: "UNTAGGED MP3" },
           { file: "assets/previews/adll.wav", name: "KYROIII - A.D.L (124 BPM - C#).wav", label: "HIGH-QUALITY WAV" },
           { file: "assets/previews/adll-stems.zip", name: "KYROIII - A.D.L - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
@@ -255,7 +255,7 @@
       releaseAt: "2026-11-07T22:00:00+02:00",
       deliverables: {
         exclusive: [
-          { file: "assets/previews/gunna-type.mp3", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/gunna-type.mp3", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).mp3", label: "UNTAGGED MP3" },
           { file: "assets/previews/gunna-type.wav", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM).wav", label: "HIGH-QUALITY WAV" },
           { file: "assets/previews/gunna-type-stems.zip", name: "KYROIII - GUNNA TYPE BEAT - VVS MOTION (146 BPM - FM) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
@@ -276,7 +276,7 @@
       releaseAt: "2026-11-09T20:00:00+02:00",
       deliverables: {
         exclusive: [
-          { file: "assets/previews/white-night.mp3", name: "KYROIII - WHITE NIGHT (142 BPM - A).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/white-night.mp3", name: "KYROIII - WHITE NIGHT (142 BPM - A).mp3", label: "UNTAGGED MP3" },
           { file: "assets/previews/white-night.wav", name: "KYROIII - WHITE NIGHT (142 BPM - A).wav", label: "HIGH-QUALITY WAV" },
           { file: "assets/previews/white-night-stems.zip", name: "KYROIII - WHITE NIGHT (142 BPM - A) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
@@ -299,7 +299,7 @@
       releaseAt: "2026-11-16T21:00:00+02:00",
       deliverables: {
         exclusive: [
-          { file: "assets/previews/BEAT 0009.mp3", name: "KYROIII - BEAT 0009 (150 BPM - C).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/BEAT 0009.mp3", name: "KYROIII - BEAT 0009 (150 BPM - C).mp3", label: "UNTAGGED MP3" },
           { file: "assets/previews/BEAT 0009.wav", name: "KYROIII - BEAT 0009 (150 BPM - C).wav", label: "HIGH-QUALITY WAV" },
           { file: "assets/previews/BEAT 0009-stems.zip", name: "KYROIII - BEAT 0009 - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
