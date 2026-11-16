@@ -64,7 +64,7 @@
   const FLOWER_SRC = "assets/kyrolll-flower-rest.png?v=3";
   const SERIAL_PREFIX = "KYRO";
   const SUPPORT_EMAIL = "kyrolll00@gmail.com";
-  const STORE_URL = "HTTPS://KYROILL.STORE";
+  const STORE_URL = "WWW.KYROLLL.STORE";
   const SEAL_FLOWER = 28;          // points — the 3D flower inside the stamp's left compartment
   const SEAL_PLATE_H = 46;         // height of the LICENSOR approval stamp plate
   const SIG_LEAD = 20;             // clearance above the signature band (the stamp's room)

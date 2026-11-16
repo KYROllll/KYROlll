@@ -1236,7 +1236,7 @@ try {
   const tinted = colors.filter(c => c[0] !== c[1] || c[1] !== c[2]);
   assert.equal(tinted.length, 0, `every color is an equal-channel grey (zero blue): ${JSON.stringify(tinted)}`);
   // Clean footer: vector barcode + the official store link, uppercase.
-  assert(pdfText.includes('HTTPS://KYROILL.STORE'), 'the store link is printed in the footer');
+  assert(pdfText.includes('WWW.KYROLLL.STORE'), 'the store link is printed in the footer');
   assert(/1 1 1 rg\n[\d.]+ [\d.]+ [\d.]+ [\d.]+ re f/.test(pdfText), 'vector barcode drawn in the footer');
 
   // Re-signing on the download page enforces the same full-name rule: a single
