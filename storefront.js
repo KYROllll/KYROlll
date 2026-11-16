@@ -50,6 +50,7 @@
     zoomTimer: 0,
     zoomSeq: 0,
     releaseTimer: 0,
+    releaseTimeout: 0,
     audio: focus.querySelector("[data-yx-audio]"),
     play: focus.querySelector("[data-yx-play]"),
     seek: focus.querySelector("[data-yx-seek]"),
@@ -654,6 +655,9 @@
 
   function watchCountdowns() {
     clearInterval(state.releaseTimer);
+    clearTimeout(state.releaseTimeout);
+    state.releaseTimer = 0;
+    state.releaseTimeout = 0;
     if (!HELPERS.isReleased) return;
     const pending = newest.filter((beat) => !isReleased(beat));
     if (!pending.length) return;
@@ -676,7 +680,12 @@
       }
     };
     tick();
+    /* The interval keeps every visible timer ticking; the one-shot timeout lands
+       on the earliest release itself, so the claim control is live on the
+       instant the clock reaches zero rather than up to a second later. */
     state.releaseTimer = window.setInterval(tick, 1000);
+    const waits = pending.map((beat) => (HELPERS.msUntilRelease ? HELPERS.msUntilRelease(beat) : 0));
+    state.releaseTimeout = window.setTimeout(tick, Math.max(0, Math.min.apply(null, waits)) + 50);
   }
 
   function repaintClaims() {

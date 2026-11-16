@@ -1322,11 +1322,12 @@ Tests that ship with the repo:
 - `preview-player.test.mjs` is `node:test` based and needs no browser:
   `node --test preview-player.test.mjs`
 - `storefront.test.mjs` is Playwright-based and covers the archive home: the
-  eight-card compact grid, the solid black background, the category menu, the
+  nine-card compact grid, the solid black background, the category menu, the
   header flower, the in-place zoom sheet with its player and the exclusive license row
   opening the real gate, `?focus=` deep links, the untouched `?beat=` card, the
-  phone layout and reduced motion. Run it with `node --test storefront.test.mjs`
-  (or `npm run test:store`).
+  scheduled drop's live countdown and in-place unlock on both the tile and the
+  detailed card, the phone layout and reduced motion. Run it with
+  `node --test storefront.test.mjs` (or `npm run test:store`).
 - `brand-design.test.mjs` predates the archive home: its opening home-route assertions
   still expect the legacy hero, ticker and catalogue grid and therefore fail before the
   beat-page/gate sections run. Its beat-page gate, signature, PDF and claim checks remain

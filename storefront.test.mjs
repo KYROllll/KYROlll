@@ -129,12 +129,12 @@ test('the home is a solid black compact grid with the category menu', async () =
       })(),
     };
   });
-  assert.equal(home.cards, 8, 'all eight releases are in the grid');
-  assert.equal(home.count, '08', 'the release count is derived from the catalog');
+  assert.equal(home.cards, 9, 'all nine releases are in the grid');
+  assert.equal(home.count, '09', 'the release count is derived from the catalog');
   assert.equal(home.columns, 4, 'the desktop grid is four compact columns');
   assert.equal(home.canvas, 0, 'the falling-petal canvas is gone');
   assert.equal(home.bg, 'rgb(0, 0, 0)', 'the page sits on solid pitch black');
-  assert.match(home.first, /^08 \| WHITE NIGHT \| 142 BPM \/ A/, 'the newest release leads the grid and carries the highest archive number');
+  assert.match(home.first, /^09 \| BEAT 0009 \| 150 BPM \/ C/, 'the newest release leads the grid and carries the highest archive number');
   assert.equal(home.main, 'none', 'the old catalog document is not below the archive');
   assert.equal(home.room, 0, 'the vinyl room is gone from the home route');
   assert.equal(home.overflow, 0, 'the home never scrolls sideways');
@@ -202,6 +202,130 @@ test('the home is a solid black compact grid with the category menu', async () =
   await context.close();
 });
 
+test('a scheduled drop counts down and unlocks in place the second its clock lands', async () => {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  /* Stand a few real seconds before BEAT 0009's 21:00 drop. The `?now=` override
+     is a fixed instant that then advances with real time, so the card genuinely
+     counts down and flips without a reload — the behaviour this drop ships. */
+  const dropAt = Date.parse('2026-11-16T21:00:00+02:00');
+  const before = new Date(dropAt - 5000).toISOString();
+  await page.goto(`${base}/?now=${encodeURIComponent(before)}`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#yx-grid [data-yx-beat="beat-0009"]');
+
+  const secondsLeft = () => page.evaluate(() => {
+    const helpers = window.KYROlll_HELPERS;
+    return Math.ceil(helpers.msUntilRelease(helpers.beatById('beat-0009')) / 1000);
+  });
+  const pending = await page.evaluate(() => {
+    const card = document.querySelector('#yx-grid [data-yx-beat="beat-0009"]');
+    const countdown = card.querySelector('[data-countdown]');
+    return {
+      pending: card.classList.contains('is-pending'),
+      countdown: countdown ? countdown.textContent : '',
+      label: (card.querySelector('.yx-card__flag') || {}).textContent || '',
+      stamp: card.querySelectorAll('.yx-card__stamp').length,
+    };
+  });
+  assert.equal(pending.pending, true, 'the scheduled record is locked before its clock lands');
+  assert.equal(pending.stamp, 0, 'a scheduled drop is not treated as a claimed record');
+  assert.match(pending.label, /DROPPING SOON/, 'the tile announces the drop without a clock hour');
+  assert.match(pending.countdown, /^\d\d:\d\d:\d\d$/, 'the tile carries a live countdown');
+  const first = await secondsLeft();
+  await page.waitForTimeout(1200);
+  const second = await secondsLeft();
+  assert(second < first, 'the countdown is ticking, not a frozen label');
+
+  await page.locator('#yx-grid [data-yx-beat="beat-0009"]').click();
+  await page.waitForFunction(() => !document.querySelector('#yx-focus').hidden);
+  const focused = await page.evaluate(() => ({
+    status: document.querySelector('.yx-focus__status').innerText.replace(/\s+/g, ' ').trim(),
+    countdown: document.querySelector('[data-focus-countdown]')?.textContent || '',
+    packs: document.querySelectorAll('[data-yx-pack]').length,
+    note: (document.querySelector('.yx-focus__closed') || {}).textContent || '',
+  }));
+  assert.match(focused.status, /DROPPING SOON/, 'the focused record carries the same countdown');
+  assert.match(focused.countdown, /^\d\d:\d\d:\d\d$/, 'the focused countdown is live too');
+  assert.equal(focused.packs, 0, 'no claim or download control exists before the drop');
+  assert.match(focused.note, /THE PACKAGES OPEN THE MOMENT THIS RECORD LANDS/, 'the record says the packages arrive with the clock');
+
+  /* No reload, no rebuild by hand: the store watch flips the tile and the open
+     focused record the moment the clock reaches 21:00. */
+  await page.waitForFunction(() => {
+    const card = document.querySelector('#yx-grid [data-yx-beat="beat-0009"]');
+    return card && !card.classList.contains('is-pending') && card.querySelectorAll('[data-countdown]').length === 0;
+  }, null, { timeout: 15000 });
+  await page.waitForFunction(() => document.querySelectorAll('#yx-focus [data-yx-pack]').length > 0, null, { timeout: 5000 });
+  const live = await page.evaluate(() => {
+    const card = document.querySelector('#yx-grid [data-yx-beat="beat-0009"]');
+    const pack = document.querySelector('#yx-focus [data-yx-pack]');
+    return {
+      pending: card.classList.contains('is-pending'),
+      countdown: card.querySelectorAll('[data-countdown]').length,
+      statusHidden: document.querySelector('.yx-focus__status').hidden,
+      note: document.querySelectorAll('.yx-focus__closed').length,
+      label: pack ? pack.querySelector('.yx-pack__name').textContent : '',
+      disabled: pack ? pack.disabled : true,
+      packs: document.querySelectorAll('#yx-focus [data-yx-pack]').length,
+    };
+  });
+  assert.equal(live.pending, false, 'the tile leaves its scheduled state the second the drop lands');
+  assert.equal(live.countdown, 0, 'the countdown is gone once the clock reaches zero');
+  assert.equal(live.statusHidden, true, 'the DROPPING SOON status is cleared');
+  assert.equal(live.note, 0, 'the waiting note is replaced by the live packages');
+  assert.equal(live.packs, 1, 'the exclusive claim control appears automatically');
+  assert.equal(live.label, '100% EXCLUSIVE OWNERSHIP', 'the claim control is the real exclusive license');
+  assert.equal(live.disabled, false, 'the claim control is active, not a locked placeholder');
+
+  await page.locator('#yx-focus [data-yx-pack]').first().click();
+  await page.waitForSelector('.gate-panel');
+  assert.equal(await page.locator('#gate-email').inputValue(), '', 'the unlocked control opens the real gate');
+
+  /* The detailed beat card is the other surface that carries the drop: it shows
+     the same countdown with an inert LOCKED control, then rebuilds into the live
+     player and DOWNLOAD FREE trigger with no reload. */
+  const detail = await context.newPage();
+  detail.on('pageerror', (error) => errors.push(error.message));
+  await detail.goto(`${base}/?beat=beat-0009&now=${encodeURIComponent(before)}`, { waitUntil: 'domcontentloaded' });
+  await detail.waitForFunction(() => /BEAT 0009/.test(document.querySelector('.beat-detail__title')?.innerText || ''));
+  const locked = await detail.evaluate(() => ({
+    drop: document.querySelectorAll('.drop-countdown').length,
+    countdown: document.querySelector('.drop-countdown__time')?.textContent || '',
+    lockedButton: document.querySelectorAll('[data-release-pending="true"][disabled]').length,
+    trigger: document.querySelectorAll('.beat-detail [data-download-trigger]').length,
+    player: document.querySelectorAll('.beat-detail .beat-preview').length,
+  }));
+  assert.equal(locked.drop, 1, 'the detailed card carries the drop countdown');
+  assert.match(locked.countdown, /^\d\d:\d\d:\d\d$/, 'the detailed countdown is live');
+  assert.equal(locked.lockedButton, 1, 'the detailed card shows the inert LOCKED control');
+  assert.equal(locked.trigger, 0, 'no download trigger exists before the drop');
+  assert.equal(locked.player, 0, 'the player is withheld before the drop');
+
+  await detail.waitForFunction(() => {
+    const trigger = document.querySelector('.beat-detail [data-download-trigger]');
+    return trigger && !trigger.disabled;
+  }, null, { timeout: 15000 });
+  const beatLive = await detail.evaluate(() => ({
+    drop: document.querySelectorAll('.drop-countdown').length,
+    trigger: document.querySelectorAll('.beat-detail [data-download-trigger]').length,
+    disabled: document.querySelector('.beat-detail [data-download-trigger]').disabled,
+    label: document.querySelector('.beat-detail [data-download-trigger] .download-trigger__label').textContent,
+    player: document.querySelectorAll('.beat-detail .beat-preview').length,
+    lockedButton: document.querySelectorAll('[data-release-pending="true"]').length,
+  }));
+  assert.equal(beatLive.drop, 0, 'the detailed countdown is gone once the clock lands');
+  assert.equal(beatLive.lockedButton, 0, 'the inert LOCKED control is replaced');
+  assert.equal(beatLive.trigger, 1, 'the live download trigger appears automatically');
+  assert.equal(beatLive.disabled, false, 'the download trigger is active, not disabled');
+  assert.equal(beatLive.label, 'DOWNLOAD FREE', 'the active control is the real download trigger');
+  assert.equal(beatLive.player, 1, 'the player is part of the unlocked card');
+
+  for (const failure of errors) assert.fail(`page error: ${failure}`);
+  await context.close();
+});
+
 test('choosing a record zooms it open in place and offers the packages', async () => {
   const { context, page } = await openHome({ viewport: { width: 1440, height: 900 } });
   await page.evaluate(() => window.scrollTo(0, 200));
@@ -212,8 +336,8 @@ test('choosing a record zooms it open in place and offers the packages', async (
     });
     return { scrollY: Math.round(scrollY), media, cards: document.querySelectorAll('#yx-grid .yx-card').length };
   });
-  const cover = await page.locator('#yx-grid .yx-card__media').first().boundingBox();
-  await page.locator('#yx-grid .yx-card').first().click();
+  const cover = await page.locator('#yx-grid [data-yx-beat="white-night"] .yx-card__media').boundingBox();
+  await page.locator('#yx-grid [data-yx-beat="white-night"]').click();
   await page.waitForFunction(() => {
     const focus = document.querySelector('#yx-focus');
     return focus && !focus.hidden;
@@ -297,7 +421,7 @@ test('choosing a record zooms it open in place and offers the packages', async (
     focused: document.activeElement && document.activeElement.classList.contains('yx-card'),
   }));
   assert.equal(back.homeHidden, false, 'ALL BEATS restores the archive');
-  assert.equal(back.cards, 8, 'every record is back in the grid');
+  assert.equal(back.cards, 9, 'every record is back in the grid');
   assert.equal(back.scrollY, archive.scrollY, 'the archive keeps its place after the landing');
   assert.deepEqual(back.media, archive.media, 'no card reflowed or moved during open and close');
   assert.equal(back.focused, true, 'focus returns to the card that was chosen');
@@ -463,7 +587,7 @@ test('the artwork collection opens in place as locked collector pieces', async (
     artHidden: document.querySelector('#yx-artwork').hidden,
   }));
   assert.equal(beats.active, 'FREE BEATS');
-  assert.equal(beats.cards, 8);
+  assert.equal(beats.cards, 9);
   assert.equal(beats.artHidden, true);
   assert(!/view=artwork/.test(beats.url), 'the menu switches back to the beats archive');
 
@@ -473,7 +597,9 @@ test('the artwork collection opens in place as locked collector pieces', async (
 
 test('a package opens the real gate, and the preview plays', async () => {
   const { context, page, errors } = await openHome({ viewport: { width: 1440, height: 900 } });
-  await page.locator('#yx-grid .yx-card').first().click();
+  /* The newest record is the scheduled BEAT 0009 drop, which is still locked at
+     the test clock. Open a live record for the gate and player checks. */
+  await page.locator('#yx-grid [data-yx-beat="white-night"]').click();
   await page.waitForFunction(() => !document.querySelector('#yx-focus').hidden);
 
   await page.locator('[data-yx-play]').click();
@@ -569,7 +695,7 @@ test('signing in the sheet unlocks the files in the same row, with no redirect',
   await page.route('https://formspree.io/**', (route) => route.fulfill({
     status: 200, contentType: 'application/json', body: '{"ok":true}',
   }));
-  await page.locator('#yx-grid .yx-card').first().click();
+  await page.locator('#yx-grid [data-yx-beat="white-night"]').click();
   await page.waitForFunction(() => !document.querySelector('#yx-focus').hidden);
   await page.locator('[data-yx-pack]').first().click();
   await page.waitForSelector('.yx-pack.is-selected .gate-panel');
@@ -788,7 +914,7 @@ test('a phone fits the grid and the focused packages without sideways scroll', a
   assert.equal(phone.dock.padTop, phone.dock.height, 'the two-row phone bar is offset by its own measured height');
   assert.equal(phone.dock.firstInk, phone.dock.height, 'the phone catalog docks flush under the bar');
 
-  await page.locator('#yx-grid .yx-card').first().click();
+  await page.locator('#yx-grid [data-yx-beat="white-night"]').click();
   await page.waitForFunction(() => !document.querySelector('#yx-focus').hidden);
   const focus = await page.evaluate(() => {
     const card = document.querySelector('.yx-focus__card').getBoundingClientRect();
@@ -822,10 +948,10 @@ test('a cover turns the brand flower on pure black until its art arrives, then f
   });
   await page.goto(homeUrl, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#yx-grid .yx-card');
-  await page.waitForFunction(() => document.querySelector('#yx-grid .yx-card__media')?.classList.contains('is-loading'));
+  await page.waitForFunction(() => document.querySelector('#yx-grid [data-yx-beat="white-night"] .yx-card__media')?.classList.contains('is-loading'));
 
   const read = () => page.evaluate(() => {
-    const media = document.querySelector('#yx-grid .yx-card__media');
+    const media = document.querySelector('#yx-grid [data-yx-beat="white-night"] .yx-card__media');
     const img = media.querySelector('img');
     const spinner = media.querySelector('.flower-spinner');
     const flower = spinner && spinner.querySelector('.flower-spinner__flower');
@@ -860,8 +986,8 @@ test('a cover turns the brand flower on pure black until its art arrives, then f
   assert.equal(loading.flowerSmall, true, 'the flower stays a quiet mark, not a full-bleed image');
 
   release();
-  await page.waitForFunction(() => document.querySelector('#yx-grid .yx-card__media')?.classList.contains('is-loaded'));
-  await page.waitForFunction(() => !document.querySelector('#yx-grid .yx-card__media .flower-spinner'));
+  await page.waitForFunction(() => document.querySelector('#yx-grid [data-yx-beat="white-night"] .yx-card__media')?.classList.contains('is-loaded'));
+  await page.waitForFunction(() => !document.querySelector('#yx-grid [data-yx-beat="white-night"] .yx-card__media .flower-spinner'));
   const settled = await read();
   assert.equal(settled.loading, false, 'the wait clears when the art arrives');
   assert.equal(settled.spinner, false, 'a settled card carries no idle animation');

@@ -30,7 +30,7 @@ const catalogContextFor = (sharedStorage) => {
 test("the fifth release is scheduled, packaged and pointed at the free-download form", () => {
   const { window } = catalogContextFor();
   const catalog = window.KYROlll_CATALOG;
-  assert.equal(catalog.length, 8, "the catalog carries eight releases");
+  assert.equal(catalog.length, 9, "the catalog carries nine releases");
   const beat = window.KYROlll_HELPERS.beatById("just-d0-it");
   assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - JUST D0 IT");
   assert.equal(beat.shortTitle, "JUST D0 IT");
@@ -59,10 +59,10 @@ test("the fifth release is scheduled, packaged and pointed at the free-download 
 test("the re-ingested ADLL beat is scheduled for today at 19:00 with its graffiti-splatter pressing", () => {
   const { window } = catalogContextFor();
   const catalog = window.KYROlll_CATALOG;
-  assert.equal(catalog.length, 8, "the catalog carries eight releases");
+  assert.equal(catalog.length, 9, "the catalog carries nine releases");
   assert.deepEqual(Array.from(catalog, (beat) => beat.slug),
-    ["flesh", "the-flow", "green-flesh", "squish", "just-d0-it", "adll", "gunna-type", "white-night"],
-    "the eight beats are intact, in order, with the WHITE NIGHT drop as the newest entry");
+    ["flesh", "the-flow", "green-flesh", "squish", "just-d0-it", "adll", "gunna-type", "white-night", "beat-0009"],
+    "the nine beats are intact, in order, with the BEAT 0009 drop as the newest entry");
   const beat = window.KYROlll_HELPERS.beatById("adll");
   assert(beat, "ADLL resolves from its id and slug");
   assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - A.D.L");
@@ -292,12 +292,12 @@ test("every beat is audited for one uniform license, package set and secured loc
     assert(files.length > 0, `${beat.slug}: the exclusive license hands over at least one file`);
     files.forEach((item) => {
       assert.match(item.file, /^assets\//, `${beat.slug}: the exclusive license hands over a same-origin file`);
-      const fpath = new URL(`./${item.file}`, import.meta.url).pathname;
+      const fpath = decodeURIComponent(new URL(`./${item.file}`, import.meta.url).pathname);
       assert(readFileSync(fpath).length > 0, `${beat.slug}: ${item.file} is present`);
     });
     assert.equal(helpers.deliverablesFor(beat.id, "mp3").length, 0, `${beat.slug}: the MP3 lease is retired`);
     assert.equal(helpers.deliverablesFor(beat.id, "wav").length, 0, `${beat.slug}: the WAV lease is retired`);
-    assert.match(helpers.deliverablesFor(beat.id, "exclusive").map((item) => item.file).join(" "), /stems\.zip$/,
+    assert.match(helpers.deliverablesFor(beat.id, "exclusive").map((item) => item.file).join(" "), /stems\.zip/,
       `${beat.slug}: the exclusive license hands over its tracked stems`);
   });
 
@@ -324,8 +324,8 @@ test("every beat is audited for one uniform license, package set and secured loc
   // A drop with an original hand-drawn cover hands the artwork over with its
   // audio and gains the two cover-art clauses; a drop without one does not.
   const artBeat = {
-    id: "beat-0009",
-    slug: "beat-0009",
+    id: "cover-art-sample",
+    slug: "cover-art-sample",
     title: "[FREE 100%] BEAT 0009",
     img: "assets/BEAT COVERR.PNG",
     coverArt: "assets/BEAT COVERR.PNG",
@@ -340,7 +340,7 @@ test("every beat is audited for one uniform license, package set and secured loc
   catalog.push(artBeat);
   assert.equal(helpers.hasCoverArt(artBeat), true, "an original cover is detected on the beat");
   assert.equal(helpers.coverArtFor(artBeat), "assets/BEAT COVERR.PNG");
-  assert.deepEqual(Array.from(helpers.deliverablesFor("beat-0009", "exclusive"), (item) => item.file), [
+  assert.deepEqual(Array.from(helpers.deliverablesFor("cover-art-sample", "exclusive"), (item) => item.file), [
     "assets/previews/white-night.mp3",
     "assets/BEAT COVERR.PNG"
   ], "the exclusive hand-over includes the original cover art file");
@@ -380,10 +380,10 @@ test("every beat is pressed from its own cover, and the beat page keeps a sticky
   const catalogContext = vm.createContext({ window });
   vm.runInContext(readFileSync(new URL("./catalog.js", import.meta.url), "utf8"), catalogContext);
   const beats = window.KYROlll_CATALOG;
-  assert.equal(beats.length, 8, "the eight pressings come from the eight beats");
+  assert.equal(beats.length, 9, "the nine pressings come from the nine beats");
   beats.forEach((beat) => {
     assert.equal(beat.vinylVariant, undefined, `${beat.slug}: no hand-assigned variant — the cover is the pressing`);
-    assert.match(beat.img, /^assets\/.+\.(?:png|jpe?g)$/, `${beat.slug}: the beat carries the cover the palette is read from`);
+    assert.match(beat.img, /^assets\/.+\.(?:png|jpe?g)$/i, `${beat.slug}: the beat carries the cover the palette is read from`);
   });
   const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
   assert.match(css, /\.vinyl-record \{[^}]*url\("assets\/vinyl-classic\.png"\)/, "every record paints the photographed pressing");

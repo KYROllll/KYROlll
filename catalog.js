@@ -281,6 +281,29 @@
           { file: "assets/previews/white-night-stems.zip", name: "KYROIII - WHITE NIGHT (142 BPM - A) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
       }
+    },
+    // BEAT 0009 — original hand-drawn cover art drop.
+    {
+      id: "beat-0009",
+      slug: "beat-0009",
+      aliases: ["0009"],
+      title: "[FREE 100%] BEAT 0009",
+      shortTitle: "BEAT 0009",
+      img: "assets/BEAT COVERR.PNG",
+      coverArt: "assets/BEAT COVERR.PNG",
+      bpm: 150,
+      key: "C",
+      preview: "assets/previews/BEAT 0009.mp3",
+      youtube: "https://www.youtube.com/@KYROlll00",
+      // Scheduled drop at 21:00 (Israel time).
+      releaseAt: "2026-11-16T21:00:00+02:00",
+      deliverables: {
+        exclusive: [
+          { file: "assets/previews/BEAT 0009.mp3", name: "KYROIII - BEAT 0009 (150 BPM - C).mp3", label: "TAGGED MP3" },
+          { file: "assets/previews/BEAT 0009.wav", name: "KYROIII - BEAT 0009 (150 BPM - C).wav", label: "HIGH-QUALITY WAV" },
+          { file: "assets/previews/BEAT 0009-stems.zip", name: "KYROIII - BEAT 0009 - TRACKED STEMS.zip", label: "TRACKED STEMS" }
+        ]
+      }
     }
   ];
 
