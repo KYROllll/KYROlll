@@ -35,7 +35,6 @@
   const header = document.querySelector(".site-header");
   const countNode = document.querySelector("[data-yx-count]");
   const navLinks = [...document.querySelectorAll("[data-yx-view]")];
-  const navArt = document.querySelector("[data-yx-nav-art]");
   if (!grid || !focus) return;
 
   const params = new URLSearchParams(location.search);
@@ -196,28 +195,6 @@
     artGrid.innerHTML = pieces.map(artCardHTML).join("");
     artGrid.inert = false;
     watchCovers(artGrid);
-  }
-
-  /* Until the first original is registered the collection is not part of the
-     store at all: no section, no nav destination, just the locked 2028 roadmap
-     link. Registering a piece unlocks both automatically. */
-  function syncArtAccess() {
-    if (!navArt) return;
-    const hasArt = pieces.length > 0;
-    navArt.classList.toggle("is-disabled", !hasArt);
-    if (hasArt) {
-      navArt.removeAttribute("aria-disabled");
-      navArt.removeAttribute("tabindex");
-      navArt.querySelector("i")?.remove();
-      return;
-    }
-    navArt.setAttribute("aria-disabled", "true");
-    navArt.setAttribute("tabindex", "-1");
-    if (!navArt.querySelector("i")) {
-      const badge = document.createElement("i");
-      badge.textContent = "2028";
-      navArt.append(" ", badge);
-    }
   }
 
   /* ------------------------------------------------------------ focus view */
@@ -794,7 +771,6 @@
 
   renderGrid();
   renderArtGrid();
-  syncArtAccess();
   const startInArt = params.get("view") === "artwork" || params.has("artwork");
   setView(startInArt ? "art" : "beats", false, false);
   if (startInArt && params.get("artwork")) openArtwork(params.get("artwork"), false);

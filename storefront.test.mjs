@@ -152,33 +152,19 @@ test('the home is a solid black compact grid with the category menu', async () =
   assert.equal(home.active, 'FREE BEATS', 'FREE BEATS is the active category');
   assert.deepEqual(home.nav, [
     { text: 'FREE BEATS', disabled: false },
-    { text: 'ARTWORK 2028', disabled: true },
-    { text: 'APPAREL 2030', disabled: true },
-  ], 'free beats are the only live category; artwork awaits its first drop and apparel is 2030');
+  ], 'FREE BEATS is the only category in the top navigation');
 
   // With no registered artwork the collection is absent, not an empty shell.
   const locked = await page.evaluate(() => ({
     galleryHidden: document.querySelector('#yx-artwork').hidden,
     cards: document.querySelectorAll('#yx-art-grid .yx-art-card').length,
-    artDisabled: document.querySelector('[data-yx-nav-art]').getAttribute('aria-disabled'),
-    artBadge: document.querySelector('[data-yx-nav-art]').textContent.replace(/\s+/g, ' ').trim(),
+    artLinks: document.querySelectorAll('[data-yx-nav-art], [data-yx-view="artwork"]').length,
+    apparelLinks: [...document.querySelectorAll('.site-nav__link')].filter((node) => /APPAREL/.test(node.textContent)).length,
   }));
   assert.equal(locked.galleryHidden, true, 'the artwork view stays hidden until the first drop');
   assert.equal(locked.cards, 0, 'no artwork card and no placeholder is rendered');
-  assert.equal(locked.artDisabled, 'true', 'the artwork link is locked');
-  assert.equal(locked.artBadge, 'ARTWORK 2028', 'the lock wears the 2028 badge');
-
-  // A locked link is inert even to a forced click (Playwright itself refuses it).
-  await page.evaluate(() => document.querySelector('[data-yx-nav-art]').click());
-  await page.waitForTimeout(120);
-  const afterLockedClick = await page.evaluate(() => ({
-    url: location.search,
-    active: document.querySelector('.site-nav__link.is-active').textContent.trim(),
-    beatsVisible: !document.querySelector('#catalog').hidden,
-  }));
-  assert(!/view=artwork/.test(afterLockedClick.url), 'a locked artwork link does not navigate');
-  assert.equal(afterLockedClick.active, 'FREE BEATS', 'the archive stays the active category');
-  assert.equal(afterLockedClick.beatsVisible, true, 'the archive stays on screen');
+  assert.equal(locked.artLinks, 0, 'the artwork category is gone from the top navigation');
+  assert.equal(locked.apparelLinks, 0, 'the apparel category is gone from the top navigation');
   assert.match(home.flower.src, /kyrolll-flower-rest\.png/, 'the header wears the flower mark');
   assert(home.flower.box.right > 1300, 'the flower sits in the top-right corner');
   assert(home.flower.box.width <= 26, 'the header flower stays a small mark');
@@ -321,14 +307,14 @@ test('choosing a record zooms it open in place and offers the packages', async (
 
 test('the artwork collection opens in place as locked collector pieces', async () => {
   const { context, page, errors } = await openHome({ viewport: { width: 1440, height: 900 }, art: true });
-  await page.locator('[data-yx-view="artwork"]').click();
+  await page.evaluate(() => window.KYROlll_ARCHIVE.view('art'));
   await page.waitForTimeout(150);
   const gallery = await page.evaluate(() => {
     const section = document.querySelector('#yx-artwork');
     const cards = [...section.querySelectorAll('.yx-art-card')];
     return {
       url: location.search,
-      active: document.querySelector('.site-nav__link.is-active').textContent.trim(),
+      active: document.querySelector('.site-nav__link.is-active')?.textContent.trim() || null,
       plugins: [...document.querySelectorAll('.site-nav__link')].some((node) => /PLUGINS/.test(node.textContent)),
       homeDisplay: getComputedStyle(document.querySelector('#catalog')).display,
       artDisplay: getComputedStyle(section).display,
@@ -348,7 +334,7 @@ test('the artwork collection opens in place as locked collector pieces', async (
     };
   });
   assert.match(gallery.url, /view=artwork/, 'the collection is addressable');
-  assert.equal(gallery.active, 'ARTWORK', 'ARTWORK becomes the active category');
+  assert.equal(gallery.active, null, 'no top-level category is active while the collection is open');
   assert.equal(gallery.plugins, false, 'the plugins category is gone from the menu');
   assert.equal(gallery.homeDisplay, 'none', 'the beats grid yields to the collection');
   assert.equal(gallery.artDisplay, 'block', 'the collection is the page, not a new route');
@@ -450,7 +436,7 @@ test('the artwork collection opens in place as locked collector pieces', async (
   await page.waitForFunction(() => !document.querySelector('.yx-ghost'));
   const landed = await page.evaluate(() => ({
     url: location.search,
-    active: document.querySelector('.site-nav__link.is-active').textContent.trim(),
+    active: document.querySelector('.site-nav__link.is-active')?.textContent.trim() || null,
     homeDisplay: getComputedStyle(document.querySelector('#catalog')).display,
     artDisplay: getComputedStyle(document.querySelector('#yx-artwork')).display,
     scrollY: Math.round(scrollY),
@@ -460,7 +446,7 @@ test('the artwork collection opens in place as locked collector pieces', async (
     }),
     focusedCard: Boolean(document.activeElement && document.activeElement.classList.contains('yx-art-card')),
   }));
-  assert.equal(landed.active, 'ARTWORK', 'the collection stays the active category');
+  assert.equal(landed.active, null, 'the collection stays open without a top-level category');
   assert.equal(landed.homeDisplay, 'none', 'the beats grid did not replace the collection');
   assert.equal(landed.artDisplay, 'block');
   assert.equal(landed.scrollY, before.scrollY, 'closing never rescrolls the collection');
