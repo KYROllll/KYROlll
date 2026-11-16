@@ -1229,9 +1229,15 @@ the 16-bit set zips to ~65 MB; the reduction is a plain round-to-nearest, so not
 about the stems changes and the archive stays a normal file any machine can open.
 `just-do-it-stems.zip` follows the same rule with its nine supplied stems (`808.wav`,
 `BASS.wav`, `HI HAT.wav`, `MELODY.wav`, `OPEN.wav`, `PERC 2.wav`, `PERC.wav`, `SFX.wav`,
-`SNARE.wav`), rendered 16-bit/48 kHz and archived flat with `zip -X -j`; it is ~48 MB. Keep
-that in mind if a future stem set is rebuilt: `zip` here only speaks `store`/`deflate`, so the
-bit depth is the only lever that actually moves the size.
+`SNARE.wav`), rendered 16-bit/48 kHz and archived flat with `zip -X -j`; it is ~48 MB.
+`BEAT 0009-stems.zip` carries its nine supplied stems (`808.wav`, `GUITAR.wav`, `HI HAT.wav`,
+`KICK.wav`, `OPEN.wav`, `ORGAN.wav`, `SAMPLE.wav`, `SNARE.wav`, `TEXTURE.wav`) the same flat
+way. Its stems run to 128 s, so even the 16-bit/48 kHz render deflates to 107.7 MB — just over
+the limit — and the archive is therefore rendered **16-bit/44.1 kHz**, which deflates to
+99.25 MB and still opens with `unzip`, Archive Utility and 7-Zip. Keep that in mind if a future
+stem set is rebuilt: `zip` here only speaks `store`/`deflate`, so bit depth and sample rate are
+the levers that actually move the size (a lossless bzip2 ZIP is smaller but macOS Archive
+Utility refuses it).
 
 ## The catalog remembers where the visitor was
 
