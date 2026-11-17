@@ -2,7 +2,32 @@
   "version": 2,
   "generation": "2026-11-16T20:32:36.000Z",
   "topic": "kyroiii-claims-6f2a9d4c8b1e7f30",
-  "updatedAt": "2026-11-16T20:32:36.000Z",
-  "cursor": 1794861142,
-  "claims": {}
+  "updatedAt": "2026-11-17T11:52:58.513Z",
+  "cursor": 1794909486,
+  "claims": {
+    "squish": {
+      "at": "2026-11-17T09:56:34.000Z",
+      "ownerId": "buyer-905563013999fb2fa2e3694f087c9dbd",
+      "msgId": "BatGpB2P5x69",
+      "nonce": "claim-4dba7e7506433f63"
+    },
+    "just-d0-it": {
+      "at": "2026-11-17T09:57:19.000Z",
+      "ownerId": "buyer-905563013999fb2fa2e3694f087c9dbd",
+      "msgId": "GYQbCTzskU8r",
+      "nonce": "claim-7bd819f512931673"
+    },
+    "5f9bbcab-e010-4efe-b459-9c9182e1d85b": {
+      "at": "2026-11-17T09:57:46.000Z",
+      "ownerId": "buyer-905563013999fb2fa2e3694f087c9dbd",
+      "msgId": "A63ccoNHpT4P",
+      "nonce": "claim-90a8128ebe5eabf7"
+    },
+    "6c56eda2-df4a-45b0-b9b7-68f8efdbb1af": {
+      "at": "2026-11-17T09:58:06.000Z",
+      "ownerId": "buyer-905563013999fb2fa2e3694f087c9dbd",
+      "msgId": "j6kwhiGidGcc",
+      "nonce": "claim-686818f29bb7d9a9"
+    }
+  }
 }
