@@ -1016,7 +1016,9 @@
         '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CLOSE</button>' +
         '<button type="button" class="kyrolll-btn" data-gate-license>LICENSE (.PDF)</button>' +
       '</div>' +
-      '<p class="gate-panel__hint">100% EXCLUSIVE OWNERSHIP — NO CREDIT REQUIRED' +
+      '<p class="gate-panel__hint">100% EXCLUSIVE OWNERSHIP — MANDATORY CREDIT: ' +
+        escapeHTML((window.KYROlll_HELPERS && window.KYROlll_HELPERS.creditFor &&
+          window.KYROlll_HELPERS.creditFor(beat)) || "PROD. KYROIII") +
         (window.KYROlll_HELPERS && window.KYROlll_HELPERS.hasCoverArt &&
           window.KYROlll_HELPERS.hasCoverArt(beat) ? ' — ORIGINAL COVER ART INCLUDED' : '') + '</p>';
     resizeHost();
@@ -1053,10 +1055,11 @@
       '<li>' + escapeHTML(line) + '</li>').join("");
     const helpers = window.KYROlll_HELPERS || {};
     const hasArt = !!(helpers.hasCoverArt && helpers.hasCoverArt(beat));
+    const credit = (helpers.creditFor && helpers.creditFor(beat)) || "PROD. KYROIII";
     /* A drop that ships an original hand-drawn cover adds two clauses: the
        exclusive cover-art usage license and the artist's retained IP. The audio
-       grant, its no-credit rule and its zero-royalty rule stay the same, so the
-       terms follow one numbering whether or not a drawing ships. */
+       grant, its mandatory producer credit and its zero-royalty rule stay the
+       same, so the terms follow one numbering whether or not a drawing ships. */
     const artClause = hasArt
       ? '<p class="sign-terms__item"><span class="sign-terms__no">4.0</span>ORIGINAL COVER ART LICENSE — ' +
         'THIS DROP INCLUDES AN ORIGINAL HAND-DRAWN COVER. YOU RECEIVE THE ARTWORK FILE AND AN EXCLUSIVE ' +
@@ -1074,9 +1077,10 @@
       '<p class="sign-terms__item"><span class="sign-terms__no">1.0</span>WHOEVER CLAIMS AND DOWNLOADS ' +
         'THIS BEAT RECEIVES 100% EXCLUSIVE RIGHTS AND FULL OWNERSHIP OF IT. ONCE TAKEN, NO ONE ELSE MAY ' +
         'USE, LICENSE OR CLAIM THIS BEAT — IT IS RETIRED FROM THE STORE AND NEVER ISSUED AGAIN.</p>' +
-      '<p class="sign-terms__item"><span class="sign-terms__no">2.0</span>NO PRODUCER CREDIT IS REQUIRED. ' +
-        'YOU DO NOT NEED TO WRITE \'PROD. BY KYROIII\' OR \'PRODKYROlll\' ANYWHERE. THE CREDIT RULE IS ' +
-        'WAIVED IN FULL.</p>' +
+      '<p class="sign-terms__item"><span class="sign-terms__no">2.0</span>MANDATORY PRODUCER CREDIT. EVERY ' +
+        'RELEASE, UPLOAD AND DISTRIBUTION OF THIS BEAT MUST CARRY THE CREDIT ' + escapeHTML(credit) +
+        ', EXACTLY AS WRITTEN, IN THE TRACK TITLE OR DESCRIPTION. THE CREDIT IS A CONDITION OF THIS GRANT ' +
+        'AND MAY NOT BE ABBREVIATED OR OMITTED.</p>' +
       '<p class="sign-terms__item"><span class="sign-terms__no">3.0</span>UNLIMITED COMMERCIAL AND ' +
         'NON-COMMERCIAL USE — STREAMING, DISTRIBUTION, SYNC, LIVE PERFORMANCES AND MONETIZATION — WITH ' +
         'ZERO ROYALTIES OWED TO KYROIII. YOU KEEP 100% OF WHAT YOU EARN.</p>' +

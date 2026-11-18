@@ -53,9 +53,9 @@
 
   // A beat leaves the store exactly one way: a single 100% exclusive license,
   // granted first come, first served. There are no leases and no tiers. The
-  // claimant receives full ownership, no credit is required and no royalties
-  // are owed (see the claim register below). Every claim still uses the same
-  // two-step gate, with no social requirement anywhere:
+  // claimant receives full ownership, owes no royalties and MUST carry the
+  // producer credit on every release (see `KYROlll_CREDIT` below). Every claim
+  // still uses the same two-step gate, with no social requirement anywhere:
   //   step 1 — email + mandatory opt-in → submit
   //   step 2 — read the license terms, type a full name and sign → SIGN & UNLOCK
   // `gate` is kept as a package field for callers, but the only value in use is
@@ -79,10 +79,27 @@
         "HIGH-QUALITY WAV",
         "TRACKED STEMS",
         "100% EXCLUSIVE OWNERSHIP — FULL RIGHTS",
-        "NO CREDIT REQUIRED / ZERO ROYALTIES"
+        "MANDATORY PRODUCER CREDIT / ZERO ROYALTIES"
       ]
     }
   ];
+
+  // The producer credit is compulsory on every release of every beat: it is a
+  // condition of the grant, so it is printed in the gate terms, on the download
+  // page and in the PDF certificate. The string is derived from the beat, never
+  // restated per surface, so a collaboration drop attributes both producers
+  // without another edit:
+  //   a listed beat                         -> "PROD. KYROIII"
+  //   a drop built on someone else's loop
+  //   or sample (future drops)              -> "PROD. KYROIII X <CREATOR NAME>"
+  // A future drop declares its collaborator with `loopCredit` on its catalog
+  // entry (a string, or an array for several creators). `creditFor(beat)` is
+  // the single source of the rendered credit.
+  window.KYROlll_CREDIT = {
+    producer: "KYROIII",
+    prefix: "PROD. ",
+    join: " X "
+  };
 
   // A drop with an original hand-drawn cover declares it on the beat itself
   // (`coverArt: "assets/BEAT COVERR.PNG"`, or an image entry in its exclusive
@@ -117,6 +134,11 @@
   // for links (`?beat=flesh`); the helpers resolve either. `youtube` is the
   // beat's own video, exposed through `videoFor` for any caller that wants to
   // point at it; no gate step asks for a like or a follow.
+  // `loopCredit` names the original loop/sample creator on a collaboration drop
+  // (a string, or an array for several). It is optional: a beat without it
+  // credits KYROIII alone. The license renders the credit through
+  // `KYROlll_HELPERS.creditFor(beat)`, so declaring the collaborator here is the
+  // whole edit — the gate terms, the download page and the PDF follow.
   // `deliverables` maps a package to the files the download page hands over:
   // each entry is `{ file, name, label }`, a same-origin `file`, the `name` the
   // browser saves it as and the `label` shown on the download page. The `name`
@@ -943,6 +965,20 @@
     return null;
   }
 
+  /* The one producer-credit renderer. A listed beat has no `loopCredit`, so it
+     reads `PROD. KYROIII`; a collaboration drop carries the original loop or
+     sample creator (a string or an array) and reads `PROD. KYROIII X NAME`. */
+  function producerCredit(beat) {
+    const config = window.KYROlll_CREDIT || {};
+    const producer = config.producer || "KYROIII";
+    const raw = beat && beat.loopCredit;
+    const creators = (Array.isArray(raw) ? raw : [raw])
+      .map((name) => (typeof name === "string" ? name.trim() : ""))
+      .filter(Boolean);
+    return (config.prefix || "PROD. ") + producer +
+      (creators.length ? (config.join || " X ") + creators.join(config.join || " X ") : "");
+  }
+
   window.KYROlll_HELPERS = {
     escapeHTML(value) {
       return String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({
@@ -985,6 +1021,12 @@
     },
     coverArtFor(beat) {
       return coverArtFor(beat);
+    },
+    // The compulsory producer credit for a beat: `PROD. KYROIII` for the
+    // listed catalog, `PROD. KYROIII X <CREATOR>` for a drop that credits the
+    // original loop/sample creator through its `loopCredit` field.
+    creditFor(beat) {
+      return producerCredit(beat);
     },
     // The beat's own video, or the channel as a last resort, for any caller
     // that wants to point at it. A scheduled drop's own video is

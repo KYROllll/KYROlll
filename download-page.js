@@ -177,9 +177,10 @@
   function metaChips(items) {
     const hasStems = items.some((item) => /\.zip$/i.test((item && item.file) || ""));
     const hasArt = !!(helpers() && helpers().hasCoverArt && helpers().hasCoverArt(beat));
+    const credit = (helpers() && helpers().creditFor && helpers().creditFor(beat)) || "PROD. KYROIII";
     const tag = !items.length ? "" : (hasStems ? "STEMS + WAV + MP3" : (items.length > 1 ? "WAV + MP3" : "MP3"));
     return [beat.bpm + " BPM", String(beat.key).toUpperCase(), tag,
-      hasArt ? "ORIGINAL COVER ART" : "", pack.tag].filter(Boolean);
+      hasArt ? "ORIGINAL COVER ART" : "", pack.tag, credit].filter(Boolean);
   }
   function renderMeta(items) {
     if (!metaEl) return;
@@ -206,10 +207,12 @@
     kickerEl.textContent = pack.name;
     titleEl.textContent = beat.title;
     /* Every package's blurb is a gate instruction (email + license), so it is
-       not repeated after the unlock; the page states the grant instead. */
+       not repeated after the unlock; the page states the grant and the credit
+       the claimant must carry instead. */
+    const credit = (helpers() && helpers().creditFor && helpers().creditFor(beat)) || "PROD. KYROIII";
     subEl.textContent = (helpers() && helpers().hasCoverArt && helpers().hasCoverArt(beat))
-      ? "100% EXCLUSIVE AUDIO OWNERSHIP — NO CREDIT REQUIRED, NO ROYALTIES OWED. PLUS AN EXCLUSIVE COVER ART LICENSE FOR YOUR RELEASE. KYROIII RETAINS THE ORIGINAL ARTWORK'S COPYRIGHT."
-      : "100% EXCLUSIVE OWNERSHIP — FULL RIGHTS, NO CREDIT REQUIRED, NO ROYALTIES OWED. RELEASE ANYWHERE AND KEEP EVERYTHING YOU EARN.";
+      ? "100% EXCLUSIVE AUDIO OWNERSHIP — NO ROYALTIES OWED. EVERY RELEASE MUST CARRY THE CREDIT " + credit + ", PLUS AN EXCLUSIVE COVER ART LICENSE FOR YOUR RELEASE. KYROIII RETAINS THE ORIGINAL ARTWORK'S COPYRIGHT."
+      : "100% EXCLUSIVE OWNERSHIP — FULL RIGHTS, NO ROYALTIES OWED. EVERY RELEASE MUST CARRY THE CREDIT " + credit + ". RELEASE ANYWHERE AND KEEP EVERYTHING YOU EARN.";
     renderMeta(items);
 
     filesPanel.hidden = false;

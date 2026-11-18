@@ -733,14 +733,24 @@ payment gateway.
   step and no comment step anywhere. The gate requires the address **and** the opt-in
   checkbox, and then closes with the same REVIEW & SIGN stage (below). `includes` is the
   plain-language list of what the package hands over (untagged MP3 + high-quality WAV +
-  tracked stems + full exclusive ownership, no credit required and zero royalties) and is
-  printed verbatim in the generated license. A drop with an original hand-drawn cover
+  tracked stems + full exclusive ownership, a mandatory producer credit and zero royalties)
+  and is printed verbatim in the generated license. The credit itself is not a package
+  field: it is derived per beat from `window.KYROlll_CREDIT` (below), so a collaboration
+  drop never restates the rule. A drop with an original hand-drawn cover
   declares it on the beat (`coverArt: "assets/BEAT COVERR.PNG"`, or an image entry in its
   exclusive deliverables); `deliverablesFor` then appends that artwork file, and the terms
   and PDF add the **Cover Art License** (exclusive official-release cover use on streaming
   platforms) plus **retained artist IP** (KYROIII keeps 100% ownership/copyright for
   exhibitions, prints, art books and merchandise). BEAT 0009 is the first such drop; a beat
   without the field is unchanged.
+- `window.KYROlll_CREDIT` — the producer-credit contract, `{ producer, prefix, join }`.
+  The credit is **mandatory on every release** and is rendered from the beat by
+  `KYROlll_HELPERS.creditFor(beat)`: a listed beat reads `PROD. KYROIII`, and a drop that
+  declares `loopCredit` (a creator name, or an array for several) reads
+  `PROD. KYROIII X <CREATOR NAME>` or `PROD. KYROIII X A X B`. `loopCredit` is the whole
+  edit for a future collaboration drop — the gate terms, the files shelf, the download
+  page and the PDF all follow. The credit is a condition of the grant, so no surface may
+  re-waive it.
 - `window.KYROlll_CATALOG` — one entry per beat: `id` (the uuid, also the `?beat=` value),
   `slug` (kept only so old `?beat=flesh` links resolve), `title`, `img`, `bpm`, `key`,
   `preview`, `youtube` (the beat's own video, exposed by `videoFor`) and `deliverables`
@@ -749,9 +759,10 @@ payment gateway.
   download page. `downloads.js` re-derives that `name` from the beat's own metadata on the
   way out (see the studio filenames below), so the `name` in the data is only the fallback
   for a caller with no beat in hand. The license is never listed: the download page always
-  generates one.
+  generates one. A collaboration drop adds `loopCredit` (see `KYROlll_CREDIT` above).
 - `window.KYROlll_HELPERS` — `escapeHTML`, `beatById(idOrSlug)`, `packageById(id)`,
-  `deliverablesFor(beatId, packageId)`, `videoFor(beatId)` and `newsletterEndpoint()`,
+  `deliverablesFor(beatId, packageId)`, `creditFor(beat)`, `videoFor(beatId)` and
+  `newsletterEndpoint()`,
   plus the scheduled-release clock: `now()`, `releaseAt(beat)`, `isReleased(beat[, at])`,
   `msUntilRelease(beat[, at])`, `formatCountdown(ms)` and `releaseLabel(beat)`.
 - A beat may carry `releaseAt` (an ISO instant with its own offset) and a `releaseLabel`.
@@ -1072,8 +1083,11 @@ never arrive half-empty:
   exclusive rights and no one else may use, license or claim the beat once it is taken; the
   beat is retired from the store and never issued again. The grant is unlimited for
   **commercial and non-commercial use** (streaming, distribution, sync, live performances,
-  monetization) with **zero royalties** owed to KYROIII, and **no producer credit is
-  required** — there is no `(Prod. by KYROIII)` rule to satisfy. A drop that ships an
+  monetization) with **zero royalties** owed to KYROIII, and the producer credit is
+  **mandatory**: every release must carry `PROD. KYROIII` (or, on a collaboration drop,
+  `PROD. KYROIII X <CREATOR>`) exactly as written. The credit is a condition of the grant,
+  rendered per beat by `KYROlll_HELPERS.creditFor` and stated in clause 2.0 of the gate
+  terms and the PDF — no surface may waive it. A drop that ships an
   original hand-drawn cover (`coverArt`, see `KYROlll_PACKAGES` above) adds the artwork
   file and a **Cover Art License**: an exclusive right to use it as the official release
   cover on streaming platforms and in its promotion. The artwork itself does **not**
@@ -1114,6 +1128,14 @@ ALL-CAPS type in the right compartment — `KYROIII` (bold white) / `OFFICIAL VE
 (silver) / `AUTHORIZED LICENSOR` (white) — standing cleanly above the Licensor's signature line,
 in place of the old plain name, with zero collisions or crooked text. Reusing the
 already-embedded `/Im1` costs the stamp nothing.
+
+The producer credit is clause 2.0 and it is set as its own bold line — `PROD. KYROIII`, or
+`PROD. KYROIII X <CREATOR>` from `creditFor` — followed by one sentence making it a
+condition of the grant. `creditSize` steps that line down in half-points until it fits the
+column, so a long collaboration name can never wrap the clause. The line is paid for by the
+12 pt reclaimed from the gap under the serial block (`y = boxTop - boxH - 28`); the artwork
+drop has only ~6 pt of slack at the foot, so do not widen that gap without reclaiming the
+space elsewhere.
 
 Object numbering is positional and easy to break: 1 catalog, 2 pages, 3 Helvetica, 4
 Helvetica-Bold, **5 the flower image**, then two objects per
@@ -1353,7 +1375,8 @@ Tests that ship with the repo:
   certificate block (a minted `KYRO-YYYY-FLESH-NNNNNN` serial, no raw text). It then downloads
   the PDF license (asserting it saves directly as
   `KYROIII - LICENSE - FLESH (KYRO-YYYY-FLESH-NNNNNN).pdf`) and asserts
-  the `PROD. BY KYROIII` credit, the commercial grant, the package's `includes`, the embedded
+  the mandatory `PROD. KYROIII` credit (clause 2.0, set as its own bold line), the
+  commercial grant, the package's `includes`, the embedded
   flower image, the centred masthead, the **ALL-CAPS** rule (no lowercase in any drawn string),
   the monochrome palette (every colour an equal-channel grey, so zero blue), the footer barcode +
   `HTTPS://KYROILL.STORE`, the LICENSEE block carrying the signature and the address the flow

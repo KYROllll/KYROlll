@@ -276,7 +276,20 @@ test("every beat is audited for one uniform license, package set and secured loc
   assert.equal(packages[0].name, "100% EXCLUSIVE OWNERSHIP");
   assert.match(packages[0].tag, /FIRST COME, FIRST SERVED/);
   assert.match(packages[0].includes.join(" "), /100% EXCLUSIVE OWNERSHIP — FULL RIGHTS/);
-  assert.match(packages[0].includes.join(" "), /NO CREDIT REQUIRED \/ ZERO ROYALTIES/);
+  assert.match(packages[0].includes.join(" "), /MANDATORY PRODUCER CREDIT \/ ZERO ROYALTIES/);
+
+  // The producer credit is compulsory and derives from the beat: every listed
+  // beat credits KYROIII alone, and a collaboration drop adds the original
+  // loop/sample creator through its `loopCredit` field.
+  assert.equal(typeof helpers.creditFor, "function", "the shared credit renderer is exposed");
+  assert.equal(helpers.creditFor(helpers.beatById("flesh")), "PROD. KYROIII");
+  assert.equal(helpers.creditFor({ loopCredit: "JANE DOE" }), "PROD. KYROIII X JANE DOE");
+  assert.equal(helpers.creditFor({ loopCredit: ["JANE DOE", "SAM ROE"] }), "PROD. KYROIII X JANE DOE X SAM ROE");
+  assert.equal(helpers.creditFor({ loopCredit: "  " }), "PROD. KYROIII", "a blank collaborator credits the producer alone");
+  assert.equal(helpers.creditFor(null), "PROD. KYROIII");
+  catalog.forEach((beat) => {
+    assert.equal(helpers.creditFor(beat), "PROD. KYROIII", `${beat.slug}: a listed beat credits KYROIII`);
+  });
 
   const ids = new Set();
   const slugs = new Set();
@@ -302,17 +315,18 @@ test("every beat is audited for one uniform license, package set and secured loc
   });
 
   // The certificate's terms are shared: one exclusive first-come grant with
-  // full ownership, no credit requirement and zero royalties.
+  // full ownership, a mandatory producer credit and zero royalties.
   const pdf = readFileSync(new URL("./license-pdf.js", import.meta.url), "utf8");
-  assert.equal(/const CREDIT =/.test(pdf), false, "the mandatory credit constant is gone");
+  assert.match(pdf, /MANDATORY PRODUCER CREDIT/, "the certificate requires the producer credit");
+  assert.match(pdf, /data\.credit/, "the certificate prints the beat's own derived credit");
+  assert.match(pdf, /a condition of this grant/, "the certificate makes the credit a condition");
+  assert.equal(/NO CREDIT REQUIRED/.test(pdf), false, "the credit waiver is gone");
   assert.match(pdf, /FIRST COME, FIRST SERVED: 100% EXCLUSIVE FULL OWNERSHIP/,
     "the certificate grants the one exclusive license");
   assert.match(pdf, /FULL OWNERSHIP/, "the certificate grants full ownership");
   assert.match(pdf, /Once claimed,[\s\S]*?may use, license or claim it/, "the certificate retires the beat for everyone else");
   assert.match(pdf, /ZERO ROYALTIES to KYROIII/, "the certificate waives royalties");
   assert.match(pdf, /Unlimited COMMERCIAL \+ NON-COMMERCIAL use/, "the certificate grants unlimited use");
-  assert.match(pdf, /No producer credit is required/, "the certificate waives the credit rule");
-  assert.match(pdf, /PRODKYROlll/, "the certificate explicitly names the waived credit");
   assert.match(pdf, /"EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE"/, "the masthead names the exclusive grant");
   assert.equal(/NON-EXCLUSIVE - WORLDWIDE/.test(pdf), false, "no lease branch survives in the certificate");
   assert.match(pdf, /exclusive: pack\.grant/, "the certificate reads the package's grant, so no beat can carry its own terms");
@@ -354,7 +368,10 @@ test("every beat is audited for one uniform license, package set and secured loc
   assert.match(downloadsSource, /ARTIST IP RETAINED/, "the agreement states the artist retains the artwork IP");
   assert.match(downloadsSource, /KYROIII RETAINS 100% OWNERSHIP/, "the agreement spells out retained ownership");
   assert.match(downloadsSource, /EXHIBITIONS, PRINTS, ART BOOKS AND MERCHANDISE/, "the retained rights cover future art uses");
-  assert.match(downloadsSource, /PRODKYROlll/, "the agreement explicitly names the waived credit");
+  assert.match(downloadsSource, /MANDATORY PRODUCER CREDIT/, "the agreement requires the producer credit");
+  assert.match(downloadsSource, /creditFor/, "the agreement renders the beat's own derived credit");
+  assert.equal(/NO PRODUCER CREDIT IS REQUIRED/.test(downloadsSource), false,
+    "the agreement no longer waives the credit");
 
   // The secured state is painted from one place on both surfaces.
   const script = readFileSync(new URL("./script.js", import.meta.url), "utf8");

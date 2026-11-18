@@ -50,7 +50,8 @@
  *
  * There is one audio grant and it is identical for every beat: a 100% EXCLUSIVE,
  * first-come, first-served license of full ownership. The claimant receives all
- * rights, no producer credit is required and no royalties are owed; the beat is
+ * rights, owes no royalties and must carry the beat's producer credit on every
+ * release (see `KYROlll_CREDIT` / `creditFor` in `catalog.js`); the beat is
  * retired and never licensed again. A drop that ships an original hand-drawn
  * cover adds two clauses: an exclusive license to use that artwork as the
  * official release cover, and KYROIII's retained 100% ownership/copyright/IP in
@@ -520,7 +521,10 @@
     putTracked(COL_X + 14, boxTop - 33, data.serial, "F2", 15, WHITE, 0.9);
     putRight(COL_X + COL_W - 14, boxTop - 13, "ISSUED", "F1", 7, MUTED, 1.4);
     putRight(COL_X + COL_W - 14, boxTop - 33, data.issued, "F2", 11, WHITE, 0);
-    y = boxTop - boxH - 40;
+    /* 28, not 40: the mandatory-credit clause below is paid for here, so the
+       artwork drop's four clauses still land above the signature band on one
+       page. Do not widen this gap without reclaiming the same space. */
+    y = boxTop - boxH - 28;
 
     gridRow([
       { label: "BEAT", value: data.title },
@@ -536,15 +540,24 @@
       "may use, license or claim it. Unlimited COMMERCIAL + NON-COMMERCIAL use - streaming, " +
       "distribution, sync, live and monetization - ZERO ROYALTIES to KYROIII.");
 
-    heading("2.0    NO CREDIT REQUIRED");
-    paragraph("No producer credit is required: (Prod. by KYROIII) and PRODKYROlll are waived in full.");
+    heading("2.0    MANDATORY PRODUCER CREDIT");
+    /* The credit is the subject of the clause, so it is set as its own bold line
+       and stepped down in half-points until it fits one line. A long
+       collaboration credit (`loopCredit`) can therefore never wrap this clause
+       onto a second page, which the single-page artwork license has no room for. */
+    const creditLine = toAscii(data.credit || "PROD. KYROIII");
+    let creditSize = 12;
+    while (creditSize > 6.5 && measure(creditLine, "F2", creditSize) > COL_W) creditSize -= 0.5;
+    putTracked(COL_X, y, creditLine, "F2", creditSize, WHITE, 0.6);
+    gap(16);
+    paragraph("Carry it on every release, exactly as written - a condition of this grant.");
 
     heading("3.0    WHAT THIS PACKAGE INCLUDES");
     /* The artwork drop lists its files on four compact lines instead of six, so
        the extra cover clause still lands above the signature band on page one. */
     const includes = data.hasCoverArt
       ? ["UNTAGGED MP3 + HIGH-QUALITY WAV + TRACKED STEMS",
-        "100% EXCLUSIVE OWNERSHIP - FULL RIGHTS + NO CREDIT REQUIRED / ZERO ROYALTIES",
+        "100% EXCLUSIVE OWNERSHIP - FULL RIGHTS + MANDATORY CREDIT / ZERO ROYALTIES",
         "ORIGINAL HAND-DRAWN COVER ART FILE + COVER ART LICENSE"]
       : (data.includes || []);
     includes.forEach(bullet);
@@ -797,6 +810,11 @@
         window.KYROlll_HELPERS.hasCoverArt(beat)),
       bpm: String(beat.bpm),
       key: String(beat.key),
+      /* The compulsory credit, rendered once from the beat's own data so a
+         collaboration drop (`loopCredit`) prints both producers here without a
+         second copy of the rule. */
+      credit: (window.KYROlll_HELPERS && window.KYROlll_HELPERS.creditFor &&
+        window.KYROlll_HELPERS.creditFor(beat)) || "PROD. KYROIII",
       issued: new Date().toISOString().slice(0, 10),
       includes: pack.includes || [],
       serial: serial,

@@ -1182,7 +1182,8 @@ try {
   assert.equal(pdfText.slice(0, 5), '%PDF-');
   assert(pdfText.includes('%%EOF'));
   assert(pdfText.includes(serial), 'the serial shown on the page is printed in the PDF');
-  assert(pdfText.includes('PROD. BY KYROIII')); // the one credit rule
+  assert(pdfText.includes('MANDATORY PRODUCER CREDIT'), 'the certificate requires the producer credit');
+  assert(pdfText.includes('PROD. KYROIII'), 'the certificate prints the credit exactly');
   assert(pdfText.includes('COMMERCIAL')); // commercial / profit use is granted
   assert(pdfText.includes('NON-PROFIT'));
   // The grant is package-level: the MP3 lease is explicitly NON-EXCLUSIVE, names
@@ -1482,7 +1483,7 @@ try {
   assert(proText.includes('THIS LICENSE IS EXCLUSIVE'), 'clause 1.0 grants exclusive rights');
   assert(proText.includes('THE BEAT IS RETIRED AND NEVER LICENSED AGAIN'), 'the exclusive grant retires the beat');
   assert(proText.includes('THIS BEAT IS 100% FREE FOR NON-PROFIT AND COMMERCIAL / PROFIT USE'), 'the exclusive license stays 100% free and commercial');
-  assert(pdfRuns(proText).includes('(PROD. BY KYROIII)'), 'the exclusive license still carries the mandatory credit');
+  assert(pdfRuns(proText).includes('PROD. KYROIII'), 'the exclusive license still carries the mandatory credit');
   assert(pdfRuns(proText).join(' ').includes('FULL EXCLUSIVE RIGHTS - RESELL, RE-LICENSE & TRADE'), 'the includes spell out the exclusive grant and its resale freedom');
   assert(pdfRuns(proText).join(' ').includes('YOU MAY RESELL, RE-LICENSE, TRANSFER OR TRADE IT AND KEEP 100% OF THE PROCEEDS'), 'the exclusive grant permits resale and re-licensing');
   assert.equal(pdfRuns(proText).join(' ').includes('LIMITS: KEEP THE CREDIT, NEVER RESELL'), false, 'the exclusive grant carries no resale restriction');
@@ -2689,7 +2690,7 @@ try {
   assert(adllPdfText.includes('PAGE 1 OF 1'), 'the ADLL license fits one page');
   assert(adllPdfText.includes('THIS LICENSE IS EXCLUSIVE'), 'the ADLL exclusive audit grant is printed');
   assert(adllPdfText.includes('EXCLUSIVE - WORLDWIDE - PERPETUAL - ROYALTY-FREE'), 'the ADLL exclusive masthead is uniform with every beat');
-  assert(pdfRuns(adllPdfText).includes('(PROD. BY KYROIII)'), 'the ADLL license carries the mandatory credit');
+  assert(pdfRuns(adllPdfText).includes('PROD. KYROIII'), 'the ADLL license carries the mandatory credit');
   assert.deepEqual(pdfRuns(adllPdfText).filter(run => /[a-z]/.test(run)), [], 'the ADLL license is uppercase too');
   await adllDownload.close();
 
