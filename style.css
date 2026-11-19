@@ -5846,3 +5846,10 @@ html { --yx-header-h: 64px; }
   .yx-pack,
   .site-nav__link { transition: none; }
 }
+
+/* Supabase email verification code stage */
+.gate-panel__card--code #gate-code {
+  text-align: center;
+  letter-spacing: .35em;
+  font-size: 22px;
+}

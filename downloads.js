@@ -1041,6 +1041,116 @@
     return card;
   }
 
+  /* ------------------------------------------------ email verification (Supabase OTP)
+     When Supabase Auth is configured, every gate asks for a 6-digit code sent
+     to the address before REVIEW & SIGN. When it is not configured (no URL /
+     placeholder), the gate keeps its original behaviour so downloads never
+     break. A verified session on this device skips the code for the same
+     address; a different address always re-verifies. */
+  function codeStageBody(email, opts) {
+    const inline = !!(opts && opts.inline);
+    if (inline) {
+      return '<input class="gate-input" id="gate-code" name="code" type="text" inputmode="numeric" ' +
+        'autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="CODE" required>' +
+        '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
+        '<div class="gate-panel__actions gate-panel__actions--mini">' +
+          '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
+          '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-resend>RESEND</button>' +
+          '<button type="button" class="kyrolll-btn" data-gate-verify disabled>VERIFY</button>' +
+        '</div>';
+    }
+    return '<p class="gate-panel__copy">WE SENT A 6-DIGIT CODE TO ' + escapeHTML(email) + '. ENTER IT TO VERIFY YOUR EMAIL.</p>' +
+      '<form class="gate-form" data-gate-form novalidate>' +
+        '<label class="gate-field" data-gate-field>' +
+          '<span class="gate-field__label">VERIFICATION CODE' +
+            '<span class="gate-field__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +
+          '<input class="gate-input" id="gate-code" name="code" type="text" inputmode="numeric" ' +
+            'autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>' +
+        '</label>' +
+      '</form>' +
+      '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
+      '<div class="gate-panel__actions">' +
+        '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
+        '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-resend>RESEND</button>' +
+        '<button type="button" class="kyrolll-btn" data-gate-verify disabled>VERIFY</button>' +
+      '</div>' +
+      '<p class="gate-panel__hint" id="gate-hint">ENTER THE 6-DIGIT CODE TO CONTINUE</p>';
+  }
+
+  function showCodeStage(beat, pack, email, onUnlocked, optin) {
+    const modal = gate && gate.el;
+    const card = modal && modal.querySelector(".gate-panel__card");
+    if (!modal || !card) return;
+    const inline = !!(gate && gate.inline);
+    card.className = "gate-panel__card gate-panel__card--code";
+    card.innerHTML = (inline ? '' :
+        '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + '</span>' +
+        '<h2 class="gate-panel__title" id="gate-title">VERIFY YOUR EMAIL</h2>') +
+      codeStageBody(email, { inline: inline });
+    resizeHost();
+    wireGateDismiss(card);
+
+    const codeInput = modal.querySelector("#gate-code");
+    const verifyBtn = modal.querySelector("[data-gate-verify]");
+    const resendBtn = modal.querySelector("[data-gate-resend]");
+    const errEl = modal.querySelector("#gate-error");
+
+    function refreshCode() {
+      const v = String(codeInput && codeInput.value || "").replace(/\D/g, "").slice(0, 6);
+      if (codeInput && codeInput.value !== v) codeInput.value = v;
+      if (verifyBtn) verifyBtn.disabled = (v.length !== 6);
+      hideGateError(errEl);
+    }
+    if (codeInput) {
+      codeInput.addEventListener("input", refreshCode);
+      codeInput.addEventListener("keydown", (ev) => {
+        if (ev.key !== "Enter") return;
+        ev.preventDefault();
+        if (verifyBtn && !verifyBtn.disabled) verifyCode();
+      });
+    }
+
+    async function verifyCode() {
+      const code = String(codeInput && codeInput.value || "").trim();
+      if (!/^\d{6}$/.test(code)) return;
+      hideGateError(errEl);
+      if (verifyBtn) verifyBtn.disabled = true;
+      const AUTH = window.KYROlll_AUTH;
+      let res;
+      try { res = await AUTH.verifyOtp(email, code); }
+      catch (e) { res = { ok: false, error: (e && e.message) || "network error" }; }
+      if (!res || !res.ok) {
+        showGateError(errEl, (res && res.error) ? String(res.error).toUpperCase() : "INVALID OR EXPIRED CODE");
+        if (verifyBtn) verifyBtn.disabled = false;
+        try { codeInput.focus(); codeInput.select(); } catch (err) { /* ignore */ }
+        return;
+      }
+      const hint = modal.querySelector("#gate-hint");
+      if (hint) hint.textContent = "EMAIL VERIFIED — REVIEW & SIGN TO UNLOCK";
+      showSignStage(beat, pack, email, onUnlocked, optin);
+    }
+    if (verifyBtn) verifyBtn.addEventListener("click", verifyCode);
+
+    if (resendBtn) {
+      resendBtn.addEventListener("click", async () => {
+        hideGateError(errEl);
+        resendBtn.disabled = true;
+        const AUTH = window.KYROlll_AUTH;
+        let res;
+        try { res = await AUTH.requestOtp(email); }
+        catch (e) { res = { ok: false, error: (e && e.message) || "network error" }; }
+        if (!res || !res.ok) {
+          showGateError(errEl, (res && res.error) ? String(res.error).toUpperCase() : "COULD NOT RESEND CODE");
+        } else {
+          showGateError(errEl, "NEW CODE SENT");
+        }
+        window.setTimeout(() => { resendBtn.disabled = false; }, 20000);
+      });
+    }
+
+    try { if (codeInput) codeInput.focus({ preventScroll: true }); } catch (err) { /* ignore */ }
+  }
+
   /* ---------------------------------------------- REVIEW & SIGN (the last step)
      Every gate now ends here instead of jumping straight to the download page:
      the modal turns into the license itself — the terms to read, then a full
@@ -1528,7 +1638,7 @@
      so a record can never arrive half-empty. The button is only ever enabled
      once the whole form is valid, so this is also the Enter-key and defensive
      path. */
-  function submitGate(beat, pack, modal, onUnlocked, read) {
+  async function submitGate(beat, pack, modal, onUnlocked, read) {
     const errEl = modal.querySelector("#gate-error");
     const submit = modal.querySelector("[data-gate-submit]");
     const input = modal.querySelector("#gate-email");
@@ -1545,8 +1655,38 @@
     hideGateError(errEl);
     if (submit) submit.disabled = true;
     const hint = modal.querySelector("#gate-hint");
-    if (hint) hint.textContent = "EMAIL CONFIRMED — REVIEW & SIGN TO UNLOCK";
-    showSignStage(beat, pack, state.email, onUnlocked, state.optin);
+
+    const AUTH = window.KYROlll_AUTH;
+    const configured = !!(AUTH && typeof AUTH.isConfigured === "function" && AUTH.isConfigured());
+
+    /* No Supabase configured: keep the original behaviour so downloads never
+       break on a preview or a misconfigured deploy. */
+    if (!configured) {
+      if (hint) hint.textContent = "EMAIL CONFIRMED — REVIEW & SIGN TO UNLOCK";
+      showSignStage(beat, pack, state.email, onUnlocked, state.optin);
+      return;
+    }
+
+    /* A verified session for this same address skips the code entirely. */
+    try {
+      if (typeof AUTH.isVerified === "function" && AUTH.isVerified(state.email)) {
+        if (hint) hint.textContent = "EMAIL VERIFIED — REVIEW & SIGN TO UNLOCK";
+        showSignStage(beat, pack, state.email, onUnlocked, state.optin);
+        return;
+      }
+    } catch (e) { /* fall through to OTP */ }
+
+    if (hint) hint.textContent = "SENDING VERIFICATION CODE…";
+    let res;
+    try { res = await AUTH.requestOtp(state.email); }
+    catch (e) { res = { ok: false, error: (e && e.message) || "network error" }; }
+    if (!res || !res.ok) {
+      showGateError(errEl, (res && res.error) ? String(res.error).toUpperCase() : "COULD NOT SEND CODE — TRY AGAIN");
+      if (submit) submit.disabled = false;
+      if (hint) hint.textContent = "ENTER EMAIL, TICK THE BOX AND SUBMIT";
+      return;
+    }
+    showCodeStage(beat, pack, state.email, onUnlocked, state.optin);
   }
 
   /* ---------------------------------------------------------- openGate dispatcher
