@@ -10,7 +10,7 @@
   var existing = (window.KYROlll_SUPABASE && typeof window.KYROlll_SUPABASE === "object")
     ? window.KYROlll_SUPABASE : {};
   var cfg = {
-    url: existing.url || "[PASTE YOUR REAL PROJECT URL]",
+    url: existing.url || "https://sdvvaqbajnngyjvtbzeo.supabase.co",
     anonKey: existing.anonKey || "sb_publishable_bn62aZqI4CdDoIzO5O88AA_Gentr2E3"
   };
   try {
