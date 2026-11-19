@@ -1320,7 +1320,7 @@
       /* The signature sheet: a clean field, so the customer never signs over the
          brand's flower mark. */
       '<div class="sign-sheet">' +
-        '<div class="sign-pad" data-sign-pad hidden>' +
+        '<div class="sign-pad" data-sign-pad>' +
           '<canvas class="sign-pad__canvas" data-sign-canvas width="' + SIGN_PAD.w + '" height="' + SIGN_PAD.h + '"></canvas>' +
           '<div class="sign-pad__row"><span class="sign-pad__hint">DRAG TO SIGN — MOUSE OR FINGER</span>' +
             '<button type="button" class="sign-pad__clear" data-sign-clear>CLEAR</button></div>' +
@@ -1546,10 +1546,9 @@
         mode = next;
         card.querySelectorAll("[data-sign-mode]").forEach((other) =>
           other.classList.toggle("is-active", other === btn));
-        /* The full-name field is required in BOTH modes, so it never hides and
-           the typed name is never cleared by a switch — only the pad's visibility
-           changes. */
-        if (pad) pad.hidden = mode !== "draw";
+        /* The signature pad stays visible in BOTH modes: the name and the ink
+           are captured together, so no tab switch is needed to reveal it. */
+        if (pad) pad.hidden = false;
         if (mode === "draw" && canvas) { canvas.focus && canvas.focus(); }
         else if (nameInput) { try { nameInput.focus(); } catch (err) { /* ignore */ } }
         refresh();
