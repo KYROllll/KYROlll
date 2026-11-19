@@ -5847,9 +5847,45 @@ html { --yx-header-h: 64px; }
   .site-nav__link { transition: none; }
 }
 
-/* Supabase email verification code stage */
-.gate-panel__card--code #gate-code {
-  text-align: center;
-  letter-spacing: .35em;
-  font-size: 22px;
+/* Supabase email verification code stage — six crisp OTP boxes */
+.gate-panel__card--code .otp-boxes {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 8px 0 4px;
 }
+.gate-panel__card--code .otp-box {
+  width: 44px;
+  height: 52px;
+  padding: 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  caret-color: #fff;
+  outline: none;
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.gate-panel__card--code .otp-box:focus {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+.gate-panel__card--code .otp-box:not(:placeholder-shown),
+.gate-panel__card--code .otp-box.filled {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+}
+.gate-panel__card--code #gate-code { display: none; }
+/* inline (focus sheet) compact variant */
+.yx-pack__gate .gate-panel__card--code .otp-box {
+  width: 36px;
+  height: 44px;
+  font-size: 18px;
+}
+.yx-pack__gate .gate-panel__card--code .otp-boxes { gap: 6px; }

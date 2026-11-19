@@ -872,8 +872,8 @@
     ["sign", "SIGN"],
     ["files", "FILES"]
   ];
-  function stepRail(active, inline) {
-    if (!inline) return "";
+  function stepRail(active) {
+    if (!active) return "";
     const at = FLOW_STEPS.findIndex((step) => step[0] === active);
     return '<div class="sign-steps" aria-hidden="true">' +
       FLOW_STEPS.map((step, i) => {
@@ -918,7 +918,7 @@
     if (inline) {
       /* Bare-minimum inline email step: a single input line, a compact opt-in,
          and tight action buttons — nothing else. */
-      return stepRail("email", true) +
+      return stepRail("email") +
           '<form class="gate-form" data-gate-form novalidate' +
           (endpoint ? ' action="' + escapeHTML(endpoint) + '" method="post"' : '') + '>' +
           '<input class="gate-input" id="gate-email" name="email" type="email" inputmode="email" ' +
@@ -999,7 +999,7 @@
     const inlineFiles = !!(gate && gate.inline);
     card.innerHTML =
       (inlineFiles
-        ? stepRail("files", true) +
+        ? stepRail("files") +
           '<div class="gate-panel__head">' +
             '<h2 class="gate-panel__title" id="gate-title">FILES UNLOCKED</h2>' +
             '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + '</span>' +
@@ -1047,11 +1047,23 @@
      placeholder), the gate keeps its original behaviour so downloads never
      break. A verified session on this device skips the code for the same
      address; a different address always re-verifies. */
+  /* Six crisp OTP boxes — one digit per box. A hidden `#gate-code` keeps the
+     aggregate value so the existing verify path and any caller that reads it
+     still work. */
+  function otpBoxesHTML(autocomplete) {
+    let boxes = "";
+    for (let i = 0; i < 6; i += 1) {
+      boxes += '<input class="otp-box" data-otp-index="' + i + '" type="text" inputmode="numeric" ' +
+        'pattern="[0-9]" maxlength="1" autocomplete="' + (i === 0 ? (autocomplete || "one-time-code") : "off") + '" ' +
+        'aria-label="Digit ' + (i + 1) + ' of 6" required>';
+    }
+    return '<div class="otp-boxes" role="group" aria-label="6-digit verification code">' + boxes + '</div>' +
+      '<input type="hidden" id="gate-code" name="code" value="">';
+  }
   function codeStageBody(email, opts) {
     const inline = !!(opts && opts.inline);
     if (inline) {
-      return '<input class="gate-input" id="gate-code" name="code" type="text" inputmode="numeric" ' +
-        'autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="CODE" required>' +
+      return otpBoxesHTML("one-time-code") +
         '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
         '<div class="gate-panel__actions gate-panel__actions--mini">' +
           '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
@@ -1060,14 +1072,11 @@
         '</div>';
     }
     return '<p class="gate-panel__copy">WE SENT A 6-DIGIT CODE TO ' + escapeHTML(email) + '. ENTER IT TO VERIFY YOUR EMAIL.</p>' +
-      '<form class="gate-form" data-gate-form novalidate>' +
-        '<label class="gate-field" data-gate-field>' +
-          '<span class="gate-field__label">VERIFICATION CODE' +
-            '<span class="gate-field__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +
-          '<input class="gate-input" id="gate-code" name="code" type="text" inputmode="numeric" ' +
-            'autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>' +
-        '</label>' +
-      '</form>' +
+      '<div class="gate-field" data-gate-field>' +
+        '<span class="gate-field__label">VERIFICATION CODE' +
+          '<span class="gate-field__tick" aria-hidden="true">' + tickSVG() + '</span></span>' +
+        otpBoxesHTML("one-time-code") +
+      '</div>' +
       '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
       '<div class="gate-panel__actions">' +
         '<button type="button" class="kyrolll-btn kyrolll-btn--ghost" data-gate-cancel>CANCEL</button>' +
@@ -1090,28 +1099,77 @@
     resizeHost();
     wireGateDismiss(card);
 
+    const boxes = Array.prototype.slice.call(modal.querySelectorAll(".otp-box"));
     const codeInput = modal.querySelector("#gate-code");
     const verifyBtn = modal.querySelector("[data-gate-verify]");
     const resendBtn = modal.querySelector("[data-gate-resend]");
     const errEl = modal.querySelector("#gate-error");
 
-    function refreshCode() {
-      const v = String(codeInput && codeInput.value || "").replace(/\D/g, "").slice(0, 6);
-      if (codeInput && codeInput.value !== v) codeInput.value = v;
-      if (verifyBtn) verifyBtn.disabled = (v.length !== 6);
+    function readCode() {
+      return boxes.map((b) => String(b.value || "").replace(/\D/g, "").slice(0, 1)).join("");
+    }
+    function writeCode(value) {
+      const digits = String(value || "").replace(/\D/g, "").slice(0, 6);
+      boxes.forEach((b, i) => { b.value = digits.charAt(i) || ""; b.classList.toggle("filled", !!digits.charAt(i)); });
+      if (codeInput) codeInput.value = digits;
+      if (verifyBtn) verifyBtn.disabled = (digits.length !== 6);
       hideGateError(errEl);
     }
-    if (codeInput) {
-      codeInput.addEventListener("input", refreshCode);
-      codeInput.addEventListener("keydown", (ev) => {
-        if (ev.key !== "Enter") return;
-        ev.preventDefault();
-        if (verifyBtn && !verifyBtn.disabled) verifyCode();
-      });
+    function focusBox(index) {
+      const target = boxes[Math.max(0, Math.min(boxes.length - 1, index))];
+      if (target) { try { target.focus({ preventScroll: true }); target.select(); } catch (err) { /* ignore */ } }
     }
+    boxes.forEach((box, index) => {
+      box.addEventListener("input", (ev) => {
+        const digit = String(box.value || "").replace(/\D/g, "").slice(-1);
+        box.value = digit;
+        box.classList.toggle("filled", !!digit);
+        const code = readCode();
+        if (codeInput) codeInput.value = code;
+        if (verifyBtn) verifyBtn.disabled = (code.length !== 6);
+        hideGateError(errEl);
+        if (digit && index < boxes.length - 1) focusBox(index + 1);
+        if (code.length === 6) {
+          window.setTimeout(() => {
+            if (verifyBtn && !verifyBtn.disabled) verifyCode();
+          }, 60);
+        }
+      });
+      box.addEventListener("keydown", (ev) => {
+        if (ev.key === "Backspace") {
+          if (!box.value && index > 0) {
+            ev.preventDefault();
+            focusBox(index - 1);
+            boxes[index - 1].value = "";
+            writeCode(readCode());
+          }
+          return;
+        }
+        if (ev.key === "ArrowLeft" && index > 0) { ev.preventDefault(); focusBox(index - 1); return; }
+        if (ev.key === "ArrowRight" && index < boxes.length - 1) { ev.preventDefault(); focusBox(index + 1); return; }
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          if (verifyBtn && !verifyBtn.disabled) verifyCode();
+          return;
+        }
+        if (!/^[0-9]$/.test(ev.key) && ev.key.length === 1) ev.preventDefault();
+      });
+      box.addEventListener("paste", (ev) => {
+        const text = (ev.clipboardData && ev.clipboardData.getData) ? ev.clipboardData.getData("text") : "";
+        const digits = String(text || "").replace(/\D/g, "").slice(0, 6);
+        if (!digits) return;
+        ev.preventDefault();
+        writeCode(digits);
+        focusBox(Math.min(digits.length, boxes.length - 1));
+        if (digits.length === 6) {
+          window.setTimeout(() => { if (verifyBtn && !verifyBtn.disabled) verifyCode(); }, 60);
+        }
+      });
+    });
 
     async function verifyCode() {
-      const code = String(codeInput && codeInput.value || "").trim();
+      const code = readCode();
+      if (codeInput) codeInput.value = code;
       if (!/^\d{6}$/.test(code)) return;
       hideGateError(errEl);
       if (verifyBtn) verifyBtn.disabled = true;
@@ -1122,7 +1180,7 @@
       if (!res || !res.ok) {
         showGateError(errEl, (res && res.error) ? String(res.error).toUpperCase() : "INVALID OR EXPIRED CODE");
         if (verifyBtn) verifyBtn.disabled = false;
-        try { codeInput.focus(); codeInput.select(); } catch (err) { /* ignore */ }
+        try { focusBox(0); } catch (err) { /* ignore */ }
         return;
       }
       const hint = modal.querySelector("#gate-hint");
@@ -1148,7 +1206,7 @@
       });
     }
 
-    try { if (codeInput) codeInput.focus({ preventScroll: true }); } catch (err) { /* ignore */ }
+    try { focusBox(0); } catch (err) { /* ignore */ }
   }
 
   /* ---------------------------------------------- REVIEW & SIGN (the last step)
@@ -1214,12 +1272,13 @@
     resizeHost();
     const inlineSign = !!(gate && gate.inline);
     const head = inlineSign
-      ? stepRail("terms", true) +
+      ? stepRail("terms") +
         '<div class="gate-panel__head">' +
           '<h2 class="gate-panel__title" id="gate-title">REVIEW &amp; SIGN</h2>' +
           '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + '</span>' +
         '</div>'
-      : '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + '</span>' +
+      : stepRail("terms") +
+        '<span class="gate-panel__kicker">' + escapeHTML(pack.name) + '</span>' +
         '<h2 class="gate-panel__title" id="gate-title">LICENSE REVIEW &amp; SIGNATURE</h2>' +
         '<p class="gate-panel__copy">READ THE TERMS, TYPE YOUR FULL NAME, DRAW YOUR SIGNATURE, AND YOUR FILES UNLOCK.</p>';
     /* The compact flow asks for the name on a single terminal line, exactly like
