@@ -24,10 +24,10 @@
  *
  * The REVIEW & SIGN stage only unlocks once the terms have actually been read to
  * the end AND the visitor has both typed a FULL NAME (first and last) and drawn
- * a genuine signature on the pad. TYPE and DRAW are one shared readiness state —
- * the full name is never a substitute for the drawing and the drawing is never a
- * substitute for the name — so switching tabs can neither skip the name nor
- * bypass the pad. A single word, a blank line and a token dot are all refused
+ * a genuine signature on the pad directly below it. There is one readiness state
+ * — the full name is never a substitute for the drawing and the drawing is never
+ * a substitute for the name — so no toggle can skip either half. A single word,
+ * a blank line and a token dot are all refused
  * (`isFullName` / `drawingValid`), so there is no bypass to the files. The typed
  * full name always travels with the flow alongside the drawn strokes, and both
  * are what the PDF license stamps in its LICENSEE block (see `license-pdf.js`);
@@ -224,7 +224,7 @@
       licenseSerial: String(serial || ""),
       gateStepsCompleted: GATE_STEP_SUMMARY,
       newsletterOptIn: optin ? "YES" : "NO",
-      signatureMethod: "DRAW + TYPE SYNCHRONIZED",
+      signatureMethod: "TYPED NAME + DRAWN SIGNATURE",
       signatureStrokes: String(Math.max(0, Number(strokeCount) || 0)),
       deviceType: analyticsDeviceType(),
       sourcePage: analyticsSourcePage(),
@@ -1212,9 +1212,9 @@
   /* ---------------------------------------------- REVIEW & SIGN (the last step)
      Every gate now ends here instead of jumping straight to the download page:
      the modal turns into the license itself — the terms to read, then a full
-     name typed AND a genuine signature drawn on the pad with mouse or finger.
-     TYPE and DRAW share one readiness state, so neither tab can skip the other
-     half. Only when the terms have been read to the end AND both halves exist
+     name typed AND a genuine signature drawn on the pad directly below it.
+     Both halves share one readiness state, so neither can skip the other.
+     Only when the terms have been read to the end AND both halves exist
      does SIGN & UNLOCK come alive; that name and that drawing are stamped into
      the LICENSEE block of the PDF. Nothing is stored — they are handed forward
      in the download URL, exactly like the address. */
@@ -1298,25 +1298,16 @@
             'autocapitalize="characters" enterkeyhint="done" spellcheck="false" maxlength="48" ' +
             'placeholder="TYPE YOUR FULL NAME">' +
         '</label>';
-    const modes = '<div class="sign-modes" role="group" aria-label="Signature style">' +
-        (inlineSign ? '<span class="sign-modes__label">SIGNATURE</span>' : '') +
-        '<button type="button" class="sign-mode is-active" data-sign-mode="type">TYPE</button>' +
-        '<button type="button" class="sign-mode" data-sign-mode="draw">DRAW</button>' +
-        /* In the compact flow the live stamp rides on the same line as the
-           switch, so it costs no vertical space of its own. */
-        (inlineSign ? '<span class="license-cert__stamp" data-sign-stamp data-stamped="false"></span>' : '') +
-      '</div>';
     card.className = "gate-panel__card gate-panel__card--sign";
     card.innerHTML =
       head +
       '<div class="sign-terms" data-sign-terms role="region" tabindex="0" aria-label="License terms">' +
         termsHTML(beat, pack) +
       '</div>' +
-      /* The FULL NAME field sits ABOVE the TYPE / DRAW switch and never hides:
-         it is required in both modes, so switching to DRAW cannot skip the name
-         that attributes the license. */
+      /* The FULL NAME field sits directly above the signature pad: the typed
+         name attributes the license and is always required, with no mode to
+         switch through. */
       nameField +
-      modes +
       /* The signature sheet: a clean field, so the customer never signs over the
          brand's flower mark. */
       '<div class="sign-sheet">' +
@@ -1325,7 +1316,7 @@
           '<div class="sign-pad__row"><span class="sign-pad__hint">DRAG TO SIGN — MOUSE OR FINGER</span>' +
             '<button type="button" class="sign-pad__clear" data-sign-clear>CLEAR</button></div>' +
         '</div>' +
-        (inlineSign ? '' : '<span class="license-cert__stamp" data-sign-stamp data-stamped="false"></span>') +
+        '<span class="license-cert__stamp" data-sign-stamp data-stamped="false"></span>' +
       '</div>' +
       '<p class="gate-error" id="gate-error" role="alert" hidden></p>' +
       '<div class="gate-panel__actions">' +
@@ -1340,14 +1331,12 @@
     const terms = card.querySelector("[data-sign-terms]");
     const field = card.querySelector("[data-sign-field]");
     const nameInput = card.querySelector("#sign-name");
-    const pad = card.querySelector("[data-sign-pad]");
     const canvas = card.querySelector("[data-sign-canvas]");
     const stamp = card.querySelector("[data-sign-stamp]");
     const errEl = card.querySelector("#gate-error");
     const hint = card.querySelector("#gate-hint");
     const submitBtn = card.querySelector("[data-sign-submit]");
 
-    let mode = "type";
     let strokes = [];
     let current = null;
     let submitted = false;
@@ -1406,11 +1395,10 @@
     function drawingValid() {
       return strokes.length > 0 && drawPoints() >= SIGN_INK_MIN && strokeSpan() >= SIGN_SPAN_MIN;
     }
-    /* The one readiness rule, shared by BOTH tabs:
+    /* The one readiness rule:
          isFullName(name) && a genuine drawing on the pad
-       TYPE is not a shortcut past the pad and DRAW is not a shortcut past the
-       name. Switching tabs only shows or hides the pad; it never changes the
-       name, the strokes or the button's state. */
+       The name field is not a shortcut past the pad and the pad is not a
+       shortcut past the name. */
     function hasDrawnSignature() {
       return drawingValid();
     }
@@ -1427,12 +1415,12 @@
        Reporting a refusal makes the card grow, the terms pane takes a scroll
        from that reflow, and the pane's own scroll listener used to land here:
        the refusal hid itself in the very frame it was announced. Only a
-       deliberate edit or a mode switch clears it (see `refresh`). */
+       deliberate edit clears it (see `refresh`). */
     function applyState() {
       const read = termsRead();
       const named = isFullName(typedName());
       const drawn = hasDrawnSignature();
-      /* The one shared readiness condition the user sees on both tabs. */
+      /* The one readiness condition the visitor sees. */
       const signed = isReady();
       const ready = read && signed;
       if (submitBtn) submitBtn.disabled = !ready;
@@ -1449,10 +1437,9 @@
       if (hint) {
         /* The three synchronized states, in one place: the pad is the missing
            half when the name is set, the name is the missing half when the pad
-           is signed, and only both together is "all set" (with the terms read).
-           The button is shared, so these read identically on TYPE and DRAW. */
+           is signed, and only both together is "all set" (with the terms read). */
         if (signed) hint.textContent = read ? "ALL SET — SIGN & UNLOCK" : "SCROLL THROUGH THE TERMS TO THE END";
-        else if (named) hint.textContent = "FULL NAME SET — SWITCH TO DRAW TAB & SIGN THE PAD TO UNLOCK";
+        else if (named) hint.textContent = "FULL NAME SET — DRAW YOUR SIGNATURE ON THE PAD TO UNLOCK";
         else if (drawn) hint.textContent = "SIGNATURE CAPTURED — ENTER YOUR FULL FIRST & LAST NAME TO UNLOCK";
         else if (typedName()) hint.textContent = nameProblem();
         else hint.textContent = read ? "ENTER YOUR FULL NAME — FIRST AND LAST" : "SCROLL THROUGH THE TERMS TO THE END";
@@ -1519,7 +1506,7 @@
           /* A finished drawing that has no valid full name on file reports the
              one thing still missing, instead of letting a bare stroke read as a
              signature. */
-          if (mode === "draw" && drawingValid() && !isFullName(typedName())) {
+          if (drawingValid() && !isFullName(typedName())) {
             showGateError(errEl, "ENTER YOUR FULL NAME — FIRST AND LAST TO UNLOCK");
           }
         }));
@@ -1536,23 +1523,6 @@
       current = null;
       paint();
       refresh();
-    });
-
-    /* ------------------------------------------------------- the mode tabs */
-    card.querySelectorAll("[data-sign-mode]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const next = btn.getAttribute("data-sign-mode") === "draw" ? "draw" : "type";
-        if (next === mode) return;
-        mode = next;
-        card.querySelectorAll("[data-sign-mode]").forEach((other) =>
-          other.classList.toggle("is-active", other === btn));
-        /* The signature pad stays visible in BOTH modes: the name and the ink
-           are captured together, so no tab switch is needed to reveal it. */
-        if (pad) pad.hidden = false;
-        if (mode === "draw" && canvas) { canvas.focus && canvas.focus(); }
-        else if (nameInput) { try { nameInput.focus(); } catch (err) { /* ignore */ } }
-        refresh();
-      });
     });
 
     if (nameInput) {
@@ -1575,22 +1545,20 @@
       if (submitted) return;
       if (!termsRead()) { showGateError(errEl, "READ THE TERMS TO THE END FIRST"); return; }
       /* The full name is enforced again here — the one thing a script can do is
-         strip the `disabled` attribute, so a single word is refused on submit
-         whatever mode the pad is in. */
+         strip the `disabled` attribute, so a single word is refused on submit. */
       if (!isFullName(typedName())) {
         showGateError(errEl, nameProblem() || "TYPE YOUR FULL NAME TO UNLOCK");
         return;
       }
-      /* The drawing is enforced again here too, and for BOTH tabs: the readiness
-         rule is one shared state, so a script that strips `disabled` from the
-         TYPE tab still cannot turn a typed name into a license without the pad's
-         ink. There is no mode-conditional shortcut. */
+      /* The drawing is enforced again here too: the readiness rule is one shared
+         state, so a script that strips `disabled` still cannot turn a typed name
+         into a license without the pad's ink. */
       if (!hasDrawnSignature()) {
         showGateError(errEl, "DRAW YOUR FULL SIGNATURE ON THE PAD TO UNLOCK");
         return;
       }
       /* Capture BOTH halves — the typed full name AND the drawn signature — and
-         hand them to the flow together, whichever tab the click came from. The
+         hand them to the flow together. The
          full name is what attributes the drawing in the PDF's LICENSEE metadata
          line; `setSignature` clears a drawing, so the strokes are laid back over
          the name last. */

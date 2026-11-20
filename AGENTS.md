@@ -1014,9 +1014,9 @@ never arrive half-empty:
   at SIGN & UNLOCK with every analytics field present.
 - `showSignStage(beat, pack, email, onUnlocked, optin)` is the last screen of every gate: the terms
   in their own scroll pane (`.sign-terms`), the **FULL NAME — FIRST AND LAST** field
-  (`#sign-name`) **above** the TYPE / DRAW switch (`.sign-mode`) and never hidden — it is
-  required in **both** modes, so switching to DRAW can never skip the name — then the signature
-  sheet — a **clean field** (nothing is drawn behind it, so the customer never signs over the
+  (`#sign-name`) directly **above** the signature pad — there is no TYPE / DRAW toggle and no
+  mode to switch through, so the name and the ink are captured in one uninterrupted stage — then
+  the signature sheet — a **clean field** (nothing is drawn behind it, so the customer never signs over the
   brand's flower; the mark now lives in the PDF's LICENSOR approval stamp) around the pad
   (`.sign-pad__canvas`, pointer events, monochrome white ink,
   `touch-action: none`, DPR-scaled bitmap so the ink is crisp on a retina phone) — the live
@@ -1027,20 +1027,20 @@ never arrive half-empty:
   letters, letters only) **AND** a **genuine drawing** on the pad
   (`drawingValid`: `SIGN_INK_MIN` = 8 thinned points spread over at least `SIGN_SPAN_MIN` = 0.3
   of the pad's width + height, so a tap, a dot or a two-point flick cannot sign) must both be
-  present. `TYPE` and `DRAW` are **one shared readiness state**
-  (`isReady = isFullName(name) && hasDrawnSignature()`), not two rules: switching tabs only
-  shows or hides the pad and never changes the name, the strokes or the button, so TYPE cannot
-  bypass the drawing and DRAW cannot bypass the name. The hint names the missing half exactly —
-  `FULL NAME SET — SWITCH TO DRAW TAB & SIGN THE PAD TO UNLOCK`, or
+  present. The name and the pad are **one shared readiness state**
+  (`isReady = isFullName(name) && hasDrawnSignature()`), not two rules: the pad is always
+  visible below the field, and neither half can bypass the other. The hint names the missing
+  half exactly —
+  `FULL NAME SET — DRAW YOUR SIGNATURE ON THE PAD TO UNLOCK`, or
   `SIGNATURE CAPTURED — ENTER YOUR FULL FIRST & LAST NAME TO UNLOCK`, and
   `ALL SET — SIGN & UNLOCK` only when both exist (with the terms read). A single word, a blank
   line, initials and digits are all refused, and the refusal is enforced again inside the submit
-  handler for **both** tabs — so stripping the button's `disabled` attribute (the one thing a
+  handler — so stripping the button's `disabled` attribute (the one thing a
   script can do) still unlocks nothing. A finished stroke with no valid name reports
   `ENTER YOUR FULL NAME — FIRST AND LAST TO UNLOCK` on the spot, and the stamped sheet reads
   `FULL NAME REQUIRED — FIRST AND LAST`. The stage keeps two functions for that reason:
   `applyState()` moves the button, the stamp and the hint, while `refresh()` is `applyState()`
-  plus `hideGateError`. Only a deliberate edit or a mode switch calls `refresh`; the terms
+  plus `hideGateError`. Only a deliberate edit calls `refresh`; the terms
   pane's own `scroll` listener calls `applyState`, because reporting a refusal grows the card,
   the pane takes a scroll from that reflow and the pane's handler used to land in `refresh` — so
   the refusal hid itself in the frame it was announced (it showed up as an intermittent
@@ -1049,8 +1049,13 @@ never arrive half-empty:
   that slides off the pad keeps its stroke (the pointer is captured; only a mouse ends one on
   `pointerleave`), because a dropped stroke is what made people sign twice. The pad keeps at
   most `SIGN_POINTS` thinned points per stroke and 12 strokes, because the drawing has to fit
-  in a URL. On SIGN & UNLOCK **both** halves are captured — whichever tab the click came from —
-  and `finalizeGate` runs.
+  in a URL. On SIGN & UNLOCK **both** halves are captured and `finalizeGate` runs.
+- When Supabase Auth is configured, `showCodeStage` sits between the email step and REVIEW & SIGN:
+  six `.otp-box` tiles in one `.otp-boxes` row. The tiles are sharp brand tiles — `border-radius:
+  0`, `var(--font-mono)` bold digits, `caret-color: transparent` (no blinking bar inside the box),
+  a white border + glow on the active box, and a filled box turned stark white with a `#050505`
+  digit. Auto-advance, paste, backspace and the auto-submit on the sixth digit live in
+  `showCodeStage`, not in the stylesheet.
 - `downloadUrl(beatId, packageId, email)` is the hand-off to the download page: the URL carries
   a one-shot grant token (`?t=<random hex>`, minted fresh when a gate is passed) and, when there
   is one, the address just submitted (`?email=…`), the signed name (`?sign=…`) and a drawing
@@ -1388,9 +1393,9 @@ Tests that ship with the repo:
   and no `/GS1` in the PDF); the flower's second draw is the LICENSOR approval stamp, asserted in
   the right column with its `OFFICIAL VERIFIED SEAL` / `AUTHORIZED LICENSOR` legend, and the
   hand-drawn issuance's micro-line is asserted to carry the full name that signed it. It also
-  proves TYPE and DRAW are one readiness machine: typing `MATAN MAMADOV` on TYPE keeps the
+  proves the name and the pad are one readiness machine: typing `MATAN MAMADOV` keeps the
   button locked until the pad is inked, a drawing with the name empty or a single word (`MATAN`)
-  keeps it locked on both tabs, and only both halves enable it — identically on TYPE and DRAW.
+  keeps it locked, and only both halves enable it — with no mode toggle in the stage.
   Stray clicks are watched from both stages: a click on the panel's own empty corner and a
   viewport-corner mouse click never close, reset or dismiss a gate or a signature in progress. The download page's re-sign field refuses a single word the same way; re-signing
   then downloads again, proving the new name replaces the old one in caps on the next issuance. It also
@@ -1428,7 +1433,7 @@ step, which is a lead-capture courtesy rather than
 enforcement — the files themselves are public and nothing on
 the server blocks them, and the grant token is just a URL parameter. The strict half of
 "genuine interaction" is what a static page can actually enforce: the **full name AND a drawn
-signature** captured in the sign step — both are required on **both** TYPE and DRAW tabs, so
+signature** captured in the sign step — both are required on the one pad, so
 neither a typed name alone nor a bare drawing can stand in for the other (a single word, a blank
 field, an unsigned pad and a token dot are all refused before the unlock button will move, and
 the submit handler refuses them again if the attribute is stripped).

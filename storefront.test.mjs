@@ -710,7 +710,6 @@ test('signing in the sheet unlocks the files in the same row, with no redirect',
     const terms = document.querySelector('.sign-terms');
     terms.scrollTop = terms.scrollHeight;
   });
-  await page.locator('[data-sign-mode="draw"]').click();
   await page.waitForTimeout(150);
   /* Draw through real pointer events dispatched on the canvas. Coordinates are
      recomputed from the live rect on every event, so a reflow mid-stroke (the

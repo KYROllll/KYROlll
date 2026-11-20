@@ -2998,22 +2998,10 @@ html.vinyl-dragging * {
 .yx-pack__gate .sign-terms__list li { font-size: 7.5px; line-height: 1.5; letter-spacing: .04em; }
 .yx-pack__gate .sign-terms__end { margin: 5px 0 0; font-size: 6.5px; }
 
-/* TYPE / DRAW and the live stamp share one line. */
-.yx-pack__gate .sign-modes { display: flex; align-items: baseline; gap: 8px; margin: 0 0 4px; min-width: 0; }
-.yx-pack__gate .sign-modes__label { font-size: 6.5px; letter-spacing: .2em; color: #5c5c5c; }
-.yx-pack__gate .sign-mode {
-  flex: 0 0 auto;
-  padding: 0 0 2px;
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid transparent;
-  color: #666;
-  font-size: 8px;
-  letter-spacing: .18em;
-}
-.yx-pack__gate .sign-mode.is-active { background: transparent; border-bottom-color: #fff; color: #fff; }
-.yx-pack__gate .sign-modes .license-cert__stamp {
-  margin-left: auto;
+/* The live stamp closes the compact signature block on one tidy line. */
+.yx-pack__gate .sign-sheet .license-cert__stamp {
+  display: block;
+  margin-top: 4px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3316,24 +3304,6 @@ html.vinyl-dragging * {
   letter-spacing: .32em;
   color: var(--gray);
 }
-
-.sign-modes { display: flex; gap: 6px; margin: 0 0 12px; }
-.sign-mode {
-  flex: 1 1 0;
-  padding: 9px 10px;
-  background: transparent;
-  border: 1px solid #333;
-  color: var(--gray);
-  font-family: inherit;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: .24em;
-  cursor: pointer;
-  transition: background .15s ease, border-color .15s ease, color .15s ease;
-}
-.sign-mode:hover,
-.sign-mode:focus-visible { border-color: #6a6a6a; color: var(--white); }
-.sign-mode.is-active { background: var(--white); border-color: var(--white); color: var(--black); }
 
 .sign-pad { margin: 0 0 12px; }
 .sign-pad__canvas {
@@ -4134,7 +4104,6 @@ html.preloader-armed { overflow-y: hidden; }
 .download-trigger,
 .download-tier,
 .kyrolll-btn,
-.sign-mode,
 .sign-pad__clear,
 .gate-optin,
 .license-cert__sign-input {
@@ -5847,45 +5816,61 @@ html { --yx-header-h: 64px; }
   .site-nav__link { transition: none; }
 }
 
-/* Supabase email verification code stage — six crisp OTP boxes */
+/* Supabase email verification code stage — six sharp brand OTP tiles.
+   Architectural edges, a white active border/glow and stark-white filled
+   boxes with black digits: the code reads like the store's own stamp. The
+   native caret is suppressed, so a focused box shows its border — never a
+   blinking vertical bar. */
 .gate-panel__card--code .otp-boxes {
   display: flex;
   gap: 8px;
   justify-content: center;
-  margin: 8px 0 4px;
+  margin: 10px 0 6px;
 }
 .gate-panel__card--code .otp-box {
-  width: 44px;
+  width: clamp(36px, 12vw, 44px);
   height: 52px;
   padding: 0;
   text-align: center;
   font-family: var(--font-mono);
-  font-size: 22px;
+  font-size: clamp(19px, 6vw, 24px);
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 6px;
-  caret-color: #fff;
+  color: var(--white);
+  background: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 0;
+  caret-color: transparent;
   outline: none;
-  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+  box-shadow: none;
+  transition: border-color .12s ease, background .12s ease, color .12s ease, box-shadow .12s ease;
 }
+.gate-panel__card--code .otp-box::selection { background: #050505; color: #ffffff; }
+/* The current box is the only one with a light on it. */
 .gate-panel__card--code .otp-box:focus {
-  border-color: #fff;
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+  border-color: #ffffff;
+  background: #000000;
+  color: #ffffff;
+  box-shadow: 0 0 0 1px #ffffff, 0 0 14px rgba(255, 255, 255, 0.35);
 }
-.gate-panel__card--code .otp-box:not(:placeholder-shown),
+/* Every entered digit turns its box into a stark white tile. */
 .gate-panel__card--code .otp-box.filled {
-  border-color: rgba(255, 255, 255, 0.55);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: #ffffff;
+  background: #ffffff;
+  color: #050505;
+  box-shadow: 0 0 0 1px #ffffff;
+}
+.gate-panel__card--code .otp-box.filled:focus {
+  background: #ffffff;
+  color: #050505;
+  box-shadow: 0 0 0 1px #ffffff, 0 0 16px rgba(255, 255, 255, 0.5);
 }
 .gate-panel__card--code #gate-code { display: none; }
 /* inline (focus sheet) compact variant */
 .yx-pack__gate .gate-panel__card--code .otp-box {
   width: 36px;
   height: 44px;
-  font-size: 18px;
+  font-size: 19px;
 }
 .yx-pack__gate .gate-panel__card--code .otp-boxes { gap: 6px; }

@@ -433,8 +433,8 @@ async function pickPackage(page, packageId) {
 
 // Every gate now closes with the REVIEW & SIGN stage: the terms have to be read
 // to the end AND BOTH halves of the signature captured — a FULL name (first and
-// last) typed into the field AND a genuine drawing on the pad — before SIGN &
-// UNLOCK comes alive. TYPE and DRAW share that one readiness state.
+// last) typed into the field AND a genuine drawing on the pad directly below
+// it — before SIGN & UNLOCK comes alive.
 const signStage = (page) => page.locator('.gate-panel__card--sign');
 async function readTerms(page) {
   await page.locator('[data-sign-terms]').evaluate(el => {
@@ -451,10 +451,10 @@ async function signLicense(page, name) {
   await page.locator('[data-sign-submit]').click();
 }
 // Ink a two-stroke signature on the pad with real pointer input. The pad is
-// hidden until DRAW is selected, and it may sit below the dialog's fold, so it
-// is scrolled into the card's own viewport before the pointer is measured.
+// always visible below the full-name field, and it may sit below the dialog's
+// fold, so it is scrolled into the card's own viewport before the pointer is
+// measured.
 async function drawSignature(page) {
-  await page.locator('[data-sign-mode="draw"]').click();
   await page.locator('[data-sign-canvas]').scrollIntoViewIfNeeded();
   const box = await page.locator('[data-sign-canvas]').boundingBox();
   const at = (fx, fy) => ({ x: box.x + box.width * fx, y: box.y + box.height * fy });
@@ -1091,23 +1091,18 @@ try {
   assert.equal(await mp3Page.locator('[data-sign-submit]').isDisabled(), true, 'an unread license stays locked');
   await mp3Page.locator('#sign-name').fill('Jordan Vega');
   assert.equal(await mp3Page.locator('[data-sign-submit]').isDisabled(), true, 'a full name alone never unlocks — the pad must be signed too');
-  assert.match(await mp3Page.locator('#gate-hint').innerText(), /FULL NAME SET — SWITCH TO DRAW TAB & SIGN THE PAD TO UNLOCK/);
+  assert.match(await mp3Page.locator('#gate-hint').innerText(), /FULL NAME SET — DRAW YOUR SIGNATURE ON THE PAD TO UNLOCK/);
   await readTerms(mp3Page);
   assert(await mp3Page.locator('[data-sign-terms]').evaluate(el => el.scrollTop > 0), 'the terms pane really scrolled to the end');
   assert.equal(await mp3Page.locator('.gate-panel__card--sign .gate-field.is-valid').count(), 1, 'a full name ticks its field');
   assert.match(await mp3Page.locator('[data-sign-stamp]').innerText(), /JORDAN VEGA/, 'the stamp previews the name while the pad is still empty');
   assert.equal(await mp3Page.locator('[data-sign-submit]').isDisabled(), true, 'read terms + a full name still needs the drawn signature');
-  // DRAW is the same readiness machine, not a second rule: the shared button is
-  // still locked there until the pad carries a genuine stroke.
-  await mp3Page.locator('[data-sign-mode="draw"]').click();
-  assert.equal(await mp3Page.locator('[data-sign-submit]').isDisabled(), true, 'DRAW sees the same locked state');
+  // The pad is the same readiness machine, not a second rule: the shared button
+  // stays locked until the pad carries a genuine stroke.
+  assert.equal(await mp3Page.locator('[data-sign-mode]').count(), 0, 'there is no TYPE / DRAW toggle');
   await drawSignature(mp3Page);
   assert.match(await mp3Page.locator('#gate-hint').innerText(), /ALL SET — SIGN & UNLOCK/);
   assert.equal(await mp3Page.locator('[data-sign-submit]').isDisabled(), false, 'full name + drawing + read terms unlocks');
-  // Back on TYPE the button is still enabled and the drawing still travels:
-  // the state is shared, so a click from either tab carries both halves.
-  await mp3Page.locator('[data-sign-mode="type"]').click();
-  assert.equal(await mp3Page.locator('[data-sign-submit]').isDisabled(), false, 'TYPE shares the enabled state');
   await mp3Page.locator('[data-sign-submit]').click();
   await mp3Page.waitForURL(/download\.html\?beat=.*&package=mp3/);
   assert.match(mp3Page.url(), /sign=Jordan(%20|\+)Vega/, 'the signature is handed forward in the flow URL');
@@ -1132,7 +1127,7 @@ try {
   assert.equal(mp3Post.gateStepsCompleted, 'EMAIL + LICENSE AGREEMENT', 'the MP3 gate records its email + license steps');
   assert.equal(mp3Post.socialStepsCompleted, undefined, 'the MP3 record carries no social-step field');
   assert.equal(mp3Post.newsletterOptIn, 'YES', 'the record confirms the mandatory opt-in');
-  assert.equal(mp3Post.signatureMethod, 'DRAW + TYPE SYNCHRONIZED', 'the record confirms the signature method');
+  assert.equal(mp3Post.signatureMethod, 'TYPED NAME + DRAWN SIGNATURE', 'the record confirms the signature method');
   assert.equal(mp3Post.deviceType, 'DESKTOP', 'the record carries the device class');
   assert.equal(mp3Post.sourcePage, 'index.html', 'the record carries the source page');
   assert.match(mp3Post.timestampLocal, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/, 'the record carries a local timestamp');
@@ -1380,11 +1375,11 @@ try {
   // This license is signed by hand: the pad takes real pointer strokes, and the
   // drawing travels on to the download page and into the PDF as vector paths.
   await signStage(proPage).waitFor();
-  // DRAW mode is not a shortcut past the full name: with the name field empty —
+  // The pad is not a shortcut past the full name: with the name field empty —
   // and again with a single word — a bare drawing leaves SIGN & UNLOCK locked,
   // and the sheet says exactly what is still missing.
   await drawSignature(proPage);
-  assert.equal(await proPage.locator('#sign-name').inputValue(), '', 'the full-name field starts empty and stays visible in DRAW mode');
+  assert.equal(await proPage.locator('#sign-name').inputValue(), '', 'the full-name field starts empty above the pad');
   assert.equal(await proPage.locator('[data-sign-submit]').isDisabled(), true, 'a drawing with no name stays locked');
   assert.match(await proPage.locator('[data-sign-stamp]').innerText(), /FULL NAME REQUIRED/, 'the sheet reports the missing full name');
   await readTerms(proPage);
@@ -1393,19 +1388,15 @@ try {
   await proPage.locator('#sign-name').fill('MATAN');
   assert.equal(await proPage.locator('[data-sign-submit]').isDisabled(), true, 'a drawing plus a single word stays locked');
   assert.match(await proPage.locator('[data-sign-stamp]').innerText(), /FULL NAME REQUIRED/);
-  // The full name is enforced in DRAW mode exactly as the disabled-button check
-  // is: stripping the attribute still refuses a one-word signature.
+  // The full name is enforced exactly as the disabled-button check is:
+  // stripping the attribute still refuses a one-word signature.
   await proPage.evaluate(() => { const b = document.querySelector('[data-sign-submit]'); b.disabled = false; b.click(); });
-  assert.equal(await proPage.evaluate(() => new URLSearchParams(location.search).has('t')), false, 'a one-word DRAW signature never unlocks');
+  assert.equal(await proPage.evaluate(() => new URLSearchParams(location.search).has('t')), false, 'a one-word signature never unlocks');
   assert.match(await proPage.locator('#gate-error').innerText(), /FIRST AND LAST NAME REQUIRED/);
   await proPage.locator('#sign-name').fill('MATAN MAMADOV');
   assert.match(await proPage.locator('[data-sign-stamp]').innerText(), /SIGNATURE CAPTURED/, 'a full name plus a valid drawing is captured');
   assert.match(await proPage.locator('#gate-hint').innerText(), /ALL SET — SIGN & UNLOCK/);
-  assert.equal(await proPage.locator('[data-sign-submit]').isDisabled(), false, 'a full name plus a valid drawing unlocks DRAW mode');
-  // The same shared button stays enabled on TYPE — and the click from there still
-  // carries the drawn strokes, because the readiness state is not per-tab.
-  await proPage.locator('[data-sign-mode="type"]').click();
-  assert.equal(await proPage.locator('[data-sign-submit]').isDisabled(), false, 'TYPE shares the enabled state');
+  assert.equal(await proPage.locator('[data-sign-submit]').isDisabled(), false, 'a full name plus a valid drawing unlocks');
   await proPage.locator('[data-sign-submit]').click();
   // The exclusive signature is what claims the beat: the live catalog entry is
   // marked while the success surface is still up, before the flow moves on.
@@ -1717,37 +1708,31 @@ try {
   assert.equal(await signDismiss.evaluate(() => document.documentElement.classList.contains('gate-open')), false, 'CANCEL releases the page from the sign stage');
   await signDismiss.close();
 
-  // TYPE and DRAW are one readiness machine. A full name is not a signature and a
-  // drawing is not a license: the shared SIGN & UNLOCK stays grey until BOTH are
-  // present (with the terms read), and switching tabs cannot change that.
+  // A full name is not a signature and a drawing is not a license: the one
+  // SIGN & UNLOCK button stays grey until BOTH are present (with the terms
+  // read), and the pad sits directly below the name field at all times.
   const syncPage = await setupPage({ viewport: { width: 1024, height: 900 }, reducedMotion: 'reduce' });
   await pickPackage(syncPage, 'mp3');
   await syncPage.locator('.gate-panel').waitFor();
   await syncPage.locator('#gate-email').fill('sync-buyer@example.com');
   await syncPage.locator('[data-gate-submit]').click();
   await signStage(syncPage).waitFor();
-  // 1. A valid full name typed on TYPE is not enough.
+  assert.equal(await syncPage.locator('[data-sign-mode]').count(), 0, 'the sign stage renders no mode toggle');
+  // 1. A valid full name alone is not enough.
   await syncPage.locator('#sign-name').fill('MATAN MAMADOV');
   await readTerms(syncPage);
-  assert.equal(await syncPage.locator('[data-sign-mode="type"]').evaluate(el => el.classList.contains('is-active')), true, 'the sheet starts on TYPE');
-  assert.equal(await syncPage.locator('[data-sign-submit]').isDisabled(), true, 'a full name alone stays locked on TYPE');
-  assert.match(await syncPage.locator('#gate-hint').innerText(), /FULL NAME SET — SWITCH TO DRAW TAB & SIGN THE PAD TO UNLOCK/);
-  // 2. A drawing with a single-word name stays locked — and the lock is shared,
-  //    so TYPE sees exactly the same disabled button.
-  await syncPage.locator('[data-sign-mode="draw"]').click();
+  assert.equal(await syncPage.locator('[data-sign-submit]').isDisabled(), true, 'a full name alone stays locked');
+  assert.match(await syncPage.locator('#gate-hint').innerText(), /FULL NAME SET — DRAW YOUR SIGNATURE ON THE PAD TO UNLOCK/);
+  // 2. A drawing with a single-word name stays locked.
   await syncPage.locator('#sign-name').fill('MATAN');
   await drawSignature(syncPage);
-  assert.equal(await syncPage.locator('[data-sign-submit]').isDisabled(), true, 'a drawing plus a single word stays locked on DRAW');
+  assert.equal(await syncPage.locator('[data-sign-submit]').isDisabled(), true, 'a drawing plus a single word stays locked');
   assert.match(await syncPage.locator('[data-sign-stamp]').innerText(), /FULL NAME REQUIRED/);
-  await syncPage.locator('[data-sign-mode="type"]').click();
-  assert.equal(await syncPage.locator('[data-sign-submit]').isDisabled(), true, 'the locked state is shared with TYPE');
   assert.match(await syncPage.locator('#gate-hint').innerText(), /SIGNATURE CAPTURED — ENTER YOUR FULL FIRST & LAST NAME TO UNLOCK/);
-  // 3. Both halves: enabled on TYPE, and still enabled on DRAW.
+  // 3. Both halves enable the one shared button.
   await syncPage.locator('#sign-name').fill('MATAN MAMADOV');
-  assert.equal(await syncPage.locator('[data-sign-submit]').isDisabled(), false, 'full name + drawing enables on TYPE');
+  assert.equal(await syncPage.locator('[data-sign-submit]').isDisabled(), false, 'full name + drawing enables the shared button');
   assert.match(await syncPage.locator('#gate-hint').innerText(), /ALL SET — SIGN & UNLOCK/);
-  await syncPage.locator('[data-sign-mode="draw"]').click();
-  assert.equal(await syncPage.locator('[data-sign-submit]').isDisabled(), false, 'full name + drawing stays enabled on DRAW');
   // 4. Empty-area clicks — the panel at (5, 5), the viewport corner and the
   //    modal root itself — never close, reset or dismiss the stage.
   await syncPage.locator('.gate-panel__card').click({ position: { x: 5, y: 5 } });
@@ -1761,7 +1746,7 @@ try {
   await syncPage.waitForTimeout(320);
   assert.equal(await syncPage.locator('.gate-panel').count(), 1, 'the modal root never closes the sign stage');
   assert.equal(await syncPage.evaluate(() => document.documentElement.classList.contains('gate-open')), true, 'the modal root click never unlocks the page');
-  assert.equal(await syncPage.locator('[data-sign-mode="draw"]').evaluate(el => el.classList.contains('is-active')), true, 'the stage is not reset by the clicks');
+  assert.equal(await syncPage.locator('[data-sign-canvas]').count(), 1, 'the pad is not reset by the clicks');
   assert.equal(await syncPage.locator('#sign-name').inputValue(), 'MATAN MAMADOV', 'the name is not reset by the clicks');
   assert.equal(await syncPage.locator('[data-sign-submit]').isDisabled(), false, 'the enabled button survives the clicks');
   await syncPage.locator('.gate-panel__card [data-gate-cancel]').click();
@@ -3055,7 +3040,7 @@ try {
     'no superseded Formspree form id remains anywhere in the repository');
 
   assert.deepEqual(errors, []);
-  console.log('Passed storefront layout, tagged audio preview, and the free-download drawer + all three packages behind one clean two-step gate (email + opt-in only, with no social step, like, follow or subscribe anywhere), the REVIEW & SIGN stage with read-to-the-end terms, a typed full name AND a drawn signature required together in BOTH TYPE and DRAW with a single word or a drawing alone refused even with the disabled attribute stripped, and a re-sign single word refused on the download page — an upright never-flipped signature mark, no flower watermark on the signature sheet / the certificate (the flower now lives in the PDF\'s LICENSOR approval stamp) and a pure-white drawn signature ink, a panel that never dismisses the gate or the signature stage, a border-free floating flower and white/silver monochrome PDF borders, a direct studio-named PDF download with its serial, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts, and the whole flow walked at 390x844 with touch).');
+  console.log('Passed storefront layout, tagged audio preview, and the free-download drawer + all three packages behind one clean two-step gate (email + opt-in only, with no social step, like, follow or subscribe anywhere), the REVIEW & SIGN stage with read-to-the-end terms, a typed full name AND a drawn signature required together on the one pad with a single word or a drawing alone refused even with the disabled attribute stripped, and a re-sign single word refused on the download page — an upright never-flipped signature mark, no flower watermark on the signature sheet / the certificate (the flower now lives in the PDF\'s LICENSOR approval stamp) and a pure-white drawn signature ink, a panel that never dismisses the gate or the signature stage, a border-free floating flower and white/silver monochrome PDF borders, a direct studio-named PDF download with its serial, studio filenames with BPM and key, in-page session memory with empty storage, Formspree posts, and the whole flow walked at 390x844 with touch).');
 } finally {
   await browser?.close();
   server.close();
