@@ -750,7 +750,11 @@ payment gateway.
   `PROD. KYROIII X <CREATOR NAME>` or `PROD. KYROIII X A X B`. `loopCredit` is the whole
   edit for a future collaboration drop — the gate terms, the files shelf, the download
   page and the PDF all follow. The credit is a condition of the grant, so no surface may
-  re-waive it.
+  re-waive it. A **sample-based** drop is separate: it declares `sampleCredit` (the source
+  record, or an array) and `KYROlll_HELPERS.sampleCreditFor(beat)` feeds the certificate's
+  `SAMPLE CREDIT` metadata line, the gate terms and the download page chip, while
+  `creditFor` stays `PROD. KYROIII`. A sample is metadata, never a co-producer and never
+  the beat's title.
 - `window.KYROlll_CATALOG` — one entry per beat: `id` (the uuid, also the `?beat=` value),
   `slug` (kept only so old `?beat=flesh` links resolve), `title`, `img`, `bpm`, `key`,
   `preview`, `youtube` (the beat's own video, exposed by `videoFor`) and `deliverables`
@@ -759,9 +763,10 @@ payment gateway.
   download page. `downloads.js` re-derives that `name` from the beat's own metadata on the
   way out (see the studio filenames below), so the `name` in the data is only the fallback
   for a caller with no beat in hand. The license is never listed: the download page always
-  generates one. A collaboration drop adds `loopCredit` (see `KYROlll_CREDIT` above).
+  generates one. A collaboration drop adds `loopCredit` (see `KYROlll_CREDIT` above), and
+  a sample-based drop adds `sampleCredit`.
 - `window.KYROlll_HELPERS` — `escapeHTML`, `beatById(idOrSlug)`, `packageById(id)`,
-  `deliverablesFor(beatId, packageId)`, `creditFor(beat)`, `videoFor(beatId)` and
+  `deliverablesFor(beatId, packageId)`, `creditFor(beat)`, `sampleCreditFor(beat)`, `videoFor(beatId)` and
   `newsletterEndpoint()`,
   plus the scheduled-release clock: `now()`, `releaseAt(beat)`, `isReleased(beat[, at])`,
   `msUntilRelease(beat[, at])`, `formatCountdown(ms)` and `releaseLabel(beat)`.

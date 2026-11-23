@@ -327,30 +327,36 @@
         ]
       }
     },
-    // BIGXTHAPLUG TYPE BEAT — LOVE GOES ON, built on WHITEHEAD BROS - LOVE GOES ON.
-    // The supplied cover is display art only: it is the beat's `img`, never a
-    // `coverArt` hand-over, so the gate delivers the audio, the stems and the
-    // license — not the cover image.
+    // BIGXTHAPLUG TYPE BEAT — TEXAS TAPE, built on WHITEHEAD BROS - LOVE GOES ON.
+    // The sampled record is carried by `sampleCredit` only: it is never the
+    // beat's title and it is not a producer collaboration (`loopCredit`). The
+    // supplied cover is display art only — the beat's `img`, never a `coverArt`
+    // hand-over — so the gate delivers the audio, the stems and the license,
+    // not the cover image.
     {
-      id: "love-goes-on",
-      slug: "love-goes-on",
-      title: "[FREE 100%] BIGXTHAPLUG TYPE BEAT - LOVE GOES ON",
-      shortTitle: "LOVE GOES ON",
-      img: "assets/love-goes-on.webp",
+      id: "texas-tape",
+      slug: "texas-tape",
+      // The drop was briefly published under its sample's name; keep that link
+      // resolving without making it the title again.
+      aliases: ["love-goes-on"],
+      title: "[FREE 100%] BIGXTHAPLUG TYPE BEAT - TEXAS TAPE",
+      shortTitle: "TEXAS TAPE",
+      img: "assets/texas-tape.webp",
       bpm: 119,
       key: "D",
       preview: "assets/previews/love-goes-on.mp3",
       youtube: "https://www.youtube.com/@KYROlll00",
-      // The compulsory credit also names the sampled record, so the license
-      // reads "PROD. KYROIII X WHITEHEAD BROS - LOVE GOES ON".
-      loopCredit: "WHITEHEAD BROS - LOVE GOES ON",
+      // The sample credit is separate from the compulsory producer credit, so
+      // the license reads "PROD. KYROIII" and names the source record on its
+      // own SAMPLE CREDIT line.
+      sampleCredit: "WHITEHEAD BROS - LOVE GOES ON",
       // Scheduled drop tonight at 23:00 (Israel time).
       releaseAt: "2026-11-23T23:00:00+02:00",
       deliverables: {
         exclusive: [
-          { file: "assets/previews/love-goes-on.mp3", name: "KYROIII - LOVE GOES ON (119 BPM - D).mp3", label: "UNTAGGED MP3" },
-          { file: "assets/previews/love-goes-on.wav", name: "KYROIII - LOVE GOES ON (119 BPM - D).wav", label: "HIGH-QUALITY WAV" },
-          { file: "assets/previews/love-goes-on-stems.zip", name: "KYROIII - LOVE GOES ON (119 BPM - D) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
+          { file: "assets/previews/love-goes-on.mp3", name: "KYROIII - TEXAS TAPE (119 BPM - D).mp3", label: "UNTAGGED MP3" },
+          { file: "assets/previews/love-goes-on.wav", name: "KYROIII - TEXAS TAPE (119 BPM - D).wav", label: "HIGH-QUALITY WAV" },
+          { file: "assets/previews/love-goes-on-stems.zip", name: "KYROIII - TEXAS TAPE (119 BPM - D) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
       }
     }
@@ -1054,6 +1060,15 @@
     // original loop/sample creator through its `loopCredit` field.
     creditFor(beat) {
       return producerCredit(beat);
+    },
+    // The source record a sample-based drop is built on. It is deliberately
+    // separate from the compulsory producer credit: a sample is metadata, not
+    // a co-production, and it is never used as the beat's title.
+    sampleCreditFor(beat) {
+      const raw = beat && beat.sampleCredit;
+      const list = Array.isArray(raw) ? raw : [raw];
+      return list.map((name) => (typeof name === "string" ? name.trim() : ""))
+        .filter(Boolean).join(" / ");
     },
     // The beat's own video, or the channel as a last resort, for any caller
     // that wants to point at it. A scheduled drop's own video is

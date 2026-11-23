@@ -533,6 +533,15 @@
       { label: "TERRITORY", value: "WORLDWIDE" }
     ], [1.7, 1.25, 0.85, 0.85]);
 
+    /* A sample-based drop carries its source record as its own metadata line,
+       separate from the producer credit. Only drops with a sample print it, so
+       every other certificate keeps its original one-row layout. */
+    if (data.sample) {
+      putTracked(COL_X, y, "SAMPLE CREDIT", "F1", 7, MUTED, 1.4);
+      put(COL_X + 78, y, toAscii(data.sample), "F2", 9, WHITE, 0.2);
+      gap(14);
+    }
+
     /* ------------------------------------------------------- clauses */
 
     heading("1.0    GRANT OF FULL EXCLUSIVE OWNERSHIP");
@@ -815,6 +824,11 @@
          second copy of the rule. */
       credit: (window.KYROlll_HELPERS && window.KYROlll_HELPERS.creditFor &&
         window.KYROlll_HELPERS.creditFor(beat)) || "PROD. KYROIII",
+      /* A sample-based drop names its source record here, separately from the
+         producer credit, so the license never presents the sampled artist as a
+         co-producer. */
+      sample: (window.KYROlll_HELPERS && window.KYROlll_HELPERS.sampleCreditFor &&
+        window.KYROlll_HELPERS.sampleCreditFor(beat)) || "",
       issued: new Date().toISOString().slice(0, 10),
       includes: pack.includes || [],
       serial: serial,

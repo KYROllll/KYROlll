@@ -178,9 +178,10 @@
     const hasStems = items.some((item) => /\.zip$/i.test((item && item.file) || ""));
     const hasArt = !!(helpers() && helpers().hasCoverArt && helpers().hasCoverArt(beat));
     const credit = (helpers() && helpers().creditFor && helpers().creditFor(beat)) || "PROD. KYROIII";
+    const sample = (helpers() && helpers().sampleCreditFor && helpers().sampleCreditFor(beat)) || "";
     const tag = !items.length ? "" : (hasStems ? "STEMS + WAV + MP3" : (items.length > 1 ? "WAV + MP3" : "MP3"));
     return [beat.bpm + " BPM", String(beat.key).toUpperCase(), tag,
-      hasArt ? "ORIGINAL COVER ART" : "", pack.tag, credit].filter(Boolean);
+      hasArt ? "ORIGINAL COVER ART" : "", sample ? "SAMPLE: " + sample : "", pack.tag, credit].filter(Boolean);
   }
   function renderMeta(items) {
     if (!metaEl) return;

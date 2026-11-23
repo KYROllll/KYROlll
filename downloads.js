@@ -1224,6 +1224,7 @@
     const helpers = window.KYROlll_HELPERS || {};
     const hasArt = !!(helpers.hasCoverArt && helpers.hasCoverArt(beat));
     const credit = (helpers.creditFor && helpers.creditFor(beat)) || "PROD. KYROIII";
+    const sample = (helpers.sampleCreditFor && helpers.sampleCreditFor(beat)) || "";
     /* A drop that ships an original hand-drawn cover adds two clauses: the
        exclusive cover-art usage license and the artist's retained IP. The audio
        grant, its mandatory producer credit and its zero-royalty rule stay the
@@ -1248,7 +1249,8 @@
       '<p class="sign-terms__item"><span class="sign-terms__no">2.0</span>MANDATORY PRODUCER CREDIT. EVERY ' +
         'RELEASE, UPLOAD AND DISTRIBUTION OF THIS BEAT MUST CARRY THE CREDIT ' + escapeHTML(credit) +
         ', EXACTLY AS WRITTEN, IN THE TRACK TITLE OR DESCRIPTION. THE CREDIT IS A CONDITION OF THIS GRANT ' +
-        'AND MAY NOT BE ABBREVIATED OR OMITTED.</p>' +
+        'AND MAY NOT BE ABBREVIATED OR OMITTED.' +
+        (sample ? ' THIS BEAT SAMPLES ' + escapeHTML(sample) + '.' : '') + '</p>' +
       '<p class="sign-terms__item"><span class="sign-terms__no">3.0</span>UNLIMITED COMMERCIAL AND ' +
         'NON-COMMERCIAL USE — STREAMING, DISTRIBUTION, SYNC, LIVE PERFORMANCES AND MONETIZATION — WITH ' +
         'ZERO ROYALTIES OWED TO KYROIII. YOU KEEP 100% OF WHAT YOU EARN.</p>' +

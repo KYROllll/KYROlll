@@ -61,8 +61,8 @@ test("the re-ingested ADLL beat is scheduled for today at 19:00 with its graffit
   const catalog = window.KYROlll_CATALOG;
   assert.equal(catalog.length, 10, "the catalog carries ten releases");
   assert.deepEqual(Array.from(catalog, (beat) => beat.slug),
-    ["flesh", "the-flow", "green-flesh", "squish", "just-d0-it", "adll", "gunna-type", "white-night", "beat-0009", "love-goes-on"],
-    "the ten beats are intact, in order, with LOVE GOES ON as the newest entry");
+    ["flesh", "the-flow", "green-flesh", "squish", "just-d0-it", "adll", "gunna-type", "white-night", "beat-0009", "texas-tape"],
+    "the ten beats are intact, in order, with TEXAS TAPE as the newest entry");
   const beat = window.KYROlll_HELPERS.beatById("adll");
   assert(beat, "ADLL resolves from its id and slug");
   assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - A.D.L");
@@ -149,14 +149,15 @@ test("the GUNNA drop is scheduled for 22:00 today and every record keeps the ori
   assert.doesNotMatch(css, /url\(assets\/beat-cover\.png\)/, "the stylesheet hard-codes no beat artwork path");
 });
 
-test("the LOVE GOES ON drop is scheduled for tonight at 23:00 and never hands over its cover art", () => {
+test("the TEXAS TAPE drop is scheduled for tonight at 23:00 and never hands over its cover art", () => {
   const { window } = catalogContextFor();
   const helpers = window.KYROlll_HELPERS;
-  const beat = helpers.beatById("love-goes-on");
-  assert(beat, "the LOVE GOES ON drop resolves from its id and slug");
-  assert.equal(beat.title, "[FREE 100%] BIGXTHAPLUG TYPE BEAT - LOVE GOES ON");
-  assert.equal(beat.shortTitle, "LOVE GOES ON");
-  assert.equal(beat.img, "assets/love-goes-on.webp", "the supplied artwork is the record cover only");
+  const beat = helpers.beatById("texas-tape");
+  assert(beat, "the TEXAS TAPE drop resolves from its id and slug");
+  assert.equal(helpers.beatById("love-goes-on"), beat, "the old preview link still resolves to the same drop");
+  assert.equal(beat.title, "[FREE 100%] BIGXTHAPLUG TYPE BEAT - TEXAS TAPE");
+  assert.equal(beat.shortTitle, "TEXAS TAPE");
+  assert.equal(beat.img, "assets/texas-tape.webp", "the supplied artwork is the record cover only");
   assert.equal(beat.bpm, 119);
   assert.equal(beat.key, "D");
   assert.equal(beat.preview, "assets/previews/love-goes-on.mp3");
@@ -165,8 +166,12 @@ test("the LOVE GOES ON drop is scheduled for tonight at 23:00 and never hands ov
   assert.equal(helpers.releaseAt(beat), releaseAt);
   assert.equal(helpers.isReleased(beat, releaseAt - 1), false, "the beat stays scheduled until 23:00");
   assert.equal(helpers.isReleased(beat, releaseAt), true, "the beat unlocks on the clock");
-  assert.equal(helpers.creditFor(beat), "PROD. KYROIII X WHITEHEAD BROS - LOVE GOES ON",
-    "the sampled record is credited in the compulsory producer line");
+  assert.equal(helpers.creditFor(beat), "PROD. KYROIII",
+    "the sampled artist is not presented as a co-producer");
+  assert.equal(helpers.sampleCreditFor(beat), "WHITEHEAD BROS - LOVE GOES ON",
+    "the source record stays in the sample credit field");
+  assert.doesNotMatch(beat.title, /LOVE GOES ON/, "the sample is not the beat's title");
+  assert.equal(beat.loopCredit, undefined, "a sample credit is not a collaboration credit");
   assert.equal(helpers.hasCoverArt(beat), false, "the display cover is not a cover-art hand-over");
   assert.equal(helpers.coverArtFor(beat), null);
   assert.deepEqual(Array.from(beat.deliverables.exclusive, (item) => item.file), [
@@ -175,9 +180,9 @@ test("the LOVE GOES ON drop is scheduled for tonight at 23:00 and never hands ov
     "assets/previews/love-goes-on-stems.zip",
   ]);
   assert.deepEqual(Array.from(beat.deliverables.exclusive, (item) => item.name), [
-    "KYROIII - LOVE GOES ON (119 BPM - D).mp3",
-    "KYROIII - LOVE GOES ON (119 BPM - D).wav",
-    "KYROIII - LOVE GOES ON (119 BPM - D) - TRACKED STEMS.zip",
+    "KYROIII - TEXAS TAPE (119 BPM - D).mp3",
+    "KYROIII - TEXAS TAPE (119 BPM - D).wav",
+    "KYROIII - TEXAS TAPE (119 BPM - D) - TRACKED STEMS.zip",
   ]);
   const handover = helpers.deliverablesFor(beat.id, "exclusive");
   assert.equal(handover.length, 3, "the gate hands over the audio and stems only");
@@ -186,7 +191,7 @@ test("the LOVE GOES ON drop is scheduled for tonight at 23:00 and never hands ov
     assert.doesNotMatch(item.label, /cover\s*art/i, `${item.label} is not a cover-art hand-over`);
   });
   [
-    "assets/love-goes-on.webp",
+    "assets/texas-tape.webp",
     "assets/previews/love-goes-on.mp3",
     "assets/previews/love-goes-on.wav",
     "assets/previews/love-goes-on-stems.zip",
