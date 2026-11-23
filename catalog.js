@@ -326,6 +326,33 @@
           { file: "assets/previews/BEAT 0009-stems.zip", name: "KYROIII - BEAT 0009 - TRACKED STEMS.zip", label: "TRACKED STEMS" }
         ]
       }
+    },
+    // BIGXTHAPLUG TYPE BEAT — LOVE GOES ON, built on WHITEHEAD BROS - LOVE GOES ON.
+    // The supplied cover is display art only: it is the beat's `img`, never a
+    // `coverArt` hand-over, so the gate delivers the audio, the stems and the
+    // license — not the cover image.
+    {
+      id: "love-goes-on",
+      slug: "love-goes-on",
+      title: "[FREE 100%] BIGXTHAPLUG TYPE BEAT - LOVE GOES ON",
+      shortTitle: "LOVE GOES ON",
+      img: "assets/love-goes-on.webp",
+      bpm: 119,
+      key: "D",
+      preview: "assets/previews/love-goes-on.mp3",
+      youtube: "https://www.youtube.com/@KYROlll00",
+      // The compulsory credit also names the sampled record, so the license
+      // reads "PROD. KYROIII X WHITEHEAD BROS - LOVE GOES ON".
+      loopCredit: "WHITEHEAD BROS - LOVE GOES ON",
+      // Scheduled drop tonight at 23:00 (Israel time).
+      releaseAt: "2026-11-23T23:00:00+02:00",
+      deliverables: {
+        exclusive: [
+          { file: "assets/previews/love-goes-on.mp3", name: "KYROIII - LOVE GOES ON (119 BPM - D).mp3", label: "UNTAGGED MP3" },
+          { file: "assets/previews/love-goes-on.wav", name: "KYROIII - LOVE GOES ON (119 BPM - D).wav", label: "HIGH-QUALITY WAV" },
+          { file: "assets/previews/love-goes-on-stems.zip", name: "KYROIII - LOVE GOES ON (119 BPM - D) - TRACKED STEMS.zip", label: "TRACKED STEMS" }
+        ]
+      }
     }
   ];
 

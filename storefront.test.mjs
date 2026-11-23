@@ -129,12 +129,12 @@ test('the home is a solid black compact grid with the category menu', async () =
       })(),
     };
   });
-  assert.equal(home.cards, 9, 'all nine releases are in the grid');
-  assert.equal(home.count, '09', 'the release count is derived from the catalog');
+  assert.equal(home.cards, 10, 'all ten releases are in the grid');
+  assert.equal(home.count, '10', 'the release count is derived from the catalog');
   assert.equal(home.columns, 4, 'the desktop grid is four compact columns');
   assert.equal(home.canvas, 0, 'the falling-petal canvas is gone');
   assert.equal(home.bg, 'rgb(0, 0, 0)', 'the page sits on solid pitch black');
-  assert.match(home.first, /^09 \| BEAT 0009 \| 150 BPM \/ C/, 'the newest release leads the grid and carries the highest archive number');
+  assert.match(home.first, /^10 \| LOVE GOES ON \| 119 BPM \/ D/, 'the newest release leads the grid and carries the highest archive number');
   assert.equal(home.main, 'none', 'the old catalog document is not below the archive');
   assert.equal(home.room, 0, 'the vinyl room is gone from the home route');
   assert.equal(home.overflow, 0, 'the home never scrolls sideways');
@@ -421,7 +421,7 @@ test('choosing a record zooms it open in place and offers the packages', async (
     focused: document.activeElement && document.activeElement.classList.contains('yx-card'),
   }));
   assert.equal(back.homeHidden, false, 'ALL BEATS restores the archive');
-  assert.equal(back.cards, 9, 'every record is back in the grid');
+  assert.equal(back.cards, 10, 'every record is back in the grid');
   assert.equal(back.scrollY, archive.scrollY, 'the archive keeps its place after the landing');
   assert.deepEqual(back.media, archive.media, 'no card reflowed or moved during open and close');
   assert.equal(back.focused, true, 'focus returns to the card that was chosen');
@@ -587,7 +587,7 @@ test('the artwork collection opens in place as locked collector pieces', async (
     artHidden: document.querySelector('#yx-artwork').hidden,
   }));
   assert.equal(beats.active, 'FREE BEATS');
-  assert.equal(beats.cards, 9);
+  assert.equal(beats.cards, 10);
   assert.equal(beats.artHidden, true);
   assert(!/view=artwork/.test(beats.url), 'the menu switches back to the beats archive');
 
@@ -597,8 +597,9 @@ test('the artwork collection opens in place as locked collector pieces', async (
 
 test('a package opens the real gate, and the preview plays', async () => {
   const { context, page, errors } = await openHome({ viewport: { width: 1440, height: 900 } });
-  /* The newest record is the scheduled BEAT 0009 drop, which is still locked at
-     the test clock. Open a live record for the gate and player checks. */
+  /* The two newest records are scheduled drops (LOVE GOES ON tonight, then
+     BEAT 0009), which are still locked at the test clock. Open a live record
+     for the gate and player checks. */
   await page.locator('#yx-grid [data-yx-beat="white-night"]').click();
   await page.waitForFunction(() => !document.querySelector('#yx-focus').hidden);
 
@@ -1123,5 +1124,107 @@ test('the brand keeps its own lettering and the category headers glitch on a slo
   assert.match(frames.burstShadow, /rgba?\(255, 0, 64/, 'the burst paints the red half of the split');
   assert.match(frames.burstShadow, /rgba?\(0, 229, 255/, 'the burst paints the cyan half of the split');
   assert.notEqual(frames.burstTransform, 'none', 'the burst jitters the header horizontally');
+  await context.close();
+});
+
+test('the LOVE GOES ON gate delivers the audio, its stems and the license, never the cover', async () => {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.route('https://formspree.io/**', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: '{"ok":true}',
+  }));
+  /* Just past the drop's 23:00 clock, so the record is live and the packages
+     are available without waiting for the real release. */
+  const live = '2026-11-23T23:00:01+02:00';
+  await page.goto(`${base}/?now=${encodeURIComponent(live)}`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#yx-grid [data-yx-beat="love-goes-on"]');
+  await page.locator('#yx-grid [data-yx-beat="love-goes-on"]').click();
+  await page.waitForFunction(() => !document.querySelector('#yx-focus').hidden);
+
+  const opened = await page.evaluate(() => ({
+    title: document.querySelector('.yx-focus__title').textContent,
+    art: document.querySelector('.yx-focus__art img').getAttribute('src'),
+    packs: document.querySelectorAll('#yx-focus [data-yx-pack]').length,
+  }));
+  assert.equal(opened.title, 'LOVE GOES ON');
+  assert.match(opened.art, /love-goes-on\.webp$/, 'the supplied artwork is the record cover');
+  assert.equal(opened.packs, 1, 'the live drop carries its exclusive package');
+
+  await page.locator('#yx-focus [data-yx-pack]').click();
+  await page.waitForSelector('.yx-pack.is-selected .gate-panel');
+  await page.locator('#gate-email').fill('love-goes-on@example.com');
+  await page.locator('[data-gate-submit]').click();
+  await page.waitForSelector('.yx-pack.is-selected .gate-panel__card--sign');
+
+  await page.locator('#sign-name').fill('Jordan Vega');
+  await page.evaluate(() => {
+    const terms = document.querySelector('.sign-terms');
+    terms.scrollTop = terms.scrollHeight;
+  });
+  await page.evaluate(() => {
+    const canvas = document.querySelector('.sign-pad__canvas');
+    const rect = canvas.getBoundingClientRect();
+    const at = (fx, fy) => ({ clientX: rect.left + rect.width * fx, clientY: rect.top + rect.height * fy });
+    const fire = (type, fx, fy) => {
+      const p = at(fx, fy);
+      canvas.dispatchEvent(new PointerEvent(type, {
+        bubbles: true, cancelable: true, composed: true,
+        pointerId: 1, pointerType: 'mouse', isPrimary: true,
+        clientX: p.clientX, clientY: p.clientY, buttons: type === 'pointerup' ? 0 : 1,
+      }));
+    };
+    fire('pointerdown', 0.16, 0.5);
+    for (let i = 0; i <= 14; i += 1) fire('pointermove', 0.16 + i * 0.045, 0.5 + Math.sin(i / 2) * 0.2);
+    fire('pointerup', 0.16 + 14 * 0.045, 0.5 + Math.sin(14 / 2) * 0.2);
+  });
+  await page.evaluate(() => { const t = document.querySelector('.sign-terms'); t.scrollTop = t.scrollHeight; });
+  await page.waitForFunction(() => {
+    const submit = document.querySelector('[data-sign-submit]');
+    return submit && !submit.disabled;
+  }, null, { timeout: 15000 });
+  await page.locator('[data-sign-submit]').click();
+  await page.waitForSelector('.yx-pack.is-selected .gate-panel__card--files', { timeout: 15000 });
+
+  const shelf = await page.evaluate(() => ({
+    files: [...document.querySelectorAll('.gate-panel__card--files .gate-file')].map((row) => ({
+      label: row.querySelector('.gate-file__label').textContent,
+      name: row.querySelector('.gate-file__name').textContent,
+    })),
+    license: document.querySelectorAll('.gate-panel__card--files [data-gate-license]').length,
+    hint: document.querySelector('.gate-panel__card--files .gate-panel__hint').textContent,
+    handover: window.KYROlll_HELPERS.deliverablesFor('love-goes-on', 'exclusive').map((item) => item.file),
+  }));
+  assert.equal(shelf.files.length, 3, 'the shelf hands over exactly the audio and stems');
+  assert.deepEqual(shelf.files.map((row) => row.label), ['UNTAGGED MP3', 'HIGH-QUALITY WAV', 'TRACKED STEMS']);
+  assert.match(shelf.files[0].name, /KYROIII - LOVE GOES ON \(119 BPM - D\)\.mp3$/);
+  assert.match(shelf.files[1].name, /KYROIII - LOVE GOES ON \(119 BPM - D\)\.wav$/);
+  assert.match(shelf.files[2].name, /KYROIII - LOVE GOES ON \(119 BPM - D\) - TRACKED STEMS\.zip$/);
+  assert.equal(shelf.license, 1, 'the PDF license sits beside the files');
+  assert.deepEqual(shelf.handover, [
+    'assets/previews/love-goes-on.mp3',
+    'assets/previews/love-goes-on.wav',
+    'assets/previews/love-goes-on-stems.zip',
+  ], 'the delivered paths are the audio, the WAV and the stems archive only');
+  shelf.files.forEach((row) => assert.doesNotMatch(row.name, /\.(png|jpe?g|webp|gif|svg)$/i,
+    `${row.name} is not the artwork`));
+  assert.doesNotMatch(shelf.hint, /ORIGINAL COVER ART INCLUDED/, 'no cover-art hand-over is promised');
+
+  /* The generated license carries the same files and the sampled record's
+     credit, and the long credit still fits the single-page certificate. */
+  const [licenseDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('.gate-panel__card--files [data-gate-license]').click(),
+  ]);
+  const pdf = await fs.readFile(await licenseDownload.path(), 'latin1');
+  assert.match(licenseDownload.suggestedFilename(), /^KYROIII - LICENSE - LOVE GOES ON /,
+    'the license is named for the beat');
+  assert.equal(pdf.slice(0, 5), '%PDF-');
+  assert(pdf.includes('PROD. KYROIII X WHITEHEAD BROS - LOVE GOES ON'),
+    'the sampled record is printed in the compulsory credit');
+  assert(pdf.includes('PAGE 1 OF 1'), 'the long credit still fits one page');
+  assert.equal((pdf.match(/\/Type \/Page\b/g) || []).length, 1, 'the certificate is a single page');
+  for (const failure of errors) assert.fail(`page error: ${failure}`);
   await context.close();
 });

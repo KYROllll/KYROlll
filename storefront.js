@@ -51,6 +51,7 @@
     zoomSeq: 0,
     releaseTimer: 0,
     releaseTimeout: 0,
+    releaseBusy: false,
     audio: focus.querySelector("[data-yx-audio]"),
     play: focus.querySelector("[data-yx-play]"),
     seek: focus.querySelector("[data-yx-seek]"),
@@ -662,6 +663,11 @@
     const pending = newest.filter((beat) => !isReleased(beat));
     if (!pending.length) return;
     const tick = () => {
+      /* `renderGrid()` re-arms this watch, which calls `tick()` again; while a
+         drop is being handed over the old countdown nodes and the focused
+         record still read as due, so without this guard two pending releases
+         recurse instead of switching the record. */
+      if (state.releaseBusy) return;
       let due = false;
       grid.querySelectorAll("[data-countdown]").forEach((node) => {
         const beat = HELPERS.beatById && HELPERS.beatById(node.getAttribute("data-countdown"));
@@ -675,8 +681,13 @@
         else focusCount.textContent = countdown(state.beat);
       }
       if (due) {
-        renderGrid();
-        if (state.beat) renderFocus(state.beat, true);
+        state.releaseBusy = true;
+        try {
+          renderGrid();
+          if (state.beat) renderFocus(state.beat, true);
+        } finally {
+          state.releaseBusy = false;
+        }
       }
     };
     tick();

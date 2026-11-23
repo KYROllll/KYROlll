@@ -30,7 +30,7 @@ const catalogContextFor = (sharedStorage) => {
 test("the fifth release is scheduled, packaged and pointed at the free-download form", () => {
   const { window } = catalogContextFor();
   const catalog = window.KYROlll_CATALOG;
-  assert.equal(catalog.length, 9, "the catalog carries nine releases");
+  assert.equal(catalog.length, 10, "the catalog carries ten releases");
   const beat = window.KYROlll_HELPERS.beatById("just-d0-it");
   assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - JUST D0 IT");
   assert.equal(beat.shortTitle, "JUST D0 IT");
@@ -59,10 +59,10 @@ test("the fifth release is scheduled, packaged and pointed at the free-download 
 test("the re-ingested ADLL beat is scheduled for today at 19:00 with its graffiti-splatter pressing", () => {
   const { window } = catalogContextFor();
   const catalog = window.KYROlll_CATALOG;
-  assert.equal(catalog.length, 9, "the catalog carries nine releases");
+  assert.equal(catalog.length, 10, "the catalog carries ten releases");
   assert.deepEqual(Array.from(catalog, (beat) => beat.slug),
-    ["flesh", "the-flow", "green-flesh", "squish", "just-d0-it", "adll", "gunna-type", "white-night", "beat-0009"],
-    "the nine beats are intact, in order, with the BEAT 0009 drop as the newest entry");
+    ["flesh", "the-flow", "green-flesh", "squish", "just-d0-it", "adll", "gunna-type", "white-night", "beat-0009", "love-goes-on"],
+    "the ten beats are intact, in order, with LOVE GOES ON as the newest entry");
   const beat = window.KYROlll_HELPERS.beatById("adll");
   assert(beat, "ADLL resolves from its id and slug");
   assert.equal(beat.title, "[FREE 100%] YEAT TYPE BEAT - A.D.L");
@@ -147,6 +147,51 @@ test("the GUNNA drop is scheduled for 22:00 today and every record keeps the ori
   const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
   assert.doesNotMatch(css, /\.vinyl-record--cover/, "the stylesheet carries no cover-label pressing");
   assert.doesNotMatch(css, /url\(assets\/beat-cover\.png\)/, "the stylesheet hard-codes no beat artwork path");
+});
+
+test("the LOVE GOES ON drop is scheduled for tonight at 23:00 and never hands over its cover art", () => {
+  const { window } = catalogContextFor();
+  const helpers = window.KYROlll_HELPERS;
+  const beat = helpers.beatById("love-goes-on");
+  assert(beat, "the LOVE GOES ON drop resolves from its id and slug");
+  assert.equal(beat.title, "[FREE 100%] BIGXTHAPLUG TYPE BEAT - LOVE GOES ON");
+  assert.equal(beat.shortTitle, "LOVE GOES ON");
+  assert.equal(beat.img, "assets/love-goes-on.webp", "the supplied artwork is the record cover only");
+  assert.equal(beat.bpm, 119);
+  assert.equal(beat.key, "D");
+  assert.equal(beat.preview, "assets/previews/love-goes-on.mp3");
+  assert.equal(beat.releaseAt, "2026-11-23T23:00:00+02:00", "the drop lands tonight at exactly 23:00 Israel time");
+  const releaseAt = Date.parse("2026-11-23T23:00:00+02:00");
+  assert.equal(helpers.releaseAt(beat), releaseAt);
+  assert.equal(helpers.isReleased(beat, releaseAt - 1), false, "the beat stays scheduled until 23:00");
+  assert.equal(helpers.isReleased(beat, releaseAt), true, "the beat unlocks on the clock");
+  assert.equal(helpers.creditFor(beat), "PROD. KYROIII X WHITEHEAD BROS - LOVE GOES ON",
+    "the sampled record is credited in the compulsory producer line");
+  assert.equal(helpers.hasCoverArt(beat), false, "the display cover is not a cover-art hand-over");
+  assert.equal(helpers.coverArtFor(beat), null);
+  assert.deepEqual(Array.from(beat.deliverables.exclusive, (item) => item.file), [
+    "assets/previews/love-goes-on.mp3",
+    "assets/previews/love-goes-on.wav",
+    "assets/previews/love-goes-on-stems.zip",
+  ]);
+  assert.deepEqual(Array.from(beat.deliverables.exclusive, (item) => item.name), [
+    "KYROIII - LOVE GOES ON (119 BPM - D).mp3",
+    "KYROIII - LOVE GOES ON (119 BPM - D).wav",
+    "KYROIII - LOVE GOES ON (119 BPM - D) - TRACKED STEMS.zip",
+  ]);
+  const handover = helpers.deliverablesFor(beat.id, "exclusive");
+  assert.equal(handover.length, 3, "the gate hands over the audio and stems only");
+  handover.forEach((item) => {
+    assert.doesNotMatch(item.file, /\.(png|jpe?g|webp|gif|svg)$/i, `${item.file} is not the cover image`);
+    assert.doesNotMatch(item.label, /cover\s*art/i, `${item.label} is not a cover-art hand-over`);
+  });
+  [
+    "assets/love-goes-on.webp",
+    "assets/previews/love-goes-on.mp3",
+    "assets/previews/love-goes-on.wav",
+    "assets/previews/love-goes-on-stems.zip",
+  ]
+    .forEach((asset) => assert(readFileSync(new URL(`./${asset}`, import.meta.url)).length > 0, `${asset} is ingested`));
 });
 
 test("the WHITE NIGHT drop is scheduled for 20:00 today with its cover, MP3, WAV and tracked stems", () => {
@@ -279,8 +324,8 @@ test("every beat is audited for one uniform license, package set and secured loc
   assert.match(packages[0].includes.join(" "), /MANDATORY PRODUCER CREDIT \/ ZERO ROYALTIES/);
 
   // The producer credit is compulsory and derives from the beat: every listed
-  // beat credits KYROIII alone, and a collaboration drop adds the original
-  // loop/sample creator through its `loopCredit` field.
+  // beat credits KYROIII alone, and a collaboration/sample drop adds the
+  // original creator through its `loopCredit` field.
   assert.equal(typeof helpers.creditFor, "function", "the shared credit renderer is exposed");
   assert.equal(helpers.creditFor(helpers.beatById("flesh")), "PROD. KYROIII");
   assert.equal(helpers.creditFor({ loopCredit: "JANE DOE" }), "PROD. KYROIII X JANE DOE");
@@ -288,7 +333,9 @@ test("every beat is audited for one uniform license, package set and secured loc
   assert.equal(helpers.creditFor({ loopCredit: "  " }), "PROD. KYROIII", "a blank collaborator credits the producer alone");
   assert.equal(helpers.creditFor(null), "PROD. KYROIII");
   catalog.forEach((beat) => {
-    assert.equal(helpers.creditFor(beat), "PROD. KYROIII", `${beat.slug}: a listed beat credits KYROIII`);
+    const creators = [].concat(beat.loopCredit || []).filter((name) => String(name).trim());
+    const expected = creators.length ? "PROD. KYROIII X " + creators.join(" X ") : "PROD. KYROIII";
+    assert.equal(helpers.creditFor(beat), expected, `${beat.slug}: the credit derives from the beat`);
   });
 
   const ids = new Set();
@@ -397,7 +444,7 @@ test("every beat is pressed from its own cover, and the beat page keeps a sticky
   const catalogContext = vm.createContext({ window });
   vm.runInContext(readFileSync(new URL("./catalog.js", import.meta.url), "utf8"), catalogContext);
   const beats = window.KYROlll_CATALOG;
-  assert.equal(beats.length, 9, "the nine pressings come from the nine beats");
+  assert.equal(beats.length, 10, "the ten pressings come from the ten beats");
   beats.forEach((beat) => {
     assert.equal(beat.vinylVariant, undefined, `${beat.slug}: no hand-assigned variant — the cover is the pressing`);
     assert.match(beat.img, /^assets\/.+\.(?:png|jpe?g|webp)$/i, `${beat.slug}: the beat carries the cover the palette is read from`);
