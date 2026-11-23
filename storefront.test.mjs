@@ -245,11 +245,33 @@ test('a scheduled drop counts down and unlocks in place the second its clock lan
     countdown: document.querySelector('[data-focus-countdown]')?.textContent || '',
     packs: document.querySelectorAll('[data-yx-pack]').length,
     note: (document.querySelector('.yx-focus__closed') || {}).textContent || '',
+    playerHidden: document.querySelector('[data-yx-player]').hidden,
+    playerDisplay: getComputedStyle(document.querySelector('[data-yx-player]')).display,
+    playerLock: (document.querySelector('[data-yx-player-lock]') || {}).textContent || '',
+    playerLockHidden: document.querySelector('[data-yx-player-lock]').hidden,
+    audioSrc: document.querySelector('[data-yx-audio]').getAttribute('src'),
+    playDisabled: document.querySelector('[data-yx-play]').disabled,
   }));
   assert.match(focused.status, /DROPPING SOON/, 'the focused record carries the same countdown');
   assert.match(focused.countdown, /^\d\d:\d\d:\d\d$/, 'the focused countdown is live too');
   assert.equal(focused.packs, 0, 'no claim or download control exists before the drop');
   assert.match(focused.note, /THE PACKAGES OPEN THE MOMENT THIS RECORD LANDS/, 'the record says the packages arrive with the clock');
+  assert.equal(focused.playerHidden, true, 'the preview player is withheld before the drop');
+  assert.equal(focused.playerDisplay, 'none', 'the withdrawn player paints nothing');
+  assert.equal(focused.playerLockHidden, false, 'a locked line stands where the player will appear');
+  assert.match(focused.playerLock, /PLAYER UNLOCKS/, 'the line promises the unlock without a clock hour');
+  assert.equal(focused.audioSrc, null, 'the preview file is never attached before the drop');
+  assert.equal(focused.playDisabled, true, 'the play control cannot be used before the drop');
+
+  /* Even a scripted press on the locked control streams nothing: the audio
+     element has no source and stays paused. */
+  await page.evaluate(() => document.querySelector('[data-yx-play]').click());
+  const silent = await page.evaluate(() => ({
+    src: document.querySelector('[data-yx-audio]').getAttribute('src'),
+    paused: document.querySelector('[data-yx-audio]').paused,
+  }));
+  assert.equal(silent.src, null, 'the locked player has no audio source');
+  assert.equal(silent.paused, true, 'a scheduled drop makes no sound');
 
   /* No reload, no rebuild by hand: the store watch flips the tile and the open
      focused record the moment the clock reaches 21:00. */
@@ -269,6 +291,9 @@ test('a scheduled drop counts down and unlocks in place the second its clock lan
       label: pack ? pack.querySelector('.yx-pack__name').textContent : '',
       disabled: pack ? pack.disabled : true,
       packs: document.querySelectorAll('#yx-focus [data-yx-pack]').length,
+      playerHidden: document.querySelector('[data-yx-player]').hidden,
+      playerLockHidden: document.querySelector('[data-yx-player-lock]').hidden,
+      audioSrc: document.querySelector('[data-yx-audio]').getAttribute('src'),
     };
   });
   assert.equal(live.pending, false, 'the tile leaves its scheduled state the second the drop lands');
@@ -278,6 +303,9 @@ test('a scheduled drop counts down and unlocks in place the second its clock lan
   assert.equal(live.packs, 1, 'the exclusive claim control appears automatically');
   assert.equal(live.label, '100% EXCLUSIVE OWNERSHIP', 'the claim control is the real exclusive license');
   assert.equal(live.disabled, false, 'the claim control is active, not a locked placeholder');
+  assert.equal(live.playerHidden, false, 'the player returns the second the clock lands');
+  assert.equal(live.playerLockHidden, true, 'the locked line is gone');
+  assert.match(live.audioSrc, /^assets\/previews\//, 'the unlocked player holds the real preview file');
 
   await page.locator('#yx-focus [data-yx-pack]').first().click();
   await page.waitForSelector('.gate-panel');

@@ -5408,6 +5408,20 @@ html { --yx-header-h: 64px; }
   color: #fff;
 }
 
+/* A scheduled drop's player is withdrawn until the release instant; this line
+   stands in its place. `hidden` needs the explicit rule because `.yx-player`
+   sets its own display. */
+.yx-focus__player-lock {
+  margin: clamp(12px, 1.8vw, 20px) 0 clamp(12px, 1.8vw, 22px);
+  padding: 14px 0;
+  border-top: 1px solid #232323;
+  border-bottom: 1px solid #232323;
+  font-size: 8px;
+  line-height: 1.9;
+  letter-spacing: .14em;
+  color: #7a7a7a;
+}
+.yx-player[hidden] { display: none; }
 .yx-player {
   display: flex;
   align-items: center;
@@ -5645,6 +5659,7 @@ html { --yx-header-h: 64px; }
 .yx-focus.is-art .yx-focus__label,
 .yx-focus.is-art .yx-focus__packs,
 .yx-focus.is-art .yx-focus__note { display: none; }
+.yx-focus.is-art .yx-focus__player-lock { display: none; }
 
 /* ---------- minimal footer ------------------------------------------------ */
 

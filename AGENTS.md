@@ -558,7 +558,11 @@ mark is the spinning flower in the header.
   `HH:MM:SS`; a claimed beat dims its cover and reads `CLAIMED / SOLD OUT`
   (or `OWNED / YOURS` for the buyer).
 - **Focus.** Choosing a card opens a sheet that is `position: fixed` under the
-  fixed header, so the record is focused in place rather than on a new page.
+  fixed header, so the record is focused in place rather than on a new page. A
+  scheduled drop's sheet withholds the player and never attaches the preview file
+  until `releaseAt`; a locked line stands in the player's place, and the countdown
+  watch restores the player the second the clock lands (the `?beat=` card does the
+  same through `dropLockedHTML`).
   The cover is a FLIP layer: `storefront.js` measures the chosen tile's media box,
   pins `.yx-focus__art` onto it with a `transform`, then releases it to the sheet's
   own frame on the CSS curve (`.62s cubic-bezier(.16,1,.3,1)`); the body fades in

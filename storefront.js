@@ -53,9 +53,14 @@
     releaseTimeout: 0,
     releaseBusy: false,
     audio: focus.querySelector("[data-yx-audio]"),
+    player: focus.querySelector("[data-yx-player]"),
+    playerLock: focus.querySelector("[data-yx-player-lock]"),
     play: focus.querySelector("[data-yx-play]"),
     seek: focus.querySelector("[data-yx-seek]"),
     time: focus.querySelector("[data-yx-time]"),
+    /* Set while a scheduled drop has had its preview withdrawn, so the record
+       that lands reloads its audio even when the caller passes `keepAudio`. */
+    audioSealed: false,
   };
 
   const focusArt = focus.querySelector("[data-yx-focus-art]");
@@ -275,7 +280,20 @@
       focusPacks.innerHTML = PACKAGES.map((pack) => packHTML(pack, beat.id)).join("");
     }
 
-    if (!keepAudio) loadAudio(beat);
+    /* A scheduled drop is silent until its clock lands: the player is withdrawn
+       and its element unloaded, so no tap, keyboard or script can stream the
+       beat before the release instant. `watchCountdowns` rebuilds this sheet
+       the second the clock reaches zero, which restores the player in place. */
+    if (state.player) state.player.hidden = pending;
+    if (state.playerLock) state.playerLock.hidden = !pending;
+    if (pending) {
+      pauseAudio();
+      if (state.play) state.play.disabled = true;
+      state.audioSealed = true;
+    } else if (!keepAudio || state.audioSealed) {
+      state.audioSealed = false;
+      loadAudio(beat);
+    }
     watchCountdowns();
   }
 
@@ -303,6 +321,8 @@
     focusStatus.hidden = true;
     focusStatus.classList.remove("is-locked");
     focusPacks.innerHTML = "";
+    if (state.playerLock) state.playerLock.hidden = true;
+    state.audioSealed = false;
     pauseAudio();
   }
 
@@ -605,6 +625,13 @@
   function loadAudio(beat) {
     if (!state.audio) return;
     pauseAudio();
+    /* The release clock is the only key to the audio: a scheduled record never
+       hands its preview to the element, even if a caller asks for it directly. */
+    if (!isReleased(beat)) {
+      if (state.play) state.play.disabled = true;
+      if (state.time) state.time.textContent = "PREVIEW LOCKED";
+      return;
+    }
     if (!beat.preview) {
       state.time.textContent = "PREVIEW UNAVAILABLE";
       state.play.disabled = true;
@@ -635,6 +662,7 @@
   if (state.play) {
     state.play.addEventListener("click", () => {
       if (!state.audio || !state.audio.src) return;
+      if (state.beat && !isReleased(state.beat)) return;
       if (state.audio.paused) {
         const attempt = state.audio.play();
         if (attempt && typeof attempt.catch === "function") attempt.catch(() => {});
